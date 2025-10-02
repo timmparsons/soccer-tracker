@@ -1,0 +1,15 @@
+{
+  "home": {
+    "welcome": "Welcome Back!",
+    "title": "Daily Challenge",
+    "subtitle": "Track your progress and keep your streak alive."
+  },
+  "log": {
+    "title": "Log Your Juggles Today",
+    "button": "Save Juggles"
+  },
+  "stats": {
+    "title": "Your Progress",
+    "streak": "Current Streak: {{count}} days"
+  }
+}

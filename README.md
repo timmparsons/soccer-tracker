@@ -1,50 +1,57 @@
-# Welcome to your Expo app 👋
+# ⚽ Soccer Juggling Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A clean, child-friendly mobile app built with **React Native (Expo)** and **Supabase** that helps kids track and improve their juggling skills in soccer.  
+Inspired by Airbnb’s clean UI and Duolingo’s gamification, the app makes training fun and rewarding.
 
-## Get started
+---
 
-1. Install dependencies
+## ✨ Features
 
-   ```bash
-   npm install
-   ```
+- 📊 **Progress Tracking** – Visualize juggling improvements over time with charts.
+- 🏆 **Achievements** – Earn badges and celebrate milestones to stay motivated.
+- 📅 **Practice Sessions** – Log daily practice and track streaks.
+- 👤 **Kid-Friendly Design** – Bright, simple, and encouraging UI that’s easy to use.
+- ☁️ **Supabase Backend** – Secure authentication, real-time data sync, and cloud storage.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 📱 Navigation
 
-In the output, you'll find options to open the app in a
+- **Home** – Quick overview and daily encouragement.
+- **Progress Overview** – Charts, stats, and motivational insights.
+- **Practice Sessions** – Log juggling attempts and streaks.
+- **Achievements** – Earn, view, and unlock badges.
+- **Settings** – Customize experience and manage account.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🛠️ Tech Stack
 
-## Get a fresh project
+- [React Native (Expo)](https://expo.dev/) – Cross-platform mobile development.
+- [Lucide React Native](https://github.com/lucide-icons/lucide) – Beautiful, consistent icons.
+- [Supabase](https://supabase.com/) – Auth, database, and storage backend.
+- [Expo Router](https://expo.github.io/router/) – File-based navigation.
+- [React Native SVG](https://github.com/software-mansion/react-native-svg) – For charts and illustrations.
 
-When you're ready, run:
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (>= 18)
+- Expo CLI
+
+### Installation
 
 ```bash
-npm run reset-project
+# Clone repo
+git clone https://github.com/your-username/soccer-juggling-tracker.git
+cd soccer-juggling-tracker
+
+# Install dependencies
+npm install
+
+# Start development
+npx expo start
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
