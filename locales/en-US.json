@@ -11,5 +11,10 @@
   "stats": {
     "title": "Your Progress",
     "streak": "Current Streak: {{count}} days"
+  },
+  "juggle": {
+    "title": "Jugglr",
+    "hero": "Keep Juggling, Keep Growing",
+    "description": "Track your practice and become a juggling master"
   }
 }

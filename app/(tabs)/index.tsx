@@ -7,11 +7,15 @@ import HomePage from '../../components/HomePage';
 export default function HomeScreen() {
   return (
     <SafeAreaView>
-      <View>
+      <View style={styles.container}>
         <HomePage />
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+});

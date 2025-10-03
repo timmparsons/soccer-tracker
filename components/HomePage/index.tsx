@@ -1,13 +1,13 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Header from './Header';
-import Streak from './Streak';
+import Hero from './Hero';
 
 const HomePage = () => {
   return (
     <View>
       <Header />
-      <Streak />
+      <Hero />
     </View>
   );
 };
