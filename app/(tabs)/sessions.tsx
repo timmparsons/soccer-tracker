@@ -1,11 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Sessions = () => {
   return (
-    <View>
+    <SafeAreaView>
       <Text>stats</Text>
-    </View>
+    </SafeAreaView>
   );
 };
 

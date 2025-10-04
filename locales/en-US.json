@@ -16,5 +16,9 @@
     "title": "Jugglr",
     "hero": "Keep Juggling, Keep Growing",
     "description": "Track your practice and become a juggling master"
+  },
+  "tiles": {},
+  "progress": {
+    "title": "Today's Progress"
   }
 }
