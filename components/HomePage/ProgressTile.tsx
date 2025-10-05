@@ -1,3 +1,4 @@
+import { Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
-    margin: 10,
+    marginTop: Spacing.md,
   },
   topRow: {
     flexDirection: 'row',

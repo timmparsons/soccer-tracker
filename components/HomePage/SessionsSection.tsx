@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Heading, Spacing } from '../../constants/theme';
+import { Spacing, Typography } from '../../constants/theme';
 
 const SessionsSection = () => {
   return (
@@ -14,7 +14,7 @@ export default SessionsSection;
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: Spacing.margin,
+    marginTop: Spacing.lg,
   },
-  header: Heading.mainHeader,
+  header: Typography.mainHeader,
 });

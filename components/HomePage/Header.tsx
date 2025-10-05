@@ -1,3 +1,4 @@
+import { Typography } from '@/constants/theme';
 import { CircleUserRound } from 'lucide-react-native';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,7 @@ const Header = () => {
   const { t } = useTranslation();
   return (
     <View style={styles.headerSection}>
-      <Text>{t('juggle.title')}</Text>
+      <Text style={styles.header}>{t('juggle.title')}</Text>
       <CircleUserRound size={24} />
     </View>
   );
@@ -20,4 +21,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  header: Typography.mainHeader,
 });

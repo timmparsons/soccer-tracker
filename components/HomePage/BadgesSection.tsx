@@ -1,4 +1,4 @@
-import { Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,7 +8,7 @@ const BadgesSection = () => {
   return (
     <View>
       <View style={styles.container}>
-        <Text>Your Badges</Text>
+        <Text style={styles.header}>Your Badges</Text>
         <Text>View All</Text>
       </View>
       <ScrollView
@@ -40,11 +40,12 @@ export default BadgesSection;
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: Spacing.margin,
+    marginTop: Spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  header: Typography.mainHeader,
   tileSection: {
-    marginTop: Spacing.margin / 2,
+    marginTop: Spacing.md,
   },
 });

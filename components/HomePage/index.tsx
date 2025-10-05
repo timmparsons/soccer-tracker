@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import BadgesSection from './BadgesSection';
 import Header from './Header';
 import Hero from './Hero';
@@ -9,14 +9,14 @@ import TilesSection from './TilesSection';
 
 const HomePage = () => {
   return (
-    <View>
+    <ScrollView>
       <Header />
       <Hero />
       <TilesSection />
       <ProgressSection />
       <BadgesSection />
       <SessionsSection />
-    </View>
+    </ScrollView>
   );
 };
 
