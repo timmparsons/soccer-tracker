@@ -1,32 +1,42 @@
 import { Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
-const ProgressTile = () => {
-  const bestToday = 23;
-  const streak = 5;
+type Props = {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBackground: string;
+  title: string;
+  subtitle: string;
+};
+
+const QuickStartTile = ({
+  icon,
+  iconColor,
+  iconBackground,
+  title,
+  subtitle,
+}: Props) => {
+  const { t } = useTranslation();
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.iconWrapper}>
-          <Ionicons name='flame' size={22} color='#f97316' />
+        <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
+          <Ionicons name={icon} size={22} color={iconColor} />
         </View>
         <View style={styles.streakContainer}>
-          <Text style={styles.label}>Practice Streak</Text>
-          <Text style={styles.value}>{streak} Days</Text>
-        </View>
-        <View style={styles.bestContainer}>
-          <Text style={styles.label}>Best Today</Text>
-          <Text style={styles.bestValue}>{bestToday} Juggles</Text>
+          <Text style={styles.value}>{title}</Text>
+          <Text style={styles.label}>{subtitle}</Text>
         </View>
       </View>
     </View>
   );
 };
 
-export default ProgressTile;
+export default QuickStartTile;
 
 const styles = StyleSheet.create({
   container: {
@@ -43,10 +53,8 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
   iconWrapper: {
-    backgroundColor: '#fee2e2',
     borderRadius: 50,
     padding: 8,
     marginRight: 10,

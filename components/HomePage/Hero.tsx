@@ -13,6 +13,8 @@ const HeroSection = () => {
           style={styles.image}
         />
       </View>
+      <Text style={styles.topScore}>47</Text>
+      <Text style={styles.topScoreText}>Best Score Today</Text>
       <Text style={styles.title}>Keep Juggling, Keep Growing!</Text>
       <Text style={styles.subtitle}>
         Track your practice and become a juggling champion
@@ -48,6 +50,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     resizeMode: 'contain',
+  },
+  topScore: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: ColorsNew.primary,
+  },
+  topScoreText: {
+    ...Typography.caption,
+    marginBottom: Spacing.md,
   },
   title: {
     ...Typography.sectionTitle,

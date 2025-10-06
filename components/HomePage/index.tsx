@@ -1,20 +1,22 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import BadgesSection from './BadgesSection';
+import AchievementsSection from './AchievementsSection';
 import Header from './Header';
 import Hero from './Hero';
 import ProgressSection from './ProgressSection';
+import QuickStartSection from './QuickStartSection';
 import SessionsSection from './SessionsSection';
-import TilesSection from './TilesSection';
+import WeekSection from './WeekSection';
 
 const HomePage = () => {
   return (
     <ScrollView>
       <Header />
       <Hero />
-      <TilesSection />
+      <QuickStartSection />
+      <WeekSection />
       <ProgressSection />
-      <BadgesSection />
+      <AchievementsSection />
       <SessionsSection />
     </ScrollView>
   );

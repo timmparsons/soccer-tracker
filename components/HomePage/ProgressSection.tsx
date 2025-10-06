@@ -9,7 +9,10 @@ const ProgressSecttion = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>{t('progress.title')}</Text>
+      <View style={styles.headerContainer}>
+        <Text style={styles.header}>{t('progress.title')}</Text>
+        <Text>{t('common.viewAll')}</Text>
+      </View>
       <ProgressTile />
     </View>
   );
@@ -20,6 +23,10 @@ export default ProgressSecttion;
 const styles = StyleSheet.create({
   container: {
     marginTop: Spacing.lg,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   header: Typography.mainHeader,
 });

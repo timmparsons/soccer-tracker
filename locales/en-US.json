@@ -12,6 +12,13 @@
     "title": "Your Progress",
     "streak": "Current Streak: {{count}} days"
   },
+  "quickStart": {
+    "Title": "Quick Start",
+    "practiceTitle": "Start Practice",
+    "practiceSubTitle": "Begin a new juggling session",
+    "challengeTitle": "Daily Challenge",
+    "challengeSubTitle": "See today's juggling goal"
+  },
   "juggle": {
     "title": "Jugglr",
     "hero": "Keep Juggling, Keep Growing",
@@ -19,6 +26,9 @@
   },
   "tiles": {},
   "progress": {
-    "title": "Today's Progress"
+    "title": "This Week"
+  },
+  "common": {
+    "viewAll": "View All"
   }
 }

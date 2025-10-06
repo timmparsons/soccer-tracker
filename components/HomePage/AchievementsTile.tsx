@@ -7,7 +7,7 @@ interface IBadgesTileProps {
   backgroundColor: string;
 }
 
-const BadgesTile: React.FC<IBadgesTileProps> = ({
+const AchievementsTile: React.FC<IBadgesTileProps> = ({
   icon,
   title,
   backgroundColor,
@@ -20,7 +20,7 @@ const BadgesTile: React.FC<IBadgesTileProps> = ({
   );
 };
 
-export default BadgesTile;
+export default AchievementsTile;
 
 const styles = StyleSheet.create({
   tileContainer: {

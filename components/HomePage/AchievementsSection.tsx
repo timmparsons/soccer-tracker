@@ -2,31 +2,30 @@ import { Spacing, Typography } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import BadgesTile from './BadgesTile';
+import AchievementsTile from './AchievementsTile';
 
-const BadgesSection = () => {
+const AchievementsSection = () => {
   return (
     <View>
       <View style={styles.container}>
-        <Text style={styles.header}>Your Badges</Text>
-        <Text>View All</Text>
+        <Text style={styles.header}>Latest Achievements</Text>
       </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.tileSection}
       >
-        <BadgesTile
+        <AchievementsTile
           icon={<Ionicons name='trophy' size={24} color='#fff' />}
           title='First 10!'
           backgroundColor='#facc15' // yellow
         />
-        <BadgesTile
+        <AchievementsTile
           icon={<Ionicons name='star' size={24} color='#fff' />}
           title='5 Day Streak'
           backgroundColor='#22c55e' // green
         />
-        <BadgesTile
+        <AchievementsTile
           icon={<Ionicons name='medal' size={24} color='#fff' />}
           title='Practice Champ'
           backgroundColor='#a855f7' // purple
@@ -36,7 +35,7 @@ const BadgesSection = () => {
   );
 };
 
-export default BadgesSection;
+export default AchievementsSection;
 
 const styles = StyleSheet.create({
   container: {
