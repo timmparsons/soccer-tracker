@@ -1,8 +1,9 @@
 import { Spacing, Typography } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Flame, Medal } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import AchievementsTile from './AchievementsTile';
+import { StyleSheet, Text, View } from 'react-native';
+import GradientTile from '../common/GradientTile';
+import WideTile from '../common/WideTile';
 
 const AchievementsSection = () => {
   return (
@@ -10,27 +11,20 @@ const AchievementsSection = () => {
       <View style={styles.container}>
         <Text style={styles.header}>Latest Achievements</Text>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tileSection}
-      >
-        <AchievementsTile
-          icon={<Ionicons name='trophy' size={24} color='#fff' />}
-          title='First 10!'
-          backgroundColor='#facc15' // yellow
+      <View style={{ padding: 16 }}>
+        <GradientTile
+          icon={Medal}
+          title='First 50 Juggles!'
+          subtitle='Earned 2 hours ago'
         />
-        <AchievementsTile
-          icon={<Ionicons name='star' size={24} color='#fff' />}
-          title='5 Day Streak'
-          backgroundColor='#22c55e' // green
+        <WideTile
+          icon={Flame}
+          iconColor='#8630d0ff'
+          iconBackground='#cfa7f3ff'
+          title='5 Day streak'
+          subtitle='Keet it up champion!'
         />
-        <AchievementsTile
-          icon={<Ionicons name='medal' size={24} color='#fff' />}
-          title='Practice Champ'
-          backgroundColor='#a855f7' // purple
-        />
-      </ScrollView>
+      </View>
     </View>
   );
 };

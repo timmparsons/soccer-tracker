@@ -3,9 +3,8 @@ import { ScrollView, StyleSheet } from 'react-native';
 import AchievementsSection from './AchievementsSection';
 import Header from './Header';
 import Hero from './Hero';
-import ProgressSection from './ProgressSection';
 import QuickStartSection from './QuickStartSection';
-import SessionsSection from './SessionsSection';
+import TipsSection from './TipsSection';
 import WeekSection from './WeekSection';
 
 const HomePage = () => {
@@ -15,9 +14,9 @@ const HomePage = () => {
       <Hero />
       <QuickStartSection />
       <WeekSection />
-      <ProgressSection />
+      {/* <ProgressSection /> */}
       <AchievementsSection />
-      <SessionsSection />
+      <TipsSection />
     </ScrollView>
   );
 };

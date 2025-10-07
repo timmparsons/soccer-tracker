@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 type TileProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ElementType;
   iconColor?: string;
   iconBackground?: string;
   title: string;
@@ -11,7 +10,7 @@ type TileProps = {
 };
 
 const Tile: React.FC<TileProps> = ({
-  icon,
+  icon: Icon,
   iconColor = '#2563eb', // blue default
   iconBackground = '#e0f2fe', // light blue default
   title,
@@ -20,7 +19,7 @@ const Tile: React.FC<TileProps> = ({
   return (
     <View style={styles.container}>
       <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
-        <Ionicons name={icon} size={24} color={iconColor} />
+        <Icon size={24} color={iconColor} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
@@ -45,7 +44,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   iconWrapper: {
-    borderRadius: 50,
+    borderRadius: 10,
     padding: 12,
     marginBottom: 10,
   },

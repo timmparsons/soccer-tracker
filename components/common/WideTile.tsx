@@ -1,19 +1,19 @@
 import { Spacing } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 type Props = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ElementType;
   iconColor: string;
   iconBackground: string;
   title: string;
   subtitle: string;
+  strokeWidth?: number;
 };
 
-const QuickStartTile = ({
-  icon,
+const WideTile = ({
+  icon: Icon,
   iconColor,
   iconBackground,
   title,
@@ -25,7 +25,7 @@ const QuickStartTile = ({
     <View style={styles.container}>
       <View style={styles.topRow}>
         <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
-          <Ionicons name={icon} size={22} color={iconColor} />
+          <Icon size={22} color={iconColor} />
         </View>
         <View style={styles.streakContainer}>
           <Text style={styles.value}>{title}</Text>
@@ -36,7 +36,7 @@ const QuickStartTile = ({
   );
 };
 
-export default QuickStartTile;
+export default WideTile;
 
 const styles = StyleSheet.create({
   container: {

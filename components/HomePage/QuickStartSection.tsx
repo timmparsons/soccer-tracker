@@ -1,8 +1,9 @@
 import { Spacing, Typography } from '@/constants/theme';
+import { ChartColumnIncreasing, Play } from 'lucide-react-native';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
-import QuickStartTile from './QuickStartTile';
+import WideTile from '../common/WideTile';
 
 const QuickStartSection = () => {
   const { t } = useTranslation();
@@ -12,17 +13,17 @@ const QuickStartSection = () => {
       <View style={styles.headerContainer}>
         <Text style={styles.header}>{t('quickStart.Title')}</Text>
       </View>
-      <QuickStartTile
-        icon={'play'}
+      <WideTile
+        icon={Play}
         iconColor={'#2563eb'}
         iconBackground={'#dbeafe'}
         title={t('quickStart.practiceTitle')}
         subtitle={t('quickStart.practiceSubTitle')}
       />
-      <QuickStartTile
-        icon='stats-chart'
-        iconColor='#16a34a'
-        iconBackground='#dcfce7'
+      <WideTile
+        icon={ChartColumnIncreasing}
+        iconColor='#c67524ff'
+        iconBackground='#f4cb79ff'
         title={t('quickStart.challengeTitle')}
         subtitle={t('quickStart.challengeSubTitle')}
       />

@@ -1,25 +1,27 @@
+import { Typography } from '@/constants/theme';
+import { CalendarDays, Trophy } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Tile from './Tile';
+import Tile from '../common/Tile';
 
 const WeekSection = () => {
   return (
     <View style={styles.tiles}>
-      <Text>This Week</Text>
+      <Text style={styles.header}>This Week</Text>
       <View style={styles.tilesContainer}>
         <Tile
-          icon='play'
+          icon={CalendarDays}
           iconColor='#2563eb'
           iconBackground='#dbeafe'
-          title='Start Practice'
-          subtitle='Begin new session'
+          title='5'
+          subtitle='Practice Days'
         />
         <Tile
-          icon='stats-chart'
+          icon={Trophy}
           iconColor='#16a34a'
           iconBackground='#dcfce7'
-          title='View Progress'
-          subtitle='See your growth'
+          title='3 '
+          subtitle='New Records'
         />
       </View>
     </View>
@@ -29,6 +31,7 @@ const WeekSection = () => {
 export default WeekSection;
 
 const styles = StyleSheet.create({
+  header: Typography.mainHeader,
   tiles: {
     paddingHorizontal: 10,
     marginTop: 20,
