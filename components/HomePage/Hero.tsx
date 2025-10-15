@@ -1,25 +1,33 @@
-import { ColorsNew, Spacing, Typography } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 const HeroSection = () => {
   return (
-    <View style={styles.container}>
-      <View style={styles.imageWrapper}>
-        <Image
-          source={{
-            uri: 'https://cdn-icons-png.flaticon.com/512/4370/4370770.png', // sample soccer kid image
-          }}
-          style={styles.image}
-        />
-      </View>
-      <Text style={styles.topScore}>47</Text>
-      <Text style={styles.topScoreText}>Best Score Today</Text>
-      <Text style={styles.title}>Keep Juggling, Keep Growing!</Text>
+    <LinearGradient
+      colors={['#3b82f6', '#2563eb']} // Tailwind blue-500 → blue-600
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
+      <Text style={styles.title}>Ready to Practice?</Text>
       <Text style={styles.subtitle}>
-        Track your practice and become a juggling champion
+        Keep juggling and become a soccer star!
       </Text>
-    </View>
+
+      <View style={styles.card}>
+        <View style={styles.avatarWrapper}>
+          <Image
+            source={require('../../assets/images/soccer-boy.png')}
+            style={styles.avatar}
+            resizeMode='contain'
+          />
+        </View>
+        <Text style={styles.score}>47</Text>
+        <Text style={styles.scoreLabel}>High Score</Text>
+      </View>
+    </LinearGradient>
   );
 };
 
@@ -27,52 +35,50 @@ export default HeroSection;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F3F7FD',
-    borderRadius: 12,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
     marginTop: Spacing.lg,
   },
-  imageWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 100,
-    padding: 12,
-    marginBottom: Spacing.md,
-  },
-  image: {
-    width: 80,
-    height: 80,
-    resizeMode: 'contain',
-  },
-  topScore: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: ColorsNew.primary,
-  },
-  topScoreText: {
-    ...Typography.caption,
-    marginBottom: Spacing.md,
-  },
   title: {
-    ...Typography.sectionTitle,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: ColorsNew.textPrimary,
-    textAlign: 'center',
+    color: '#fff',
     marginBottom: 6,
   },
   subtitle: {
-    ...Typography.caption,
-    textAlign: 'center',
-    color: ColorsNew.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    color: '#e0f2fe',
+    marginBottom: 30,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+  },
+  avatarWrapper: {
+    backgroundColor: '#fff',
+    borderRadius: 100,
+    padding: 20,
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+  },
+  score: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  scoreLabel: {
+    fontSize: 16,
+    color: '#e0f2fe',
+    marginTop: 4,
   },
 });

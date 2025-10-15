@@ -2,14 +2,14 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const Settings = () => {
+const Profile = () => {
   return (
     <SafeAreaView>
-      <Text>settings</Text>
+      <Text>profile</Text>
     </SafeAreaView>
   );
 };
 
-export default Settings;
+export default Profile;
 
 const styles = StyleSheet.create({});
