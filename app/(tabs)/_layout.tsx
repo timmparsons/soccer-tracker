@@ -3,9 +3,9 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Tabs } from 'expo-router';
 import {
-  CalendarDays,
   ChartSpline,
   House,
+  Play,
   Settings,
   Trophy,
 } from 'lucide-react-native';
@@ -37,36 +37,36 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name='progress'
+        name='train'
         options={{
-          title: 'Progress',
+          title: 'Train',
           tabBarIcon: ({ color, size }) => (
             <ChartSpline color={color} size={size ?? 28} />
           ),
         }}
       />
       <Tabs.Screen
-        name='sessions'
+        name='play'
         options={{
-          title: 'Sessions',
+          title: 'Play',
           tabBarIcon: ({ color, size }) => (
-            <CalendarDays size={size ?? 28} color={color} />
+            <Play size={size ?? 28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name='awards'
+        name='progress'
         options={{
-          title: 'Awards',
+          title: 'Progress',
           tabBarIcon: ({ color, size }) => (
             <Trophy size={size ?? 28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name='settings'
+        name='profile'
         options={{
-          title: 'Settings',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Settings size={size ?? 28} color={color} />
           ),

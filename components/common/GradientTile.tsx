@@ -5,7 +5,7 @@ import { ColorValue, StyleSheet, Text, View } from 'react-native';
 type GradientTileProps = {
   title: string;
   subtitle: string;
-  icon: React.ElementType;
+  icon?: React.ElementType;
   colors?: readonly [ColorValue, ColorValue, ...ColorValue[]];
   start?: { x: number; y: number };
   end?: { x: number; y: number };

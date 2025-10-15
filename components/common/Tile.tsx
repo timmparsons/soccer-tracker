@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type TileProps = {
   icon: React.ElementType;
@@ -7,23 +7,27 @@ type TileProps = {
   iconBackground?: string;
   title: string;
   subtitle: string;
+  onPress?: () => void;
 };
 
 const Tile: React.FC<TileProps> = ({
   icon: Icon,
-  iconColor = '#2563eb', // blue default
-  iconBackground = '#e0f2fe', // light blue default
+  iconColor = '#2563eb',
+  iconBackground = '#e0f2fe',
   title,
   subtitle,
+  onPress,
 }) => {
   return (
-    <View style={styles.container}>
-      <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
-        <Icon size={24} color={iconColor} />
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.container}>
+        <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
+          <Icon size={24} color={iconColor} />
+        </View>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -31,12 +35,13 @@ export default Tile;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#f9fafb',
     paddingVertical: 20,
     borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 5,
+    justifyContent: 'center',
+    marginHorizontal: 4, // keep some gap between tiles
+    width: 160, // optional fixed width for consistent size
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },

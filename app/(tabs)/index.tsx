@@ -16,7 +16,7 @@ export default function HomeScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           backgroundColor: '#f9f9f9',
-          padding: 20,
+          // padding: 20,
         }}
       >
         <HomePage />

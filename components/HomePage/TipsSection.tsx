@@ -9,7 +9,6 @@ const TipsSection = () => {
       <Text style={styles.header}>Soccer Tips</Text>
       <View style={styles.tileSection}>
         <GradientTile
-          icon={''}
           title='Did you know?'
           subtitle='Practicing with both feet can improve your overall ball control and versatility on the field.'
           colors={['#45cd9bff', '#156480ff']}
@@ -27,6 +26,7 @@ export default TipsSection;
 const styles = StyleSheet.create({
   container: {
     marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   header: Typography.mainHeader,
   tileSection: {
