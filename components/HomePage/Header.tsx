@@ -62,7 +62,7 @@ const AppHeader = () => {
       </View>
 
       {/* Progress Bar */}
-      <View style={styles.progressBarWrapper}>
+      {/* <View style={styles.progressBarWrapper}>
         <View style={styles.progressBarBg}>
           <View
             style={[styles.progressFill, { width: `${progressPercent}%` }]}
@@ -71,7 +71,7 @@ const AppHeader = () => {
         <Text style={styles.xpText}>
           {xpToNextLevel} XP to Level {userData.level + 1}
         </Text>
-      </View>
+      </View> */}
     </LinearGradient>
   );
 };

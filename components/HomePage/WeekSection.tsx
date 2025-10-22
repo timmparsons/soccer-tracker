@@ -1,31 +1,31 @@
 import { Spacing, Typography } from '@/constants/theme';
-import { router } from 'expo-router';
-import { CalendarDays, Trophy } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Tile from '../common/Tile';
 
 const WeekSection = () => {
   return (
-    <View style={styles.tilesSection}>
+    <View style={{ marginTop: Spacing.md }}>
+      {/* Title outside the tile */}
       <Text style={styles.header}>This Week</Text>
-      <View style={styles.tilesContainer}>
-        <Tile
-          icon={CalendarDays}
-          iconColor='#2563eb'
-          iconBackground='#dbeafe'
-          title='5'
-          subtitle='Practice Days'
-          onPress={() => router.push('/progress')}
-        />
-        <Tile
-          icon={Trophy}
-          iconColor='#16a34a'
-          iconBackground='#dcfce7'
-          title='3 '
-          subtitle='New Records'
-          onPress={() => router.push('/progress')}
-        />
+
+      {/* Tile */}
+      <View style={styles.tileContainer}>
+        <View style={styles.statsSection}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: '#4CAF50' }]}>12</Text>
+            <Text style={styles.statLabel}>Sessions</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: '#2196F3' }]}>
+              2h 45mins
+            </Text>
+            <Text style={styles.statLabel}>Total Time</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: '#FF9800' }]}>15%</Text>
+            <Text style={styles.statLabel}>Improvement</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -34,17 +34,38 @@ const WeekSection = () => {
 export default WeekSection;
 
 const styles = StyleSheet.create({
-  tilesSection: {
-    paddingTop: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
+  header: {
+    ...Typography.mainHeader,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.lg,
   },
-  header: Typography.mainHeader,
-  tiles: {
-    paddingHorizontal: 10,
-    marginTop: 20,
+  tileContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: Spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginHorizontal: Spacing.lg,
   },
-  tilesContainer: {
+  statsSection: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  statLabel: {
+    marginTop: 4,
+    color: '#666',
   },
 });

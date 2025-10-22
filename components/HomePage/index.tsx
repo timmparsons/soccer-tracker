@@ -1,8 +1,8 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import AchievementsSection from './AchievementsSection';
 import DailyChallengeCard from './DailyChallengeCard';
 import Header from './Header';
+import QuickTileSection from './QuickTileSection';
 import TipsSection from './TipsSection';
 import WeekSection from './WeekSection';
 
@@ -20,9 +20,11 @@ const HomePage = () => {
         icon={require('../../assets/images/soccer-boy.png')}
         onPress={() => console.log('Start challenge!')}
       />
+      <QuickTileSection />
       <WeekSection />
       {/* <ProgressSection /> */}
-      <AchievementsSection />
+      {/* <ActiveChallengesSection /> */}
+      {/* <AchievementsSection /> */}
       <TipsSection />
     </ScrollView>
   );

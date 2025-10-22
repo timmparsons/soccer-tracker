@@ -1,15 +1,21 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import HeaderSection from './HeaderSection';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MainSection from './MainSection';
 
 const TrainPage = () => {
   return (
-    <View>
-      <HeaderSection />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <MainSection />
+    </SafeAreaView>
   );
 };
 
 export default TrainPage;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+});

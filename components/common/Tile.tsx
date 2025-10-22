@@ -6,7 +6,7 @@ type TileProps = {
   iconColor?: string;
   iconBackground?: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   onPress?: () => void;
 };
 

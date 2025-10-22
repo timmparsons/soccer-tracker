@@ -10,6 +10,7 @@ type Props = {
   title: string;
   subtitle: string;
   strokeWidth?: number;
+  backgroundColor?: string;
 };
 
 const WideTile = ({
@@ -18,11 +19,12 @@ const WideTile = ({
   iconBackground,
   title,
   subtitle,
+  backgroundColor = '#fff',
 }: Props) => {
   const { t } = useTranslation();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: backgroundColor }]}>
       <View style={styles.topRow}>
         <View style={[styles.iconWrapper, { backgroundColor: iconBackground }]}>
           <Icon size={22} color={iconColor} />
@@ -40,7 +42,6 @@ export default WideTile;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
