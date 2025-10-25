@@ -1,20 +1,19 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import MainSection from './MainSection';
+import ProfilePage from './ProfileSection';
 
-const TrainPage = () => {
+const index = () => {
   return (
     <View style={styles.container}>
-      <MainSection />
+      <ProfilePage />
     </View>
   );
 };
 
-export default TrainPage;
+export default index;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
 });
