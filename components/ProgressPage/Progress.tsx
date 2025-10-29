@@ -15,7 +15,7 @@ const ProgressPage = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Your Progress 📈</Text>
         <Text style={styles.subtitle}>
-          Keep improving one juggle at a time!
+          Keep improving one juggle at a ti1me!
         </Text>
       </View>
 
