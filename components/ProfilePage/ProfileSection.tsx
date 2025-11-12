@@ -1,6 +1,8 @@
+import { supabase } from '@/lib/supabase';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Button,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,6 +12,10 @@ import {
 } from 'react-native';
 
 const ProfilePage = () => {
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -113,6 +119,7 @@ const ProfilePage = () => {
           showing up and the results will come.”
         </Text>
       </View>
+      <Button title='Sign Out' onPress={handleSignOut} />
     </ScrollView>
   );
 };
