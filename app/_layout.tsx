@@ -27,8 +27,6 @@ export default function RootLayout() {
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event);
-      console.log('New session:', session?.user?.email || 'none');
       setSession(session);
     });
 
@@ -37,29 +35,20 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loading) {
-      console.log('Still loading, skipping navigation');
       return;
     }
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
 
-    console.log('Navigation check:');
-    console.log('  - Has session:', !!session);
-    console.log('  - In auth group:', inAuthGroup);
-    console.log('  - In tabs group:', inTabsGroup);
-
     if (session && !inTabsGroup) {
-      console.log('>>> Redirecting to /(tabs)');
       router.replace('/(tabs)');
     } else if (!session && !inAuthGroup) {
-      console.log('>>> Redirecting to /(auth)');
       router.replace('/(auth)');
     }
   }, [session, segments, loading]);
 
   if (loading) {
-    console.log('Showing loading screen');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size='large' />

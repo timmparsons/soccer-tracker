@@ -17,6 +17,7 @@ export default function Auth() {
       });
 
       if (error) throw error;
+
       console.log('✅ Signed in:', data);
       Alert.alert('Success', 'Signed in!');
     } catch (err: any) {

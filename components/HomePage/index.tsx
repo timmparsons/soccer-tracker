@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { addUser } from '@/redux/userSlice';
 import { User } from '@supabase/supabase-js';
 import React, { useEffect, useState } from 'react';
 import {
@@ -9,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useDispatch } from 'react-redux';
+import { Counter } from '../Counter';
 
 type Stats = {
   sessions: number;
@@ -20,54 +23,56 @@ const HomeScreen = () => {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
-      // try {
-      // 1️⃣ Get the authenticated user
-      const { data: authData, error: userError } =
-        await supabase.auth.getUser();
-      // if (userError) throw userError;
-      // if (!authData.user) throw new Error('No authenticated user found');
-      console.log('Auth user data:', authData);
-      // setUser(authData.user);
+      try {
+        // 1️⃣ Get the authenticated user
+        const { data: authData, error: userError } =
+          await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!authData.user) throw new Error('No authenticated user found');
 
-      //   // 2️⃣ Query the sessions table for that user
-      const { data: sessions, error: sessionError } = await supabase
-        .from('sessions')
-        .select('duration_minutes, improvement')
-        .eq('user_id', '00000000-0000-0000-0000-000000000000');
-      console.log('Sessions data:', sessions);
-      //   if (sessionError) throw sessionError;
+        console.log('Auth user data:', authData?.user?.email);
+        dispatch(addUser({ email: authData.user.email || '' }));
 
-      //   // 3️⃣ Calculate stats
-      //   const totalSessions = sessions.length;
-      //   const totalTime = sessions.reduce(
-      //     (sum, s) => sum + s.duration_minutes,
-      //     0
-      //   );
-      //   const avgImprovement =
-      //     sessions.length > 0
-      //       ? sessions.reduce((sum, s) => sum + s.improvement, 0) /
-      //         sessions.length
-      //       : 0;
+        // 2️⃣ Query the sessions table for that user
+        const { data: sessions, error: sessionError } = await supabase
+          .from('sessions')
+          .select('duration_minutes, improvement')
+          .eq('user_id', authData.user.id);
 
-      //   // 4️⃣ Save results to state
-      //   setStats({
-      //     sessions: totalSessions,
-      //     totalTime,
-      //     improvement: Math.round(avgImprovement),
-      //   });
-      // } catch (error) {
-      //   console.error('Error fetching stats:', error);
-      // } finally {
-      //   setLoading(false);
-      // }
+        console.log('Sessions data:', sessions);
+        if (sessionError) throw sessionError;
+
+        // 3️⃣ Calculate stats
+        const totalSessions = sessions?.length || 0;
+        const totalTime =
+          sessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
+        const avgImprovement =
+          sessions && sessions.length > 0
+            ? sessions.reduce((sum, s) => sum + (s.improvement || 0), 0) /
+              sessions.length
+            : 0;
+
+        // 4️⃣ Save results to state
+        setStats({
+          sessions: totalSessions,
+          totalTime,
+          improvement: Math.round(avgImprovement),
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false); // ✅ This was commented out!
+      }
     };
 
     fetchStats();
   }, []);
+
   console.log('User:', user);
   // ✅ Only one return — JSX
   return (
@@ -110,8 +115,8 @@ const HomeScreen = () => {
           <Text style={styles.statLabel}>Total Time</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats?.improvement ?? 0}%</Text>
-          <Text style={styles.statLabel}>Improvement</Text>
+          <Text style={styles.statValue}>10</Text>
+          <Text style={styles.statLabel}>High Score</Text>
         </View>
       </View>
 
@@ -122,6 +127,7 @@ const HomeScreen = () => {
           Keep your eyes on the ball and use both feet to stay balanced.
         </Text>
       </View>
+      <Counter />
     </ScrollView>
   );
 };
