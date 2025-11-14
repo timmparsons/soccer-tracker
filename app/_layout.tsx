@@ -1,8 +1,19 @@
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
+      gcTime: 1000 * 60 * 10, // Keep unused data in cache for 10 minutes
+      retry: 2, // Retry failed requests twice
+    },
+  },
+});
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -12,8 +23,6 @@ export default function RootLayout() {
 
   console.log('=== RootLayout Render ===');
   console.log('Session:', session?.user?.email || 'none');
-  console.log('Loading:', loading);
-  console.log('Segments:', segments);
 
   useEffect(() => {
     const init = async () => {
@@ -57,9 +66,11 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name='(auth)' options={{ headerShown: false }} />
-      <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
-    </Stack>
+    <QueryClientProvider client={queryClient}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name='(auth)' options={{ headerShown: false }} />
+        <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+      </Stack>
+    </QueryClientProvider>
   );
 }

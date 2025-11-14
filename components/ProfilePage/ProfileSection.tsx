@@ -77,11 +77,7 @@ const ProfilePage = () => {
           },
         ].map((badge, index) => (
           <View key={index} style={styles.badgeCard}>
-            <MaterialCommunityIcons
-              name={badge.icon}
-              size={36}
-              color={badge.color}
-            />
+            <MaterialCommunityIcons size={36} color={badge.color} />
             <Text style={styles.badgeLabel}>{badge.label}</Text>
           </View>
         ))}

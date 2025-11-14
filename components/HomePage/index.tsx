@@ -1,6 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { addUser } from '@/redux/userSlice';
-import { User } from '@supabase/supabase-js';
 import React, { useEffect, useState } from 'react';
 import {
   Image,
@@ -10,8 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { Counter } from '../Counter';
 
 type Stats = {
   sessions: number;
@@ -20,10 +16,9 @@ type Stats = {
 };
 
 const HomeScreen = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -36,7 +31,6 @@ const HomeScreen = () => {
         if (!authData.user) throw new Error('No authenticated user found');
 
         console.log('Auth user data:', authData?.user?.email);
-        dispatch(addUser({ email: authData.user.email || '' }));
 
         // 2️⃣ Query the sessions table for that user
         const { data: sessions, error: sessionError } = await supabase
@@ -73,18 +67,13 @@ const HomeScreen = () => {
     fetchStats();
   }, []);
 
-  console.log('User:', user);
   // ✅ Only one return — JSX
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          {loading
-            ? 'Loading...'
-            : `Good Morning, ${
-                user?.user_metadata?.username || user?.email || 'Player'
-              } 👋`}
+          {loading ? 'Loading...' : `Good Morning, ... 👋`}
         </Text>
         <Image
           source={require('../../assets/images/soccer-boy.png')}
@@ -127,10 +116,11 @@ const HomeScreen = () => {
           Keep your eyes on the ball and use both feet to stay balanced.
         </Text>
       </View>
-      <Counter />
     </ScrollView>
   );
 };
+
+export default HomeScreen;
 
 // ✅ everything below this point stays the same
 const styles = StyleSheet.create({
@@ -233,5 +223,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-
-export default HomeScreen;
