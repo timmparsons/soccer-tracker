@@ -1,3 +1,5 @@
+import { useJuggles } from '@/hooks/useJuggles';
+import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,6 +14,7 @@ import {
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 
 const TimerPage = () => {
+  const { data: user } = useUser();
   const [timeLeft, setTimeLeft] = useState(300); // default 5 mins
   const [totalTime, setTotalTime] = useState(300);
   const [isRunning, setIsRunning] = useState(false);
@@ -19,6 +22,7 @@ const TimerPage = () => {
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [bestRecord, setBestRecord] = useState('');
   const [attempts, setAttempts] = useState('');
+  const { data: juggleStats } = useJuggles(user?.id);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -49,11 +53,12 @@ const TimerPage = () => {
   };
 
   const handleSaveResults = () => {
-    console.log('Best:', bestRecord, 'Attempts:', attempts);
-    // you can later send these to Supabase or Redux here
+    console.log('Best:', bestRecord);
     setShowResultsModal(false);
-    setBestRecord('');
-    setAttempts('');
+    updateJuggles.mutate({
+      high_score: bestRecord ? parseInt(bestRecord, 10) : undefined,
+      last_session_duration: totalTime,
+    });
     handleReset();
   };
 
@@ -71,19 +76,30 @@ const TimerPage = () => {
       <View style={styles.statsCard}>
         <Text style={styles.statsRowTitle}>Last Session</Text>
         <View style={styles.statsRow}>
+          {/* Duration */}
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {totalTime / 60} min{/* Last session duration */}
+              {juggleStats?.last_session_duration
+                ? `${Math.floor(juggleStats.last_session_duration / 60)} min`
+                : '—'}
             </Text>
             <Text style={styles.statLabel}>Duration</Text>
           </View>
+
+          {/* Best Record */}
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>43</Text>
+            <Text style={styles.statValue}>
+              {juggleStats?.high_score ?? '—'}
+            </Text>
             <Text style={styles.statLabel}>Best Record</Text>
           </View>
+
+          {/* Attempts */}
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Attempts Today</Text>
+            <Text style={styles.statValue}>
+              {juggleStats?.attempts_count ?? '—'}
+            </Text>
+            <Text style={styles.statLabel}>Attempts</Text>
           </View>
         </View>
       </View>
@@ -198,10 +214,13 @@ const TimerPage = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Drill Complete 🎉</Text>
+
+            {/* Auto-filled duration */}
             <Text style={styles.modalSubtitle}>
-              How did you do? Log your results below:
+              You completed a {totalTime / 60}-minute drill.
             </Text>
 
+            {/* Best today input */}
             <TextInput
               style={styles.input}
               placeholder='Best today'
@@ -209,6 +228,8 @@ const TimerPage = () => {
               value={bestRecord}
               onChangeText={setBestRecord}
             />
+
+            {/* Attempts input */}
             <TextInput
               style={styles.input}
               placeholder='Number of attempts'
@@ -217,6 +238,7 @@ const TimerPage = () => {
               onChangeText={setAttempts}
             />
 
+            {/* Save button */}
             <TouchableOpacity
               style={[
                 styles.button,

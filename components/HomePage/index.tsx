@@ -1,6 +1,8 @@
-import { supabase } from '@/lib/supabase';
-import React, { useEffect, useState } from 'react';
+import { useStats } from '@/hooks/useStats';
+import { useUser } from '@/hooks/useUser';
+import React from 'react';
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -9,71 +11,29 @@ import {
   View,
 } from 'react-native';
 
-type Stats = {
-  sessions: number;
-  totalTime: number;
-  improvement: number;
-};
-
 const HomeScreen = () => {
-  // const [user, setUser] = useState<User | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: user, isLoading: userLoading } = useUser();
+  const { data: stats, isLoading: statsLoading } = useStats(user?.id);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      setLoading(true);
-      try {
-        // 1️⃣ Get the authenticated user
-        const { data: authData, error: userError } =
-          await supabase.auth.getUser();
-        if (userError) throw userError;
-        if (!authData.user) throw new Error('No authenticated user found');
-
-        console.log('Auth user data:', authData?.user?.email);
-
-        // 2️⃣ Query the sessions table for that user
-        const { data: sessions, error: sessionError } = await supabase
-          .from('sessions')
-          .select('duration_minutes, improvement')
-          .eq('user_id', authData.user.id);
-
-        console.log('Sessions data:', sessions);
-        if (sessionError) throw sessionError;
-
-        // 3️⃣ Calculate stats
-        const totalSessions = sessions?.length || 0;
-        const totalTime =
-          sessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
-        const avgImprovement =
-          sessions && sessions.length > 0
-            ? sessions.reduce((sum, s) => sum + (s.improvement || 0), 0) /
-              sessions.length
-            : 0;
-
-        // 4️⃣ Save results to state
-        setStats({
-          sessions: totalSessions,
-          totalTime,
-          improvement: Math.round(avgImprovement),
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setLoading(false); // ✅ This was commented out!
-      }
-    };
-
-    fetchStats();
-  }, []);
-
-  // ✅ Only one return — JSX
+  if (userLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size='large' color='#007AFF' />
+      </View>
+    );
+  }
+  console.log('User-QQQ:', user);
+  console.log('Stats-QQQ:', stats);
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          {loading ? 'Loading...' : `Good Morning, ... 👋`}
+          Good Morning,{' '}
+          {user?.user_metadata?.username ||
+            user?.email?.split('@')[0] ||
+            'Player'}{' '}
+          👋
         </Text>
         <Image
           source={require('../../assets/images/soccer-boy.png')}
@@ -86,7 +46,7 @@ const HomeScreen = () => {
         <Text style={styles.cardTitle}>Daily Challenge</Text>
         <Text style={styles.challengeName}>Keep It Up Challenge</Text>
         <Text style={styles.challengeDesc}>
-          Juggle the ball 25 times without dropping it
+          Juggle the ball 25 times without dropping it bhere
         </Text>
         <TouchableOpacity style={styles.startButton}>
           <Text style={styles.startButtonText}>Start Challenge</Text>
@@ -96,22 +56,28 @@ const HomeScreen = () => {
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats?.sessions ?? 0}</Text>
+          <Text style={styles.statValue}>
+            {statsLoading ? '...' : stats?.sessions ?? 0}
+          </Text>
           <Text style={styles.statLabel}>Sessions</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats?.totalTime ?? 0} mins</Text>
-          <Text style={styles.statLabel}>Total Time</Text>
+          <Text style={styles.statValue}>
+            {statsLoading ? '...' : `${stats?.totalTime ?? 0}`}
+          </Text>
+          <Text style={styles.statLabel}>Total Time (mins)</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>10</Text>
-          <Text style={styles.statLabel}>High Score</Text>
+          <Text style={styles.statValue}>
+            {statsLoading ? '...' : `${stats?.improvement ?? 0}%`}
+          </Text>
+          <Text style={styles.statLabel}>Improvement</Text>
         </View>
       </View>
 
-      {/* Coach’s Tip */}
+      {/* Coach's Tip */}
       <View style={styles.tipContainer}>
-        <Text style={styles.tipTitle}>Coach’s Tip</Text>
+        <Text style={styles.tipTitle}>Coach Tip</Text>
         <Text style={styles.tipText}>
           Keep your eyes on the ball and use both feet to stay balanced.
         </Text>
@@ -120,10 +86,13 @@ const HomeScreen = () => {
   );
 };
 
-export default HomeScreen;
-
-// ✅ everything below this point stays the same
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f9fc',
+  },
   container: {
     padding: 20,
     backgroundColor: '#f7f9fc',
@@ -133,11 +102,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 25,
+    marginTop: 40,
   },
   greeting: {
     fontSize: 22,
     fontWeight: '700',
     color: '#222',
+    flex: 1,
   },
   avatar: {
     width: 50,
@@ -153,6 +124,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 6,
     marginBottom: 20,
+    elevation: 3,
   },
   cardTitle: {
     fontSize: 18,
@@ -197,6 +169,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
+    elevation: 2,
   },
   statValue: {
     fontSize: 18,
@@ -206,11 +179,13 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 13,
     color: '#555',
+    textAlign: 'center',
   },
   tipContainer: {
     backgroundColor: '#e8f4ff',
     padding: 16,
     borderRadius: 12,
+    marginBottom: 20,
   },
   tipTitle: {
     fontWeight: '700',
@@ -222,4 +197,18 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 14,
   },
+  signOutButton: {
+    backgroundColor: '#ff3b30',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  signOutText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });
+
+export default HomeScreen;
