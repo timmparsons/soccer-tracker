@@ -1,3 +1,4 @@
+import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
@@ -17,6 +18,8 @@ import {
   View,
 } from 'react-native';
 
+import Heatmap from '@/components/Heatmap';
+
 const ProfilePage = () => {
   const { data: user } = useUser();
   const { data: profile, isLoading } = useProfile(user?.id);
@@ -28,6 +31,7 @@ const ProfilePage = () => {
   const [username, setUsername] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
+  const { data: juggles } = useJuggles(user?.id);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -120,6 +124,8 @@ const ProfilePage = () => {
           <Text style={styles.streakMessage}>Keep the fire going! 🔥</Text>
         </View>
 
+        <Heatmap stats={juggles} />
+
         {/* Actions */}
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.actionList}>
@@ -128,7 +134,7 @@ const ProfilePage = () => {
             <Text style={styles.actionText}>Edit Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionRow}>
+          {/* <TouchableOpacity style={styles.actionRow}>
             <Ionicons name='notifications-outline' size={22} color='#3b82f6' />
             <Text style={styles.actionText}>Notifications</Text>
           </TouchableOpacity>
@@ -136,7 +142,7 @@ const ProfilePage = () => {
           <TouchableOpacity style={styles.actionRow}>
             <Ionicons name='help-circle-outline' size={22} color='#3b82f6' />
             <Text style={styles.actionText}>Help & Support</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity style={styles.actionRow} onPress={handleSignOut}>
             <Ionicons name='log-out-outline' size={22} color='#ef4444' />

@@ -1,4 +1,5 @@
 import { useJuggles } from '@/hooks/useJuggles';
+import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -15,15 +16,18 @@ import { AnimatedCircularProgress } from 'react-native-circular-progress';
 
 const TimerPage = () => {
   const { data: user } = useUser();
-  const [timeLeft, setTimeLeft] = useState(300); // default 5 mins
+  const { data: juggleStats } = useJuggles(user?.id);
+  const updateJuggles = useUpdateJuggles(user?.id);
+
+  const [timeLeft, setTimeLeft] = useState(300);
   const [totalTime, setTotalTime] = useState(300);
   const [isRunning, setIsRunning] = useState(false);
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [bestRecord, setBestRecord] = useState('');
   const [attempts, setAttempts] = useState('');
-  const { data: juggleStats } = useJuggles(user?.id);
 
+  // Timer logic
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isRunning && timeLeft > 0) {
@@ -52,13 +56,46 @@ const TimerPage = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // 🟩 MAIN SAVE LOGIC (with streaks + attempts)
   const handleSaveResults = () => {
-    console.log('Best:', bestRecord);
-    setShowResultsModal(false);
+    const best = bestRecord ? parseInt(bestRecord, 10) : undefined;
+    const attemptCount = attempts ? parseInt(attempts, 10) : undefined;
+
+    const todayIso = new Date().toISOString().split('T')[0];
+    const lastIso = juggleStats?.last_session_date
+      ? juggleStats.last_session_date.split('T')[0]
+      : null;
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayIso = yesterday.toISOString().split('T')[0];
+
+    let newStreak = 1;
+
+    if (lastIso === yesterdayIso)
+      newStreak = (juggleStats?.streak_days ?? 0) + 1;
+    else if (lastIso === todayIso) newStreak = juggleStats?.streak_days ?? 1;
+    else newStreak = 1;
+
+    const newBestStreak = Math.max(
+      juggleStats?.best_daily_streak ?? 1,
+      newStreak
+    );
+
     updateJuggles.mutate({
-      high_score: bestRecord ? parseInt(bestRecord, 10) : undefined,
+      high_score: best,
+      last_score: best,
+      attempts_count: attemptCount,
       last_session_duration: totalTime,
+      sessions_count: (juggleStats?.sessions_count ?? 0) + 1,
+      last_session_date: new Date().toISOString(),
+      streak_days: newStreak,
+      best_daily_streak: newBestStreak,
     });
+
+    setShowResultsModal(false);
+    setBestRecord('');
+    setAttempts('');
     handleReset();
   };
 
@@ -104,7 +141,7 @@ const TimerPage = () => {
         </View>
       </View>
 
-      {/* Timer Circle */}
+      {/* Timer */}
       <View style={styles.timerWrapper}>
         <View style={styles.timerBackground}>
           <AnimatedCircularProgress
@@ -125,7 +162,7 @@ const TimerPage = () => {
         </View>
       </View>
 
-      {/* Control Buttons */}
+      {/* Buttons */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: '#3b82f6' }]}
@@ -158,38 +195,28 @@ const TimerPage = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Tip Card */}
+      {/* Tip */}
       <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach&apos;s Tip 💬</Text>
+        <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
         <Text style={styles.tipText}>
-          Keep a steady rhythm — consistency over speed! Take short breaks
-          between longer sessions to maintain focus.
+          Keep a steady rhythm — consistency over speed!
         </Text>
       </View>
 
       {/* Duration Picker Modal */}
-      <Modal
-        transparent
-        visible={showDurationPicker}
-        animationType='fade'
-        onRequestClose={() => setShowDurationPicker(false)}
-      >
+      <Modal transparent visible={showDurationPicker} animationType='fade'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Duration</Text>
+
             <View style={styles.optionRow}>
-              {[
-                { label: '5 min', value: 300 },
-                { label: '10 min', value: 600 },
-                { label: '15 min', value: 900 },
-                { label: '20 min', value: 1200 },
-              ].map((opt) => (
+              {[300, 600, 900, 1200].map((value) => (
                 <Pressable
-                  key={opt.value}
+                  key={value}
                   style={styles.optionButton}
-                  onPress={() => handleSetDuration(opt.value)}
+                  onPress={() => handleSetDuration(value)}
                 >
-                  <Text style={styles.optionText}>{opt.label}</Text>
+                  <Text style={styles.optionText}>{value / 60} min</Text>
                 </Pressable>
               ))}
             </View>
@@ -204,23 +231,16 @@ const TimerPage = () => {
         </View>
       </Modal>
 
-      {/* Results Input Modal */}
-      <Modal
-        transparent
-        visible={false}
-        animationType='slide'
-        onRequestClose={() => setShowResultsModal(false)}
-      >
+      {/* Results Modal */}
+      <Modal transparent visible={showResultsModal} animationType='slide'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Drill Complete 🎉</Text>
 
-            {/* Auto-filled duration */}
             <Text style={styles.modalSubtitle}>
-              You completed a {totalTime / 60}-minute drill.
+              You completed a {totalTime / 60}-minute drill!
             </Text>
 
-            {/* Best today input */}
             <TextInput
               style={styles.input}
               placeholder='Best today'
@@ -229,16 +249,14 @@ const TimerPage = () => {
               onChangeText={setBestRecord}
             />
 
-            {/* Attempts input */}
             <TextInput
               style={styles.input}
-              placeholder='Number of attempts'
+              placeholder='Attempts'
               keyboardType='numeric'
               value={attempts}
               onChangeText={setAttempts}
             />
 
-            {/* Save button */}
             <TouchableOpacity
               style={[
                 styles.button,
