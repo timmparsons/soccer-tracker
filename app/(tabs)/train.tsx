@@ -1,8 +1,9 @@
 import TrainPage from '@/components/TrainPage';
+import React from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const Train = () => {
+const Play = () => {
   return (
     <SafeAreaView style={styles.container}>
       <TrainPage />
@@ -10,7 +11,7 @@ const Train = () => {
   );
 };
 
-export default Train;
+export default Play;
 
 const styles = StyleSheet.create({
   container: {

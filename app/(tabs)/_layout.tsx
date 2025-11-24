@@ -1,6 +1,3 @@
-import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Tabs } from 'expo-router';
 import {
   ChartSpline,
@@ -12,17 +9,13 @@ import {
 import React from 'react';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarButton: HapticTab,
         tabBarActiveTintColor: '#2ECC71', // Soccer green
         tabBarInactiveTintColor: '#95A5A6', // Gray for inactive
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme ?? 'light'].background,
           borderTopColor: '#E5E7EB',
           paddingTop: 10,
         },
@@ -38,27 +31,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name='train'
+        name='progress'
         options={{
-          title: 'Train',
+          title: 'Progress',
           tabBarIcon: ({ color, size }) => (
             <ChartSpline color={color} size={size ?? 28} />
           ),
         }}
       />
       <Tabs.Screen
-        name='play'
+        name='train'
         options={{
-          title: 'Play',
+          title: 'Train',
           tabBarIcon: ({ color, size }) => (
             <Play size={size ?? 28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name='progress'
+        name='leaderboard'
         options={{
-          title: 'Progress',
+          title: 'Leaderboard',
           tabBarIcon: ({ color, size }) => (
             <Trophy size={size ?? 28} color={color} />
           ),

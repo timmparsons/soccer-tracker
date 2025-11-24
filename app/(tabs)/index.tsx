@@ -1,32 +1,16 @@
-import { ScrollView, StyleSheet } from 'react-native';
-
+import HomePage from '@/components/HomePage';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import HomePage from '../../components/HomePage';
 
-export default function HomeScreen() {
+const index = () => {
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-      }}
-      edges={['top', 'left', 'right']}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          backgroundColor: '#f9f9f9',
-          // padding: 20,
-        }}
-      >
-        <HomePage />
-      </ScrollView>
+    <SafeAreaView>
+      <HomePage />
     </SafeAreaView>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
-});
+export default index;
+
+const styles = StyleSheet.create({});

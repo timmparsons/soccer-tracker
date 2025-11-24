@@ -1,35 +1,76 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { I18nextProvider } from 'react-i18next';
-import 'react-native-reanimated';
-import i18n from '../utils/i18n';
+import { supabase } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
+      gcTime: 1000 * 60 * 10, // Keep unused data in cache for 10 minutes
+      retry: 2, // Retry failed requests twice
+    },
+  },
+});
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const segments = useSegments();
+  const router = useRouter();
+
+  console.log('=== RootLayout Render ===');
+  console.log('Session:', session?.user?.email || 'none');
+
+  useEffect(() => {
+    const init = async () => {
+      console.log('Initializing auth...');
+      const { data } = await supabase.auth.getSession();
+      console.log('Initial session:', data.session?.user?.email || 'none');
+      setSession(data.session);
+      setLoading(false);
+    };
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    if (session && !inTabsGroup) {
+      router.replace('/(tabs)');
+    } else if (!session && !inAuthGroup) {
+      router.replace('/(auth)');
+    }
+  }, [session, segments, loading]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size='large' />
+      </View>
+    );
+  }
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
-          <Stack.Screen
-            name='modal'
-            options={{ presentation: 'modal', title: 'Modal' }}
-          />
-        </Stack>
-        <StatusBar style='auto' />
-      </ThemeProvider>
-    </I18nextProvider>
+    <QueryClientProvider client={queryClient}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name='(auth)' options={{ headerShown: false }} />
+        <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+      </Stack>
+    </QueryClientProvider>
   );
 }

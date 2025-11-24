@@ -1,17 +1,17 @@
-import PlayPage from '@/components/PlayPage';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const Play = () => {
+const Progress = () => {
   return (
     <SafeAreaView style={styles.container}>
-      <PlayPage />
+      <Text>Leaderboard</Text>
+      {/* <ProgressPage /> */}
     </SafeAreaView>
   );
 };
 
-export default Play;
+export default Progress;
 
 const styles = StyleSheet.create({
   container: {
