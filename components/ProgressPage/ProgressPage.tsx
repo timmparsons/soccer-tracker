@@ -1,4 +1,3 @@
-import LineChart from '@/components/LineChart';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -11,11 +10,13 @@ import {
 
 import { useJuggles } from '@/hooks/useJuggles';
 import { useUser } from '@/hooks/useUser';
+import LineChart from '../LineChart';
 
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: stats, isLoading } = useJuggles(user?.id);
-
+  const { data: juggles, isLoading: jugglesLoading } = useJuggles(user?.id);
+  console.log('Progress Juggles Data:', juggles.scores_history);
   if (isLoading || !stats) {
     return (
       <View style={styles.loadingContainer}>
@@ -77,7 +78,7 @@ const ProgressPage = () => {
       </View>
 
       {/* Weekly Overview */}
-      <View style={styles.weeklyCard}>
+      {/* <View style={styles.weeklyCard}>
         <View style={styles.weekRow}>
           <View style={styles.weekItem}>
             <Text style={styles.weekValue}>{stats.sessions_count}</Text>
@@ -96,7 +97,7 @@ const ProgressPage = () => {
             <Text style={styles.weekLabel}>Improvement</Text>
           </View>
         </View>
-      </View>
+      </View> */}
 
       {/* Performance Summary */}
       <Text style={styles.sectionTitle}>Performance Summary</Text>
@@ -167,7 +168,7 @@ const ProgressPage = () => {
         ))}
       </View>
 
-      <LineChart stats={stats} />
+      {juggles.scores_history.length > 0 && <LineChart stats={juggles} />}
 
       {/* Tip Card */}
       <View style={styles.tipCard}>

@@ -1,19 +1,20 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Train from './ProgressPage';
+import MainSection from './MainSection';
 
-const index = () => {
+const TrainPage = () => {
   return (
     <View style={styles.container}>
-      <Train />
+      <MainSection />
     </View>
   );
 };
 
-export default index;
+export default TrainPage;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f9fafb',
   },
 });

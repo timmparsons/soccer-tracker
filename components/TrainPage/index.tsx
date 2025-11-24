@@ -1,20 +1,20 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import MainSection from './MainSection';
+import { ScrollView, StyleSheet } from 'react-native';
+import TimerPage from './TimerPage';
 
-const TrainPage = () => {
+const index = () => {
   return (
-    <View style={styles.container}>
-      <MainSection />
-    </View>
+    <ScrollView style={styles.container}>
+      <TimerPage />
+    </ScrollView>
   );
 };
 
-export default TrainPage;
+export default index;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flex: 1,
     backgroundColor: '#f9fafb',
   },
 });

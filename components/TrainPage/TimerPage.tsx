@@ -19,35 +19,50 @@ const TimerPage = () => {
   const { data: juggleStats } = useJuggles(user?.id);
   const updateJuggles = useUpdateJuggles(user?.id);
 
-  const [timeLeft, setTimeLeft] = useState(300);
+  // Timer
+  const [timeLeft, setTimeLeft] = useState(300); // default 5 min
   const [totalTime, setTotalTime] = useState(300);
   const [isRunning, setIsRunning] = useState(false);
+
+  // Modals
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
+
+  // Custom time
+  const [customMinutes, setCustomMinutes] = useState('');
+
+  // Results
   const [bestRecord, setBestRecord] = useState('');
   const [attempts, setAttempts] = useState('');
 
-  // Timer logic
+  // Timer countdown logic
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval> | undefined;
+
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
       setShowResultsModal(true);
     }
-    return () => clearInterval(timer);
-  }, [isRunning, timeLeft]);
 
-  const handleReset = () => {
-    setIsRunning(false);
-    setTimeLeft(totalTime);
-  };
+    return () => {
+      if (timer !== undefined) {
+        clearInterval(timer);
+      }
+    };
+  }, [isRunning, timeLeft]);
 
   const handleSetDuration = (seconds: number) => {
     setTotalTime(seconds);
     setTimeLeft(seconds);
+    setIsRunning(false);
     setShowDurationPicker(false);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setTimeLeft(totalTime);
   };
 
   const formatTime = (seconds: number) => {
@@ -56,7 +71,7 @@ const TimerPage = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // 🟩 MAIN SAVE LOGIC (with streaks + attempts)
+  // ---- SAVE LOGIC ----
   const handleSaveResults = () => {
     const best = bestRecord ? parseInt(bestRecord, 10) : undefined;
     const attemptCount = attempts ? parseInt(attempts, 10) : undefined;
@@ -101,7 +116,7 @@ const TimerPage = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.title}>Timed Drill ⏱️</Text>
         <Text style={styles.subtitle}>
@@ -109,11 +124,10 @@ const TimerPage = () => {
         </Text>
       </View>
 
-      {/* Stats Card */}
+      {/* STATS */}
       <View style={styles.statsCard}>
         <Text style={styles.statsRowTitle}>Last Session</Text>
         <View style={styles.statsRow}>
-          {/* Duration */}
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {juggleStats?.last_session_duration
@@ -123,7 +137,6 @@ const TimerPage = () => {
             <Text style={styles.statLabel}>Duration</Text>
           </View>
 
-          {/* Best Record */}
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {juggleStats?.high_score ?? '—'}
@@ -131,7 +144,6 @@ const TimerPage = () => {
             <Text style={styles.statLabel}>Best Record</Text>
           </View>
 
-          {/* Attempts */}
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {juggleStats?.attempts_count ?? '—'}
@@ -141,7 +153,7 @@ const TimerPage = () => {
         </View>
       </View>
 
-      {/* Timer */}
+      {/* TIMER */}
       <View style={styles.timerWrapper}>
         <View style={styles.timerBackground}>
           <AnimatedCircularProgress
@@ -162,7 +174,7 @@ const TimerPage = () => {
         </View>
       </View>
 
-      {/* Buttons */}
+      {/* BUTTONS */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: '#3b82f6' }]}
@@ -195,15 +207,15 @@ const TimerPage = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Tip */}
+      {/* TIP */}
       <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
+        <Text style={styles.tipTitle}>Coach&apos;s Tip 💬</Text>
         <Text style={styles.tipText}>
           Keep a steady rhythm — consistency over speed!
         </Text>
       </View>
 
-      {/* Duration Picker Modal */}
+      {/* ---- DURATION PICKER MODAL ---- */}
       <Modal transparent visible={showDurationPicker} animationType='fade'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -221,6 +233,34 @@ const TimerPage = () => {
               ))}
             </View>
 
+            {/* Custom Time */}
+            <View style={{ marginTop: 20, width: '100%' }}>
+              <Text style={styles.customLabel}>Custom Time (minutes)</Text>
+
+              <TextInput
+                style={styles.customInput}
+                placeholder='Enter minutes...'
+                keyboardType='numeric'
+                value={customMinutes}
+                onChangeText={setCustomMinutes}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: '#3b82f6', marginTop: 12 },
+                ]}
+                onPress={() => {
+                  const mins = parseInt(customMinutes, 10);
+                  if (!mins || mins <= 0) return;
+                  handleSetDuration(mins * 60);
+                  setCustomMinutes('');
+                }}
+              >
+                <Text style={styles.buttonLabel}>Set Custom Time</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowDurationPicker(false)}
@@ -231,7 +271,7 @@ const TimerPage = () => {
         </View>
       </Modal>
 
-      {/* Results Modal */}
+      {/* ---- RESULTS MODAL ---- */}
       <Modal transparent visible={showResultsModal} animationType='slide'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -280,24 +320,17 @@ const TimerPage = () => {
   );
 };
 
+export default TimerPage;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
     paddingHorizontal: 16,
   },
-  header: {
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6b7280',
-  },
+  header: { marginTop: 20 },
+  title: { fontSize: 28, fontWeight: '700', color: '#111827' },
+  subtitle: { fontSize: 15, color: '#6b7280' },
   statsCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -308,31 +341,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  statsRowTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
+  statsRowTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   statItem: { alignItems: 'center' },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  timerWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 48,
-  },
+  statValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  statLabel: { fontSize: 13, color: '#6b7280' },
+  timerWrapper: { alignItems: 'center', marginTop: 48 },
   timerBackground: {
     backgroundColor: '#fff',
     borderRadius: 999,
@@ -342,13 +356,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  timerContent: { alignItems: 'center', justifyContent: 'center' },
+  timerContent: { alignItems: 'center' },
   timerText: { fontSize: 48, fontWeight: '800', color: '#111827' },
   timerUnit: { fontSize: 14, color: '#6b7280', marginTop: 4 },
   buttonRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 12,
   },
@@ -360,21 +374,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  buttonLabel: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  buttonLabel: { color: '#fff', fontSize: 15, fontWeight: '600' },
   tipCard: {
     backgroundColor: '#e0f2fe',
     borderRadius: 16,
     padding: 16,
     marginVertical: 40,
   },
-  tipTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0369a1',
-    marginBottom: 4,
-  },
+  tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
   tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
 
+  // MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -388,18 +398,9 @@ const styles = StyleSheet.create({
     width: '85%',
     alignItems: 'center',
   },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    color: '#6b7280',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  modalTitle: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
+  modalSubtitle: { color: '#6b7280', marginBottom: 16 },
+
   input: {
     backgroundColor: '#f3f4f6',
     borderRadius: 12,
@@ -420,13 +421,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  optionText: {
-    color: '#fff',
+  optionText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+
+  customLabel: {
+    fontSize: 15,
     fontWeight: '600',
-    fontSize: 16,
+    color: '#374151',
+    marginBottom: 6,
+    textAlign: 'left',
   },
+  customInput: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+
   closeButton: { marginTop: 20 },
   closeText: { color: '#6b7280', fontSize: 15 },
 });
-
-export default TimerPage;

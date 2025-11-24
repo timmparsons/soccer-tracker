@@ -4,7 +4,7 @@ import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,48 +20,182 @@ import {
 
 import Heatmap from '@/components/Heatmap';
 
+// Memoized sub-components to prevent unnecessary re-renders
+const ProfileHeader = memo(({ profile }: { profile: any }) => (
+  <View style={styles.header}>
+    <View style={styles.avatarContainer}>
+      <Image
+        source={{
+          uri:
+            profile?.avatar_url ||
+            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+        }}
+        style={styles.avatar}
+      />
+      <TouchableOpacity style={styles.editIcon}>
+        <Ionicons name='settings-sharp' size={20} color='#fff' />
+      </TouchableOpacity>
+    </View>
+
+    <Text style={styles.name}>
+      {profile?.name || profile?.username || 'User'}
+    </Text>
+
+    <Text style={styles.tagline}>
+      {profile?.bio || 'Future Juggling Pro ⚽'}
+    </Text>
+
+    {profile?.location && (
+      <Text style={styles.location}>📍 {profile.location}</Text>
+    )}
+  </View>
+));
+
+ProfileHeader.displayName = 'ProfileHeader';
+
+const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
+  const xpNeeded = 1000;
+  const xpPercent = Math.min((xp / xpNeeded) * 100, 100);
+
+  return (
+    <View style={styles.rankCard}>
+      <View style={styles.rankHeader}>
+        <Text style={styles.rankTitle}>Level {level}</Text>
+        <Text style={styles.rankSubtitle}>
+          {level >= 10 ? 'Elite Rank 🏆' : 'Bronze Rank 🥉'}
+        </Text>
+      </View>
+
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${xpPercent}%` }]} />
+      </View>
+
+      <Text style={styles.rankText}>
+        {xp} / {xpNeeded} XP
+      </Text>
+    </View>
+  );
+});
+
+RankCard.displayName = 'RankCard';
+
+const StreakCard = memo(
+  ({ streak, bestStreak }: { streak: number; bestStreak: number }) => (
+    <View style={styles.streakCard}>
+      <View style={styles.streakRow}>
+        <Ionicons name='flame' size={28} color='#f59e0b' />
+        <View style={styles.streakTextBlock}>
+          <Text style={styles.streakMain}>{streak}-Day Streak</Text>
+          <Text style={styles.streakSub}>
+            Longest Streak: {bestStreak} days
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.streakMessage}>Keep the fire going! 🔥</Text>
+    </View>
+  )
+);
+
+StreakCard.displayName = 'StreakCard';
+
+const AccountActions = memo(
+  ({
+    onEditPress,
+    onSignOut,
+  }: {
+    onEditPress: () => void;
+    onSignOut: () => void;
+  }) => (
+    <>
+      <Text style={styles.sectionTitle}>Account</Text>
+      <View style={styles.actionList}>
+        <TouchableOpacity style={styles.actionRow} onPress={onEditPress}>
+          <Ionicons name='person-outline' size={22} color='#3b82f6' />
+          <Text style={styles.actionText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
+          <Ionicons name='log-out-outline' size={22} color='#ef4444' />
+          <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  )
+);
+
+AccountActions.displayName = 'AccountActions';
+
+const CoachTip = memo(() => (
+  <View style={styles.tipCard}>
+    <Text style={styles.tipTitle}>Coach&apos;s Tip 💬</Text>
+    <Text style={styles.tipText}>
+      &quot;Improvement isn&apos;t about perfection — it&apos;s about progress.
+      Keep showing up and the results will come.&quot;
+    </Text>
+  </View>
+));
+
+CoachTip.displayName = 'CoachTip';
+
 const ProfilePage = () => {
   const { data: user } = useUser();
-  const { data: profile, isLoading } = useProfile(user?.id);
+
+  const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
+
+  const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
+
   const updateProfile = useUpdateProfile(user?.id);
+
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Form state
+  // Form Fields
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
-  const { data: juggles } = useJuggles(user?.id);
+  const [teamCode, setTeamCode] = useState('');
 
-  const handleSignOut = async () => {
+  // Memoize handlers to prevent recreation on every render
+  const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
 
-  const handleOpenModal = () => {
-    // Pre-fill form with existing data
+  const handleOpenModal = useCallback(() => {
     setName(profile?.name || '');
     setUsername(profile?.username || '');
     setLocation(profile?.location || '');
+    setTeamCode(profile?.team_id || '');
     setBio(profile?.bio || '');
     setModalVisible(true);
-  };
+  }, [profile]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = useCallback(() => {
     updateProfile.mutate(
-      { name, username, location, bio },
+      { name, username, location, bio, team_id: teamCode },
       {
         onSuccess: () => {
           setModalVisible(false);
-          Alert.alert('Success', 'Profile updated successfully!');
+          Alert.alert('Success', 'Profile updated!');
         },
-        onError: (error: any) => {
-          Alert.alert('Error', error.message);
-        },
+        onError: (err: any) => Alert.alert('Error', err.message),
       }
     );
-  };
+  }, [name, username, location, bio, teamCode, updateProfile]);
 
-  if (isLoading) {
+  // Memoize computed values
+  const stats = useMemo(
+    () => ({
+      level: juggles?.level ?? 1,
+      xp: juggles?.xp_earned ?? 0,
+      streak: juggles?.streak_days ?? 0,
+      bestStreak: juggles?.best_daily_streak ?? 0,
+    }),
+    [juggles]
+  );
+
+  // Show loading state only on initial load
+  if (loadingProfile || loadingJuggles) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size='large' color='#3b82f6' />
@@ -72,100 +206,21 @@ const ProfilePage = () => {
   return (
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri:
-                  profile?.avatar_url ||
-                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-              }}
-              style={styles.avatar}
-            />
-            <TouchableOpacity style={styles.editIcon}>
-              <Ionicons name='settings-sharp' size={20} color='#fff' />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.name}>
-            {profile?.name || profile?.username || 'User'}
-          </Text>
-          <Text style={styles.tagline}>
-            {profile?.bio || 'Future Juggling Pro ⚽'}
-          </Text>
-          {profile?.location && (
-            <Text style={styles.location}>📍 {profile.location}</Text>
-          )}
-        </View>
-
-        {/* XP + Rank Card */}
-        <View style={styles.rankCard}>
-          <View style={styles.rankHeader}>
-            <Text style={styles.rankTitle}>Level 6</Text>
-            <Text style={styles.rankSubtitle}>Gold Rank 🥇</Text>
-          </View>
-
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '75%' }]} />
-          </View>
-          <Text style={styles.rankText}>750 / 1000 XP</Text>
-        </View>
-
-        {/* Streak Card */}
-        <View style={styles.streakCard}>
-          <View style={styles.streakRow}>
-            <Ionicons name='flame' size={28} color='#f59e0b' />
-            <View style={styles.streakTextBlock}>
-              <Text style={styles.streakMain}>9-Day Streak</Text>
-              <Text style={styles.streakSub}>Longest Streak: 12 days</Text>
-            </View>
-          </View>
-          <Text style={styles.streakMessage}>Keep the fire going! 🔥</Text>
-        </View>
-
+        <ProfileHeader profile={profile} />
+        <RankCard level={stats.level} xp={stats.xp} />
+        <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
         <Heatmap stats={juggles} />
-
-        {/* Actions */}
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.actionList}>
-          <TouchableOpacity style={styles.actionRow} onPress={handleOpenModal}>
-            <Ionicons name='person-outline' size={22} color='#3b82f6' />
-            <Text style={styles.actionText}>Edit Profile</Text>
-          </TouchableOpacity>
-
-          {/* <TouchableOpacity style={styles.actionRow}>
-            <Ionicons name='notifications-outline' size={22} color='#3b82f6' />
-            <Text style={styles.actionText}>Notifications</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionRow}>
-            <Ionicons name='help-circle-outline' size={22} color='#3b82f6' />
-            <Text style={styles.actionText}>Help & Support</Text>
-          </TouchableOpacity> */}
-
-          <TouchableOpacity style={styles.actionRow} onPress={handleSignOut}>
-            <Ionicons name='log-out-outline' size={22} color='#ef4444' />
-            <Text style={[styles.actionText, { color: '#ef4444' }]}>
-              Log Out
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Tip Card */}
-        <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
-          <Text style={styles.tipText}>
-            "Improvement isn't about perfection — it's about progress. Keep
-            showing up and the results will come."
-          </Text>
-        </View>
+        <AccountActions
+          onEditPress={handleOpenModal}
+          onSignOut={handleSignOut}
+        />
+        <CoachTip />
       </ScrollView>
 
-      {/* Edit Profile Modal */}
+      {/* EDIT PROFILE MODAL */}
       <Modal
         animationType='slide'
-        transparent={true}
+        transparent
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
@@ -178,17 +233,13 @@ const ProfilePage = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.modalBody}
-              showsVerticalScrollIndicator={false}
-            >
+            <ScrollView style={styles.modalBody}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder='Enter your full name'
-                placeholderTextColor='#9ca3af'
+                placeholder='Your name'
               />
 
               <Text style={styles.label}>Username</Text>
@@ -196,8 +247,6 @@ const ProfilePage = () => {
                 style={styles.input}
                 value={username}
                 onChangeText={setUsername}
-                placeholder='Choose a username'
-                placeholderTextColor='#9ca3af'
                 autoCapitalize='none'
               />
 
@@ -206,8 +255,15 @@ const ProfilePage = () => {
                 style={styles.input}
                 value={location}
                 onChangeText={setLocation}
-                placeholder='City, Country'
-                placeholderTextColor='#9ca3af'
+              />
+
+              <Text style={styles.label}>Team Code</Text>
+              <TextInput
+                style={styles.input}
+                value={teamCode}
+                onChangeText={setTeamCode}
+                placeholder='Enter team code'
+                autoCapitalize='none'
               />
 
               <Text style={styles.label}>Bio</Text>
@@ -215,11 +271,7 @@ const ProfilePage = () => {
                 style={[styles.input, styles.textArea]}
                 value={bio}
                 onChangeText={setBio}
-                placeholder='Tell us about yourself...'
-                placeholderTextColor='#9ca3af'
                 multiline
-                numberOfLines={4}
-                textAlignVertical='top'
               />
 
               <Text style={styles.emailLabel}>Email: {user?.email}</Text>
@@ -241,7 +293,7 @@ const ProfilePage = () => {
                 {updateProfile.isPending ? (
                   <ActivityIndicator color='#fff' />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                  <Text style={styles.saveButtonText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -396,7 +448,6 @@ const styles = StyleSheet.create({
     color: '#075985',
     lineHeight: 20,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

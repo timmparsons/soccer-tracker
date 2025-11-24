@@ -1,14 +1,37 @@
 import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 export function useUser() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['user'],
     queryFn: async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      return data.user;
+      // Uses cached session for instant return
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      return session?.user ?? null;
     },
-    staleTime: Infinity, // User data rarely changes during a session
+    staleTime: Infinity,
   });
+
+  // Update the React Query cache whenever auth state changes
+  useEffect(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        queryClient.setQueryData(['user'], session?.user ?? null);
+      }
+    );
+
+    return () => subscription.subscription.unsubscribe();
+  }, [queryClient]);
+
+  return {
+    user: query.data,
+    isLoadingUser: query.isLoading,
+    ...query,
+  };
 }

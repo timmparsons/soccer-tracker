@@ -6,6 +6,7 @@ export type Profile = {
   name: string | null;
   username: string | null;
   location: string | null;
+  team_id: string | null;
   bio: string | null;
   avatar_url: string | null;
   created_at: string;
@@ -22,12 +23,13 @@ export function useProfile(userId: string | undefined) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as Profile;
     },
     enabled: !!userId,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 }

@@ -1,4 +1,5 @@
-import { useStats } from '@/hooks/useStats';
+import { useJuggles } from '@/hooks/useJuggles';
+import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import React from 'react';
 import {
@@ -13,202 +14,232 @@ import {
 
 const HomeScreen = () => {
   const { data: user, isLoading: userLoading } = useUser();
-  const { data: stats, isLoading: statsLoading } = useStats(user?.id);
+  const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
+  const { data: stats, isLoading: statsLoading } = useJuggles(user?.id);
 
-  if (userLoading) {
+  if (userLoading || statsLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#007AFF' />
+        <ActivityIndicator size='large' color='#3b82f6' />
       </View>
     );
   }
-  console.log('User-QQQ:', user);
-  console.log('Stats-QQQ:', stats);
+
+  // --- REAL DATA ---
+  const bestScore = stats?.high_score ?? 0;
+  const streak = stats?.streak_days ?? 0;
+  const sessions = stats?.sessions_count ?? 0;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Good Morning,{' '}
-          {user?.user_metadata?.username ||
-            user?.email?.split('@')[0] ||
-            'Player'}{' '}
+          Hey{' '}
+          {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Player'}!
           👋
         </Text>
         <Image
-          source={require('../../assets/images/soccer-boy.png')}
+          source={{
+            uri:
+              profile?.avatar_url ||
+              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+          }}
           style={styles.avatar}
         />
       </View>
 
-      {/* Daily Challenge */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Daily Challenge</Text>
-        <Text style={styles.challengeName}>Keep It Up Challenge</Text>
+      {/* --- HUGE BEST SCORE CARD --- */}
+      <View style={styles.bestCard}>
+        <Text style={styles.bestLabel}>Your Best Score</Text>
+        <Text style={styles.bestValue}>{bestScore}</Text>
+        <Text style={styles.bestUnit}>juggles!</Text>
+      </View>
+
+      {/* MINI QUICK STATS */}
+      <View style={styles.quickStatsRow}>
+        <View style={styles.quickStat}>
+          <Text style={styles.quickValue}>{sessions}</Text>
+          <Text style={styles.quickLabel}>Sessions</Text>
+        </View>
+
+        <View style={styles.quickStat}>
+          <Text style={styles.quickValue}>{streak}</Text>
+          <Text style={styles.quickLabel}>Day Streak</Text>
+        </View>
+      </View>
+
+      {/* DAILY CHALLENGE */}
+      <View style={styles.challengeCard}>
+        <Text style={styles.challengeTitle}>Daily Challenge</Text>
+        <Text style={styles.challengeName}>Keep It Up!</Text>
         <Text style={styles.challengeDesc}>
-          Juggle the ball 25 times without dropping it bhere
+          Try to juggle 25 times without dropping it!
         </Text>
+
         <TouchableOpacity style={styles.startButton}>
-          <Text style={styles.startButtonText}>Start Challenge</Text>
+          <Text style={styles.startButtonText}>Start</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>
-            {statsLoading ? '...' : stats?.sessions ?? 0}
-          </Text>
-          <Text style={styles.statLabel}>Sessions</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>
-            {statsLoading ? '...' : `${stats?.totalTime ?? 0}`}
-          </Text>
-          <Text style={styles.statLabel}>Total Time (mins)</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>
-            {statsLoading ? '...' : `${stats?.improvement ?? 0}%`}
-          </Text>
-          <Text style={styles.statLabel}>Improvement</Text>
-        </View>
-      </View>
-
-      {/* Coach's Tip */}
-      <View style={styles.tipContainer}>
-        <Text style={styles.tipTitle}>Coach Tip</Text>
+      {/* COACH TIP */}
+      <View style={styles.tipCard}>
+        <Text style={styles.tipTitle}>Coach Tip 💬</Text>
         <Text style={styles.tipText}>
-          Keep your eyes on the ball and use both feet to stay balanced.
+          Stay calm and hit the ball softly. Big kicks = big mistakes!
         </Text>
       </View>
     </ScrollView>
   );
 };
 
+export default HomeScreen;
+
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f7f9fc',
+    backgroundColor: '#f9fafb',
   },
   container: {
     padding: 20,
-    backgroundColor: '#f7f9fc',
+    backgroundColor: '#f9fafb',
   },
+
+  // HEADER
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 25,
-    marginTop: 40,
+    marginTop: 30,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#222',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
     flex: 1,
+    marginRight: 12,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 55,
+    height: 55,
   },
-  card: {
+
+  // BEST SCORE HERO
+  bestCard: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  bestLabel: {
+    color: '#bfdbfe',
+    fontSize: 18,
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  bestValue: {
+    color: '#fff',
+    fontSize: 64,
+    fontWeight: '900',
+  },
+  bestUnit: {
+    color: '#e0f2fe',
+    fontSize: 20,
+    fontWeight: '500',
+    marginTop: -5,
+  },
+
+  // QUICK STATS
+  quickStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  quickStat: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingVertical: 18,
+    borderRadius: 14,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  quickValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111',
+  },
+  quickLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+
+  // DAILY CHALLENGE
+  challengeCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
     shadowRadius: 6,
-    marginBottom: 20,
     elevation: 3,
+    marginBottom: 24,
   },
-  cardTitle: {
+  challengeTitle: {
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 6,
-    color: '#111',
   },
   challengeName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF',
+    color: '#3b82f6',
     marginBottom: 4,
   },
   challengeDesc: {
     fontSize: 14,
     color: '#555',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   startButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#3b82f6',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
   },
   startButtonText: {
     color: '#fff',
-    fontWeight: '600',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginHorizontal: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statValue: {
-    fontSize: 18,
     fontWeight: '700',
-    color: '#111',
   },
-  statLabel: {
-    fontSize: 13,
-    color: '#555',
-    textAlign: 'center',
-  },
-  tipContainer: {
-    backgroundColor: '#e8f4ff',
+
+  // COACH TIP
+  tipCard: {
+    backgroundColor: '#e0f2fe',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    borderRadius: 14,
+    marginBottom: 40,
   },
   tipTitle: {
-    fontWeight: '700',
     fontSize: 16,
+    fontWeight: '700',
+    color: '#0369a1',
     marginBottom: 4,
-    color: '#007AFF',
   },
   tipText: {
-    color: '#333',
+    color: '#075985',
     fontSize: 14,
-  },
-  signOutButton: {
-    backgroundColor: '#ff3b30',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  signOutText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    lineHeight: 20,
   },
 });
-
-export default HomeScreen;

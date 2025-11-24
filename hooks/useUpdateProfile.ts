@@ -5,6 +5,7 @@ type ProfileUpdate = {
   name?: string;
   username?: string;
   location?: string;
+  team_id?: string;
   bio?: string;
   avatar_url?: string;
 };

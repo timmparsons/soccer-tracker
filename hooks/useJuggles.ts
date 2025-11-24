@@ -12,10 +12,12 @@ export function useJuggles(userId: string | undefined) {
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
-
+      console.log('🔍 Juggles result:', data, error);
       if (error) throw error;
       return data;
     },
     enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutes - prevents unnecessary refetching
+    gcTime: 1000 * 60 * 10, // 10 minutes - keeps data in cache longer
   });
 }

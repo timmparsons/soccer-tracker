@@ -62,7 +62,7 @@ const Heatmap = ({ stats }) => {
             </Text>
           ))}
         </View>
-        <Svg width={330} height={120}>
+        <Svg width={330} height={80}>
           {days.map((d, i) => (
             <Rect
               key={d.date}
@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 8,
   },
   card: {
     backgroundColor: '#fff',
@@ -116,7 +115,6 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
     justifyContent: 'center',
   },
   legendRow: {
@@ -132,5 +130,16 @@ const styles = StyleSheet.create({
   legendLabel: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  monthRow: {
+    position: 'relative',
+    height: 20,
+    marginBottom: 6,
+  },
+  monthLabel: {
+    position: 'absolute',
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
   },
 });

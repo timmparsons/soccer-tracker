@@ -1,14 +1,15 @@
 import * as d3 from 'd3-shape';
-import { format, subDays } from 'date-fns';
+import { format, parseISO, startOfDay, subDays } from 'date-fns';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 const LineChart = ({ stats }) => {
-  console.log('QQQ Stats in LineChart:', stats);
+  console.log('Stats in LineChart:', stats);
   if (!stats) return null;
 
   const history = stats.scores_history ?? [];
+  console.log('Scores history:', history);
 
   // Build last 7 days of data
   const data = [];
@@ -18,21 +19,37 @@ const LineChart = ({ stats }) => {
     const date = subDays(today, i);
     const dateStr = format(date, 'yyyy-MM-dd');
 
-    const entry = history.find((h) => h.date.startsWith(dateStr));
+    // Find matching score - normalize both dates to compare properly
+    const entry = history.find((h) => {
+      try {
+        const historyDate = parseISO(h.date);
+        const historyDateStr = format(startOfDay(historyDate), 'yyyy-MM-dd');
+        return historyDateStr === dateStr;
+      } catch (e) {
+        console.error('Error parsing date:', h.date, e);
+        return false;
+      }
+    });
 
     data.push({
       label: format(date, 'EEE'), // Mon/Tue
       value: entry ? entry.score : 0,
+      hasData: !!entry,
     });
   }
+
+  console.log('Chart data:', data);
 
   // Create line path using d3-shape
   const width = 320;
   const height = 150;
+  const padding = 20;
 
-  const xScale = (index: number) => (index / 6) * width;
+  const xScale = (index: number) =>
+    padding + (index / 6) * (width - padding * 2);
   const maxY = Math.max(...data.map((d) => d.value), 10); // avoid divide by zero
-  const yScale = (val: number) => height - (val / maxY) * height;
+  const yScale = (val: number) =>
+    height - padding - (val / maxY) * (height - padding * 2);
 
   const linePath = d3
     .line()
@@ -47,16 +64,16 @@ const LineChart = ({ stats }) => {
       <View style={styles.chartCard}>
         <Svg width={width} height={height}>
           {/* Line */}
-          <Path d={linePath} stroke='#3b82f6' strokeWidth={4} fill='none' />
+          <Path d={linePath} stroke='#3b82f6' strokeWidth={3} fill='none' />
 
-          {/* Dots */}
+          {/* Dots - only show where there's actual data */}
           {data.map((d, i) => (
             <Circle
               key={i}
               cx={xScale(i)}
               cy={yScale(d.value)}
-              r={4}
-              fill='#3b82f6'
+              r={d.hasData ? 6 : 3}
+              fill={d.hasData ? '#3b82f6' : '#e5e7eb'}
             />
           ))}
         </Svg>
@@ -64,9 +81,12 @@ const LineChart = ({ stats }) => {
         {/* Labels */}
         <View style={styles.labelsRow}>
           {data.map((d, i) => (
-            <Text key={i} style={styles.label}>
-              {d.label}
-            </Text>
+            <View key={i} style={styles.labelContainer}>
+              <Text style={[styles.label, d.hasData && styles.labelActive]}>
+                {d.label}
+              </Text>
+              {d.hasData && <Text style={styles.scoreLabel}>{d.value}</Text>}
+            </View>
           ))}
         </View>
       </View>
@@ -86,7 +106,7 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: '#fff',
-    padding: 12,
+    padding: 16,
     borderRadius: 16,
     marginVertical: 12,
     shadowColor: '#000',
@@ -99,10 +119,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: 320,
-    marginTop: 6,
+    marginTop: 12,
+  },
+  labelContainer: {
+    alignItems: 'center',
   },
   label: {
     fontSize: 12,
+    color: '#9ca3af',
+  },
+  labelActive: {
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  scoreLabel: {
+    fontSize: 10,
     color: '#6b7280',
+    marginTop: 2,
   },
 });
