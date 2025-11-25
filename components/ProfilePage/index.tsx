@@ -146,6 +146,7 @@ const ProfilePage = () => {
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
+  console.log('QQQ ', team.name);
 
   const updateProfile = useUpdateProfile(user?.id);
 
@@ -231,7 +232,7 @@ const ProfilePage = () => {
     setUsername(profile?.username || '');
     setLocation(profile?.location || '');
     setBio(profile?.bio || '');
-    setTeamCode(''); // Leave empty - only update if user enters new code
+    setTeamCode(team.name); // Leave empty - only update if user enters new code
     setModalVisible(true);
   }, [profile]);
 
