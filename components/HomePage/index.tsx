@@ -1,6 +1,7 @@
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +14,8 @@ import {
 } from 'react-native';
 
 const HomeScreen = () => {
+  const router = useRouter();
+
   const { data: user, isLoading: userLoading } = useUser();
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: stats, isLoading: statsLoading } = useJuggles(user?.id);
@@ -39,24 +42,26 @@ const HomeScreen = () => {
           {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Player'}!
           👋
         </Text>
-        <Image
-          source={{
-            uri:
-              profile?.avatar_url ||
-              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-          }}
-          style={styles.avatar}
-        />
+        <TouchableOpacity onPress={() => router.push('/profile')}>
+          <Image
+            source={{
+              uri:
+                profile?.avatar_url ||
+                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+            }}
+            style={styles.avatar}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* --- HUGE BEST SCORE CARD --- */}
+      {/* BEST SCORE */}
       <View style={styles.bestCard}>
         <Text style={styles.bestLabel}>Your Best Score</Text>
         <Text style={styles.bestValue}>{bestScore}</Text>
         <Text style={styles.bestUnit}>juggles!</Text>
       </View>
 
-      {/* MINI QUICK STATS */}
+      {/* QUICK STATS */}
       <View style={styles.quickStatsRow}>
         <View style={styles.quickStat}>
           <Text style={styles.quickValue}>{sessions}</Text>
@@ -77,7 +82,10 @@ const HomeScreen = () => {
           Try to juggle 25 times without dropping it!
         </Text>
 
-        <TouchableOpacity style={styles.startButton}>
+        <TouchableOpacity
+          style={styles.startButton}
+          onPress={() => router.push('/train')} // 👈 NAVIGATES TO TRAIN TAB
+        >
           <Text style={styles.startButtonText}>Start</Text>
         </TouchableOpacity>
       </View>
@@ -125,9 +133,10 @@ const styles = StyleSheet.create({
   avatar: {
     width: 55,
     height: 55,
+    borderRadius: 27.5,
   },
 
-  // BEST SCORE HERO
+  // BEST SCORE
   bestCard: {
     backgroundColor: '#3b82f6',
     paddingVertical: 30,
@@ -186,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // DAILY CHALLENGE
+  // CHALLENGE
   challengeCard: {
     backgroundColor: '#fff',
     borderRadius: 16,

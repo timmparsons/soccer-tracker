@@ -13,19 +13,24 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Auth() {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const toggleMode = () => {
+    setMode(mode === 'signin' ? 'signup' : 'signin');
+  };
+
   const signIn = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
       if (error) throw error;
+
       Alert.alert('Success', 'Signed in!');
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -37,16 +42,15 @@ export default function Auth() {
   const signUp = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
       });
-
       if (error) throw error;
 
       Alert.alert(
-        'Check Your Inbox 📩',
-        'Please confirm your email before signing in.'
+        'Check your inbox 📩',
+        'Confirm your email before signing in.'
       );
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -60,9 +64,15 @@ export default function Auth() {
       {/* HEADER */}
       <View style={styles.header}>
         <Ionicons name='football-outline' size={48} color='#3b82f6' />
-        <Text style={styles.title}>Welcome Back</Text>
+
+        <Text style={styles.title}>
+          {mode === 'signin' ? 'Welcome Back' : 'Create an Account'}
+        </Text>
+
         <Text style={styles.subtitle}>
-          Log in or create an account to continue
+          {mode === 'signin'
+            ? 'Log in to continue your training'
+            : 'Join and start your juggling journey!'}
         </Text>
       </View>
 
@@ -87,24 +97,43 @@ export default function Auth() {
           style={styles.input}
         />
 
-        <TouchableOpacity
-          style={[styles.button, styles.signInButton]}
-          disabled={loading}
-          onPress={signIn}
-        >
-          {loading ? (
-            <ActivityIndicator color='#fff' />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
+        {mode === 'signin' ? (
+          <TouchableOpacity
+            style={[styles.button, styles.signInButton]}
+            disabled={loading}
+            onPress={signIn}
+          >
+            {loading ? (
+              <ActivityIndicator color='#fff' />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.button, styles.signUpButton]}
+            disabled={loading}
+            onPress={signUp}
+          >
+            {loading ? (
+              <ActivityIndicator color='#fff' />
+            ) : (
+              <Text style={styles.buttonText}>Sign Up</Text>
+            )}
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={[styles.button, styles.signUpButton]}
-          disabled={loading}
-          onPress={signUp}
-        >
-          <Text style={styles.buttonText}>Sign Up</Text>
+        {/* Mode Switch Link */}
+        <TouchableOpacity onPress={toggleMode} style={{ marginTop: 14 }}>
+          <Text style={styles.switchText}>
+            {mode === 'signin'
+              ? "Don't have an account? "
+              : 'Already have an account? '}
+
+            <Text style={styles.switchLink}>
+              {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+            </Text>
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -127,18 +156,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
 
-  // Header
   header: {
     marginTop: 60,
     alignItems: 'center',
     marginBottom: 30,
   },
+
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#111827',
     marginTop: 10,
   },
+
   subtitle: {
     fontSize: 14,
     color: '#6b7280',
@@ -146,7 +176,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Card
   card: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -176,31 +205,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+
   signInButton: {
     backgroundColor: '#3b82f6',
   },
+
   signUpButton: {
     backgroundColor: '#10b981',
   },
+
   buttonText: {
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
   },
 
-  // Footer
+  switchText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#6b7280',
+  },
+
+  switchLink: {
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+
   footer: {
     marginTop: 20,
     paddingBottom: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   footerText: {
     fontSize: 13,
     color: '#6b7280',
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+
   footerLink: {
     color: '#3b82f6',
     fontWeight: '600',

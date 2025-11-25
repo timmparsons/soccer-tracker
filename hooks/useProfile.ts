@@ -24,7 +24,7 @@ export function useProfile(userId: string | undefined) {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-
+      console.log('Fetched profile data:', data, 'Error:', error);
       if (error) throw error;
       return data as Profile;
     },

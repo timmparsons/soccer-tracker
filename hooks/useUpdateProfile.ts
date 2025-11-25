@@ -1,37 +1,52 @@
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-type ProfileUpdate = {
-  name?: string;
-  username?: string;
-  location?: string;
-  team_id?: string;
-  bio?: string;
-  avatar_url?: string;
-};
-
-export function useUpdateProfile(userId: string | undefined) {
+export function useUpdateProfile(userId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (updates: ProfileUpdate) => {
+    mutationFn: async (updates: any) => {
       if (!userId) throw new Error('No user ID');
 
-      const { data, error } = await supabase
+      let team_id = undefined;
+
+      // If user entered a team code → look it up
+      if (updates.team_code) {
+        const { data: team, error: teamErr } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('code', updates.team_code)
+          .single();
+
+        if (teamErr || !team) {
+          throw new Error('Invalid team code');
+        }
+
+        team_id = team.id;
+      }
+
+      // Build update object
+      const updateData: any = {
+        ...(updates.name && { name: updates.name }),
+        ...(updates.username && { username: updates.username }),
+        ...(updates.location && { location: updates.location }),
+        ...(updates.bio && { bio: updates.bio }),
+        ...(updates.avatar_url && { avatar_url: updates.avatar_url }),
+        ...(team_id && { team_id }),
+      };
+
+      const { error } = await supabase
         .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId)
-        .select()
-        .single();
+        .update(updateData)
+        .eq('id', userId);
 
       if (error) throw error;
-      return data;
+
+      return updateData;
     },
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
   });
 }

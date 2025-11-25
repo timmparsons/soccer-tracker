@@ -1,8 +1,10 @@
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
+import { useTeam } from '@/hooks/useTeam';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
@@ -19,37 +21,50 @@ import {
 } from 'react-native';
 
 import Heatmap from '@/components/Heatmap';
+import * as ImagePicker from 'expo-image-picker';
 
-// Memoized sub-components to prevent unnecessary re-renders
-const ProfileHeader = memo(({ profile }: { profile: any }) => (
-  <View style={styles.header}>
-    <View style={styles.avatarContainer}>
-      <Image
-        source={{
-          uri:
-            profile?.avatar_url ||
-            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-        }}
-        style={styles.avatar}
-      />
-      <TouchableOpacity style={styles.editIcon}>
-        <Ionicons name='settings-sharp' size={20} color='#fff' />
-      </TouchableOpacity>
-    </View>
+// Memoized components
+const ProfileHeader = memo(
+  ({ profile, team, onPickImage, onOpenModal }: any) => {
+    // Add cache busting to avatar URL
+    const avatarUri = profile?.avatar_url
+      ? `${profile.avatar_url}${
+          profile.avatar_url.includes('?') ? '&' : '?'
+        }t=${Date.now()}`
+      : 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
 
-    <Text style={styles.name}>
-      {profile?.name || profile?.username || 'User'}
-    </Text>
+    return (
+      <View style={styles.header}>
+        <View style={styles.avatarContainer}>
+          <TouchableOpacity onPress={onPickImage}>
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatar}
+              key={avatarUri}
+            />
+          </TouchableOpacity>
 
-    <Text style={styles.tagline}>
-      {profile?.bio || 'Future Juggling Pro ⚽'}
-    </Text>
+          <TouchableOpacity style={styles.editIcon} onPress={onOpenModal}>
+            <Ionicons name='settings-sharp' size={20} color='#fff' />
+          </TouchableOpacity>
+        </View>
 
-    {profile?.location && (
-      <Text style={styles.location}>📍 {profile.location}</Text>
-    )}
-  </View>
-));
+        <Text style={styles.name}>
+          {profile?.name || profile?.username || 'User'}
+        </Text>
+        <Text style={styles.tagline}>
+          {profile?.bio || 'Future Juggling Pro ⚽'}
+        </Text>
+
+        {team?.name && <Text style={styles.teamName}>Team: {team.name}</Text>}
+
+        {profile?.location && (
+          <Text style={styles.location}>📍 {profile.location}</Text>
+        )}
+      </View>
+    );
+  }
+);
 
 ProfileHeader.displayName = 'ProfileHeader';
 
@@ -99,91 +114,156 @@ const StreakCard = memo(
 
 StreakCard.displayName = 'StreakCard';
 
-const AccountActions = memo(
-  ({
-    onEditPress,
-    onSignOut,
-  }: {
-    onEditPress: () => void;
-    onSignOut: () => void;
-  }) => (
-    <>
-      <Text style={styles.sectionTitle}>Account</Text>
-      <View style={styles.actionList}>
-        <TouchableOpacity style={styles.actionRow} onPress={onEditPress}>
-          <Ionicons name='person-outline' size={22} color='#3b82f6' />
-          <Text style={styles.actionText}>Edit Profile</Text>
-        </TouchableOpacity>
+const AccountActions = memo(({ onOpenModal, onSignOut }: any) => (
+  <>
+    <Text style={styles.sectionTitle}>Account</Text>
 
-        <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
-          <Ionicons name='log-out-outline' size={22} color='#ef4444' />
-          <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  )
-);
+    <View style={styles.actionList}>
+      <TouchableOpacity style={styles.actionRow} onPress={onOpenModal}>
+        <Ionicons name='person-outline' size={22} color='#3b82f6' />
+        <Text style={styles.actionText}>Edit Profile</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
+        <Ionicons name='log-out-outline' size={22} color='#ef4444' />
+        <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
+      </TouchableOpacity>
+    </View>
+
+    <View style={styles.tipCard}>
+      <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
+      <Text style={styles.tipText}>
+        "Show up every day — consistency beats intensity."
+      </Text>
+    </View>
+  </>
+));
 
 AccountActions.displayName = 'AccountActions';
 
-const CoachTip = memo(() => (
-  <View style={styles.tipCard}>
-    <Text style={styles.tipTitle}>Coach&apos;s Tip 💬</Text>
-    <Text style={styles.tipText}>
-      &quot;Improvement isn&apos;t about perfection — it&apos;s about progress.
-      Keep showing up and the results will come.&quot;
-    </Text>
-  </View>
-));
-
-CoachTip.displayName = 'CoachTip';
-
 const ProfilePage = () => {
   const { data: user } = useUser();
-
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
-
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
+  const { data: team } = useTeam(user?.id);
 
   const updateProfile = useUpdateProfile(user?.id);
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Form Fields
+  // Editable fields
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
 
-  // Memoize handlers to prevent recreation on every render
-  const handleSignOut = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, []);
+  // Pick + Upload Avatar
+  const handlePickImage = useCallback(async () => {
+    try {
+      // Request permissions first
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photos');
+        return;
+      }
 
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      const ext = file.uri.split('.').pop() || 'jpg';
+      const fileName = `avatar.${ext}`;
+      const filePath = `${user?.id}/${fileName}`;
+
+      // Convert image to blob for React Native
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const arrayBuffer = await new Response(blob).arrayBuffer();
+
+      // Upload file
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, arrayBuffer, {
+          contentType: file.mimeType || 'image/jpeg',
+          upsert: true,
+        });
+
+      if (uploadErr) {
+        console.error('Upload error:', uploadErr);
+        Alert.alert('Upload Error', uploadErr.message);
+        return;
+      }
+
+      // Get public URL with cache busting
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+
+      updateProfile.mutate(
+        { avatar_url: avatarUrl },
+        {
+          onSuccess: () => Alert.alert('Success', 'Avatar updated!'),
+          onError: (err: any) => {
+            console.error('Profile update error:', err);
+            Alert.alert('Error', 'Failed to update profile');
+          },
+        }
+      );
+    } catch (err: any) {
+      console.error('Image picker error:', err);
+      Alert.alert('Error', err.message || 'Failed to pick an image.');
+    }
+  }, [updateProfile, user?.id]);
+
+  // Open modal + fill fields
   const handleOpenModal = useCallback(() => {
     setName(profile?.name || '');
     setUsername(profile?.username || '');
     setLocation(profile?.location || '');
-    setTeamCode(profile?.team_id || '');
     setBio(profile?.bio || '');
+    setTeamCode(''); // Leave empty - only update if user enters new code
     setModalVisible(true);
   }, [profile]);
 
+  // Save profile changes
   const handleSaveProfile = useCallback(() => {
-    updateProfile.mutate(
-      { name, username, location, bio, team_id: teamCode },
-      {
-        onSuccess: () => {
-          setModalVisible(false);
-          Alert.alert('Success', 'Profile updated!');
-        },
-        onError: (err: any) => Alert.alert('Error', err.message),
-      }
-    );
+    // Build update object - only include team_code if user entered something
+    const updates: any = {
+      name,
+      username,
+      location,
+      bio,
+    };
+
+    // Only update team_code if user entered a new code
+    if (teamCode.trim().length > 0) {
+      updates.team_code = teamCode.trim();
+    }
+
+    updateProfile.mutate(updates, {
+      onSuccess: () => {
+        setModalVisible(false);
+        Alert.alert('Success', 'Profile updated!');
+      },
+      onError: (err: any) => Alert.alert('Error', err.message),
+    });
   }, [name, username, location, bio, teamCode, updateProfile]);
 
-  // Memoize computed values
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  // Memoize stats
   const stats = useMemo(
     () => ({
       level: juggles?.level ?? 1,
@@ -194,7 +274,6 @@ const ProfilePage = () => {
     [juggles]
   );
 
-  // Show loading state only on initial load
   if (loadingProfile || loadingJuggles) {
     return (
       <View style={styles.loadingContainer}>
@@ -206,24 +285,27 @@ const ProfilePage = () => {
   return (
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <ProfileHeader profile={profile} />
+        <ProfileHeader
+          profile={profile}
+          team={team}
+          onPickImage={handlePickImage}
+          onOpenModal={handleOpenModal}
+        />
+
         <RankCard level={stats.level} xp={stats.xp} />
+
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
+
         <Heatmap stats={juggles} />
+
         <AccountActions
-          onEditPress={handleOpenModal}
+          onOpenModal={handleOpenModal}
           onSignOut={handleSignOut}
         />
-        <CoachTip />
       </ScrollView>
 
       {/* EDIT PROFILE MODAL */}
-      <Modal
-        animationType='slide'
-        transparent
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal visible={modalVisible} animationType='slide' transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -234,47 +316,58 @@ const ProfilePage = () => {
             </View>
 
             <ScrollView style={styles.modalBody}>
+              {/* NAME */}
               <Text style={styles.label}>Full Name</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder='Your name'
+                placeholder={profile?.name || 'Your name'}
               />
 
+              {/* USERNAME */}
               <Text style={styles.label}>Username</Text>
               <TextInput
                 style={styles.input}
                 value={username}
                 onChangeText={setUsername}
+                placeholder={profile?.username || 'Your username'}
                 autoCapitalize='none'
               />
 
+              {/* LOCATION */}
               <Text style={styles.label}>Location</Text>
               <TextInput
                 style={styles.input}
                 value={location}
                 onChangeText={setLocation}
+                placeholder={profile?.location || 'Your location'}
               />
 
+              {/* TEAM CODE */}
               <Text style={styles.label}>Team Code</Text>
               <TextInput
                 style={styles.input}
                 value={teamCode}
                 onChangeText={setTeamCode}
-                placeholder='Enter team code'
+                placeholder={
+                  team?.name ? 'Enter new team code' : 'Enter team code'
+                }
                 autoCapitalize='none'
               />
+              <Text style={styles.currentTeamLabel}>
+                {team?.name ? `Current Team: ${team.name}` : 'Not on a team'}
+              </Text>
 
+              {/* BIO */}
               <Text style={styles.label}>Bio</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={bio}
                 onChangeText={setBio}
+                placeholder={profile?.bio || 'Tell us about yourself'}
                 multiline
               />
-
-              <Text style={styles.emailLabel}>Email: {user?.email}</Text>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -306,6 +399,9 @@ const ProfilePage = () => {
 
 export default ProfilePage;
 
+/* -----------------------------------------------------------
+   STYLES
+------------------------------------------------------------ */
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -323,14 +419,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
   },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
+  avatarContainer: { position: 'relative' },
+  avatar: { width: 100, height: 100, borderRadius: 50 },
   editIcon: {
     position: 'absolute',
     bottom: 0,
@@ -348,6 +438,13 @@ const styles = StyleSheet.create({
   tagline: {
     color: '#6b7280',
     fontSize: 14,
+    marginTop: 2,
+  },
+  teamName: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2563eb',
   },
   location: {
     color: '#6b7280',
@@ -380,10 +477,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   rankText: {
-    fontSize: 13,
-    color: '#6b7280',
-    textAlign: 'right',
     marginTop: 6,
+    textAlign: 'right',
+    color: '#6b7280',
+    fontSize: 13,
   },
   streakCard: {
     backgroundColor: '#fff',
@@ -399,7 +496,11 @@ const styles = StyleSheet.create({
   streakTextBlock: { marginLeft: 12 },
   streakMain: { fontSize: 17, fontWeight: '700', color: '#111827' },
   streakSub: { fontSize: 13, color: '#6b7280' },
-  streakMessage: { color: '#3b82f6', marginTop: 8, fontWeight: '600' },
+  streakMessage: {
+    color: '#3b82f6',
+    marginTop: 8,
+    fontWeight: '600',
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -426,31 +527,31 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   actionText: {
-    fontSize: 15,
-    color: '#111827',
-    fontWeight: '500',
     marginLeft: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
   },
   tipCard: {
     backgroundColor: '#e0f2fe',
-    borderRadius: 16,
     padding: 16,
+    borderRadius: 16,
     marginVertical: 24,
   },
   tipTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0369a1',
     marginBottom: 4,
+    color: '#0369a1',
   },
   tipText: {
-    fontSize: 14,
-    color: '#075985',
     lineHeight: 20,
+    color: '#075985',
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -473,14 +574,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  modalBody: {
-    padding: 20,
-  },
+  modalBody: { padding: 20 },
   label: {
     fontSize: 15,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    marginBottom: 6,
     marginTop: 12,
   },
   input: {
@@ -496,11 +595,10 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 12,
   },
-  emailLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 20,
-    fontStyle: 'italic',
+  currentTeamLabel: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#374151',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -510,25 +608,25 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     backgroundColor: '#f3f4f6',
-    paddingVertical: 14,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   cancelButtonText: {
-    fontSize: 16,
     fontWeight: '600',
     color: '#374151',
+    fontSize: 16,
   },
   saveButton: {
     flex: 1,
     backgroundColor: '#3b82f6',
-    paddingVertical: 14,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

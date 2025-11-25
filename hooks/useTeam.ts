@@ -14,7 +14,7 @@ export function useTeam(userId?: string) {
         .eq('id', userId)
         .single();
 
-      console.log('🔍 Profile result:', profile, profileErr);
+      console.log('🔍 Profile result:', profile?.team_id, profileErr);
 
       if (profileErr) throw profileErr;
       if (!profile?.team_id) {

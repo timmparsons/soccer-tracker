@@ -25,10 +25,9 @@ export function useTeamLeaderboard(teamId?: string) {
 
       if (error) throw error;
 
-      // Flatten structure
       return data.map((p: any) => ({
         id: p.id,
-        username: p.username,
+        username: p.username || 'Unnamed',
         avatar_url: p.avatar_url,
         high_score: p.juggles?.[0]?.high_score ?? 0,
         streak_days: p.juggles?.[0]?.streak_days ?? 0,

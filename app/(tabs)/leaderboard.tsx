@@ -1,12 +1,12 @@
+import LeaderboardPage from '@/components/Leaderboard';
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Progress = () => {
   return (
     <SafeAreaView style={styles.container}>
-      <Text>Leaderboard</Text>
-      {/* <ProgressPage /> */}
+      <LeaderboardPage />
     </SafeAreaView>
   );
 };
