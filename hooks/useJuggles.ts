@@ -12,7 +12,6 @@ export function useJuggles(userId: string | undefined) {
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
-      console.log('🔍 Juggles result:', data, error);
       if (error) throw error;
       return data;
     },

@@ -5,11 +5,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 const LineChart = ({ stats }) => {
-  console.log('Stats in LineChart:', stats);
   if (!stats) return null;
 
   const history = stats.scores_history ?? [];
-  console.log('Scores history:', history);
 
   // Build last 7 days of data
   const data = [];
@@ -37,8 +35,6 @@ const LineChart = ({ stats }) => {
       hasData: !!entry,
     });
   }
-
-  console.log('Chart data:', data);
 
   // Create line path using d3-shape
   const width = 320;

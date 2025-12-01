@@ -53,6 +53,7 @@ export default function Auth() {
         'Confirm your email before signing in.'
       );
     } catch (err: any) {
+      console.log('Sign Up Error:', err);
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);

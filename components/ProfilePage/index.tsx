@@ -146,7 +146,7 @@ const ProfilePage = () => {
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
-  console.log('QQQ ', team.name);
+  const [role, setRole] = useState(profile?.role || '');
 
   const updateProfile = useUpdateProfile(user?.id);
 
@@ -232,7 +232,7 @@ const ProfilePage = () => {
     setUsername(profile?.username || '');
     setLocation(profile?.location || '');
     setBio(profile?.bio || '');
-    setTeamCode(team.name); // Leave empty - only update if user enters new code
+    setTeamCode('');
     setModalVisible(true);
   }, [profile]);
 
@@ -244,10 +244,11 @@ const ProfilePage = () => {
       username,
       location,
       bio,
+      role,
     };
 
     // Only update team_code if user entered a new code
-    if (teamCode.trim().length > 0) {
+    if (teamCode.trim().length > 0 && teamCode.trim() !== team?.code) {
       updates.team_code = teamCode.trim();
     }
 
@@ -258,7 +259,16 @@ const ProfilePage = () => {
       },
       onError: (err: any) => Alert.alert('Error', err.message),
     });
-  }, [name, username, location, bio, teamCode, updateProfile]);
+  }, [
+    name,
+    username,
+    location,
+    bio,
+    teamCode,
+    updateProfile,
+    team?.code,
+    role,
+  ]);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -344,6 +354,42 @@ const ProfilePage = () => {
                 onChangeText={setLocation}
                 placeholder={profile?.location || 'Your location'}
               />
+              <Text style={styles.label}>Are you a...</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.roleButton,
+                    role === 'player' && styles.roleButtonActive,
+                  ]}
+                  onPress={() => setRole('player')}
+                >
+                  <Text
+                    style={[
+                      styles.roleButtonText,
+                      role === 'player' && styles.roleButtonTextActive,
+                    ]}
+                  >
+                    Player
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.roleButton,
+                    role === 'coach' && styles.roleButtonActive,
+                  ]}
+                  onPress={() => setRole('coach')}
+                >
+                  <Text
+                    style={[
+                      styles.roleButtonText,
+                      role === 'coach' && styles.roleButtonTextActive,
+                    ]}
+                  >
+                    Coach
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {/* TEAM CODE */}
               <Text style={styles.label}>Team Code</Text>
@@ -351,11 +397,10 @@ const ProfilePage = () => {
                 style={styles.input}
                 value={teamCode}
                 onChangeText={setTeamCode}
-                placeholder={
-                  team?.name ? 'Enter new team code' : 'Enter team code'
-                }
+                placeholder='Enter a new team code'
                 autoCapitalize='none'
               />
+
               <Text style={styles.currentTeamLabel}>
                 {team?.name ? `Current Team: ${team.name}` : 'Not on a team'}
               </Text>
@@ -629,5 +674,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  roleButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  roleButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  roleButtonTextActive: {
+    color: '#fff',
   },
 });

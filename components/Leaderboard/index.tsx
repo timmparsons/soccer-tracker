@@ -19,6 +19,8 @@ const LeaderboardPage = () => {
   const { data: leaderboard, isLoading: loadingLeaderboard } =
     useTeamLeaderboard(team?.id);
 
+  console.log('Leaderboard Data:', team);
+
   if (loadingTeam || loadingLeaderboard) {
     return (
       <View style={styles.loadingContainer}>

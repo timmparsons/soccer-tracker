@@ -1,15 +1,19 @@
 {
   "expo": {
-    "name": "soccer-tracker",
+    "name": "master-touch",
     "slug": "soccer-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "soccertracker",
+    "scheme": "master-touch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.timmparsons.mastertouch",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -43,6 +47,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "497f69ac-2d85-4075-9a55-f52e3dcb237d"
+      }
+    },
+    "owner": "timmparsons"
   }
 }

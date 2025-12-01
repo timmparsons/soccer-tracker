@@ -21,14 +21,9 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  console.log('=== RootLayout Render ===');
-  console.log('Session:', session?.user?.email || 'none');
-
   useEffect(() => {
     const init = async () => {
-      console.log('Initializing auth...');
       const { data } = await supabase.auth.getSession();
-      console.log('Initial session:', data.session?.user?.email || 'none');
       setSession(data.session);
       setLoading(false);
     };

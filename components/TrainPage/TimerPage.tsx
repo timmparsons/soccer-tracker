@@ -30,6 +30,7 @@ const TimerPage = () => {
 
   // Custom time
   const [customMinutes, setCustomMinutes] = useState('');
+  const minutes = totalTime / 60;
 
   // Results
   const [bestRecord, setBestRecord] = useState('');
@@ -98,7 +99,10 @@ const TimerPage = () => {
     );
 
     updateJuggles.mutate({
-      high_score: best,
+      high_score:
+        best !== undefined && best > (juggleStats?.high_score ?? 0)
+          ? best
+          : undefined,
       last_score: best,
       attempts_count: attemptCount,
       last_session_duration: totalTime,
@@ -120,7 +124,9 @@ const TimerPage = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Timed Drill ⏱️</Text>
         <Text style={styles.subtitle}>
-          Juggle as long as you can in {totalTime / 60} minutes
+          {`Juggle as long as you can in ${minutes} minute${
+            minutes === 1 ? '' : 's'
+          }`}
         </Text>
       </View>
 

@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,13 +11,15 @@ import {
 
 import { useJuggles } from '@/hooks/useJuggles';
 import { useUser } from '@/hooks/useUser';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LineChart from '../LineChart';
 
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: stats, isLoading } = useJuggles(user?.id);
-  const { data: juggles, isLoading: jugglesLoading } = useJuggles(user?.id);
-  console.log('Progress Juggles Data:', juggles.scores_history);
+
+  const [showStreakModal, setShowStreakModal] = useState(false);
+
   if (isLoading || !stats) {
     return (
       <View style={styles.loadingContainer}>
@@ -25,47 +28,67 @@ const ProgressPage = () => {
     );
   }
 
-  // --- DERIVED STATS ---
-  const lastDuration = stats.last_session_duration ?? 0;
+  // --- DERIVED STATS --------------------------------------------------------
 
-  // Total estimated time = session_count * last_duration (until full history exists)
+  const lastDuration = stats.last_session_duration ?? 0; // seconds
+
   const totalSeconds = stats.sessions_count * lastDuration;
   const totalMinutes = Math.floor(totalSeconds / 60);
   const totalHours = Math.floor(totalMinutes / 60);
   const minutesRemainder = totalMinutes % 60;
 
-  // Improvement = (last_score - average_score) / average_score
   const improvement =
-    stats.average_score && stats.average_score > 0
-      ? Math.round(
-          ((stats.last_score - stats.average_score) / stats.average_score) * 100
-        )
-      : 0;
+    stats.average_score > 0 ? stats.last_score - stats.average_score : 0;
 
-  // Dynamic milestones
-  const milestones = [
-    stats.high_score && {
+  // --- REAL DATA MILESTONES -------------------------------------------------
+
+  const milestones = [];
+
+  // 1. New personal best
+  if (stats.sessions_count >= 1 && stats.high_score) {
+    milestones.push({
       icon: 'trophy',
       color: '#f59e0b',
       title: 'New Personal Best!',
       sub: `${stats.high_score} Juggles`,
-      date: 'Today',
-    },
-    stats.best_daily_streak > 5 && {
-      icon: 'run-fast',
-      color: '#22c55e',
-      title: `${stats.best_daily_streak}-Day Streak`,
-      sub: "You're on fire 🔥",
-      date: 'This week',
-    },
-    stats.sessions_count > 10 && {
+      date: new Date(stats.last_session_date).toLocaleDateString(),
+    });
+  }
+
+  // 2. First session milestone
+  if (stats.sessions_count === 1) {
+    milestones.push({
       icon: 'star-circle',
       color: '#3b82f6',
-      title: 'Training Milestone',
-      sub: `${stats.sessions_count} Sessions`,
-      date: 'This month',
-    },
-  ].filter(Boolean);
+      title: 'First Training Session',
+      sub: 'Great start to your journey!',
+      date: new Date(stats.last_session_date).toLocaleDateString(),
+    });
+  }
+
+  // 3. Streak milestone
+  if (stats.streak_days >= 2) {
+    milestones.push({
+      icon: 'run-fast',
+      color: '#22c55e',
+      title: `${stats.streak_days}-Day Streak`,
+      sub: 'Consistency is key!',
+      date: new Date(stats.last_session_date).toLocaleDateString(),
+    });
+  }
+
+  // 4. Total sessions
+  if (stats.sessions_count >= 5) {
+    milestones.push({
+      icon: 'run-fast',
+      color: '#8b5cf6',
+      title: `${stats.sessions_count} Training Sessions`,
+      sub: 'Nice training volume!',
+      date: new Date(stats.last_session_date).toLocaleDateString(),
+    });
+  }
+
+  // --- RENDER --------------------------------------------------------------
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -77,46 +100,21 @@ const ProgressPage = () => {
         </Text>
       </View>
 
-      {/* Weekly Overview */}
-      {/* <View style={styles.weeklyCard}>
-        <View style={styles.weekRow}>
-          <View style={styles.weekItem}>
-            <Text style={styles.weekValue}>{stats.sessions_count}</Text>
-            <Text style={styles.weekLabel}>Sessions</Text>
-          </View>
-          <View style={styles.weekItem}>
-            <Text style={styles.weekValue}>
-              {totalHours}h {minutesRemainder}m
-            </Text>
-            <Text style={styles.weekLabel}>Total Time</Text>
-          </View>
-          <View style={styles.weekItem}>
-            <Text style={styles.weekValue}>
-              {improvement >= 0 ? `+${improvement}%` : `${improvement}%`}
-            </Text>
-            <Text style={styles.weekLabel}>Improvement</Text>
-          </View>
-        </View>
-      </View> */}
-
       {/* Performance Summary */}
       <Text style={styles.sectionTitle}>Performance Summary</Text>
       <View style={styles.statsGrid}>
-        {/* Best Juggles */}
         <View style={[styles.statCard, { backgroundColor: '#3b82f6' }]}>
           <Ionicons name='football-outline' size={28} color='#fff' />
           <Text style={styles.statValue}>{stats.high_score}</Text>
           <Text style={styles.statLabel}>Best Juggles</Text>
         </View>
 
-        {/* Avg Session */}
         <View style={[styles.statCard, { backgroundColor: '#22c55e' }]}>
           <Ionicons name='time-outline' size={28} color='#fff' />
           <Text style={styles.statValue}>{Math.floor(lastDuration / 60)}m</Text>
           <Text style={styles.statLabel}>Avg Session</Text>
         </View>
 
-        {/* Streak */}
         <View style={[styles.statCard, { backgroundColor: '#f59e0b' }]}>
           <Ionicons name='flame-outline' size={28} color='#fff' />
           <Text style={styles.statValue}>{stats.streak_days}</Text>
@@ -141,7 +139,11 @@ const ProgressPage = () => {
               Keep it going to hit {stats.streak_days + 1} days!
             </Text>
           </View>
-          <TouchableOpacity style={styles.streakButton}>
+
+          <TouchableOpacity
+            style={styles.streakButton}
+            onPress={() => setShowStreakModal(true)}
+          >
             <Text style={styles.streakButtonText}>View</Text>
           </TouchableOpacity>
         </View>
@@ -168,7 +170,8 @@ const ProgressPage = () => {
         ))}
       </View>
 
-      {juggles.scores_history.length > 0 && <LineChart stats={juggles} />}
+      {/* Progress Chart */}
+      {stats.scores_history.length > 0 && <LineChart stats={stats} />}
 
       {/* Tip Card */}
       <View style={styles.tipCard}>
@@ -178,55 +181,57 @@ const ProgressPage = () => {
           Consistency builds champions.
         </Text>
       </View>
+
+      {/* --- STREAK MODAL ------------------------------------------------ */}
+      <Modal visible={showStreakModal} animationType='slide'>
+        <SafeAreaView style={{ padding: 30, flex: 1 }}>
+          <Text style={{ fontSize: 26, fontWeight: '700', marginBottom: 16 }}>
+            Streak Details 🔥
+          </Text>
+
+          <Text style={styles.modalText}>
+            Current Streak: {stats.streak_days} days
+          </Text>
+
+          <Text style={styles.modalText}>
+            Best Streak: {stats.best_daily_streak} days
+          </Text>
+
+          <Text style={styles.modalText}>
+            Last Session:{' '}
+            {new Date(stats.last_session_date).toLocaleDateString()}
+          </Text>
+
+          <TouchableOpacity
+            style={{ marginTop: 24 }}
+            onPress={() => setShowStreakModal(false)}
+          >
+            <Text style={{ color: '#3b82f6', fontSize: 18 }}>Close</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </Modal>
     </ScrollView>
   );
 };
 
 export default ProgressPage;
 
-// --- STYLES ---
+//
+// STYLES
+//
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
     paddingHorizontal: 16,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#6b7280', fontSize: 16 },
-  header: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6b7280',
-  },
-  weeklyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  weekItem: { alignItems: 'center' },
-  weekValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  weekLabel: { fontSize: 13, color: '#6b7280' },
+
+  header: { marginTop: 20, marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: '700', color: '#111827' },
+  subtitle: { fontSize: 15, color: '#6b7280' },
+
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -234,6 +239,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 8,
   },
+
+  // Performance cards
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -248,6 +255,8 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 6 },
   statLabel: { color: '#e5e7eb', fontSize: 13 },
+
+  // Streak
   streakCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -267,6 +276,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   streakButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+
+  // Milestones
   milestoneCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -292,21 +303,19 @@ const styles = StyleSheet.create({
   milestoneTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
   milestoneSub: { fontSize: 13, color: '#6b7280' },
   milestoneDate: { fontSize: 12, color: '#9ca3af' },
+
+  // Tip card
   tipCard: {
     backgroundColor: '#e0f2fe',
     borderRadius: 16,
     padding: 16,
     marginVertical: 24,
   },
-  tipTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0369a1',
-    marginBottom: 4,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#075985',
-    lineHeight: 20,
+  tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
+  tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
+
+  modalText: {
+    fontSize: 18,
+    marginBottom: 12,
   },
 });
