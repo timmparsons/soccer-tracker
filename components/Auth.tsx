@@ -26,17 +26,19 @@ export default function Auth() {
 
   const [loading, setLoading] = useState(false);
 
-  const updateProfile = useUpdateProfile(); // ✅ HOOK AT TOP LEVEL
+  const updateProfile = useUpdateProfile();
 
   const toggleMode = () =>
     setMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
 
-  // ============================
+  // ---------------------------------------------------------------------
   // SIGN IN
-  // ============================
+  // ---------------------------------------------------------------------
   const signIn = async () => {
     try {
       setLoading(true);
+
+      console.log('[Auth] signIn →', { email });
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -45,14 +47,24 @@ export default function Auth() {
 
       if (error) throw error;
 
-      const userId = data.user?.id;
+      console.log('[Auth] signIn response:', data);
 
-      // If signing in right after signing up → finish profile setup
+      // First-time login immediately after signup? Complete profile now.
+      const userId = data.user?.id;
       if (mode === 'signup' && userId) {
         const displayName =
           lastName.trim().length > 0
             ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
             : firstName.trim();
+
+        console.log('[Auth] updateProfile after signup →', {
+          user_id: userId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          display_name: displayName,
+          role,
+          team_code: teamCode.trim(),
+        });
 
         await updateProfile.mutateAsync({
           user_id: userId,
@@ -60,27 +72,38 @@ export default function Auth() {
           last_name: lastName.trim(),
           display_name: displayName,
           role,
-          team_code: teamCode.trim() || null,
+          team_code: teamCode.trim(),
         });
       }
     } catch (err: any) {
+      console.log('[Auth] signIn error:', err);
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================
+  // ---------------------------------------------------------------------
   // SIGN UP
-  // ============================
+  // ---------------------------------------------------------------------
   const signUp = async () => {
     try {
       setLoading(true);
 
-      const { error } = await supabase.auth.signUp({
+      console.log('[Auth] signUp start', {
+        email,
+        firstName,
+        lastName,
+        role,
+        teamCode,
+      });
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
+
+      console.log('[Auth] signUp response', data);
 
       if (error) throw error;
 
@@ -89,31 +112,31 @@ export default function Auth() {
         'Please confirm your email before signing in.'
       );
     } catch (err: any) {
+      console.log('[Auth] signUp caught error', err);
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================
+  // ---------------------------------------------------------------------
   // RESET PASSWORD
-  // ============================
+  // ---------------------------------------------------------------------
   const resetPassword = async () => {
     if (!email) return Alert.alert('Enter your email first');
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
-
-      Alert.alert('Check your email 📩', 'Password reset link sent.');
+      Alert.alert('Check email 📩', 'Password reset link sent.');
     } catch (err: any) {
       Alert.alert('Error', err.message);
     }
   };
 
-  // ============================
+  // ---------------------------------------------------------------------
   // UI
-  // ============================
+  // ---------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -134,20 +157,16 @@ export default function Auth() {
       </View>
 
       <View style={styles.card}>
-        {/* Email */}
         <TextInput
           placeholder='Email'
-          placeholderTextColor='#9ca3af'
           autoCapitalize='none'
           value={email}
           onChangeText={setEmail}
           style={styles.input}
         />
 
-        {/* Password */}
         <TextInput
           placeholder='Password'
-          placeholderTextColor='#9ca3af'
           secureTextEntry
           autoCapitalize='none'
           value={password}
@@ -155,30 +174,24 @@ export default function Auth() {
           style={styles.input}
         />
 
-        {/* SIGNUP FIELDS */}
         {mode === 'signup' && (
           <>
-            {/* First Name */}
             <TextInput
               placeholder='First Name'
-              placeholderTextColor='#9ca3af'
               autoCapitalize='words'
               value={firstName}
               onChangeText={setFirstName}
               style={styles.input}
             />
 
-            {/* Last Name */}
             <TextInput
               placeholder='Last Name (optional)'
-              placeholderTextColor='#9ca3af'
               autoCapitalize='words'
               value={lastName}
               onChangeText={setLastName}
               style={styles.input}
             />
 
-            {/* Role */}
             <View style={styles.roleRow}>
               <TouchableOpacity
                 style={[
@@ -215,10 +228,8 @@ export default function Auth() {
               </TouchableOpacity>
             </View>
 
-            {/* Team Code */}
             <TextInput
               placeholder='Team Code (optional)'
-              placeholderTextColor='#9ca3af'
               autoCapitalize='none'
               value={teamCode}
               onChangeText={setTeamCode}
@@ -227,13 +238,11 @@ export default function Auth() {
           </>
         )}
 
-        {/* Sign In / Sign Up Button */}
         <TouchableOpacity
           style={[
             styles.button,
             mode === 'signin' ? styles.signInButton : styles.signUpButton,
           ]}
-          disabled={loading}
           onPress={mode === 'signin' ? signIn : signUp}
         >
           {loading ? (
@@ -245,7 +254,6 @@ export default function Auth() {
           )}
         </TouchableOpacity>
 
-        {/* Forgot password */}
         {mode === 'signin' && (
           <TouchableOpacity
             onPress={resetPassword}
@@ -255,7 +263,6 @@ export default function Auth() {
           </TouchableOpacity>
         )}
 
-        {/* Toggle */}
         <TouchableOpacity onPress={toggleMode} style={{ marginTop: 18 }}>
           <Text style={styles.switchText}>
             {mode === 'signin'
@@ -266,15 +273,6 @@ export default function Auth() {
             </Text>
           </Text>
         </TouchableOpacity>
-      </View>
-
-      {/* FOOTER */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          By signing up, you agree to our{' '}
-          <Text style={styles.footerLink}>Terms</Text> &{' '}
-          <Text style={styles.footerLink}>Privacy Policy</Text>.
-        </Text>
       </View>
     </SafeAreaView>
   );
@@ -368,13 +366,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  signInButton: {
-    backgroundColor: '#3b82f6',
-  },
-
-  signUpButton: {
-    backgroundColor: '#10b981',
-  },
+  signInButton: { backgroundColor: '#3b82f6' },
+  signUpButton: { backgroundColor: '#10b981' },
 
   buttonText: {
     color: '#fff',

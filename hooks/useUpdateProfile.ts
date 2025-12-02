@@ -1,18 +1,18 @@
-// hooks/useUpdateProfile.ts
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export function useUpdateProfile() {
+export function useUpdateProfile(userId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (updates: any) => {
-      const { user_id } = updates;
-      if (!user_id) throw new Error('Missing user_id in update call');
+      if (!userId) {
+        throw new Error('No userId provided to useUpdateProfile');
+      }
 
-      let team_id: string | undefined;
+      let team_id;
 
-      // TEAM CODE → look up team
+      // -------- TEAM CODE LOOKUP --------
       if (updates.team_code) {
         const { data: team, error: teamErr } = await supabase
           .from('teams')
@@ -20,42 +20,43 @@ export function useUpdateProfile() {
           .eq('code', updates.team_code)
           .maybeSingle();
 
-        if (teamErr || !team) throw new Error('Invalid team code');
+        if (teamErr || !team) {
+          throw new Error('Invalid team code');
+        }
+
         team_id = team.id;
       }
 
-      // Build update object mapped to database fields
+      // -------- BUILD CLEAN UPDATE OBJECT --------
       const updateData: any = {
-        ...(updates.first_name !== undefined && {
-          first_name: updates.first_name,
-        }),
-        ...(updates.last_name !== undefined && {
-          last_name: updates.last_name,
-        }),
-        ...(updates.display_name !== undefined && {
-          display_name: updates.display_name,
-        }),
-        ...(updates.role !== undefined && { role: updates.role }),
-        ...(updates.avatar_url && { avatar_url: updates.avatar_url }),
+        ...(updates.first_name && { first_name: updates.first_name }),
+        ...(updates.last_name && { last_name: updates.last_name }),
+        ...(updates.display_name && { display_name: updates.display_name }),
+        ...(updates.location !== undefined && { location: updates.location }),
+        ...(updates.bio !== undefined && { bio: updates.bio }),
+        ...(updates.role && { role: updates.role }),
         ...(team_id && { team_id }),
       };
+
+      console.log('[useUpdateProfile] Running update:', updateData);
 
       const { error } = await supabase
         .from('profiles')
         .update(updateData)
-        .eq('id', user_id);
+        .eq('id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useUpdateProfile] SQL error:', error);
+        throw error;
+      }
 
       return updateData;
     },
 
     onSuccess: () => {
-      // invalidate everything that depends on profile/status/team
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['teamLeaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['juggles'] });
     },
   });
 }

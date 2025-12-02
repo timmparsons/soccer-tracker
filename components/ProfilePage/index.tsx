@@ -29,10 +29,27 @@ import * as ImagePicker from 'expo-image-picker';
    PROFILE HEADER
 --------------------------------------------------------------------------- */
 const ProfileHeader = memo(
-  ({ profile, team, onPickImage, onOpenModal }: any) => {
+  ({
+    profile,
+    team,
+    onPickImage,
+    onOpenModal,
+  }: {
+    profile: any;
+    team: any;
+    onPickImage: () => void;
+    onOpenModal: () => void;
+  }) => {
     const avatarUri =
       profile?.avatar_url ||
       'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
+
+    const displayName =
+      profile?.display_name ||
+      profile?.first_name ||
+      profile?.name ||
+      profile?.username ||
+      'Player';
 
     return (
       <View style={styles.header}>
@@ -46,12 +63,7 @@ const ProfileHeader = memo(
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.name}>
-          {profile?.display_name ||
-            profile?.first_name ||
-            profile?.name ||
-            'Player'}
-        </Text>
+        <Text style={styles.name}>{displayName}</Text>
 
         {team?.name && <Text style={styles.teamName}>Team: {team.name}</Text>}
 
@@ -91,6 +103,7 @@ const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
     </View>
   );
 });
+
 RankCard.displayName = 'RankCard';
 
 /* --------------------------------------------------------------------------
@@ -113,35 +126,44 @@ const StreakCard = memo(
     </View>
   )
 );
+
 StreakCard.displayName = 'StreakCard';
 
 /* --------------------------------------------------------------------------
    ACCOUNT ACTIONS
 --------------------------------------------------------------------------- */
-const AccountActions = memo(({ onOpenModal, onSignOut }: any) => (
-  <>
-    <Text style={styles.sectionTitle}>Account</Text>
+const AccountActions = memo(
+  ({
+    onOpenModal,
+    onSignOut,
+  }: {
+    onOpenModal: () => void;
+    onSignOut: () => void;
+  }) => (
+    <>
+      <Text style={styles.sectionTitle}>Account</Text>
 
-    <View style={styles.actionList}>
-      <TouchableOpacity style={styles.actionRow} onPress={onOpenModal}>
-        <Ionicons name='person-outline' size={22} color='#3b82f6' />
-        <Text style={styles.actionText}>Edit Profile</Text>
-      </TouchableOpacity>
+      <View style={styles.actionList}>
+        <TouchableOpacity style={styles.actionRow} onPress={onOpenModal}>
+          <Ionicons name='person-outline' size={22} color='#3b82f6' />
+          <Text style={styles.actionText}>Edit Profile</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
-        <Ionicons name='log-out-outline' size={22} color='#ef4444' />
-        <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
+          <Ionicons name='log-out-outline' size={22} color='#ef4444' />
+          <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
 
-    <View style={styles.tipCard}>
-      <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
-      <Text style={styles.tipText}>
-        "Show up every day — consistency beats intensity."
-      </Text>
-    </View>
-  </>
-));
+      <View style={styles.tipCard}>
+        <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
+        <Text style={styles.tipText}>
+          "Show up every day — consistency beats intensity."
+        </Text>
+      </View>
+    </>
+  )
+);
 
 AccountActions.displayName = 'AccountActions';
 
@@ -154,19 +176,18 @@ const ProfilePage = () => {
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
 
-  const [role, setRole] = useState(profile?.role || '');
   const updateProfile = useUpdateProfile(user?.id);
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Editable fields
-  const [name, setName] = useState('');
+  // form fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
-
+  const [role, setRole] = useState<'player' | 'coach'>('player');
+  console.log('QQQ ', location);
   /* ------------------------------------------------------------
      PICK IMAGE
   ------------------------------------------------------------- */
@@ -205,6 +226,7 @@ const ProfilePage = () => {
         });
 
       if (uploadErr) {
+        console.log('[ProfilePage] upload error', uploadErr);
         Alert.alert('Upload error', uploadErr.message);
         return;
       }
@@ -213,22 +235,40 @@ const ProfilePage = () => {
         .from('avatars')
         .getPublicUrl(filePath);
 
-      const url = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+      const url = publicUrlData.publicUrl;
 
-      updateProfile.mutate({ avatar_url: url });
+      updateProfile.mutate(
+        { user_id: user?.id, avatar_url: url },
+        {
+          onError: (err: any) => {
+            console.log('[ProfilePage] avatar update error', err);
+            Alert.alert('Error', err.message);
+          },
+        }
+      );
     } catch (err: any) {
+      console.log('[ProfilePage] handlePickImage error', err);
       Alert.alert('Error', err.message);
     }
   }, [updateProfile, user?.id]);
 
   /* ------------------------------------------------------------
-     OPEN EDIT MODAL
+     OPEN EDIT MODAL (prefill from profile)
   ------------------------------------------------------------- */
   const handleOpenModal = useCallback(() => {
-    setFirstName(profile?.first_name || '');
-    setLastName(profile?.last_name || '');
-    setLocation(profile?.location || '');
-    setBio(profile?.bio || '');
+    if (profile) {
+      setFirstName(profile.first_name || '');
+      setLastName(profile.last_name || '');
+      setLocation(profile.location || '');
+      setBio(profile.bio || '');
+      setRole((profile.role as 'player' | 'coach') || 'player');
+    } else {
+      setFirstName('');
+      setLastName('');
+      setLocation('');
+      setBio('');
+      setRole('player');
+    }
     setTeamCode('');
     setModalVisible(true);
   }, [profile]);
@@ -237,29 +277,51 @@ const ProfilePage = () => {
      SAVE PROFILE
   ------------------------------------------------------------- */
   const handleSaveProfile = () => {
-    // regenerate display_name properly
+    if (!user?.id) {
+      console.log('[ProfilePage] ERROR: no user.id found');
+      return Alert.alert(
+        'Error',
+        'You must be signed in to update your profile'
+      );
+    }
+
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
+    const trimmedLocation = location.trim();
+    const trimmedBio = bio.trim();
+    const trimmedTeamCode = teamCode.trim();
+
     const displayName =
-      lastName.trim().length > 0
-        ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
-        : firstName.trim();
+      trimmedFirst.length === 0
+        ? profile?.display_name || profile?.first_name || ''
+        : trimmedLast.length > 0
+        ? `${trimmedFirst} ${trimmedLast[0].toUpperCase()}.`
+        : trimmedFirst;
 
     const updates: any = {
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      display_name: displayName,
+      first_name: trimmedFirst || null,
+      last_name: trimmedLast || null,
+      display_name: displayName || null,
+      location: trimmedLocation || null,
+      bio: trimmedBio || null,
       role,
+      team_code: trimmedTeamCode || null,
     };
 
-    // Team code (only send if new input exists)
-    if (teamCode.trim().length > 0) {
-      updates.team_code = teamCode.trim();
+    if (trimmedTeamCode.length > 0) {
+      updates.team_code = trimmedTeamCode;
     }
+    console.log('UPDATING PROFILE WITH:', updates);
+    console.log('[ProfilePage] handleSaveProfile →', updates);
 
     updateProfile.mutate(updates, {
       onSuccess: () => {
         setModalVisible(false);
       },
-      onError: (err: any) => Alert.alert('Error', err.message),
+      onError: (err: any) => {
+        console.log('[ProfilePage] update error', err);
+        Alert.alert('Error', err.message);
+      },
     });
   };
 
@@ -291,6 +353,7 @@ const ProfilePage = () => {
   /* ============================================================
      PAGE UI
   ============================================================ */
+  console.log('XXX RENDER ProfilePage with profile:', profile);
   return (
     <>
       <ScrollView style={styles.container}>
@@ -311,9 +374,7 @@ const ProfilePage = () => {
         />
       </ScrollView>
 
-      {/* ============================================================
-         EDIT PROFILE MODAL (FIXED FOR KEYBOARD)
-      ============================================================ */}
+      {/* EDIT PROFILE MODAL */}
       <Modal visible={modalVisible} animationType='slide' transparent>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
@@ -330,25 +391,71 @@ const ProfilePage = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* SCROLLABLE INPUT AREA */}
+              {/* BODY */}
               <ScrollView
                 style={styles.modalBody}
-                contentContainerStyle={{ paddingBottom: 40 }}
+                contentContainerStyle={{ paddingBottom: 30 }}
                 keyboardShouldPersistTaps='handled'
-                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.label}>Full Name</Text>
+                <Text style={styles.label}>First Name</Text>
                 <TextInput
                   style={styles.input}
-                  value={name}
-                  onChangeText={setName}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder='Enter your first name'
                 />
+
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder='Enter your last name (optional)'
+                />
+
+                <Text style={styles.label}>Are you a...</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.roleButton,
+                      role === 'player' && styles.roleButtonActive,
+                    ]}
+                    onPress={() => setRole('player')}
+                  >
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        role === 'player' && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      Player
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.roleButton,
+                      role === 'coach' && styles.roleButtonActive,
+                    ]}
+                    onPress={() => setRole('coach')}
+                  >
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        role === 'coach' && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      Coach
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
                 <Text style={styles.label}>Location</Text>
                 <TextInput
                   style={styles.input}
                   value={location}
                   onChangeText={setLocation}
+                  placeholder='City, State or Country'
                 />
 
                 <Text style={styles.label}>Bio</Text>
@@ -356,6 +463,7 @@ const ProfilePage = () => {
                   style={[styles.input, styles.textArea]}
                   value={bio}
                   onChangeText={setBio}
+                  placeholder='Tell us about yourself...'
                   multiline
                 />
 
@@ -364,8 +472,8 @@ const ProfilePage = () => {
                   style={styles.input}
                   value={teamCode}
                   onChangeText={setTeamCode}
+                  placeholder='Enter team code to join'
                   autoCapitalize='none'
-                  placeholder='Enter new team code'
                 />
 
                 <Text style={styles.currentTeamLabel}>
@@ -385,8 +493,13 @@ const ProfilePage = () => {
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={handleSaveProfile}
+                  disabled={updateProfile.isPending}
                 >
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  {updateProfile.isPending ? (
+                    <ActivityIndicator color='#fff' />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -415,7 +528,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  /* Header */
   header: {
     alignItems: 'center',
     marginTop: 24,
@@ -449,7 +561,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  /* Rank */
   rankCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -481,7 +592,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  /* Streak */
   streakCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -502,7 +612,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* Account */
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -534,7 +643,6 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
 
-  /* Tip */
   tipCard: {
     backgroundColor: '#e0f2fe',
     padding: 16,
@@ -553,7 +661,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  /* MODAL */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -584,7 +691,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
-  /* Inputs */
   label: {
     fontSize: 15,
     fontWeight: '600',
@@ -640,5 +746,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+
+  roleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  roleButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  roleButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  roleButtonTextActive: {
+    color: '#fff',
   },
 });

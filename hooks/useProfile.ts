@@ -26,11 +26,13 @@ export function useProfile(userId: string | undefined) {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, first_name, last_name, display_name, avatar_url, role, team_id, team_code'
+          'id, first_name, last_name, display_name, avatar_url, role, team_id, team_code, location'
         )
         .eq('id', userId)
         .maybeSingle();
       if (error) throw error;
+
+      console.log('Fetched profile data:', data);
       return data as Profile | null;
     },
     enabled: !!userId,
