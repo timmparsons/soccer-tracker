@@ -35,7 +35,7 @@ const ProfileHeader = memo(
           profile.avatar_url.includes('?') ? '&' : '?'
         }t=${Date.now()}`
       : 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
-
+    console.log('QQQ Profile Header Render:', profile);
     return (
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -48,7 +48,12 @@ const ProfileHeader = memo(
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.name}>{profile?.display_name || 'User'}</Text>
+        <Text style={styles.name}>
+          {profile?.display_name ||
+            profile?.first_name ||
+            profile?.name ||
+            'Player'}
+        </Text>
 
         {team?.name && <Text style={styles.teamName}>Team: {team.name}</Text>}
 
