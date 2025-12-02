@@ -30,12 +30,10 @@ import * as ImagePicker from 'expo-image-picker';
 --------------------------------------------------------------------------- */
 const ProfileHeader = memo(
   ({ profile, team, onPickImage, onOpenModal }: any) => {
-    const avatarUri = profile?.avatar_url
-      ? `${profile.avatar_url}${
-          profile.avatar_url.includes('?') ? '&' : '?'
-        }t=${Date.now()}`
-      : 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
-    console.log('QQQ Profile Header Render:', profile);
+    const avatarUri =
+      profile?.avatar_url ||
+      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
+
     return (
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
