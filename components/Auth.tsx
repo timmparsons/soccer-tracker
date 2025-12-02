@@ -1,9 +1,10 @@
+import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { supabase } from '@/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -14,24 +15,54 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Auth() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState<'player' | 'coach'>('player');
+  const [teamCode, setTeamCode] = useState('');
+
   const [loading, setLoading] = useState(false);
 
-  const toggleMode = () => {
-    setMode(mode === 'signin' ? 'signup' : 'signin');
-  };
+  const updateProfile = useUpdateProfile(); // ✅ HOOK AT TOP LEVEL
 
+  const toggleMode = () =>
+    setMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
+
+  // ============================
+  // SIGN IN
+  // ============================
   const signIn = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
       if (error) throw error;
 
-      Alert.alert('Success', 'Signed in!');
+      const userId = data.user?.id;
+
+      // If signing in right after signing up → finish profile setup
+      if (mode === 'signup' && userId) {
+        const displayName =
+          lastName.trim().length > 0
+            ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
+            : firstName.trim();
+
+        await updateProfile.mutateAsync({
+          user_id: userId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          display_name: displayName,
+          role,
+          team_code: teamCode.trim() || null,
+        });
+      }
     } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {
@@ -39,32 +70,57 @@ export default function Auth() {
     }
   };
 
+  // ============================
+  // SIGN UP
+  // ============================
   const signUp = async () => {
     try {
       setLoading(true);
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
       });
+
       if (error) throw error;
 
       Alert.alert(
         'Check your inbox 📩',
-        'Confirm your email before signing in.'
+        'Please confirm your email before signing in.'
       );
     } catch (err: any) {
-      console.log('Sign Up Error:', err);
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // ============================
+  // RESET PASSWORD
+  // ============================
+  const resetPassword = async () => {
+    if (!email) return Alert.alert('Enter your email first');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+
+      Alert.alert('Check your email 📩', 'Password reset link sent.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
+  // ============================
+  // UI
+  // ============================
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
-        <Ionicons name='football-outline' size={48} color='#3b82f6' />
+        <Image
+          source={require('../assets/images/app-logo-transparent.png')}
+          style={{ width: 80, height: 80 }}
+        />
 
         <Text style={styles.title}>
           {mode === 'signin' ? 'Welcome Back' : 'Create an Account'}
@@ -77,8 +133,8 @@ export default function Auth() {
         </Text>
       </View>
 
-      {/* AUTH CARD */}
       <View style={styles.card}>
+        {/* Email */}
         <TextInput
           placeholder='Email'
           placeholderTextColor='#9ca3af'
@@ -88,6 +144,7 @@ export default function Auth() {
           style={styles.input}
         />
 
+        {/* Password */}
         <TextInput
           placeholder='Password'
           placeholderTextColor='#9ca3af'
@@ -98,39 +155,112 @@ export default function Auth() {
           style={styles.input}
         />
 
-        {mode === 'signin' ? (
+        {/* SIGNUP FIELDS */}
+        {mode === 'signup' && (
+          <>
+            {/* First Name */}
+            <TextInput
+              placeholder='First Name'
+              placeholderTextColor='#9ca3af'
+              autoCapitalize='words'
+              value={firstName}
+              onChangeText={setFirstName}
+              style={styles.input}
+            />
+
+            {/* Last Name */}
+            <TextInput
+              placeholder='Last Name (optional)'
+              placeholderTextColor='#9ca3af'
+              autoCapitalize='words'
+              value={lastName}
+              onChangeText={setLastName}
+              style={styles.input}
+            />
+
+            {/* Role */}
+            <View style={styles.roleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.roleButton,
+                  role === 'player' && styles.roleSelected,
+                ]}
+                onPress={() => setRole('player')}
+              >
+                <Text
+                  style={[
+                    styles.roleText,
+                    role === 'player' && styles.roleTextSelected,
+                  ]}
+                >
+                  Player
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.roleButton,
+                  role === 'coach' && styles.roleSelected,
+                ]}
+                onPress={() => setRole('coach')}
+              >
+                <Text
+                  style={[
+                    styles.roleText,
+                    role === 'coach' && styles.roleTextSelected,
+                  ]}
+                >
+                  Coach
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Team Code */}
+            <TextInput
+              placeholder='Team Code (optional)'
+              placeholderTextColor='#9ca3af'
+              autoCapitalize='none'
+              value={teamCode}
+              onChangeText={setTeamCode}
+              style={styles.input}
+            />
+          </>
+        )}
+
+        {/* Sign In / Sign Up Button */}
+        <TouchableOpacity
+          style={[
+            styles.button,
+            mode === 'signin' ? styles.signInButton : styles.signUpButton,
+          ]}
+          disabled={loading}
+          onPress={mode === 'signin' ? signIn : signUp}
+        >
+          {loading ? (
+            <ActivityIndicator color='#fff' />
+          ) : (
+            <Text style={styles.buttonText}>
+              {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Forgot password */}
+        {mode === 'signin' && (
           <TouchableOpacity
-            style={[styles.button, styles.signInButton]}
-            disabled={loading}
-            onPress={signIn}
+            onPress={resetPassword}
+            style={{ marginTop: 12, alignSelf: 'center' }}
           >
-            {loading ? (
-              <ActivityIndicator color='#fff' />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.button, styles.signUpButton]}
-            disabled={loading}
-            onPress={signUp}
-          >
-            {loading ? (
-              <ActivityIndicator color='#fff' />
-            ) : (
-              <Text style={styles.buttonText}>Sign Up</Text>
-            )}
+            <Text style={styles.forgotLink}>Forgot Password?</Text>
           </TouchableOpacity>
         )}
 
-        {/* Mode Switch Link */}
-        <TouchableOpacity onPress={toggleMode} style={{ marginTop: 14 }}>
+        {/* Toggle */}
+        <TouchableOpacity onPress={toggleMode} style={{ marginTop: 18 }}>
           <Text style={styles.switchText}>
             {mode === 'signin'
               ? "Don't have an account? "
               : 'Already have an account? '}
-
             <Text style={styles.switchLink}>
               {mode === 'signin' ? 'Sign Up' : 'Sign In'}
             </Text>
@@ -200,6 +330,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  roleRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+
+  roleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+
+  roleSelected: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+
+  roleText: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
+
+  roleTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+
   button: {
     paddingVertical: 14,
     borderRadius: 12,
@@ -219,6 +380,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
+  },
+
+  forgotLink: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   switchText: {

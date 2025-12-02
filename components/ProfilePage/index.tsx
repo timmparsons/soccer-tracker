@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,10 +25,11 @@ import {
 import Heatmap from '@/components/Heatmap';
 import * as ImagePicker from 'expo-image-picker';
 
-// Memoized components
+/* --------------------------------------------------------------------------
+   PROFILE HEADER
+--------------------------------------------------------------------------- */
 const ProfileHeader = memo(
   ({ profile, team, onPickImage, onOpenModal }: any) => {
-    // Add cache busting to avatar URL
     const avatarUri = profile?.avatar_url
       ? `${profile.avatar_url}${
           profile.avatar_url.includes('?') ? '&' : '?'
@@ -37,11 +40,7 @@ const ProfileHeader = memo(
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <TouchableOpacity onPress={onPickImage}>
-            <Image
-              source={{ uri: avatarUri }}
-              style={styles.avatar}
-              key={avatarUri}
-            />
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.editIcon} onPress={onOpenModal}>
@@ -49,12 +48,7 @@ const ProfileHeader = memo(
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.name}>
-          {profile?.name || profile?.username || 'User'}
-        </Text>
-        <Text style={styles.tagline}>
-          {profile?.bio || 'Future Juggling Pro ⚽'}
-        </Text>
+        <Text style={styles.name}>{profile?.display_name || 'User'}</Text>
 
         {team?.name && <Text style={styles.teamName}>Team: {team.name}</Text>}
 
@@ -68,9 +62,12 @@ const ProfileHeader = memo(
 
 ProfileHeader.displayName = 'ProfileHeader';
 
+/* --------------------------------------------------------------------------
+   RANK CARD
+--------------------------------------------------------------------------- */
 const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
   const xpNeeded = 1000;
-  const xpPercent = Math.min((xp / xpNeeded) * 100, 100);
+  const pct = Math.min((xp / xpNeeded) * 100, 100);
 
   return (
     <View style={styles.rankCard}>
@@ -82,7 +79,7 @@ const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
       </View>
 
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${xpPercent}%` }]} />
+        <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>
 
       <Text style={styles.rankText}>
@@ -91,9 +88,11 @@ const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
     </View>
   );
 });
-
 RankCard.displayName = 'RankCard';
 
+/* --------------------------------------------------------------------------
+   STREAK CARD
+--------------------------------------------------------------------------- */
 const StreakCard = memo(
   ({ streak, bestStreak }: { streak: number; bestStreak: number }) => (
     <View style={styles.streakCard}>
@@ -111,9 +110,11 @@ const StreakCard = memo(
     </View>
   )
 );
-
 StreakCard.displayName = 'StreakCard';
 
+/* --------------------------------------------------------------------------
+   ACCOUNT ACTIONS
+--------------------------------------------------------------------------- */
 const AccountActions = memo(({ onOpenModal, onSignOut }: any) => (
   <>
     <Text style={styles.sectionTitle}>Account</Text>
@@ -141,32 +142,37 @@ const AccountActions = memo(({ onOpenModal, onSignOut }: any) => (
 
 AccountActions.displayName = 'AccountActions';
 
+/* --------------------------------------------------------------------------
+   PROFILE PAGE
+--------------------------------------------------------------------------- */
 const ProfilePage = () => {
   const { data: user } = useUser();
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
-  const [role, setRole] = useState(profile?.role || '');
 
+  const [role, setRole] = useState(profile?.role || '');
   const updateProfile = useUpdateProfile(user?.id);
 
   const [modalVisible, setModalVisible] = useState(false);
 
   // Editable fields
   const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
 
-  // Pick + Upload Avatar
+  /* ------------------------------------------------------------
+     PICK IMAGE
+  ------------------------------------------------------------- */
   const handlePickImage = useCallback(async () => {
     try {
-      // Request permissions first
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your photos');
+        Alert.alert('Permission needed', 'Please allow access to photos.');
         return;
       }
 
@@ -184,97 +190,83 @@ const ProfilePage = () => {
       const fileName = `avatar.${ext}`;
       const filePath = `${user?.id}/${fileName}`;
 
-      // Convert image to blob for React Native
       const response = await fetch(file.uri);
       const blob = await response.blob();
-      const arrayBuffer = await new Response(blob).arrayBuffer();
+      const buf = await new Response(blob).arrayBuffer();
 
-      // Upload file
       const { error: uploadErr } = await supabase.storage
         .from('avatars')
-        .upload(filePath, arrayBuffer, {
+        .upload(filePath, buf, {
           contentType: file.mimeType || 'image/jpeg',
           upsert: true,
         });
 
       if (uploadErr) {
-        console.error('Upload error:', uploadErr);
-        Alert.alert('Upload Error', uploadErr.message);
+        Alert.alert('Upload error', uploadErr.message);
         return;
       }
 
-      // Get public URL with cache busting
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+      const url = `${publicUrlData.publicUrl}?t=${Date.now()}`;
 
-      updateProfile.mutate(
-        { avatar_url: avatarUrl },
-        {
-          onSuccess: () => Alert.alert('Success', 'Avatar updated!'),
-          onError: (err: any) => {
-            console.error('Profile update error:', err);
-            Alert.alert('Error', 'Failed to update profile');
-          },
-        }
-      );
+      updateProfile.mutate({ avatar_url: url });
     } catch (err: any) {
-      console.error('Image picker error:', err);
-      Alert.alert('Error', err.message || 'Failed to pick an image.');
+      Alert.alert('Error', err.message);
     }
   }, [updateProfile, user?.id]);
 
-  // Open modal + fill fields
+  /* ------------------------------------------------------------
+     OPEN EDIT MODAL
+  ------------------------------------------------------------- */
   const handleOpenModal = useCallback(() => {
-    setName(profile?.name || '');
-    setUsername(profile?.username || '');
+    setFirstName(profile?.first_name || '');
+    setLastName(profile?.last_name || '');
     setLocation(profile?.location || '');
     setBio(profile?.bio || '');
     setTeamCode('');
     setModalVisible(true);
   }, [profile]);
 
-  // Save profile changes
-  const handleSaveProfile = useCallback(() => {
-    // Build update object - only include team_code if user entered something
+  /* ------------------------------------------------------------
+     SAVE PROFILE
+  ------------------------------------------------------------- */
+  const handleSaveProfile = () => {
+    // regenerate display_name properly
+    const displayName =
+      lastName.trim().length > 0
+        ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
+        : firstName.trim();
+
     const updates: any = {
-      name,
-      username,
-      location,
-      bio,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      display_name: displayName,
       role,
     };
 
-    // Only update team_code if user entered a new code
-    if (teamCode.trim().length > 0 && teamCode.trim() !== team?.code) {
+    // Team code (only send if new input exists)
+    if (teamCode.trim().length > 0) {
       updates.team_code = teamCode.trim();
     }
 
     updateProfile.mutate(updates, {
       onSuccess: () => {
         setModalVisible(false);
-        Alert.alert('Success', 'Profile updated!');
       },
       onError: (err: any) => Alert.alert('Error', err.message),
     });
-  }, [
-    name,
-    username,
-    location,
-    bio,
-    teamCode,
-    updateProfile,
-    team?.code,
-    role,
-  ]);
+  };
 
-  const handleSignOut = useCallback(async () => {
+  const handleSignOut = async () => {
     await supabase.auth.signOut();
-  }, []);
+  };
 
-  // Memoize stats
+  /* ------------------------------------------------------------
+     STATS
+  ------------------------------------------------------------- */
   const stats = useMemo(
     () => ({
       level: juggles?.level ?? 1,
@@ -293,9 +285,12 @@ const ProfilePage = () => {
     );
   }
 
+  /* ============================================================
+     PAGE UI
+  ============================================================ */
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container}>
         <ProfileHeader
           profile={profile}
           team={team}
@@ -304,9 +299,7 @@ const ProfilePage = () => {
         />
 
         <RankCard level={stats.level} xp={stats.xp} />
-
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
-
         <Heatmap stats={juggles} />
 
         <AccountActions
@@ -315,128 +308,86 @@ const ProfilePage = () => {
         />
       </ScrollView>
 
-      {/* EDIT PROFILE MODAL */}
+      {/* ============================================================
+         EDIT PROFILE MODAL (FIXED FOR KEYBOARD)
+      ============================================================ */}
       <Modal visible={modalVisible} animationType='slide' transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name='close' size={28} color='#111827' />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              {/* NAME */}
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder={profile?.name || 'Your name'}
-              />
-
-              {/* USERNAME */}
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder={profile?.username || 'Your username'}
-                autoCapitalize='none'
-              />
-
-              {/* LOCATION */}
-              <Text style={styles.label}>Location</Text>
-              <TextInput
-                style={styles.input}
-                value={location}
-                onChangeText={setLocation}
-                placeholder={profile?.location || 'Your location'}
-              />
-              <Text style={styles.label}>Are you a...</Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleButton,
-                    role === 'player' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setRole('player')}
-                >
-                  <Text
-                    style={[
-                      styles.roleButtonText,
-                      role === 'player' && styles.roleButtonTextActive,
-                    ]}
-                  >
-                    Player
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.roleButton,
-                    role === 'coach' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setRole('coach')}
-                >
-                  <Text
-                    style={[
-                      styles.roleButtonText,
-                      role === 'coach' && styles.roleButtonTextActive,
-                    ]}
-                  >
-                    Coach
-                  </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            keyboardVerticalOffset={80}
+          >
+            <View style={styles.modalContent}>
+              {/* HEADER */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name='close' size={28} color='#111827' />
                 </TouchableOpacity>
               </View>
 
-              {/* TEAM CODE */}
-              <Text style={styles.label}>Team Code</Text>
-              <TextInput
-                style={styles.input}
-                value={teamCode}
-                onChangeText={setTeamCode}
-                placeholder='Enter a new team code'
-                autoCapitalize='none'
-              />
-
-              <Text style={styles.currentTeamLabel}>
-                {team?.name ? `Current Team: ${team.name}` : 'Not on a team'}
-              </Text>
-
-              {/* BIO */}
-              <Text style={styles.label}>Bio</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={bio}
-                onChangeText={setBio}
-                placeholder={profile?.bio || 'Tell us about yourself'}
-                multiline
-              />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setModalVisible(false)}
+              {/* SCROLLABLE INPUT AREA */}
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                keyboardShouldPersistTaps='handled'
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                />
 
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveProfile}
-                disabled={updateProfile.isPending}
-              >
-                {updateProfile.isPending ? (
-                  <ActivityIndicator color='#fff' />
-                ) : (
+                <Text style={styles.label}>Location</Text>
+                <TextInput
+                  style={styles.input}
+                  value={location}
+                  onChangeText={setLocation}
+                />
+
+                <Text style={styles.label}>Bio</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                />
+
+                <Text style={styles.label}>Team Code</Text>
+                <TextInput
+                  style={styles.input}
+                  value={teamCode}
+                  onChangeText={setTeamCode}
+                  autoCapitalize='none'
+                  placeholder='Enter new team code'
+                />
+
+                <Text style={styles.currentTeamLabel}>
+                  {team?.name ? `Current Team: ${team.name}` : 'Not on a team'}
+                </Text>
+              </ScrollView>
+
+              {/* FOOTER BUTTONS */}
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSaveProfile}
+                >
                   <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </>
@@ -460,6 +411,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     paddingHorizontal: 16,
   },
+
+  /* Header */
   header: {
     alignItems: 'center',
     marginTop: 24,
@@ -481,11 +434,6 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginTop: 8,
   },
-  tagline: {
-    color: '#6b7280',
-    fontSize: 14,
-    marginTop: 2,
-  },
   teamName: {
     marginTop: 4,
     fontSize: 15,
@@ -497,6 +445,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+
+  /* Rank */
   rankCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -520,7 +470,6 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: '#3b82f6',
-    borderRadius: 8,
   },
   rankText: {
     marginTop: 6,
@@ -528,6 +477,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 13,
   },
+
+  /* Streak */
   streakCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -543,16 +494,17 @@ const styles = StyleSheet.create({
   streakMain: { fontSize: 17, fontWeight: '700', color: '#111827' },
   streakSub: { fontSize: 13, color: '#6b7280' },
   streakMessage: {
-    color: '#3b82f6',
     marginTop: 8,
+    color: '#3b82f6',
     fontWeight: '600',
   },
+
+  /* Account */
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#111827',
     marginTop: 24,
-    marginBottom: 8,
   },
   actionList: {
     backgroundColor: '#fff',
@@ -578,6 +530,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#111827',
   },
+
+  /* Tip */
   tipCard: {
     backgroundColor: '#e0f2fe',
     padding: 16,
@@ -591,21 +545,23 @@ const styles = StyleSheet.create({
     color: '#0369a1',
   },
   tipText: {
-    lineHeight: 20,
-    color: '#075985',
     fontSize: 14,
+    color: '#075985',
+    lineHeight: 20,
   },
+
+  /* MODAL */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 20,
+    maxHeight: '85%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -620,13 +576,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  modalBody: { padding: 20 },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+
+  /* Inputs */
   label: {
     fontSize: 15,
     fontWeight: '600',
     color: '#374151',
+    marginTop: 16,
     marginBottom: 6,
-    marginTop: 12,
   },
   input: {
     backgroundColor: '#f9fafb',
@@ -641,11 +602,13 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 12,
   },
+
   currentTeamLabel: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 14,
     color: '#374151',
   },
+
   modalFooter: {
     flexDirection: 'row',
     padding: 20,
@@ -674,23 +637,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
-  },
-  roleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  roleButtonActive: {
-    backgroundColor: '#3b82f6',
-  },
-  roleButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  roleButtonTextActive: {
-    color: '#fff',
   },
 });

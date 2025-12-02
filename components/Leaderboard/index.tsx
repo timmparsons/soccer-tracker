@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,8 +17,20 @@ import { useUser } from '@/hooks/useUser';
 const LeaderboardPage = () => {
   const { data: user } = useUser();
   const { data: team, isLoading: loadingTeam } = useTeam(user?.id);
-  const { data: leaderboard, isLoading: loadingLeaderboard } =
-    useTeamLeaderboard(team?.id);
+  const {
+    data: leaderboard,
+    isLoading: loadingLeaderboard,
+    refetch: leaderboardRefetch,
+  } = useTeamLeaderboard(team?.id);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Only refetch if team loaded
+      if (team?.id && leaderboardRefetch) {
+        leaderboardRefetch();
+      }
+    }, [team?.id, leaderboardRefetch])
+  );
 
   console.log('Leaderboard Data:', team);
 
@@ -34,7 +47,7 @@ const LeaderboardPage = () => {
     return (
       <View style={styles.centered}>
         <Ionicons name='people' size={40} color='#9ca3af' />
-        <Text style={styles.noTeamTitle}>You're not on a team yet</Text>
+        <Text style={styles.noTeamTitle}>You&apos;re not on a team yet</Text>
         <Text style={styles.noTeamSub}>Join a team to see rankings</Text>
       </View>
     );
@@ -64,7 +77,7 @@ const LeaderboardPage = () => {
             />
 
             <View style={styles.info}>
-              <Text style={styles.username}>{player.username}</Text>
+              <Text style={styles.username}>{player.display_name}</Text>
               <Text style={styles.streak}>
                 🔥 {player.streak_days} day streak
               </Text>

@@ -11,6 +11,7 @@ import {
 
 import { useJuggles } from '@/hooks/useJuggles';
 import { useUser } from '@/hooks/useUser';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LineChart from '../LineChart';
 
@@ -20,7 +21,17 @@ const ProgressPage = () => {
 
   const [showStreakModal, setShowStreakModal] = useState(false);
 
-  if (isLoading || !stats) {
+  // -----------------------------------------------------------------
+  // EMPTY STATE CHECK
+  // -----------------------------------------------------------------
+  const isBrandNew =
+    !isLoading &&
+    (!stats ||
+      stats?.sessions_count === 0 ||
+      !Array.isArray(stats?.scores_history) ||
+      stats?.scores_history.length === 0);
+
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading your progress...</Text>
@@ -28,24 +39,48 @@ const ProgressPage = () => {
     );
   }
 
-  // --- DERIVED STATS --------------------------------------------------------
+  if (isBrandNew) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+      >
+        <View style={styles.emptyContainer}>
+          <Ionicons name='stats-chart-outline' size={80} color='#3b82f6' />
 
-  const lastDuration = stats.last_session_duration ?? 0; // seconds
+          <Text style={styles.emptyTitle}>No Progress Yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Once you complete your first juggling session, your progress will
+            appear here.
+          </Text>
 
-  const totalSeconds = stats.sessions_count * lastDuration;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const totalHours = Math.floor(totalMinutes / 60);
-  const minutesRemainder = totalMinutes % 60;
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => {
+              // navigate to training page (edit based on your routing)
+              router.push('/train');
+            }}
+          >
+            <Text style={styles.emptyButtonText}>Start Training</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // NORMAL PROGRESS VIEW (existing behavior)
+  // -----------------------------------------------------------------
+
+  const lastDuration = stats?.last_session_duration ?? 0;
 
   const improvement =
-    stats.average_score > 0 ? stats.last_score - stats.average_score : 0;
+    stats?.average_score > 0 ? stats?.last_score - stats?.average_score : 0;
 
-  // --- REAL DATA MILESTONES -------------------------------------------------
-
+  // Build milestone list
   const milestones = [];
 
-  // 1. New personal best
-  if (stats.sessions_count >= 1 && stats.high_score) {
+  if (stats?.sessions_count >= 1 && stats?.high_score) {
     milestones.push({
       icon: 'trophy',
       color: '#f59e0b',
@@ -55,8 +90,7 @@ const ProgressPage = () => {
     });
   }
 
-  // 2. First session milestone
-  if (stats.sessions_count === 1) {
+  if (stats?.sessions_count === 1) {
     milestones.push({
       icon: 'star-circle',
       color: '#3b82f6',
@@ -66,8 +100,7 @@ const ProgressPage = () => {
     });
   }
 
-  // 3. Streak milestone
-  if (stats.streak_days >= 2) {
+  if (stats?.streak_days >= 2) {
     milestones.push({
       icon: 'run-fast',
       color: '#22c55e',
@@ -77,8 +110,7 @@ const ProgressPage = () => {
     });
   }
 
-  // 4. Total sessions
-  if (stats.sessions_count >= 5) {
+  if (stats?.sessions_count >= 5) {
     milestones.push({
       icon: 'run-fast',
       color: '#8b5cf6',
@@ -88,11 +120,8 @@ const ProgressPage = () => {
     });
   }
 
-  // --- RENDER --------------------------------------------------------------
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Your Progress 📈</Text>
         <Text style={styles.subtitle}>
@@ -100,7 +129,7 @@ const ProgressPage = () => {
         </Text>
       </View>
 
-      {/* Performance Summary */}
+      {/* PERFORMANCE SUMMARY */}
       <Text style={styles.sectionTitle}>Performance Summary</Text>
       <View style={styles.statsGrid}>
         <View style={[styles.statCard, { backgroundColor: '#3b82f6' }]}>
@@ -122,7 +151,7 @@ const ProgressPage = () => {
         </View>
       </View>
 
-      {/* Streak Tracker */}
+      {/* STREAK TRACKER */}
       <Text style={styles.sectionTitle}>Streak Tracker</Text>
       <View style={styles.streakCard}>
         <View style={styles.streakRow}>
@@ -149,7 +178,7 @@ const ProgressPage = () => {
         </View>
       </View>
 
-      {/* Milestones */}
+      {/* MILESTONES */}
       <Text style={styles.sectionTitle}>Recent Milestones</Text>
       <View style={styles.milestoneCard}>
         {milestones.length === 0 && (
@@ -170,10 +199,12 @@ const ProgressPage = () => {
         ))}
       </View>
 
-      {/* Progress Chart */}
-      {stats.scores_history.length > 0 && <LineChart stats={stats} />}
+      {/* CHART */}
+      {stats.scores_history &&
+        Array.isArray(stats.scores_history) &&
+        stats.scores_history.length > 0 && <LineChart stats={stats} />}
 
-      {/* Tip Card */}
+      {/* TIP */}
       <View style={styles.tipCard}>
         <Text style={styles.tipTitle}>Coach’s Tip 💬</Text>
         <Text style={styles.tipText}>
@@ -182,7 +213,7 @@ const ProgressPage = () => {
         </Text>
       </View>
 
-      {/* --- STREAK MODAL ------------------------------------------------ */}
+      {/* STREAK MODAL */}
       <Modal visible={showStreakModal} animationType='slide'>
         <SafeAreaView style={{ padding: 30, flex: 1 }}>
           <Text style={{ fontSize: 26, fontWeight: '700', marginBottom: 16 }}>
@@ -228,6 +259,36 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#6b7280', fontSize: 16 },
 
+  // EMPTY STATE
+  emptyContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  emptyTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 20,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  emptyButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    marginTop: 24,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
   header: { marginTop: 20, marginBottom: 10 },
   title: { fontSize: 28, fontWeight: '700', color: '#111827' },
   subtitle: { fontSize: 15, color: '#6b7280' },
@@ -240,7 +301,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Performance cards
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -256,7 +316,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 6 },
   statLabel: { color: '#e5e7eb', fontSize: 13 },
 
-  // Streak
   streakCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -277,7 +336,6 @@ const styles = StyleSheet.create({
   },
   streakButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
 
-  // Milestones
   milestoneCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -304,7 +362,6 @@ const styles = StyleSheet.create({
   milestoneSub: { fontSize: 13, color: '#6b7280' },
   milestoneDate: { fontSize: 12, color: '#9ca3af' },
 
-  // Tip card
   tipCard: {
     backgroundColor: '#e0f2fe',
     borderRadius: 16,
@@ -314,8 +371,5 @@ const styles = StyleSheet.create({
   tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
   tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
 
-  modalText: {
-    fontSize: 18,
-    marginBottom: 12,
-  },
+  modalText: { fontSize: 18, marginBottom: 12 },
 });

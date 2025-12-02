@@ -1,8 +1,9 @@
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,8 +18,23 @@ const HomeScreen = () => {
   const router = useRouter();
 
   const { data: user, isLoading: userLoading } = useUser();
-  const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
-  const { data: stats, isLoading: statsLoading } = useJuggles(user?.id);
+  const {
+    data: profile,
+    isLoading: loadingProfile,
+    refetch: refetchProfile,
+  } = useProfile(user?.id);
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useJuggles(user?.id);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+      refetchStats();
+    }, [refetchProfile, refetchStats])
+  );
 
   if (userLoading || statsLoading) {
     return (
@@ -33,14 +49,18 @@ const HomeScreen = () => {
   const streak = stats?.streak_days ?? 0;
   const sessions = stats?.sessions_count ?? 0;
 
+  const displayName =
+    profile?.display_name ||
+    profile?.first_name ||
+    user?.email?.split('@')[0] ||
+    'Player';
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Hey{' '}
-          {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Player'}!
-          👋
+          <Text style={styles.greeting}>Hey {displayName}! 👋</Text>
         </Text>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image
