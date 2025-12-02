@@ -11,21 +11,19 @@ export function useTeamLeaderboard(teamId?: string) {
       // First, get all profiles in the team
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, display_name, username, avatar_url')
         .eq('team_id', teamId);
-      console.log('Fetched profiles for team leaderboard:', profiles);
+
       if (profileError) throw profileError;
       if (!profiles || profiles.length === 0) return [];
 
       // Then get juggles data for all those users
       const userIds = profiles.map((p) => p.id);
-      console.log('Fetching juggles for user IDs:', userIds);
+
       const { data: juggles, error: jugglesError } = await supabase
         .from('juggles')
         .select('user_id, high_score, streak_days')
         .in('user_id', userIds);
-
-      console.log('Fetched juggles for team leaderboard:', juggles);
 
       if (jugglesError) throw jugglesError;
 

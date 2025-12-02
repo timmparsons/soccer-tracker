@@ -32,8 +32,6 @@ const LeaderboardPage = () => {
     }, [team?.id, leaderboardRefetch])
   );
 
-  console.log('Leaderboard Data:', team);
-
   if (loadingTeam || loadingLeaderboard) {
     return (
       <View style={styles.loadingContainer}>
@@ -63,29 +61,36 @@ const LeaderboardPage = () => {
           No players have recorded juggles yet.
         </Text>
       ) : (
-        leaderboard.map((player: any, index: number) => (
-          <View key={player.id} style={styles.row}>
-            <Text style={styles.rank}>{index + 1}</Text>
+        leaderboard.map((player: any, index: number) => {
+          return (
+            <View key={player.id} style={styles.row}>
+              <Text style={styles.rank}>{index + 1}</Text>
 
-            <Image
-              source={{
-                uri:
-                  player.avatar_url ||
-                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-              }}
-              style={styles.avatar}
-            />
+              <Image
+                source={{
+                  uri:
+                    player.avatar_url ||
+                    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                }}
+                style={styles.avatar}
+              />
 
-            <View style={styles.info}>
-              <Text style={styles.username}>{player.display_name}</Text>
-              <Text style={styles.streak}>
-                🔥 {player.streak_days} day streak
-              </Text>
+              <View style={styles.info}>
+                <Text style={styles.username}>
+                  {player.display_name ||
+                    player.first_name ||
+                    player.username ||
+                    'Player'}
+                </Text>
+                <Text style={styles.streak}>
+                  🔥 {player.streak_days} day streak
+                </Text>
+              </View>
+
+              <Text style={styles.score}>{player.high_score}</Text>
             </View>
-
-            <Text style={styles.score}>{player.high_score}</Text>
-          </View>
-        ))
+          );
+        })
       )}
     </ScrollView>
   );
