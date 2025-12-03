@@ -12,7 +12,6 @@ export default function XPToast({ visible, xp }: Props) {
 
   useEffect(() => {
     if (visible) {
-      // Fade in
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
@@ -25,7 +24,6 @@ export default function XPToast({ visible, xp }: Props) {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Auto-fade out
         setTimeout(() => {
           Animated.parallel([
             Animated.timing(opacity, {
@@ -59,26 +57,30 @@ export default function XPToast({ visible, xp }: Props) {
 const styles = StyleSheet.create({
   toast: {
     position: 'absolute',
-    top: 100,
+    top: 300,
     alignSelf: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: '#1d4ed8', // EA Sports blue
+    paddingVertical: 40,
+    paddingHorizontal: 60,
+    borderRadius: 20,
+    shadowColor: '#3b82f6',
+    shadowOpacity: 0.55,
+    shadowRadius: 20,
+    elevation: 6,
     alignItems: 'center',
   },
   xp: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#3b82f6',
+    fontSize: 44,
+    fontWeight: '900',
+    color: '#ffffff',
+    textShadowColor: 'rgba(255,255,255,0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
   },
   message: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
   },
 });
