@@ -23,7 +23,9 @@ import {
 } from 'react-native';
 
 import Heatmap from '@/components/Heatmap';
+import { getLevelFromXp, getRankName } from '@/lib/xp';
 import * as ImagePicker from 'expo-image-picker';
+import XPCard from '../XPCard';
 
 /* --------------------------------------------------------------------------
    PROFILE HEADER
@@ -175,6 +177,9 @@ const ProfilePage = () => {
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
+  const totalXp = profile?.total_xp ?? 0;
+  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
+  const rankName = getRankName(level);
 
   const updateProfile = useUpdateProfile(user?.id);
 
@@ -363,11 +368,14 @@ const ProfilePage = () => {
           onPickImage={handlePickImage}
           onOpenModal={handleOpenModal}
         />
-
-        <RankCard level={stats.level} xp={stats.xp} />
+        <XPCard
+          level={level}
+          xpIntoLevel={xpIntoLevel}
+          xpForNextLevel={xpForNextLevel}
+          rankName={rankName}
+        />
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
         <Heatmap stats={juggles} />
-
         <AccountActions
           onOpenModal={handleOpenModal}
           onSignOut={handleSignOut}

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
+import XPToast from '../XPToast';
 
 const TimerPage = () => {
   const { data: user } = useUser();
@@ -35,6 +36,10 @@ const TimerPage = () => {
   // Results
   const [bestRecord, setBestRecord] = useState('');
   const [attempts, setAttempts] = useState('');
+
+  // XP
+  const [xpToastVisible, setXpToastVisible] = useState(false);
+  const [xpAmount, setXpAmount] = useState(0);
 
   // Timer countdown logic
   useEffect(() => {
@@ -98,19 +103,42 @@ const TimerPage = () => {
       newStreak
     );
 
-    updateJuggles.mutate({
-      high_score:
-        best !== undefined && best > (juggleStats?.high_score ?? 0)
-          ? best
-          : undefined,
-      last_score: best,
-      attempts_count: attemptCount,
-      last_session_duration: totalTime,
-      sessions_count: (juggleStats?.sessions_count ?? 0) + 1,
-      last_session_date: new Date().toISOString(),
-      streak_days: newStreak,
-      best_daily_streak: newBestStreak,
-    });
+    updateJuggles.mutate(
+      {
+        high_score:
+          best !== undefined && best > (juggleStats?.high_score ?? 0)
+            ? best
+            : undefined,
+        last_score: best,
+        attempts_count: attemptCount,
+        last_session_duration: totalTime,
+        sessions_count: (juggleStats?.sessions_count ?? 0) + 1,
+        last_session_date: new Date().toISOString(),
+        streak_days: newStreak,
+        best_daily_streak: newBestStreak,
+      },
+      {
+        onSuccess: (data) => {
+          // XP awarded from mutation (we will return this in the hook)
+          const xp = data?.totalXpAwarded ?? 0;
+
+          if (xp > 0) {
+            setXpAmount(xp);
+            setXpToastVisible(true);
+
+            setTimeout(() => {
+              setXpToastVisible(false);
+            }, 1500);
+          }
+
+          // Close results modal, reset UI
+          setShowResultsModal(false);
+          setBestRecord('');
+          setAttempts('');
+          handleReset();
+        },
+      }
+    );
 
     setShowResultsModal(false);
     setBestRecord('');
@@ -322,6 +350,7 @@ const TimerPage = () => {
           </View>
         </View>
       </Modal>
+      <XPToast visible={xpToastVisible} xp={xpAmount} />
     </View>
   );
 };

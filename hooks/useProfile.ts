@@ -15,6 +15,7 @@ export type Profile = {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  total_xp: number;
 };
 
 export function useProfile(userId: string | undefined) {
@@ -26,7 +27,7 @@ export function useProfile(userId: string | undefined) {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, first_name, last_name, display_name, avatar_url, role, team_id, team_code, location'
+          'id, first_name, last_name, display_name, avatar_url, role, team_id, team_code, location, total_xp'
         )
         .eq('id', userId)
         .maybeSingle();
