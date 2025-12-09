@@ -350,7 +350,7 @@ const TimerPage = () => {
           </View>
         </View>
       </Modal>
-      <XPToast visible={true} xp={xpAmount} />
+      <XPToast visible={xpToastVisible} xp={xpAmount} />
     </View>
   );
 };

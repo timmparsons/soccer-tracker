@@ -192,7 +192,7 @@ export default function Auth() {
               style={styles.input}
             />
 
-            <View style={styles.roleRow}>
+            {/* <View style={styles.roleRow}>
               <TouchableOpacity
                 style={[
                   styles.roleButton,
@@ -226,7 +226,7 @@ export default function Auth() {
                   Coach
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             <TextInput
               placeholder='Team Code (optional)'
