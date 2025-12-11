@@ -14,6 +14,7 @@ import { useUser } from '@/hooks/useUser';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LineChart from '../LineChart';
+import CoachsTip from '../common/CoachsTip';
 
 const ProgressPage = () => {
   const { data: user } = useUser();
@@ -205,13 +206,7 @@ const ProgressPage = () => {
         stats.scores_history.length > 0 && <LineChart stats={stats} />}
 
       {/* TIP */}
-      <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach’s Tip 💬</Text>
-        <Text style={styles.tipText}>
-          Set small goals — like +10 juggles each week — and celebrate each one.
-          Consistency builds champions.
-        </Text>
-      </View>
+      <CoachsTip />
 
       {/* STREAK MODAL */}
       <Modal visible={showStreakModal} animationType='slide'>

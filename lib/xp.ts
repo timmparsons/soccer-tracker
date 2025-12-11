@@ -21,9 +21,11 @@ export function getLevelFromXp(totalXp: number) {
 
 // Optional fun names for the boys
 export function getRankName(level: number): string {
-  if (level <= 3) return 'Academy Player';
-  if (level <= 6) return 'Starter';
-  if (level <= 9) return 'Playmaker';
+  if (level <= 3) return 'Recreational';
+  if (level <= 6) return 'Club Player';
+  if (level <= 9) return 'Academy Player';
+  if (level <= 12) return 'First Team Player';
+  if (level <= 15) return 'Playmaker';
   return 'Master Touch';
 }
 

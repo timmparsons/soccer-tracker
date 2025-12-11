@@ -2,6 +2,7 @@ import { useJuggles } from '@/hooks/useJuggles';
 import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import XPToast from '../XPToast';
+import CoachsTip from '../common/CoachsTip';
 
 const TimerPage = () => {
   const { data: user } = useUser();
@@ -41,6 +43,24 @@ const TimerPage = () => {
   const [xpToastVisible, setXpToastVisible] = useState(false);
   const [xpAmount, setXpAmount] = useState(0);
 
+  const playEndSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('@/assets/sounds/whistle.mp3')
+      );
+      await sound.playAsync();
+
+      // Unload sound after playing to free memory
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.log('Error playing sound:', error);
+    }
+  };
+
   // Timer countdown logic
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
@@ -49,6 +69,11 @@ const TimerPage = () => {
       timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
+
+      // 🔊 Play audio when timer completes
+      playEndSound();
+      setInterval(() => {}, 1000);
+
       setShowResultsModal(true);
     }
 
@@ -242,12 +267,7 @@ const TimerPage = () => {
       </View>
 
       {/* TIP */}
-      <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach&apos;s Tip 💬</Text>
-        <Text style={styles.tipText}>
-          Keep a steady rhythm — consistency over speed!
-        </Text>
-      </View>
+      <CoachsTip />
 
       {/* ---- DURATION PICKER MODAL ---- */}
       <Modal transparent visible={showDurationPicker} animationType='fade'>
@@ -410,15 +430,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   buttonLabel: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  tipCard: {
-    backgroundColor: '#e0f2fe',
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 40,
-  },
-  tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
-  tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
-
   // MODAL
   modalOverlay: {
     flex: 1,

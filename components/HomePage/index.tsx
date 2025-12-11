@@ -1,6 +1,8 @@
+import data from '@/constants/allCoachesTips.json';
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { getRandomDailyChallenge } from '@/utils/getRandomCoachTips';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
@@ -13,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import CoachsTip from '../common/CoachsTip';
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -48,6 +51,7 @@ const HomeScreen = () => {
   const bestScore = stats?.high_score ?? 0;
   const streak = stats?.streak_days ?? 0;
   const sessions = stats?.sessions_count ?? 0;
+  const challenge = getRandomDailyChallenge(data);
 
   const displayName =
     profile?.display_name ||
@@ -96,26 +100,27 @@ const HomeScreen = () => {
 
       {/* DAILY CHALLENGE */}
       <View style={styles.challengeCard}>
-        <Text style={styles.challengeTitle}>Daily Challenge</Text>
-        <Text style={styles.challengeName}>Keep It Up!</Text>
-        <Text style={styles.challengeDesc}>
-          Try to juggle 25 times without dropping it!
-        </Text>
+        <View style={styles.challengeHeader}>
+          <Text style={styles.challengeTitle}>🎯 Daily Challenge</Text>
+
+          {/* XP Tag (optional) */}
+          <View style={styles.xpTag}>
+            <Text style={styles.xpText}>+20 XP</Text>
+          </View>
+        </View>
+
+        <Text style={styles.challengeName}>🔥 Today&apos;s Mission</Text>
+        <Text style={styles.challengeDesc}>{challenge}</Text>
 
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => router.push('/train')} // 👈 NAVIGATES TO TRAIN TAB
+          onPress={() => router.push('/train')}
         >
-          <Text style={styles.startButtonText}>Start</Text>
+          <Text style={styles.startButtonText}>Let’s Go!</Text>
         </TouchableOpacity>
-      </View>
 
-      {/* COACH TIP */}
-      <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach Tip 💬</Text>
-        <Text style={styles.tipText}>
-          Stay calm and hit the ball softly. Big kicks = big mistakes!
-        </Text>
+        {/* COACH TIP */}
+        <CoachsTip />
       </View>
     </ScrollView>
   );
@@ -215,60 +220,80 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // CHALLENGE
+  // --- DAILY CHALLENGE ---
   challengeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
     padding: 20,
+    marginBottom: 26,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 3,
-    marginBottom: 24,
-  },
-  challengeTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  challengeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#3b82f6',
-    marginBottom: 4,
-  },
-  challengeDesc: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 12,
-  },
-  startButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+
+    // soft gradient feel using overlay
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
   },
 
-  // COACH TIP
-  tipCard: {
-    backgroundColor: '#e0f2fe',
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 40,
+  challengeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
-  tipTitle: {
-    fontSize: 16,
+
+  challengeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+
+  xpTag: {
+    backgroundColor: '#f59e0b22', // faint orange
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+  },
+
+  xpText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0369a1',
-    marginBottom: 4,
+    color: '#b45309',
   },
-  tipText: {
-    color: '#075985',
-    fontSize: 14,
+
+  challengeName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f59e0b', // orange brand color
+    marginBottom: 6,
+    marginTop: 8,
+  },
+
+  challengeDesc: {
+    fontSize: 15,
+    color: '#4b5563',
+    marginBottom: 16,
     lineHeight: 20,
+  },
+
+  startButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 6,
+    shadowColor: '#3b82f6',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  startButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 16,
   },
 });

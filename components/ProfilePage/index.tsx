@@ -25,7 +25,9 @@ import {
 import Heatmap from '@/components/Heatmap';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import XPCard from '../XPCard';
+import CoachsTip from '../common/CoachsTip';
 
 /* --------------------------------------------------------------------------
    PROFILE HEADER
@@ -157,12 +159,7 @@ const AccountActions = memo(
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Coach's Tip 💬</Text>
-        <Text style={styles.tipText}>
-          "Show up every day — consistency beats intensity."
-        </Text>
-      </View>
+      <CoachsTip />
     </>
   )
 );
@@ -349,9 +346,9 @@ const ProfilePage = () => {
 
   if (loadingProfile || loadingJuggles) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size='large' color='#3b82f6' />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -649,24 +646,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#111827',
-  },
-
-  tipCard: {
-    backgroundColor: '#e0f2fe',
-    padding: 16,
-    borderRadius: 16,
-    marginVertical: 24,
-  },
-  tipTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
-    color: '#0369a1',
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#075985',
-    lineHeight: 20,
   },
 
   modalOverlay: {
