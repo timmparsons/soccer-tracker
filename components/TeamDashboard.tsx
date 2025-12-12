@@ -23,7 +23,10 @@ const TeamDashboard = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 90 }}
+    >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>{team.name} ⚽</Text>

@@ -44,8 +44,9 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const inModalsGroup = segments[0] === '(modals)';
 
-    if (session && !inTabsGroup) {
+    if (session && !inTabsGroup && !inModalsGroup) {
       router.replace('/(tabs)');
     } else if (!session && !inAuthGroup) {
       router.replace('/(auth)');
@@ -65,6 +66,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name='(auth)' options={{ headerShown: false }} />
         <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+        <Stack.Screen name='(modals)' options={{ presentation: 'modal' }} />
       </Stack>
     </QueryClientProvider>
   );

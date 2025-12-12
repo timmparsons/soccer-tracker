@@ -25,7 +25,7 @@ import {
 import Heatmap from '@/components/Heatmap';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import * as ImagePicker from 'expo-image-picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import XPCard from '../XPCard';
 import CoachsTip from '../common/CoachsTip';
 
@@ -80,35 +80,6 @@ const ProfileHeader = memo(
 );
 
 ProfileHeader.displayName = 'ProfileHeader';
-
-/* --------------------------------------------------------------------------
-   RANK CARD
---------------------------------------------------------------------------- */
-const RankCard = memo(({ level, xp }: { level: number; xp: number }) => {
-  const xpNeeded = 1000;
-  const pct = Math.min((xp / xpNeeded) * 100, 100);
-
-  return (
-    <View style={styles.rankCard}>
-      <View style={styles.rankHeader}>
-        <Text style={styles.rankTitle}>Level {level}</Text>
-        <Text style={styles.rankSubtitle}>
-          {level >= 10 ? 'Elite Rank 🏆' : 'Bronze Rank 🥉'}
-        </Text>
-      </View>
-
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${pct}%` }]} />
-      </View>
-
-      <Text style={styles.rankText}>
-        {xp} / {xpNeeded} XP
-      </Text>
-    </View>
-  );
-});
-
-RankCard.displayName = 'RankCard';
 
 /* --------------------------------------------------------------------------
    STREAK CARD
@@ -177,6 +148,7 @@ const ProfilePage = () => {
   const totalXp = profile?.total_xp ?? 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
   const rankName = getRankName(level);
+  const router = useRouter();
 
   const updateProfile = useUpdateProfile(user?.id);
 
@@ -346,9 +318,9 @@ const ProfilePage = () => {
 
   if (loadingProfile || loadingJuggles) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size='large' color='#3b82f6' />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -358,7 +330,10 @@ const ProfilePage = () => {
   console.log('XXX RENDER ProfilePage with profile:', profile);
   return (
     <>
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         <ProfileHeader
           profile={profile}
           team={team}
@@ -370,6 +345,7 @@ const ProfilePage = () => {
           xpIntoLevel={xpIntoLevel}
           xpForNextLevel={xpForNextLevel}
           rankName={rankName}
+          onOpenRoadmap={() => router.push('/(modals)/roadmap')}
         />
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
         <Heatmap stats={juggles} />

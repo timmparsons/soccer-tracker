@@ -1,13 +1,12 @@
 import HomePage from '@/components/HomePage';
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
 const index = () => {
   return (
-    <SafeAreaView>
+    <View>
       <HomePage />
-    </SafeAreaView>
+    </View>
   );
 };
 

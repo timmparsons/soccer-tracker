@@ -1,12 +1,15 @@
+import { getRankBadge } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
-type Props = {
+type XPCardProps = {
   level: number;
   xpIntoLevel: number;
   xpForNextLevel: number;
   rankName: string;
+  onOpenRoadmap?: () => void;
 };
 
 export default function XPCard({
@@ -14,18 +17,39 @@ export default function XPCard({
   xpIntoLevel,
   xpForNextLevel,
   rankName,
-}: Props) {
+  onOpenRoadmap,
+}: XPCardProps) {
   const pct = Math.min((xpIntoLevel / xpForNextLevel) * 100, 100);
 
+  const { color, icon } = getRankBadge(rankName);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Confetti ref
+  const confettiRef = useRef<any>(null);
+  const [prevLevel, setPrevLevel] = useState(level);
+
+  // LEVEL-UP ANIMATION
+  // useEffect(() => {
+  //   if (level > prevLevel) {
+  //     confettiRef?.current?.start();
+  //   }
+  //   setPrevLevel(level);
+  // }, [level]);
 
   return (
     <>
-      <View style={styles.card}>
+      <View style={[styles.card, { borderLeftColor: color }]}>
         <View style={styles.topRow}>
+          <Ionicons
+            name={icon as any}
+            size={28}
+            color={color}
+            style={{ marginRight: 10 }}
+          />
+
           <View style={{ flex: 1 }}>
             <Text style={styles.level}>Level {level}</Text>
-            <Text style={styles.rank}>{rankName}</Text>
+            <Text style={[styles.rank, { color }]}>{rankName}</Text>
           </View>
 
           <Text style={styles.xpText}>
@@ -38,17 +62,34 @@ export default function XPCard({
         </View>
 
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${pct}%`, backgroundColor: color },
+            ]}
+          />
         </View>
+        <TouchableOpacity
+          style={[styles.roadmapButton, { borderColor: color }]}
+          onPress={() => onOpenRoadmap?.()}
+        >
+          <Text style={[styles.roadmapButtonText, { color }]}>
+            View Roadmap
+          </Text>
+          <Ionicons name='chevron-forward' size={18} color={color} />
+        </TouchableOpacity>
       </View>
 
+      {/* CONFETTI */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={60}
+        fadeOut
+        origin={{ x: -10, y: 0 }}
+      />
+
       {/* MODAL */}
-      <Modal
-        animationType='slide'
-        transparent
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal transparent animationType='slide' visible={modalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -78,7 +119,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginTop: 20,
-    shadowColor: '#000',
+    borderLeftWidth: 6,
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
@@ -87,7 +128,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 10,
   },
   level: {
     fontSize: 20,
@@ -96,8 +136,8 @@ const styles = StyleSheet.create({
   },
   rank: {
     fontSize: 14,
-    color: '#6b7280',
     marginTop: 2,
+    fontWeight: '600',
   },
   xpText: {
     fontSize: 14,
@@ -114,8 +154,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#3b82f6',
   },
-
-  // MODAL STYLES
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -149,5 +187,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
     marginBottom: 12,
+  },
+  roadmapButton: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  roadmapButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

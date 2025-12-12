@@ -12,7 +12,6 @@ import {
 import { useJuggles } from '@/hooks/useJuggles';
 import { useUser } from '@/hooks/useUser';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import LineChart from '../LineChart';
 import CoachsTip from '../common/CoachsTip';
 
@@ -44,7 +43,11 @@ const ProgressPage = () => {
     return (
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingBottom: 90,
+        }}
       >
         <View style={styles.emptyContainer}>
           <Ionicons name='stats-chart-outline' size={80} color='#3b82f6' />
@@ -123,13 +126,13 @@ const ProgressPage = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {' '}
       <View style={styles.header}>
         <Text style={styles.title}>Your Progress 📈</Text>
         <Text style={styles.subtitle}>
           Keep improving one juggle at a time!
         </Text>
       </View>
-
       {/* PERFORMANCE SUMMARY */}
       <Text style={styles.sectionTitle}>Performance Summary</Text>
       <View style={styles.statsGrid}>
@@ -151,7 +154,6 @@ const ProgressPage = () => {
           <Text style={styles.statLabel}>Day Streak</Text>
         </View>
       </View>
-
       {/* STREAK TRACKER */}
       <Text style={styles.sectionTitle}>Streak Tracker</Text>
       <View style={styles.streakCard}>
@@ -178,7 +180,6 @@ const ProgressPage = () => {
           </TouchableOpacity>
         </View>
       </View>
-
       {/* MILESTONES */}
       <Text style={styles.sectionTitle}>Recent Milestones</Text>
       <View style={styles.milestoneCard}>
@@ -199,42 +200,43 @@ const ProgressPage = () => {
           </View>
         ))}
       </View>
-
       {/* CHART */}
       {stats.scores_history &&
         Array.isArray(stats.scores_history) &&
         stats.scores_history.length > 0 && <LineChart stats={stats} />}
-
       {/* TIP */}
       <CoachsTip />
-
       {/* STREAK MODAL */}
-      <Modal visible={showStreakModal} animationType='slide'>
-        <SafeAreaView style={{ padding: 30, flex: 1 }}>
-          <Text style={{ fontSize: 26, fontWeight: '700', marginBottom: 16 }}>
-            Streak Details 🔥
-          </Text>
+      <Modal
+        visible={showStreakModal}
+        animationType='slide'
+        presentationStyle='pageSheet' // This helps with safe area on iOS
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Streak Details 🔥</Text>
 
-          <Text style={styles.modalText}>
-            Current Streak: {stats.streak_days} days
-          </Text>
+            <Text style={styles.modalText}>
+              Current Streak: {stats.streak_days} days
+            </Text>
 
-          <Text style={styles.modalText}>
-            Best Streak: {stats.best_daily_streak} days
-          </Text>
+            <Text style={styles.modalText}>
+              Best Streak: {stats.best_daily_streak} days
+            </Text>
 
-          <Text style={styles.modalText}>
-            Last Session:{' '}
-            {new Date(stats.last_session_date).toLocaleDateString()}
-          </Text>
+            <Text style={styles.modalText}>
+              Last Session:{' '}
+              {new Date(stats.last_session_date).toLocaleDateString()}
+            </Text>
 
-          <TouchableOpacity
-            style={{ marginTop: 24 }}
-            onPress={() => setShowStreakModal(false)}
-          >
-            <Text style={{ color: '#3b82f6', fontSize: 18 }}>Close</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowStreakModal(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </ScrollView>
   );
@@ -365,6 +367,32 @@ const styles = StyleSheet.create({
   },
   tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
   tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
-
-  modalText: { fontSize: 18, marginBottom: 12 },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: 60, // Fixed top padding for notch
+    paddingHorizontal: 30,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#111827',
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 12,
+    color: '#374151',
+  },
+  modalCloseButton: {
+    marginTop: 24,
+  },
+  modalCloseText: {
+    color: '#3b82f6',
+    fontSize: 18,
+    fontWeight: '600',
+  },
 });

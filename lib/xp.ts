@@ -1,32 +1,32 @@
 // lib/xp.ts
 
-// 200 XP per level, 10 levels max (v1)
-export const XP_PER_LEVEL = 200;
-export const MAX_LEVEL = 10;
+// Leveling curve
+export const XP_PER_LEVEL = 150;
+export const MAX_LEVEL = 20;
 
-// Convert total XP → level + progress
+// Level calculation
 export function getLevelFromXp(totalXp: number) {
-  // Raw level before capping
+  // Raw level calculation
   const rawLevel = Math.floor(totalXp / XP_PER_LEVEL) + 1;
 
-  // Clamp to max level
+  // Clamp the level between 1 and MAX
   const level = Math.min(rawLevel, MAX_LEVEL);
 
-  // XP progress within the current level
+  // XP progress into the current level
   const xpIntoLevel = totalXp % XP_PER_LEVEL;
   const xpForNextLevel = XP_PER_LEVEL;
 
   return { level, xpIntoLevel, xpForNextLevel };
 }
-
 // Optional fun names for the boys
 export function getRankName(level: number): string {
-  if (level <= 3) return 'Recreational';
+  if (level <= 3) return 'Grassroots';
   if (level <= 6) return 'Club Player';
   if (level <= 9) return 'Academy Player';
-  if (level <= 12) return 'First Team Player';
+  if (level <= 12) return 'First Team Prospect';
   if (level <= 15) return 'Playmaker';
-  return 'Master Touch';
+  if (level <= 18) return 'Master Touch';
+  return 'Legend';
 }
 
 // Events they can earn XP from (v1: juggling only)
@@ -52,5 +52,26 @@ export function getXpForEvent(type: XpEventType): number {
       return 100;
     default:
       return 0;
+  }
+}
+
+export function getRankBadge(rank: string) {
+  switch (rank) {
+    case 'Grassroots':
+      return { color: '#22c55e', icon: 'leaf-outline' };
+    case 'Club Player':
+      return { color: '#3b82f6', icon: 'shield-half' };
+    case 'Academy Player':
+      return { color: '#a855f7', icon: 'school' };
+    case 'First Team Prospect':
+      return { color: '#f97316', icon: 'flash' };
+    case 'Playmaker':
+      return { color: '#facc15', icon: 'star' };
+    case 'Master Touch':
+      return { color: '#e5e7eb', icon: 'trophy' };
+    case 'Legend':
+      return { color: '#38bdf8', icon: 'diamond' };
+    default:
+      return { color: '#6b7280', icon: 'help' };
   }
 }
