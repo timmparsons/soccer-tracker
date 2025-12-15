@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "master-touch",
-    "slug": "soccer-tracker",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
-    "scheme": "master-touch",
+    "scheme": "mastertouch",
+    "slug": "mastertouch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -27,9 +27,7 @@
     "web": {
       "output": "static"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
