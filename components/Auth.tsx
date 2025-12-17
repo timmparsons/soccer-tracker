@@ -90,6 +90,10 @@ export default function Auth() {
     try {
       setLoading(true);
 
+      const redirectTo = __DEV__
+        ? 'exp://192.168.0.227:8081/--/auth/callback'
+        : 'mastertouch://auth/callback';
+
       console.log('[Auth] signUp start', {
         email,
         firstName,
@@ -101,6 +105,13 @@ export default function Auth() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: 'exp://192.168.0.227:8081/--/callback',
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
       });
 
       console.log('[Auth] signUp response', data);
