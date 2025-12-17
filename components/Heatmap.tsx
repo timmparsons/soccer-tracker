@@ -1,10 +1,23 @@
 import { format, subDays } from 'date-fns';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
 const Heatmap = ({ stats }) => {
   if (!stats || !stats.scores_history) return null;
+
+  // Get screen width and calculate responsive sizing
+  const screenWidth = Dimensions.get('window').width;
+  const padding = 32; // Card padding
+  const availableWidth = screenWidth - padding - 32; // Extra margin
+
+  // Calculate cell size and gap based on available width
+  const cols = 15; // cells per row
+  const gap = 3;
+  const cellSize = Math.min(
+    22, // max size
+    Math.floor((availableWidth - gap * (cols - 1)) / cols)
+  );
 
   // Convert history into { "2025-02-18": count }
   const map = {};
@@ -18,26 +31,33 @@ const Heatmap = ({ stats }) => {
   const days = Array.from({ length: 30 }).map((_, idx) => {
     const date = subDays(today, 29 - idx);
     const dateStr = format(date, 'yyyy-MM-dd');
-
     return {
       date: dateStr,
       value: map[dateStr] ?? 0,
     };
   });
 
-  // ----- Month Labels -----
+  // ----- Month Labels with overlap prevention -----
   const monthLabels = [];
+  let lastLabelX = -50; // Track last label position to prevent overlap
+
   days.forEach((d, i) => {
     const dateObj = new Date(d.date);
     const prev = days[i - 1];
     const prevMonth = prev ? new Date(prev.date).getMonth() : null;
 
-    // If month changed OR first item → add label
+    // If month changed OR first item → consider adding label
     if (i === 0 || dateObj.getMonth() !== prevMonth) {
-      monthLabels.push({
-        label: format(dateObj, 'MMM'), // Jan, Feb, Mar...
-        x: (i % 15) * 22,
-      });
+      const x = (i % cols) * (cellSize + gap);
+
+      // Only add if there's enough space (at least 40px from last label)
+      if (x - lastLabelX >= 40 || i === 0) {
+        monthLabels.push({
+          label: format(dateObj, 'MMM'),
+          x: x,
+        });
+        lastLabelX = x;
+      }
     }
   });
 
@@ -50,26 +70,29 @@ const Heatmap = ({ stats }) => {
     return '#0ea5e9';
   };
 
+  const gridWidth = cols * (cellSize + gap) - gap;
+  const gridHeight = 2 * (cellSize + gap) - gap;
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Training Activity</Text>
-
       <View style={styles.card}>
         <View style={styles.monthRow}>
-          {monthLabels.map((m) => (
-            <Text key={m.x} style={[styles.monthLabel, { left: m.x }]}>
+          {monthLabels.map((m, idx) => (
+            <Text key={idx} style={[styles.monthLabel, { left: m.x }]}>
               {m.label}
             </Text>
           ))}
         </View>
-        <Svg width={330} height={80}>
+
+        <Svg width={gridWidth} height={gridHeight}>
           {days.map((d, i) => (
             <Rect
               key={d.date}
-              x={(i % 15) * 22}
-              y={Math.floor(i / 15) * 22}
-              width={18}
-              height={18}
+              x={(i % cols) * (cellSize + gap)}
+              y={Math.floor(i / cols) * (cellSize + gap)}
+              width={cellSize}
+              height={cellSize}
               fill={getColor(d.value)}
               rx={4}
             />
@@ -79,11 +102,12 @@ const Heatmap = ({ stats }) => {
         <View style={styles.legend}>
           <Text style={styles.legendLabel}>Less</Text>
           <View style={styles.legendRow}>
-            <View style={[styles.legendBox, { backgroundColor: '#e5e7eb' }]} />
-            <View style={[styles.legendBox, { backgroundColor: '#bae6fd' }]} />
-            <View style={[styles.legendBox, { backgroundColor: '#7dd3fc' }]} />
-            <View style={[styles.legendBox, { backgroundColor: '#38bdf8' }]} />
-            <View style={[styles.legendBox, { backgroundColor: '#0ea5e9' }]} />
+            {[0, 1, 2, 3, 4].map((v) => (
+              <View
+                key={v}
+                style={[styles.legendBox, { backgroundColor: getColor(v) }]}
+              />
+            ))}
           </View>
           <Text style={styles.legendLabel}>More</Text>
         </View>
@@ -102,6 +126,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#111827',
+    marginBottom: 12,
   },
   card: {
     backgroundColor: '#fff',
@@ -116,6 +141,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 12,
   },
   legendRow: {
     flexDirection: 'row',

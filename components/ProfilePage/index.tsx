@@ -22,7 +22,6 @@ import {
   View,
 } from 'react-native';
 
-import Heatmap from '@/components/Heatmap';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -348,7 +347,7 @@ const ProfilePage = () => {
           onOpenRoadmap={() => router.push('/(modals)/roadmap')}
         />
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
-        <Heatmap stats={juggles} />
+        {/* <Heatmap stats={juggles} /> */}
         <AccountActions
           onOpenModal={handleOpenModal}
           onSignOut={handleSignOut}

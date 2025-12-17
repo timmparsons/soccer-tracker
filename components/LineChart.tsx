@@ -60,7 +60,9 @@ const LineChart = ({ stats }) => {
       <View style={styles.chartCard}>
         <Svg width={width} height={height}>
           {/* Line */}
-          <Path d={linePath} stroke='#3b82f6' strokeWidth={3} fill='none' />
+          {linePath && (
+            <Path d={linePath} stroke='#3b82f6' strokeWidth={3} fill='none' />
+          )}
 
           {/* Dots - only show where there's actual data */}
           {data.map((d, i) => (
