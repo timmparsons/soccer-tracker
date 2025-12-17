@@ -1,7 +1,7 @@
 import data from '@/constants/allCoachesTips.json';
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
-import { useUser } from '@/hooks/useUser';
+import { useAuthUser, useUser } from '@/hooks/useUser';
 import { getRandomDailyChallenge } from '@/utils/getRandomCoachTips';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,8 @@ const HomeScreen = () => {
   const router = useRouter();
 
   const { data: user, isLoading: userLoading } = useUser();
+  const authUser = useAuthUser();
+
   const {
     data: profile,
     isLoading: loadingProfile,
@@ -59,12 +61,17 @@ const HomeScreen = () => {
     user?.email?.split('@')[0] ||
     'Player';
 
+  const authDisplayName =
+    authUser?.user_metadata?.display_name ??
+    authUser?.email?.split('@')[0] ??
+    'there';
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          <Text style={styles.greeting}>Hey {displayName}! 👋</Text>
+          <Text style={styles.greeting}>Hey {authDisplayName}! 👋</Text>
         </Text>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image
