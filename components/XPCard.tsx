@@ -1,6 +1,6 @@
 import { getRankBadge } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
@@ -20,22 +20,44 @@ export default function XPCard({
   onOpenRoadmap,
 }: XPCardProps) {
   const pct = Math.min((xpIntoLevel / xpForNextLevel) * 100, 100);
-
   const { color, icon } = getRankBadge(rankName);
+
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Confetti ref
-  const confettiRef = useRef<any>(null);
-  const [prevLevel, setPrevLevel] = useState(level);
+  /* -----------------------------------------------------------
+     CONFETTI LOGIC (LEVEL UP ONLY)
+  ------------------------------------------------------------ */
+  const prevLevelRef = useRef<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  // LEVEL-UP ANIMATION
-  // useEffect(() => {
-  //   if (level > prevLevel) {
-  //     confettiRef?.current?.start();
-  //   }
-  //   setPrevLevel(level);
-  // }, [level]);
+  useEffect(() => {
+    // First render: initialize, do NOT celebrate
+    if (prevLevelRef.current === null) {
+      prevLevelRef.current = level;
+      return;
+    }
 
+    if (level > prevLevelRef.current) {
+      // Small delay makes it feel intentional
+      setTimeout(() => setShowConfetti(true), 300);
+    }
+
+    prevLevelRef.current = level;
+  }, [level]);
+
+  useEffect(() => {
+    if (!showConfetti) return;
+
+    const timer = setTimeout(() => {
+      setShowConfetti(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [showConfetti]);
+
+  /* -----------------------------------------------------------
+     UI
+  ------------------------------------------------------------ */
   return (
     <>
       <View style={[styles.card, { borderLeftColor: color }]}>
@@ -69,9 +91,10 @@ export default function XPCard({
             ]}
           />
         </View>
+
         <TouchableOpacity
           style={[styles.roadmapButton, { borderColor: color }]}
-          onPress={() => onOpenRoadmap?.()}
+          onPress={onOpenRoadmap}
         >
           <Text style={[styles.roadmapButtonText, { color }]}>
             View Roadmap
@@ -80,15 +103,16 @@ export default function XPCard({
         </TouchableOpacity>
       </View>
 
-      {/* CONFETTI */}
-      <ConfettiCannon
-        ref={confettiRef}
-        count={60}
-        fadeOut
-        origin={{ x: -10, y: 0 }}
-      />
+      {/* CONFETTI (LEVEL UP ONLY) */}
+      {showConfetti && (
+        <ConfettiCannon
+          count={Math.min(120, level * 10)}
+          fadeOut
+          origin={{ x: -10, y: 0 }}
+        />
+      )}
 
-      {/* MODAL */}
+      {/* HOW XP WORKS MODAL */}
       <Modal transparent animationType='slide' visible={modalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -113,6 +137,9 @@ export default function XPCard({
   );
 }
 
+/* -----------------------------------------------------------
+   STYLES
+------------------------------------------------------------ */
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
@@ -154,6 +181,20 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#3b82f6',
   },
+  roadmapButton: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  roadmapButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -187,19 +228,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
     marginBottom: 12,
-  },
-  roadmapButton: {
-    marginTop: 14,
-    paddingVertical: 10,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  roadmapButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

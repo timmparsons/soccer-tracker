@@ -198,9 +198,9 @@ const TimerPage = () => {
 
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {juggleStats?.high_score ?? '—'}
+              {juggleStats?.last_score ?? '—'}
             </Text>
-            <Text style={styles.statLabel}>Best Record</Text>
+            <Text style={styles.statLabel}>Best (Session)</Text>
           </View>
 
           <View style={styles.statItem}>

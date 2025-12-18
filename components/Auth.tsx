@@ -101,6 +101,9 @@ export default function Auth() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: 'exp://192.168.0.227:8081/--/callback',
+        },
       });
 
       console.log('[Auth] signUp response', data);
@@ -126,7 +129,9 @@ export default function Auth() {
     if (!email) return Alert.alert('Enter your email first');
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'exp://192.168.0.227:8081/--/callback',
+      });
       if (error) throw error;
       Alert.alert('Check email 📩', 'Password reset link sent.');
     } catch (err: any) {
