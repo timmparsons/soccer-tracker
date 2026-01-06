@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachsTip from '../common/CoachsTip';
 
 const HomeScreen = () => {
@@ -42,7 +43,7 @@ const HomeScreen = () => {
   if (userLoading || statsLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#3b82f6' />
+        <ActivityIndicator size='large' color='#FFA500' />
       </View>
     );
   }
@@ -57,16 +58,22 @@ const HomeScreen = () => {
     profile?.display_name ||
     profile?.first_name ||
     user?.email?.split('@')[0] ||
-    'Player';
+    'Champion';
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>
-          <Text style={styles.greeting}>Hey {displayName}! 👋</Text>
-        </Text>
+      <SafeAreaView style={styles.header}>
+        <View style={styles.headerLeft}>
+          {/* <View style={styles.championBadge}>
+            <Text style={styles.championText}>CHAMPION</Text>
+          </View> */}
+          <Text style={styles.greeting}>
+            Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
+          </Text>
+        </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
+          <View style={styles.avatarGlow} />
           <Image
             source={{
               uri:
@@ -76,23 +83,41 @@ const HomeScreen = () => {
             style={styles.avatar}
           />
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
 
-      {/* BEST SCORE */}
+      {/* BEST SCORE - TROPHY CARD */}
       <View style={styles.bestCard}>
-        <Text style={styles.bestLabel}>Your Best Score</Text>
-        <Text style={styles.bestValue}>{bestScore}</Text>
-        <Text style={styles.bestUnit}>juggles!</Text>
+        <Text style={styles.trophyWatermark}>🏆</Text>
+        <View style={styles.cornerAccent} />
+
+        <View style={styles.recordBadge}>
+          <Text style={styles.recordBadgeText}>YOUR RECORD</Text>
+        </View>
+
+        <View style={styles.scoreRow}>
+          <Text style={styles.bestValue}>{bestScore}</Text>
+          <Text style={styles.bestUnit}>Juggles</Text>
+        </View>
+
+        <View style={styles.personalBestBadge}>
+          <Text style={styles.personalBestText}>Personal Best!</Text>
+        </View>
       </View>
 
       {/* QUICK STATS */}
       <View style={styles.quickStatsRow}>
-        <View style={styles.quickStat}>
+        <View style={[styles.quickStat, styles.statNavy]}>
+          <View style={styles.statIconBg}>
+            <Text style={styles.statIcon}>🎯</Text>
+          </View>
           <Text style={styles.quickValue}>{sessions}</Text>
-          <Text style={styles.quickLabel}>Sessions</Text>
+          <Text style={styles.quickLabel}>Training Sessions</Text>
         </View>
 
-        <View style={styles.quickStat}>
+        <View style={[styles.quickStat, styles.statOrange]}>
+          <View style={styles.statIconBg}>
+            <Text style={styles.statIcon}>🔥</Text>
+          </View>
           <Text style={styles.quickValue}>{streak}</Text>
           <Text style={styles.quickLabel}>Day Streak</Text>
         </View>
@@ -100,23 +125,27 @@ const HomeScreen = () => {
 
       {/* DAILY CHALLENGE */}
       <View style={styles.challengeCard}>
-        <View style={styles.challengeHeader}>
-          <Text style={styles.challengeTitle}>🎯 Daily Challenge</Text>
-
-          {/* XP Tag (optional) */}
-          <View style={styles.xpTag}>
-            <Text style={styles.xpText}>+20 XP</Text>
-          </View>
+        <View style={styles.xpBadge}>
+          <Text style={styles.xpText}>+20 XP</Text>
         </View>
 
-        <Text style={styles.challengeName}>🔥 Today&apos;s Mission</Text>
-        <Text style={styles.challengeDesc}>{challenge}</Text>
+        <View style={styles.challengeHeader}>
+          <View style={styles.challengeIconContainer}>
+            <Text style={styles.challengeIcon}>🎯</Text>
+          </View>
+          <Text style={styles.challengeTitle}>Today's Challenge</Text>
+        </View>
+
+        <View style={styles.missionBox}>
+          <Text style={styles.missionLabel}>YOUR MISSION</Text>
+          <Text style={styles.challengeDesc}>{challenge}</Text>
+        </View>
 
         <TouchableOpacity
           style={styles.startButton}
           onPress={() => router.push('/train')}
         >
-          <Text style={styles.startButtonText}>Let’s Go!</Text>
+          <Text style={styles.startButtonText}>LET'S GO!</Text>
         </TouchableOpacity>
 
         {/* COACH TIP */}
@@ -133,64 +162,137 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5F9FF',
   },
   container: {
     padding: 20,
-    height: '100%',
-    // paddingBottom: 90,
-    backgroundColor: '#f9fafb',
+    paddingTop: 30,
+    backgroundColor: '#F5F9FF',
   },
 
   // HEADER
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 25,
-    marginTop: 30,
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: 15,
+  },
+  championBadge: {
+    backgroundColor: '#FFA500',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  championText: {
+    color: '#2C3E50',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#111827',
-    flex: 1,
-    marginRight: 12,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#2C3E50',
+    lineHeight: 34,
+  },
+  nameHighlight: {
+    color: '#1E90FF',
+  },
+  avatarGlow: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 35,
+    backgroundColor: '#FFA500',
+    opacity: 0.3,
   },
   avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 4,
+    borderColor: '#FFF',
   },
 
   // BEST SCORE
   bestCard: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#2B9FFF',
     paddingVertical: 30,
-    borderRadius: 20,
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 24,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: '#1E90FF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  bestLabel: {
-    color: '#bfdbfe',
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 6,
+  trophyWatermark: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    fontSize: 100,
+    opacity: 0.15,
+  },
+  cornerAccent: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 80,
+    height: 80,
+    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+    transform: [{ rotate: '45deg' }],
+  },
+  recordBadge: {
+    marginBottom: 12,
+  },
+  recordBadgeText: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
   },
   bestValue: {
-    color: '#fff',
-    fontSize: 64,
+    color: '#FFFFFF',
+    fontSize: 72,
     fontWeight: '900',
+    lineHeight: 72,
+    marginRight: 12,
   },
   bestUnit: {
-    color: '#e0f2fe',
-    fontSize: 20,
-    fontWeight: '500',
-    marginTop: -5,
+    color: '#FFD700',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  personalBestBadge: {
+    backgroundColor: 'rgba(255, 215, 0, 0.25)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    alignSelf: 'flex-start',
+  },
+  personalBestText: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '800',
   },
 
   // QUICK STATS
@@ -198,104 +300,149 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 24,
+    gap: 12,
   },
   quickStat: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingVertical: 18,
-    borderRadius: 14,
-    marginHorizontal: 4,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statNavy: {
+    backgroundColor: '#2C3E50',
+  },
+  statOrange: {
+    backgroundColor: '#FFA500',
+  },
+  statIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statIcon: {
+    fontSize: 24,
   },
   quickValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111',
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 4,
   },
   quickLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 2,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '700',
+    textAlign: 'center',
   },
 
-  // --- DAILY CHALLENGE ---
+  // DAILY CHALLENGE
   challengeCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 20,
+    backgroundColor: '#2C3E50',
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 26,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 10,
-    elevation: 3,
-
-    // soft gradient feel using overlay
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
+    elevation: 6,
+    position: 'relative',
   },
-
+  xpBadge: {
+    position: 'absolute',
+    top: -12,
+    right: 12,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    transform: [{ rotate: '-8deg' }],
+    borderWidth: 3,
+    borderColor: '#FFF',
+    zIndex: 10,
+    shadowColor: '#FFA500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  xpText: {
+    color: '#2C3E50',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
   challengeHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 20,
+    gap: 12,
   },
-
+  challengeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  challengeIcon: {
+    fontSize: 28,
+  },
   challengeTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFF',
+    flex: 1,
   },
-
-  xpTag: {
-    backgroundColor: '#f59e0b22', // faint orange
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
+  missionBox: {
+    backgroundColor: 'rgba(30, 144, 255, 0.15)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
   },
-
-  xpText: {
+  missionLabel: {
+    color: '#FFA500',
     fontSize: 12,
-    fontWeight: '700',
-    color: '#b45309',
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 12,
   },
-
-  challengeName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#f59e0b', // orange brand color
-    marginBottom: 6,
-    marginTop: 8,
-  },
-
   challengeDesc: {
     fontSize: 15,
-    color: '#4b5563',
-    marginBottom: 16,
-    lineHeight: 20,
+    color: '#FFF',
+    lineHeight: 22,
+    fontWeight: '500',
   },
-
   startButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: '#FFA500',
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 6,
-    shadowColor: '#3b82f6',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 2,
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#FFA500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
-
   startButtonText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 16,
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 18,
+    letterSpacing: 1,
   },
 });

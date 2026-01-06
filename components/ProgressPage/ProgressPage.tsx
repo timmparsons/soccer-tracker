@@ -50,18 +50,19 @@ const ProgressPage = () => {
         }}
       >
         <View style={styles.emptyContainer}>
-          <Ionicons name='stats-chart-outline' size={80} color='#3b82f6' />
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name='stats-chart-outline' size={64} color='#2B9FFF' />
+          </View>
 
           <Text style={styles.emptyTitle}>No Progress Yet</Text>
           <Text style={styles.emptySubtitle}>
-            Once you complete your first juggling session, your progress will
-            appear here.
+            Complete your first training session to start tracking your
+            improvement.
           </Text>
 
           <TouchableOpacity
             style={styles.emptyButton}
             onPress={() => {
-              // navigate to training page (edit based on your routing)
               router.push('/train');
             }}
           >
@@ -73,11 +74,10 @@ const ProgressPage = () => {
   }
 
   // -----------------------------------------------------------------
-  // NORMAL PROGRESS VIEW (existing behavior)
+  // NORMAL PROGRESS VIEW
   // -----------------------------------------------------------------
 
   const lastDuration = stats?.last_session_duration ?? 0;
-
   const improvement =
     stats?.average_score > 0 ? stats?.last_score - stats?.average_score : 0;
 
@@ -87,7 +87,7 @@ const ProgressPage = () => {
   if (stats?.sessions_count >= 1 && stats?.high_score) {
     milestones.push({
       icon: 'trophy',
-      color: '#f59e0b',
+      color: '#FFD700',
       title: 'New Personal Best!',
       sub: `${stats.high_score} Juggles`,
       date: new Date(stats.last_session_date).toLocaleDateString(),
@@ -97,7 +97,7 @@ const ProgressPage = () => {
   if (stats?.sessions_count === 1) {
     milestones.push({
       icon: 'star-circle',
-      color: '#3b82f6',
+      color: '#2B9FFF',
       title: 'First Training Session',
       sub: 'Great start to your journey!',
       date: new Date(stats.last_session_date).toLocaleDateString(),
@@ -107,7 +107,7 @@ const ProgressPage = () => {
   if (stats?.streak_days >= 2) {
     milestones.push({
       icon: 'run-fast',
-      color: '#22c55e',
+      color: '#FFA500',
       title: `${stats.streak_days}-Day Streak`,
       sub: 'Consistency is key!',
       date: new Date(stats.last_session_date).toLocaleDateString(),
@@ -117,7 +117,7 @@ const ProgressPage = () => {
   if (stats?.sessions_count >= 5) {
     milestones.push({
       icon: 'run-fast',
-      color: '#8b5cf6',
+      color: '#2C3E50',
       title: `${stats.sessions_count} Training Sessions`,
       sub: 'Nice training volume!',
       date: new Date(stats.last_session_date).toLocaleDateString(),
@@ -126,46 +126,63 @@ const ProgressPage = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {' '}
+      {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>Your Progress 📈</Text>
-        <Text style={styles.subtitle}>
-          Keep improving one juggle at a time!
-        </Text>
+        <View style={styles.titleRow}>
+          <View style={styles.headerIconBadge}>
+            <Ionicons name='stats-chart' size={28} color='#2B9FFF' />
+          </View>
+          <View style={styles.titleContent}>
+            <Text style={styles.title}>Your Progress</Text>
+            <Text style={styles.subtitle}>
+              Keep improving one juggle at a time
+            </Text>
+          </View>
+        </View>
       </View>
+
       {/* PERFORMANCE SUMMARY */}
       <Text style={styles.sectionTitle}>Performance Summary</Text>
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: '#3b82f6' }]}>
-          <Ionicons name='football-outline' size={28} color='#fff' />
+        <View style={[styles.statCard, styles.statCardBlue]}>
+          <View style={styles.statIconContainer}>
+            <Ionicons name='football' size={28} color='#2B9FFF' />
+          </View>
           <Text style={styles.statValue}>{stats.high_score}</Text>
-          <Text style={styles.statLabel}>Best Juggles</Text>
+          <Text style={styles.statLabel}>Best Score</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: '#22c55e' }]}>
-          <Ionicons name='time-outline' size={28} color='#fff' />
+        <View style={[styles.statCard, styles.statCardNavy]}>
+          <View style={styles.statIconContainer}>
+            <Ionicons name='time' size={28} color='#FFF' />
+          </View>
           <Text style={styles.statValue}>{Math.floor(lastDuration / 60)}m</Text>
           <Text style={styles.statLabel}>Avg Session</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: '#f59e0b' }]}>
-          <Ionicons name='flame-outline' size={28} color='#fff' />
+        <View style={[styles.statCard, styles.statCardOrange]}>
+          <View style={styles.statIconContainer}>
+            <Ionicons name='flame' size={28} color='#FFA500' />
+          </View>
           <Text style={styles.statValue}>{stats.streak_days}</Text>
           <Text style={styles.statLabel}>Day Streak</Text>
         </View>
       </View>
+
       {/* STREAK TRACKER */}
       <Text style={styles.sectionTitle}>Streak Tracker</Text>
       <View style={styles.streakCard}>
         <View style={styles.streakRow}>
-          <MaterialCommunityIcons
-            name='calendar-check'
-            size={30}
-            color='#3b82f6'
-          />
+          <View style={styles.streakIconContainer}>
+            <MaterialCommunityIcons
+              name='calendar-check'
+              size={28}
+              color='#FFA500'
+            />
+          </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.streakTitle}>
-              {stats.streak_days}-Day Streak 🔥
+              {stats.streak_days}-Day Streak
             </Text>
             <Text style={styles.streakSub}>
               Keep it going to hit {stats.streak_days + 1} days!
@@ -180,6 +197,7 @@ const ProgressPage = () => {
           </TouchableOpacity>
         </View>
       </View>
+
       {/* MILESTONES */}
       <Text style={styles.sectionTitle}>Recent Milestones</Text>
       <View style={styles.milestoneCard}>
@@ -191,7 +209,14 @@ const ProgressPage = () => {
 
         {milestones.map((m, idx) => (
           <View key={idx} style={styles.milestoneRow}>
-            <MaterialCommunityIcons name={m.icon} size={26} color={m.color} />
+            <View
+              style={[
+                styles.milestoneIconContainer,
+                { backgroundColor: `${m.color}20` },
+              ]}
+            >
+              <MaterialCommunityIcons name={m.icon} size={24} color={m.color} />
+            </View>
             <View style={styles.milestoneDetails}>
               <Text style={styles.milestoneTitle}>{m.title}</Text>
               <Text style={styles.milestoneSub}>{m.sub}</Text>
@@ -200,34 +225,50 @@ const ProgressPage = () => {
           </View>
         ))}
       </View>
+
       {/* CHART */}
       {stats.scores_history &&
         Array.isArray(stats.scores_history) &&
         stats.scores_history.length > 0 && <LineChart stats={stats} />}
+
       {/* TIP */}
-      <CoachsTip />
+      <View style={styles.tipContainer}>
+        <CoachsTip />
+      </View>
+
       {/* STREAK MODAL */}
-      <Modal
-        visible={showStreakModal}
-        animationType='slide'
-        presentationStyle='pageSheet' // This helps with safe area on iOS
-      >
-        <View style={styles.modalContainer}>
+      <Modal visible={showStreakModal} animationType='slide' transparent>
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Streak Details 🔥</Text>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name='flame' size={48} color='#FFA500' />
+              </View>
+              <Text style={styles.modalTitle}>Streak Details</Text>
+            </View>
 
-            <Text style={styles.modalText}>
-              Current Streak: {stats.streak_days} days
-            </Text>
+            <View style={styles.modalBody}>
+              <View style={styles.modalStatRow}>
+                <Text style={styles.modalStatLabel}>Current Streak</Text>
+                <Text style={styles.modalStatValue}>
+                  {stats.streak_days} days
+                </Text>
+              </View>
 
-            <Text style={styles.modalText}>
-              Best Streak: {stats.best_daily_streak} days
-            </Text>
+              <View style={styles.modalStatRow}>
+                <Text style={styles.modalStatLabel}>Best Streak</Text>
+                <Text style={styles.modalStatValue}>
+                  {stats.best_daily_streak} days
+                </Text>
+              </View>
 
-            <Text style={styles.modalText}>
-              Last Session:{' '}
-              {new Date(stats.last_session_date).toLocaleDateString()}
-            </Text>
+              <View style={styles.modalStatRow}>
+                <Text style={styles.modalStatLabel}>Last Session</Text>
+                <Text style={styles.modalStatValue}>
+                  {new Date(stats.last_session_date).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
 
             <TouchableOpacity
               style={styles.modalCloseButton}
@@ -244,155 +285,340 @@ const ProgressPage = () => {
 
 export default ProgressPage;
 
-//
-// STYLES
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5F9FF',
     paddingHorizontal: 16,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#6b7280', fontSize: 16 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F9FF',
+  },
+  loadingText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 
   // EMPTY STATE
   emptyContainer: {
     alignItems: 'center',
     paddingHorizontal: 30,
   },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(43, 159, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   emptyTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 20,
+    fontWeight: '900',
+    color: '#2C3E50',
+    marginBottom: 12,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'center',
-    marginTop: 6,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   emptyButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    marginTop: 24,
+    backgroundColor: '#FFA500',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    marginTop: 32,
+    shadowColor: '#FFA500',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   emptyButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 17,
   },
 
-  header: { marginTop: 20, marginBottom: 10 },
-  title: { fontSize: 28, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#6b7280' },
+  // HEADER
+  header: {
+    marginTop: 40,
+    marginBottom: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(43, 159, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleContent: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#2C3E50',
+    lineHeight: 36,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 2,
+  },
 
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginTop: 24,
-    marginBottom: 8,
+    fontWeight: '800',
+    color: '#2C3E50',
+    marginTop: 28,
+    marginBottom: 12,
   },
 
+  // STATS GRID
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
-    justifyContent: 'center',
+    marginBottom: 8,
   },
   statCard: {
-    borderRadius: 16,
-    padding: 16,
-    width: '30%',
+    flex: 1,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statCardBlue: {
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#2B9FFF',
+  },
+  statCardNavy: {
+    backgroundColor: '#2C3E50',
+  },
+  statCardOrange: {
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#FFA500',
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    marginTop: 4,
+    color: '#2C3E50',
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    color: '#6B7280',
+  },
+
+  // STREAK CARD
+  streakCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+  },
+  streakRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  statValue: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 6 },
-  statLabel: { color: '#e5e7eb', fontSize: 13 },
+  streakIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2C3E50',
+    marginBottom: 4,
+  },
+  streakSub: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  streakButton: {
+    backgroundColor: '#2B9FFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    shadowColor: '#2B9FFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  streakButtonText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
 
-  streakCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  // MILESTONES
+  milestoneCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
     padding: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
-  },
-  streakRow: { flexDirection: 'row', alignItems: 'center' },
-  streakTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  streakSub: { color: '#6b7280', fontSize: 13 },
-  streakButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  streakButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-
-  milestoneCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   noMilestoneText: {
     textAlign: 'center',
-    color: '#6b7280',
+    color: '#6B7280',
     paddingVertical: 16,
+    fontWeight: '500',
   },
   milestoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderColor: '#e5e7eb',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  milestoneDetails: { flex: 1, marginLeft: 12 },
-  milestoneTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  milestoneSub: { fontSize: 13, color: '#6b7280' },
-  milestoneDate: { fontSize: 12, color: '#9ca3af' },
-
-  tipCard: {
-    backgroundColor: '#e0f2fe',
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 24,
+  milestoneIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tipTitle: { fontSize: 17, fontWeight: '700', color: '#0369a1' },
-  tipText: { fontSize: 14, color: '#075985', lineHeight: 20 },
-  modalContainer: {
+  milestoneDetails: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: 60, // Fixed top padding for notch
-    paddingHorizontal: 30,
+    marginLeft: 12,
+  },
+  milestoneTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2C3E50',
+    marginBottom: 2,
+  },
+  milestoneSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  milestoneDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+
+  tipContainer: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+
+  // MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 62, 80, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 16,
-    color: '#111827',
+    fontWeight: '900',
+    color: '#2C3E50',
+    textAlign: 'center',
   },
-  modalText: {
+  modalBody: {
+    marginBottom: 24,
+  },
+  modalStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalStatLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  modalStatValue: {
     fontSize: 18,
-    marginBottom: 12,
-    color: '#374151',
+    fontWeight: '900',
+    color: '#2C3E50',
   },
   modalCloseButton: {
-    marginTop: 24,
+    backgroundColor: '#2B9FFF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#2B9FFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalCloseText: {
-    color: '#3b82f6',
-    fontSize: 18,
-    fontWeight: '600',
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '900',
   },
 });

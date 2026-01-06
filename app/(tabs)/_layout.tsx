@@ -13,7 +13,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2ECC71', // Soccer green
+        tabBarActiveTintColor: '#FFA500', // Soccer green
         tabBarInactiveTintColor: '#95A5A6', // Gray for inactive
         tabBarStyle: {
           borderTopColor: '#E5E7EB',

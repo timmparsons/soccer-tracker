@@ -57,21 +57,26 @@ const ProfileHeader = memo(
     return (
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
+          <View style={styles.avatarGlow} />
           <TouchableOpacity onPress={onPickImage}>
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.editIcon} onPress={onOpenModal}>
-            <Ionicons name='settings-sharp' size={20} color='#fff' />
+            <Ionicons name='settings-sharp' size={20} color='#FFF' />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.name}>{displayName}</Text>
 
-        {team?.name && <Text style={styles.teamName}>Team: {team.name}</Text>}
+        {team?.name && (
+          <View style={styles.teamBadge}>
+            <Text style={styles.teamName}>{team.name}</Text>
+          </View>
+        )}
 
         {profile?.location && (
-          <Text style={styles.location}>📍 {profile.location}</Text>
+          <Text style={styles.location}>{profile.location}</Text>
         )}
       </View>
     );
@@ -87,16 +92,16 @@ const StreakCard = memo(
   ({ streak, bestStreak }: { streak: number; bestStreak: number }) => (
     <View style={styles.streakCard}>
       <View style={styles.streakRow}>
-        <Ionicons name='flame' size={28} color='#f59e0b' />
+        <View style={styles.flameIconContainer}>
+          <Ionicons name='flame' size={32} color='#FFA500' />
+        </View>
         <View style={styles.streakTextBlock}>
           <Text style={styles.streakMain}>{streak}-Day Streak</Text>
-          <Text style={styles.streakSub}>
-            Longest Streak: {bestStreak} days
-          </Text>
+          <Text style={styles.streakSub}>Best Streak: {bestStreak} days</Text>
         </View>
       </View>
 
-      <Text style={styles.streakMessage}>Keep the fire going! 🔥</Text>
+      <Text style={styles.streakMessage}>Keep it going!</Text>
     </View>
   )
 );
@@ -119,13 +124,19 @@ const AccountActions = memo(
 
       <View style={styles.actionList}>
         <TouchableOpacity style={styles.actionRow} onPress={onOpenModal}>
-          <Ionicons name='person-outline' size={22} color='#3b82f6' />
+          <View style={styles.actionIconContainer}>
+            <Ionicons name='person-outline' size={22} color='#2B9FFF' />
+          </View>
           <Text style={styles.actionText}>Edit Profile</Text>
+          <Ionicons name='chevron-forward' size={20} color='#9CA3AF' />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
-          <Ionicons name='log-out-outline' size={22} color='#ef4444' />
-          <Text style={[styles.actionText, { color: '#ef4444' }]}>Log Out</Text>
+          <View style={[styles.actionIconContainer, styles.logoutIcon]}>
+            <Ionicons name='log-out-outline' size={22} color='#EF4444' />
+          </View>
+          <Text style={[styles.actionText, { color: '#EF4444' }]}>Log Out</Text>
+          <Ionicons name='chevron-forward' size={20} color='#9CA3AF' />
         </TouchableOpacity>
       </View>
 
@@ -160,7 +171,7 @@ const ProfilePage = () => {
   const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [role, setRole] = useState<'player' | 'coach'>('player');
-  console.log('QQQ ', location);
+
   /* ------------------------------------------------------------
      PICK IMAGE
   ------------------------------------------------------------- */
@@ -284,8 +295,6 @@ const ProfilePage = () => {
     if (trimmedTeamCode.length > 0) {
       updates.team_code = trimmedTeamCode;
     }
-    console.log('UPDATING PROFILE WITH:', updates);
-    console.log('[ProfilePage] handleSaveProfile →', updates);
 
     updateProfile.mutate(updates, {
       onSuccess: () => {
@@ -318,7 +327,7 @@ const ProfilePage = () => {
   if (loadingProfile || loadingJuggles) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#3b82f6' />
+        <ActivityIndicator size='large' color='#FFA500' />
       </View>
     );
   }
@@ -326,7 +335,6 @@ const ProfilePage = () => {
   /* ============================================================
      PAGE UI
   ============================================================ */
-  console.log('XXX RENDER ProfilePage with profile:', profile);
   return (
     <>
       <ScrollView
@@ -347,7 +355,6 @@ const ProfilePage = () => {
           onOpenRoadmap={() => router.push('/(modals)/roadmap')}
         />
         <StreakCard streak={stats.streak} bestStreak={stats.bestStreak} />
-        {/* <Heatmap stats={juggles} /> */}
         <AccountActions
           onOpenModal={handleOpenModal}
           onSignOut={handleSignOut}
@@ -367,7 +374,7 @@ const ProfilePage = () => {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Edit Profile</Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name='close' size={28} color='#111827' />
+                  <Ionicons name='close' size={28} color='#2C3E50' />
                 </TouchableOpacity>
               </View>
 
@@ -383,6 +390,7 @@ const ProfilePage = () => {
                   value={firstName}
                   onChangeText={setFirstName}
                   placeholder='Enter your first name'
+                  placeholderTextColor='#9CA3AF'
                 />
 
                 <Text style={styles.label}>Last Name</Text>
@@ -391,6 +399,7 @@ const ProfilePage = () => {
                   value={lastName}
                   onChangeText={setLastName}
                   placeholder='Enter your last name (optional)'
+                  placeholderTextColor='#9CA3AF'
                 />
 
                 <Text style={styles.label}>Are you a...</Text>
@@ -436,6 +445,7 @@ const ProfilePage = () => {
                   value={location}
                   onChangeText={setLocation}
                   placeholder='City, State or Country'
+                  placeholderTextColor='#9CA3AF'
                 />
 
                 <Text style={styles.label}>Bio</Text>
@@ -444,6 +454,7 @@ const ProfilePage = () => {
                   value={bio}
                   onChangeText={setBio}
                   placeholder='Tell us about yourself...'
+                  placeholderTextColor='#9CA3AF'
                   multiline
                 />
 
@@ -453,11 +464,14 @@ const ProfilePage = () => {
                   value={teamCode}
                   onChangeText={setTeamCode}
                   placeholder='Enter team code to join'
+                  placeholderTextColor='#9CA3AF'
                   autoCapitalize='none'
                 />
 
                 <Text style={styles.currentTeamLabel}>
-                  {team?.name ? `Current Team: ${team.name}` : 'Not on a team'}
+                  {team?.name
+                    ? `Current Team: ${team.name}`
+                    : 'Not on a team yet'}
                 </Text>
               </ScrollView>
 
@@ -478,7 +492,7 @@ const ProfilePage = () => {
                   {updateProfile.isPending ? (
                     <ActivityIndicator color='#fff' />
                   ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -500,138 +514,180 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5F9FF',
   },
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5F9FF',
     paddingHorizontal: 16,
   },
 
+  // HEADER
   header: {
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 40,
+    marginBottom: 20,
   },
-  avatarContainer: { position: 'relative' },
-  avatar: { width: 100, height: 100, borderRadius: 50 },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatarGlow: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    borderRadius: 60,
+    backgroundColor: '#FFA500',
+    opacity: 0.3,
+  },
+  avatar: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 4,
+    borderColor: '#FFF',
+  },
   editIcon: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#2B9FFF',
     borderRadius: 50,
-    padding: 6,
+    padding: 8,
+    borderWidth: 3,
+    borderColor: '#FFF',
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   name: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 8,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#2C3E50',
+    marginBottom: 8,
+  },
+  teamBadge: {
+    backgroundColor: '#2B9FFF',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 8,
   },
   teamName: {
-    marginTop: 4,
     fontSize: 15,
-    fontWeight: '600',
-    color: '#2563eb',
+    fontWeight: '700',
+    color: '#FFF',
   },
   location: {
-    color: '#6b7280',
-    fontSize: 13,
-    marginTop: 4,
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
 
-  rankCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  rankHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  rankTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  rankSubtitle: { fontSize: 15, color: '#6b7280' },
-  progressBar: {
-    height: 10,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#3b82f6',
-  },
-  rankText: {
-    marginTop: 6,
-    textAlign: 'right',
-    color: '#6b7280',
-    fontSize: 13,
-  },
-
+  // STREAK CARD
   streakCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#2C3E50',
+    borderRadius: 20,
+    padding: 20,
     marginTop: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 4,
   },
-  streakRow: { flexDirection: 'row', alignItems: 'center' },
-  streakTextBlock: { marginLeft: 12 },
-  streakMain: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  streakSub: { fontSize: 13, color: '#6b7280' },
-  streakMessage: {
-    marginTop: 8,
-    color: '#3b82f6',
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  flameIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakTextBlock: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  streakMain: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  streakSub: {
+    fontSize: 14,
+    color: '#FFD700',
     fontWeight: '600',
+  },
+  streakMessage: {
+    color: '#FFA500',
+    fontWeight: '700',
+    fontSize: 15,
+    textAlign: 'center',
   },
 
+  // ACCOUNT ACTIONS
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginTop: 24,
+    fontWeight: '800',
+    color: '#2C3E50',
+    marginTop: 28,
+    marginBottom: 12,
   },
   actionList: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginTop: 8,
-    paddingVertical: 4,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderColor: '#e5e7eb',
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  actionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  logoutIcon: {
+    backgroundColor: '#FEF2F2',
   },
   actionText: {
-    marginLeft: 12,
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111827',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
   },
 
+  // MODAL
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(44, 62, 80, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '85%',
     overflow: 'hidden',
   },
@@ -640,92 +696,107 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 2,
+    borderBottomColor: '#2B9FFF',
+    backgroundColor: '#F5F9FF',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#2C3E50',
   },
   modalBody: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 16,
   },
 
   label: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#2C3E50',
     marginTop: 16,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#F5F9FF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 15,
-    color: '#111827',
+    color: '#2C3E50',
+    fontWeight: '500',
   },
   textArea: {
     minHeight: 100,
-    paddingTop: 12,
+    paddingTop: 14,
+    textAlignVertical: 'top',
   },
 
   currentTeamLabel: {
     marginTop: 8,
     fontSize: 14,
-    color: '#374151',
+    color: '#6B7280',
+    fontWeight: '500',
   },
 
   modalFooter: {
     flexDirection: 'row',
     padding: 20,
     gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    backgroundColor: '#F5F9FF',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#E5E7EB',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   cancelButtonText: {
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#6B7280',
     fontSize: 16,
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#FFA500',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
+    shadowColor: '#FFA500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#FFF',
+    fontWeight: '900',
     fontSize: 16,
   },
 
   roleButton: {
     flex: 1,
-    paddingVertical: 12,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 10,
+    paddingVertical: 14,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
   roleButtonActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#2B9FFF',
+    borderColor: '#2B9FFF',
   },
   roleButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#6B7280',
   },
   roleButtonTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
 });

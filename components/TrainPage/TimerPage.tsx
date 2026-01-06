@@ -50,7 +50,6 @@ const TimerPage = () => {
       );
       await sound.playAsync();
 
-      // Unload sound after playing to free memory
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync();
@@ -69,11 +68,7 @@ const TimerPage = () => {
       timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
-
-      // 🔊 Play audio when timer completes
       playEndSound();
-      setInterval(() => {}, 1000);
-
       setShowResultsModal(true);
     }
 
@@ -144,7 +139,6 @@ const TimerPage = () => {
       },
       {
         onSuccess: (data) => {
-          // XP awarded from mutation (we will return this in the hook)
           const xp = data?.totalXpAwarded ?? 0;
 
           if (xp > 0) {
@@ -156,7 +150,6 @@ const TimerPage = () => {
             }, 1500);
           }
 
-          // Close results modal, reset UI
           setShowResultsModal(false);
           setBestRecord('');
           setAttempts('');
@@ -164,46 +157,57 @@ const TimerPage = () => {
         },
       }
     );
-
-    setShowResultsModal(false);
-    setBestRecord('');
-    setAttempts('');
-    handleReset();
   };
+
+  const isLowTime = timeLeft < 60 && timeLeft > 0;
 
   return (
     <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>Timed Drill ⏱️</Text>
-        <Text style={styles.subtitle}>
-          {`Juggle as long as you can in ${minutes} minute${
-            minutes === 1 ? '' : 's'
-          }`}
-        </Text>
+        <View style={styles.titleRow}>
+          <View style={styles.iconBadge}>
+            <Ionicons name='timer-outline' size={28} color='#FFA500' />
+          </View>
+          <View style={styles.titleContent}>
+            <Text style={styles.title}>Timed Drill</Text>
+            <Text style={styles.subtitle}>
+              {`${minutes} minute${minutes === 1 ? '' : 's'} session`}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* STATS */}
       <View style={styles.statsCard}>
-        <Text style={styles.statsRowTitle}>Last Session</Text>
+        <Text style={styles.statsRowTitle}>Last Session Stats</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name='time-outline' size={20} color='#2B9FFF' />
+            </View>
             <Text style={styles.statValue}>
               {juggleStats?.last_session_duration
-                ? `${Math.floor(juggleStats.last_session_duration / 60)} min`
+                ? `${Math.floor(juggleStats.last_session_duration / 60)}`
                 : '—'}
             </Text>
-            <Text style={styles.statLabel}>Duration</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
           </View>
 
-          <View style={styles.statItem}>
+          <View style={[styles.statItem, styles.statItemBorder]}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name='trophy-outline' size={20} color='#FFD700' />
+            </View>
             <Text style={styles.statValue}>
               {juggleStats?.last_score ?? '—'}
             </Text>
-            <Text style={styles.statLabel}>Best (Session)</Text>
+            <Text style={styles.statLabel}>Best</Text>
           </View>
 
           <View style={styles.statItem}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name='fitness-outline' size={20} color='#FFA500' />
+            </View>
             <Text style={styles.statValue}>
               {juggleStats?.attempts_count ?? '—'}
             </Text>
@@ -216,17 +220,31 @@ const TimerPage = () => {
       <View style={styles.timerWrapper}>
         <View style={styles.timerBackground}>
           <AnimatedCircularProgress
-            size={240}
-            width={12}
+            size={260}
+            width={14}
             fill={(timeLeft / totalTime) * 100}
-            tintColor='#3b82f6'
-            backgroundColor='#e5e7eb'
+            tintColor={isLowTime ? '#EF4444' : '#2B9FFF'}
+            backgroundColor='#E5E7EB'
             rotation={0}
           >
             {() => (
               <View style={styles.timerContent}>
-                <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
-                <Text style={styles.timerUnit}>minutes : seconds</Text>
+                <Text
+                  style={[
+                    styles.timerText,
+                    isLowTime && styles.timerTextDanger,
+                  ]}
+                >
+                  {formatTime(timeLeft)}
+                </Text>
+                <Text
+                  style={[
+                    styles.timerUnit,
+                    isLowTime && styles.timerUnitDanger,
+                  ]}
+                >
+                  {isLowTime ? 'FINAL MINUTE' : 'MIN : SEC'}
+                </Text>
               </View>
             )}
           </AnimatedCircularProgress>
@@ -236,12 +254,12 @@ const TimerPage = () => {
       {/* BUTTONS */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#3b82f6' }]}
+          style={[styles.button, styles.buttonStart]}
           onPress={() => setIsRunning(!isRunning)}
         >
           <Ionicons
             name={isRunning ? 'pause' : 'play'}
-            size={22}
+            size={24}
             color='#fff'
           />
           <Text style={styles.buttonLabel}>
@@ -250,30 +268,35 @@ const TimerPage = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#9ca3af' }]}
+          style={[styles.button, styles.buttonReset]}
           onPress={handleReset}
         >
-          <Ionicons name='refresh' size={22} color='#fff' />
+          <Ionicons name='refresh' size={24} color='#fff' />
           <Text style={styles.buttonLabel}>Reset</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#f59e0b' }]}
+          style={[styles.button, styles.buttonDuration]}
           onPress={() => setShowDurationPicker(true)}
         >
-          <Ionicons name='time' size={22} color='#fff' />
-          <Text style={styles.buttonLabel}>Set Duration</Text>
+          <Ionicons name='time' size={24} color='#fff' />
+          <Text style={styles.buttonLabel}>Duration</Text>
         </TouchableOpacity>
       </View>
 
       {/* TIP */}
-      <CoachsTip />
+      <View style={styles.tipContainer}>
+        <CoachsTip />
+      </View>
 
       {/* ---- DURATION PICKER MODAL ---- */}
       <Modal transparent visible={showDurationPicker} animationType='fade'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Duration</Text>
+            <View style={styles.modalHeader}>
+              <Ionicons name='timer-outline' size={32} color='#FFA500' />
+              <Text style={styles.modalTitle}>Select Duration</Text>
+            </View>
 
             <View style={styles.optionRow}>
               {[300, 600, 900, 1200].map((value) => (
@@ -282,28 +305,27 @@ const TimerPage = () => {
                   style={styles.optionButton}
                   onPress={() => handleSetDuration(value)}
                 >
-                  <Text style={styles.optionText}>{value / 60} min</Text>
+                  <Text style={styles.optionValue}>{value / 60}</Text>
+                  <Text style={styles.optionLabel}>minutes</Text>
                 </Pressable>
               ))}
             </View>
 
             {/* Custom Time */}
-            <View style={{ marginTop: 20, width: '100%' }}>
-              <Text style={styles.customLabel}>Custom Time (minutes)</Text>
+            <View style={styles.customSection}>
+              <Text style={styles.customLabel}>Custom Duration</Text>
 
               <TextInput
                 style={styles.customInput}
                 placeholder='Enter minutes...'
+                placeholderTextColor='#9CA3AF'
                 keyboardType='numeric'
                 value={customMinutes}
                 onChangeText={setCustomMinutes}
               />
 
               <TouchableOpacity
-                style={[
-                  styles.button,
-                  { backgroundColor: '#3b82f6', marginTop: 12 },
-                ]}
+                style={styles.customButton}
                 onPress={() => {
                   const mins = parseInt(customMinutes, 10);
                   if (!mins || mins <= 0) return;
@@ -311,15 +333,15 @@ const TimerPage = () => {
                   setCustomMinutes('');
                 }}
               >
-                <Text style={styles.buttonLabel}>Set Custom Time</Text>
+                <Text style={styles.customButtonText}>Set Custom Time</Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={styles.closeButton}
+              style={styles.cancelButton}
               onPress={() => setShowDurationPicker(false)}
             >
-              <Text style={styles.closeText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -329,43 +351,58 @@ const TimerPage = () => {
       <Modal transparent visible={showResultsModal} animationType='slide'>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Drill Complete 🎉</Text>
+            <View style={styles.resultsIconContainer}>
+              <Ionicons name='checkmark-circle' size={64} color='#4ADE80' />
+            </View>
+
+            <Text style={styles.modalTitle}>Drill Complete!</Text>
 
             <Text style={styles.modalSubtitle}>
-              You completed a {totalTime / 60}-minute drill!
+              Great work! You finished a {totalTime / 60}-minute training
+              session.
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder='Best today'
-              keyboardType='numeric'
-              value={bestRecord}
-              onChangeText={setBestRecord}
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Best Juggle Count</Text>
+              <TextInput
+                style={styles.input}
+                placeholder='Enter your best count'
+                placeholderTextColor='#9CA3AF'
+                keyboardType='numeric'
+                value={bestRecord}
+                onChangeText={setBestRecord}
+              />
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder='Attempts'
-              keyboardType='numeric'
-              value={attempts}
-              onChangeText={setAttempts}
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Total Attempts</Text>
+              <TextInput
+                style={styles.input}
+                placeholder='How many tries?'
+                placeholderTextColor='#9CA3AF'
+                keyboardType='numeric'
+                value={attempts}
+                onChangeText={setAttempts}
+              />
+            </View>
 
             <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: '#3b82f6', marginTop: 16 },
-              ]}
+              style={styles.saveButton}
               onPress={handleSaveResults}
             >
-              <Text style={styles.buttonLabel}>Save Result</Text>
+              <Text style={styles.saveButtonText}>Save Results</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{ marginTop: 12 }}
-              onPress={() => setShowResultsModal(false)}
+              style={styles.skipButton}
+              onPress={() => {
+                setShowResultsModal(false);
+                setBestRecord('');
+                setAttempts('');
+                handleReset();
+              }}
             >
-              <Text style={styles.closeText}>Cancel</Text>
+              <Text style={styles.skipButtonText}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -380,111 +417,354 @@ export default TimerPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5F9FF',
     paddingHorizontal: 16,
   },
-  header: { marginTop: 20 },
-  title: { fontSize: 28, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#6b7280' },
-  statsCard: {
-    backgroundColor: '#fff',
+  header: {
+    marginTop: 40,
+    marginBottom: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconBadge: {
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleContent: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#2C3E50',
+    lineHeight: 36,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
+  // STATS
+  statsCard: {
+    backgroundColor: '#2C3E50',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 4,
   },
-  statsRowTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  statLabel: { fontSize: 13, color: '#6b7280' },
-  timerWrapper: { alignItems: 'center', marginTop: 48 },
+  statsRowTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 16,
+    color: '#FFA500',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statItemBorder: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFF',
+    lineHeight: 32,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  // TIMER
+  timerWrapper: {
+    alignItems: 'center',
+    marginTop: 32,
+    marginBottom: 32,
+  },
   timerBackground: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
     borderRadius: 999,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    padding: 12,
+    shadowColor: '#2B9FFF',
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  timerContent: { alignItems: 'center' },
-  timerText: { fontSize: 48, fontWeight: '800', color: '#111827' },
-  timerUnit: { fontSize: 14, color: '#6b7280', marginTop: 4 },
+  timerContent: {
+    alignItems: 'center',
+  },
+  timerText: {
+    fontSize: 56,
+    fontWeight: '900',
+    color: '#2C3E50',
+    letterSpacing: -2,
+  },
+  timerTextDanger: {
+    color: '#EF4444',
+  },
+  timerUnit: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  timerUnitDanger: {
+    color: '#EF4444',
+    fontWeight: '900',
+  },
+
+  // BUTTONS
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    flexWrap: 'wrap',
     gap: 12,
-    marginTop: 12,
+    marginBottom: 24,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  buttonLabel: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  // MODAL
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderRadius: 16,
-    padding: 24,
-    width: '85%',
-    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  modalTitle: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  modalSubtitle: { color: '#6b7280', marginBottom: 16 },
+  buttonStart: {
+    backgroundColor: '#2B9FFF',
+  },
+  buttonReset: {
+    backgroundColor: '#6B7280',
+  },
+  buttonDuration: {
+    backgroundColor: '#FFA500',
+  },
+  buttonLabel: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
 
-  input: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: 10,
-    width: '100%',
-    fontSize: 16,
+  tipContainer: {
     marginTop: 8,
   },
+
+  // MODAL BASE
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 62, 80, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 12,
+    color: '#2C3E50',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    color: '#6B7280',
+    marginBottom: 24,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+
+  // DURATION PICKER
   optionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
+    width: '100%',
+    marginBottom: 24,
   },
   optionButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: '#2B9FFF',
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 20,
+    minWidth: 80,
+    alignItems: 'center',
+    shadowColor: '#2B9FFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  optionText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  optionValue: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  optionLabel: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
 
+  customSection: {
+    width: '100%',
+    marginBottom: 20,
+  },
   customLabel: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-    textAlign: 'left',
+    fontWeight: '800',
+    color: '#2C3E50',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   customInput: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F5F9FF',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  customButton: {
+    backgroundColor: '#FFA500',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+    shadowColor: '#FFA500',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  customButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 15,
   },
 
-  closeButton: { marginTop: 20 },
-  closeText: { color: '#6b7280', fontSize: 15 },
+  cancelButton: {
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // RESULTS MODAL
+  resultsIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2C3E50',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: '#F5F9FF',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  saveButton: {
+    backgroundColor: '#FFA500',
+    borderRadius: 16,
+    paddingVertical: 16,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#FFA500',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  skipButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  skipButtonText: {
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });
