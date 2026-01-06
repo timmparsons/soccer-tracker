@@ -156,8 +156,12 @@ const ProgressPage = () => {
           <View style={styles.statIconContainer}>
             <Ionicons name='time' size={28} color='#FFF' />
           </View>
-          <Text style={styles.statValue}>{Math.floor(lastDuration / 60)}m</Text>
-          <Text style={styles.statLabel}>Avg Session</Text>
+          <Text style={[styles.statValue, styles.statLabelWhite]}>
+            {Math.floor(lastDuration / 60)}m
+          </Text>
+          <Text style={[styles.statLabel, styles.statLabelWhite]}>
+            Last Session
+          </Text>
         </View>
 
         <View style={[styles.statCard, styles.statCardOrange]}>
@@ -438,6 +442,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 4,
     color: '#6B7280',
+  },
+  statLabelWhite: {
+    color: '#D1D5DB',
   },
 
   // STREAK CARD
