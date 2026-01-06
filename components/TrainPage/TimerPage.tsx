@@ -222,10 +222,11 @@ const TimerPage = () => {
           <AnimatedCircularProgress
             size={260}
             width={14}
-            fill={(timeLeft / totalTime) * 100}
-            tintColor={isLowTime ? '#EF4444' : '#2B9FFF'}
-            backgroundColor='#E5E7EB'
+            fill={((totalTime - timeLeft) / totalTime) * 100}
+            tintColor='#E5E7EB'
+            backgroundColor={isLowTime ? '#EF4444' : '#2B9FFF'}
             rotation={0}
+            lineCap='round'
           >
             {() => (
               <View style={styles.timerContent}>
