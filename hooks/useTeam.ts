@@ -12,7 +12,7 @@ export function useTeam(userId?: string) {
       // Get user's profile with team_id
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('team_id, username')
+        .select('team_id')
         .eq('id', userId)
         .single();
 

@@ -11,7 +11,7 @@ export function useTeamLeaderboard(teamId?: string) {
       // First, get all profiles in the team
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url')
+        .select('id, display_name, first_name, avatar_url')
         .eq('team_id', teamId);
 
       if (profileError) throw profileError;
@@ -32,7 +32,8 @@ export function useTeamLeaderboard(teamId?: string) {
         const juggle = juggles?.find((j) => j.user_id === profile.id);
         return {
           id: profile.id,
-          username: profile.username || 'Unnamed',
+          display_name: profile.display_name,
+          first_name: profile.first_name,
           avatar_url: profile.avatar_url,
           high_score: juggle?.high_score ?? 0,
           streak_days: juggle?.streak_days ?? 0,

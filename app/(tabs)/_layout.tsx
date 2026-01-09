@@ -13,11 +13,13 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#FFA500', // Soccer green
-        tabBarInactiveTintColor: '#95A5A6', // Gray for inactive
+        tabBarActiveTintColor: '#FFA500',
+        tabBarInactiveTintColor: '#95A5A6',
         tabBarStyle: {
           borderTopColor: '#E5E7EB',
           paddingTop: 10,
+          paddingBottom: 10, // Add this
+          height: 70, // Add this to give more space
         },
       }}
     >

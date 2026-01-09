@@ -115,7 +115,6 @@ const LeaderboardPage = () => {
                     <Text style={styles.podiumName} numberOfLines={1}>
                       {topThree[1].display_name ||
                         topThree[1].first_name ||
-                        topThree[1].username ||
                         'Player'}
                     </Text>
                     <Text style={styles.podiumScore}>
@@ -150,7 +149,6 @@ const LeaderboardPage = () => {
                     <Text style={styles.podiumNameFirst} numberOfLines={1}>
                       {topThree[0].display_name ||
                         topThree[0].first_name ||
-                        topThree[0].username ||
                         'Player'}
                     </Text>
                     <Text style={styles.podiumScoreFirst}>
@@ -182,7 +180,6 @@ const LeaderboardPage = () => {
                     <Text style={styles.podiumName} numberOfLines={1}>
                       {topThree[2].display_name ||
                         topThree[2].first_name ||
-                        topThree[2].username ||
                         'Player'}
                     </Text>
                     <Text style={styles.podiumScore}>
@@ -218,10 +215,7 @@ const LeaderboardPage = () => {
 
                     <View style={styles.info}>
                       <Text style={styles.username}>
-                        {player.display_name ||
-                          player.first_name ||
-                          player.username ||
-                          'Player'}
+                        {player.display_name || player.first_name || 'Player'}
                       </Text>
                       <View style={styles.streakRow}>
                         <Ionicons name='flame' size={14} color='#FFA500' />
