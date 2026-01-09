@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 25,
+    // marginBottom: 15,
   },
   headerLeft: {
     flex: 1,
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   // BEST SCORE
   bestCard: {
     backgroundColor: '#2B9FFF',
-    paddingVertical: 30,
+    paddingVertical: 20,
     paddingHorizontal: 24,
     borderRadius: 24,
     marginBottom: 24,
