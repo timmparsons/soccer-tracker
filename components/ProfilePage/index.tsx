@@ -295,11 +295,11 @@ const ProfilePage = () => {
       }
 
       const displayName =
-        trimmedFirst.length === 0
-          ? profile?.display_name || profile?.first_name || ''
-          : trimmedLast.length > 0
-          ? `${trimmedFirst} ${trimmedLast[0].toUpperCase()}.`
-          : trimmedFirst;
+        trimmedFirst.length > 0
+          ? trimmedLast.length > 0
+            ? `${trimmedFirst} ${trimmedLast[0].toUpperCase()}.`
+            : trimmedFirst
+          : profile?.display_name || 'Player';
 
       // ✅ ONLY VALID PROFILE COLUMNS
       const updates = {

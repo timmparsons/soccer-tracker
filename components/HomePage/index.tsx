@@ -2,6 +2,7 @@ import data from '@/constants/allCoachesTips.json';
 import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { getDisplayName } from '@/utils/getDisplayName';
 import { getRandomDailyChallenge } from '@/utils/getRandomCoachTips';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -54,11 +55,7 @@ const HomeScreen = () => {
   const sessions = stats?.sessions_count ?? 0;
   const challenge = getRandomDailyChallenge(data);
 
-  const displayName =
-    profile?.display_name ||
-    profile?.first_name ||
-    user?.email?.split('@')[0] ||
-    'Champion';
+  const displayName = getDisplayName(profile);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

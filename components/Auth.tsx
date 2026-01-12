@@ -50,33 +50,6 @@ export default function Auth() {
       if (error) throw error;
 
       console.log('[Auth] signIn response:', data);
-
-      // First-time login immediately after signup? Complete profile now.
-      const userId = data.user?.id;
-      if (mode === 'signup' && userId) {
-        const displayName =
-          lastName.trim().length > 0
-            ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
-            : firstName.trim();
-
-        console.log('[Auth] updateProfile after signup →', {
-          user_id: userId,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          display_name: displayName,
-          role,
-          team_code: teamCode.trim(),
-        });
-
-        await updateProfile.mutateAsync({
-          user_id: userId,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          display_name: displayName,
-          role,
-          team_code: teamCode.trim(),
-        });
-      }
     } catch (err: any) {
       console.log('[Auth] signIn error:', err);
       Alert.alert('Error', err.message);

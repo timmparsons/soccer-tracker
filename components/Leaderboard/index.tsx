@@ -13,6 +13,7 @@ import {
 import { useTeam } from '@/hooks/useTeam';
 import { useTeamLeaderboard } from '@/hooks/useTeamLeaderboard';
 import { useUser } from '@/hooks/useUser';
+import { getDisplayName } from '@/utils/getDisplayName';
 
 const LeaderboardPage = () => {
   const { data: user } = useUser();
@@ -215,7 +216,7 @@ const LeaderboardPage = () => {
 
                     <View style={styles.info}>
                       <Text style={styles.username}>
-                        {player.display_name || player.first_name || 'Player'}
+                        {getDisplayName(player, 'Player')}
                       </Text>
                       <View style={styles.streakRow}>
                         <Ionicons name='flame' size={14} color='#FFA500' />
