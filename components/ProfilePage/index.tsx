@@ -260,51 +260,71 @@ const ProfilePage = () => {
   /* ------------------------------------------------------------
      SAVE PROFILE
   ------------------------------------------------------------- */
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!user?.id) {
-      console.log('[ProfilePage] ERROR: no user.id found');
-      return Alert.alert(
-        'Error',
-        'You must be signed in to update your profile'
-      );
+      Alert.alert('Error', 'You must be signed in to update your profile');
+      return;
     }
 
-    const trimmedFirst = firstName.trim();
-    const trimmedLast = lastName.trim();
-    const trimmedLocation = location.trim();
-    const trimmedBio = bio.trim();
-    const trimmedTeamCode = teamCode.trim();
+    try {
+      const trimmedFirst = firstName.trim();
+      const trimmedLast = lastName.trim();
+      const trimmedLocation = location.trim();
+      const trimmedBio = bio.trim();
+      const trimmedTeamCode = teamCode.trim();
 
-    const displayName =
-      trimmedFirst.length === 0
-        ? profile?.display_name || profile?.first_name || ''
-        : trimmedLast.length > 0
-        ? `${trimmedFirst} ${trimmedLast[0].toUpperCase()}.`
-        : trimmedFirst;
+      // 🔑 Resolve team_code → team_id
+      let teamId = profile?.team_id ?? null;
 
-    const updates: any = {
-      first_name: trimmedFirst || null,
-      last_name: trimmedLast || null,
-      display_name: displayName || null,
-      location: trimmedLocation || null,
-      bio: trimmedBio || null,
-      role,
-      team_code: trimmedTeamCode || null,
-    };
+      if (trimmedTeamCode.length > 0) {
+        const { data: team, error } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('code', trimmedTeamCode)
+          .single();
 
-    if (trimmedTeamCode.length > 0) {
-      updates.team_code = trimmedTeamCode;
+        if (error || !team) {
+          Alert.alert(
+            'Invalid team code',
+            'Please check the code and try again.'
+          );
+          return;
+        }
+
+        teamId = team.id;
+      }
+
+      const displayName =
+        trimmedFirst.length === 0
+          ? profile?.display_name || profile?.first_name || ''
+          : trimmedLast.length > 0
+          ? `${trimmedFirst} ${trimmedLast[0].toUpperCase()}.`
+          : trimmedFirst;
+
+      // ✅ ONLY VALID PROFILE COLUMNS
+      const updates = {
+        first_name: trimmedFirst || null,
+        last_name: trimmedLast || null,
+        display_name: displayName || null,
+        location: trimmedLocation || null,
+        bio: trimmedBio || null,
+        role,
+        team_id: teamId, // ✅ THIS IS THE FIX
+      };
+
+      updateProfile.mutate(updates, {
+        onSuccess: () => {
+          setModalVisible(false);
+        },
+        onError: (err: any) => {
+          console.log('[ProfilePage] update error', err);
+          Alert.alert('Error', err.message);
+        },
+      });
+    } catch (err: any) {
+      console.log('[ProfilePage] team join error', err);
+      Alert.alert('Error', err.message);
     }
-
-    updateProfile.mutate(updates, {
-      onSuccess: () => {
-        setModalVisible(false);
-      },
-      onError: (err: any) => {
-        console.log('[ProfilePage] update error', err);
-        Alert.alert('Error', err.message);
-      },
-    });
   };
 
   const handleSignOut = async () => {

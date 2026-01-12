@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 export function useTeam(userId?: string) {
   return useQuery({
     queryKey: ['team', userId],
-    enabled: !!userId,
+    enabled: typeof userId === 'string',
     staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       console.log('🔍 Fetching team for user:', userId);
