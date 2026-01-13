@@ -4,8 +4,10 @@ import { useTeam } from '@/hooks/useTeam';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { getLevelFromXp, getRankName } from '@/lib/xp';
 
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { memo, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,10 +23,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-import { getLevelFromXp, getRankName } from '@/lib/xp';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import XPCard from '../XPCard';
 import CoachsTip from '../common/CoachsTip';
 
@@ -78,43 +78,21 @@ const ProfileHeader = memo(
 ProfileHeader.displayName = 'ProfileHeader';
 
 /* --------------------------------------------------------------------------
-   STREAK CARD
---------------------------------------------------------------------------- */
-const StreakCard = memo(
-  ({ streak, bestStreak }: { streak: number; bestStreak: number }) => (
-    <View style={styles.streakCard}>
-      <View style={styles.streakRow}>
-        <View style={styles.flameIconContainer}>
-          <Ionicons name='flame' size={32} color='#FFA500' />
-        </View>
-        <View style={styles.streakTextBlock}>
-          <Text style={styles.streakMain}>{streak}-Day Streak</Text>
-          <Text style={styles.streakSub}>Best Streak: {bestStreak} days</Text>
-        </View>
-      </View>
-      <Text style={styles.streakMessage}>Keep it going!</Text>
-    </View>
-  )
-);
-
-StreakCard.displayName = 'StreakCard';
-
-/* --------------------------------------------------------------------------
    ACCOUNT ACTIONS
 --------------------------------------------------------------------------- */
 const AccountActions = memo(
   ({
-    onOpenModal,
+    onEditProfile,
     onSignOut,
   }: {
-    onOpenModal: () => void;
+    onEditProfile: () => void;
     onSignOut: () => void;
   }) => (
     <>
       <Text style={styles.sectionTitle}>Account</Text>
 
       <View style={styles.actionList}>
-        <TouchableOpacity style={styles.actionRow} onPress={onOpenModal}>
+        <TouchableOpacity style={styles.actionRow} onPress={onEditProfile}>
           <View style={styles.actionIconContainer}>
             <Ionicons name='person-outline' size={22} color='#2B9FFF' />
           </View>
@@ -141,66 +119,89 @@ AccountActions.displayName = 'AccountActions';
 /* --------------------------------------------------------------------------
    PROFILE PAGE
 --------------------------------------------------------------------------- */
-const ProfilePage = () => {
+export default function ProfilePage() {
   const { data: user } = useUser();
   const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
   const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
+  const updateProfile = useUpdateProfile(user?.id);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const updateProfile = useUpdateProfile(user?.id);
 
   const totalXp = profile?.total_xp ?? 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
   const rankName = getRankName(level);
 
   const [modalVisible, setModalVisible] = useState(false);
+
+  // form fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [location, setLocation] = useState('');
+  const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
+  const [role, setRole] = useState<'player' | 'coach'>('player');
 
   const handleOpenModal = useCallback(() => {
-    setFirstName(profile?.first_name || '');
-    setLastName(profile?.last_name || '');
+    setFirstName(profile?.first_name ?? '');
+    setLastName(profile?.last_name ?? '');
+    setLocation(profile?.location ?? '');
+    setBio(profile?.bio ?? '');
+    setRole(profile?.role ?? 'player');
     setTeamCode('');
     setModalVisible(true);
   }, [profile]);
 
   const handleSaveProfile = async () => {
-    if (!user?.id) return;
+    try {
+      let teamId = profile?.team_id ?? null;
 
-    let teamId = profile?.team_id ?? null;
+      if (teamCode.trim()) {
+        const { data, error } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('code', teamCode.trim())
+          .single();
 
-    if (teamCode.trim()) {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('code', teamCode.trim())
-        .single();
+        if (error || !data) {
+          Alert.alert('Invalid team code');
+          return;
+        }
 
-      if (error || !data) {
-        Alert.alert('Invalid team code');
-        return;
+        teamId = data.id;
       }
-      teamId = data.id;
+
+      const displayName =
+        firstName.trim().length > 0
+          ? lastName.trim()
+            ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
+            : firstName.trim()
+          : profile?.display_name || 'Player';
+
+      updateProfile.mutate(
+        {
+          first_name: firstName || null,
+          last_name: lastName || null,
+          display_name: displayName,
+          location: location || null,
+          bio: bio || null,
+          role,
+          team_id: teamId,
+        },
+        {
+          onSuccess: () => setModalVisible(false),
+          onError: (err: any) =>
+            Alert.alert('Error', err.message ?? 'Update failed'),
+        }
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
     }
+  };
 
-    const displayName = firstName.trim()
-      ? lastName.trim()
-        ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
-        : firstName.trim()
-      : profile?.display_name || 'Player';
-
-    updateProfile.mutate(
-      {
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
-        display_name: displayName,
-        team_id: teamId,
-      },
-      { onSuccess: () => setModalVisible(false) }
-    );
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
   };
 
   if (loadingProfile || loadingJuggles) {
@@ -216,8 +217,8 @@ const ProfilePage = () => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={{
-          paddingBottom: 100,
-          paddingTop: insets.top + 16, // ✅ ANDROID HEADER FIX
+          paddingBottom: 120,
+          paddingTop: insets.top + 16,
         }}
       >
         <ProfileHeader
@@ -234,16 +235,9 @@ const ProfilePage = () => {
           onOpenRoadmap={() => router.push('/(modals)/roadmap')}
         />
 
-        <StreakCard
-          streak={juggles?.streak_days ?? 0}
-          bestStreak={juggles?.best_daily_streak ?? 0}
-        />
-
         <AccountActions
-          onOpenModal={handleOpenModal}
-          onSignOut={async () => {
-            await supabase.auth.signOut();
-          }}
+          onEditProfile={handleOpenModal}
+          onSignOut={handleSignOut}
         />
       </ScrollView>
 
@@ -253,10 +247,13 @@ const ProfilePage = () => {
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, justifyContent: 'flex-end' }}
-            keyboardVerticalOffset={80}
           >
             <View style={styles.modalContent}>
-              <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                keyboardShouldPersistTaps='handled'
+              >
                 <Text style={styles.label}>First Name</Text>
                 <TextInput
                   style={styles.input}
@@ -271,11 +268,27 @@ const ProfilePage = () => {
                   onChangeText={setLastName}
                 />
 
+                <Text style={styles.label}>Location</Text>
+                <TextInput
+                  style={styles.input}
+                  value={location}
+                  onChangeText={setLocation}
+                />
+
+                <Text style={styles.label}>Bio</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                />
+
                 <Text style={styles.label}>Team Code</Text>
                 <TextInput
                   style={styles.input}
                   value={teamCode}
                   onChangeText={setTeamCode}
+                  autoCapitalize='none'
                 />
               </ScrollView>
 
@@ -305,9 +318,7 @@ const ProfilePage = () => {
       </Modal>
     </>
   );
-};
-
-export default ProfilePage;
+}
 
 /* --------------------------------------------------------------------------
    STYLES
@@ -326,21 +337,22 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   avatarContainer: {
     width: 110,
     height: 110,
+    marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    marginBottom: 16,
   },
   avatarGlow: {
     position: 'absolute',
-    inset: -6,
-    borderRadius: 999,
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    borderRadius: 60,
     backgroundColor: '#FFA500',
     opacity: 0.3,
   },
@@ -356,12 +368,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: '#2B9FFF',
-    borderRadius: 50,
     padding: 8,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#FFF',
   },
   name: {
     fontSize: 28,
     fontWeight: '900',
+    color: '#2C3E50',
   },
   teamBadge: {
     backgroundColor: '#2B9FFF',
@@ -375,8 +390,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   location: {
+    marginTop: 6,
     color: '#6B7280',
-    marginTop: 4,
   },
 
   sectionTitle: {
@@ -384,6 +399,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 28,
     marginBottom: 12,
+    color: '#2C3E50',
   },
 
   actionList: {
@@ -414,43 +430,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-  },
-
-  streakCard: {
-    backgroundColor: '#2C3E50',
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 20,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  flameIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,165,0,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakTextBlock: {
-    marginLeft: 16,
-  },
-  streakMain: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  streakSub: {
-    color: '#FFD700',
-    marginTop: 4,
-  },
-  streakMessage: {
-    marginTop: 12,
-    textAlign: 'center',
-    color: '#FFA500',
-    fontWeight: '700',
+    color: '#2C3E50',
   },
 
   modalOverlay: {
@@ -464,6 +444,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
   },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
   modalFooter: {
     flexDirection: 'row',
     padding: 20,
@@ -472,16 +456,30 @@ const styles = StyleSheet.create({
     borderTopColor: '#EEE',
     backgroundColor: '#F5F9FF',
   },
+
+  label: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+    color: '#2C3E50',
+  },
+  input: {
+    backgroundColor: '#F5F9FF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+
   cancelButton: {
     flex: 1,
     backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#FFA500',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -490,19 +488,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6B7280',
   },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#FFA500',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
   saveButtonText: {
     fontWeight: '900',
     color: '#FFF',
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 14,
   },
 });
