@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { memo, useCallback, useState } from 'react';
 import {
@@ -35,11 +36,13 @@ const ProfileHeader = memo(
   ({
     profile,
     team,
-    onOpenModal,
+    onEditProfile,
+    onPickImage,
   }: {
     profile: any;
     team: any;
-    onOpenModal: () => void;
+    onEditProfile: () => void;
+    onPickImage: () => void;
   }) => {
     const avatarUri =
       profile?.avatar_url ||
@@ -52,9 +55,12 @@ const ProfileHeader = memo(
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatarGlow} />
-          <Image source={{ uri: avatarUri }} style={styles.avatar} />
 
-          <TouchableOpacity style={styles.editIcon} onPress={onOpenModal}>
+          <TouchableOpacity onPress={onPickImage}>
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.editIcon} onPress={onEditProfile}>
             <Ionicons name='settings-sharp' size={20} color='#FFF' />
           </TouchableOpacity>
         </View>
@@ -135,7 +141,6 @@ export default function ProfilePage() {
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // form fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [location, setLocation] = useState('');
@@ -143,7 +148,40 @@ export default function ProfilePage() {
   const [teamCode, setTeamCode] = useState('');
   const [role, setRole] = useState<'player' | 'coach'>('player');
 
-  const handleOpenModal = useCallback(() => {
+  /* ---------------- IMAGE PICK ---------------- */
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !user?.id) return;
+
+    const file = result.assets[0];
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+
+    const filePath = `${user.id}/avatar.jpg`;
+
+    await supabase.storage.from('avatars').upload(filePath, blob, {
+      upsert: true,
+      contentType: 'image/jpeg',
+    });
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+    updateProfile.mutate({ avatar_url: data.publicUrl });
+  }, [user?.id]);
+
+  const openEditProfile = useCallback(() => {
     setFirstName(profile?.first_name ?? '');
     setLastName(profile?.last_name ?? '');
     setLocation(profile?.location ?? '');
@@ -154,50 +192,41 @@ export default function ProfilePage() {
   }, [profile]);
 
   const handleSaveProfile = async () => {
-    try {
-      let teamId = profile?.team_id ?? null;
+    let teamId = profile?.team_id ?? null;
 
-      if (teamCode.trim()) {
-        const { data, error } = await supabase
-          .from('teams')
-          .select('id')
-          .eq('code', teamCode.trim())
-          .single();
+    if (teamCode.trim()) {
+      const { data } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('code', teamCode.trim())
+        .single();
 
-        if (error || !data) {
-          Alert.alert('Invalid team code');
-          return;
-        }
-
-        teamId = data.id;
+      if (!data) {
+        Alert.alert('Invalid team code');
+        return;
       }
 
-      const displayName =
-        firstName.trim().length > 0
-          ? lastName.trim()
-            ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
-            : firstName.trim()
-          : profile?.display_name || 'Player';
-
-      updateProfile.mutate(
-        {
-          first_name: firstName || null,
-          last_name: lastName || null,
-          display_name: displayName,
-          location: location || null,
-          bio: bio || null,
-          role,
-          team_id: teamId,
-        },
-        {
-          onSuccess: () => setModalVisible(false),
-          onError: (err: any) =>
-            Alert.alert('Error', err.message ?? 'Update failed'),
-        }
-      );
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+      teamId = data.id;
     }
+
+    const displayName = firstName.trim()
+      ? lastName.trim()
+        ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
+        : firstName.trim()
+      : profile?.display_name || 'Player';
+
+    updateProfile.mutate(
+      {
+        first_name: firstName || null,
+        last_name: lastName || null,
+        display_name: displayName,
+        location: location || null,
+        bio: bio || null,
+        role,
+        team_id: teamId,
+      },
+      { onSuccess: () => setModalVisible(false) }
+    );
   };
 
   const handleSignOut = async () => {
@@ -224,7 +253,8 @@ export default function ProfilePage() {
         <ProfileHeader
           profile={profile}
           team={team}
-          onOpenModal={handleOpenModal}
+          onEditProfile={openEditProfile}
+          onPickImage={handlePickImage}
         />
 
         <XPCard
@@ -236,7 +266,7 @@ export default function ProfilePage() {
         />
 
         <AccountActions
-          onEditProfile={handleOpenModal}
+          onEditProfile={openEditProfile}
           onSignOut={handleSignOut}
         />
       </ScrollView>
@@ -249,11 +279,7 @@ export default function ProfilePage() {
             style={{ flex: 1, justifyContent: 'flex-end' }}
           >
             <View style={styles.modalContent}>
-              <ScrollView
-                style={styles.modalBody}
-                contentContainerStyle={{ paddingBottom: 20 }}
-                keyboardShouldPersistTaps='handled'
-              >
+              <ScrollView style={styles.modalBody}>
                 <Text style={styles.label}>First Name</Text>
                 <TextInput
                   style={styles.input}
@@ -288,7 +314,6 @@ export default function ProfilePage() {
                   style={styles.input}
                   value={teamCode}
                   onChangeText={setTeamCode}
-                  autoCapitalize='none'
                 />
               </ScrollView>
 
@@ -304,7 +329,6 @@ export default function ProfilePage() {
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={handleSaveProfile}
@@ -324,28 +348,11 @@ export default function ProfilePage() {
    STYLES
 --------------------------------------------------------------------------- */
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F9FF',
-    paddingHorizontal: 16,
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#F5F9FF', paddingHorizontal: 16 },
 
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    width: 110,
-    height: 110,
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  header: { alignItems: 'center', marginBottom: 24 },
+  avatarContainer: { width: 110, height: 110, marginBottom: 16 },
   avatarGlow: {
     position: 'absolute',
     top: -6,
@@ -373,11 +380,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFF',
   },
-  name: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#2C3E50',
-  },
+  name: { fontSize: 28, fontWeight: '900', color: '#2C3E50' },
   teamBadge: {
     backgroundColor: '#2B9FFF',
     paddingHorizontal: 16,
@@ -385,14 +388,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginTop: 8,
   },
-  teamName: {
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  location: {
-    marginTop: 6,
-    color: '#6B7280',
-  },
+  teamName: { color: '#FFF', fontWeight: '700' },
+  location: { marginTop: 6, color: '#6B7280' },
 
   sectionTitle: {
     fontSize: 20,
@@ -401,12 +398,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#2C3E50',
   },
-
-  actionList: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
+  actionList: { backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden' },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -423,15 +415,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  logoutIcon: {
-    backgroundColor: '#FEF2F2',
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
-  },
+  logoutIcon: { backgroundColor: '#FEF2F2' },
+  actionText: { flex: 1, fontSize: 16, fontWeight: '600', color: '#2C3E50' },
 
   modalOverlay: {
     flex: 1,
@@ -444,10 +429,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
   },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
+  modalBody: { paddingHorizontal: 20, paddingTop: 16 },
   modalFooter: {
     flexDirection: 'row',
     padding: 20,
@@ -472,10 +454,7 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 15,
   },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
 
   cancelButton: {
     flex: 1,
@@ -484,10 +463,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-  cancelButtonText: {
-    fontWeight: '700',
-    color: '#6B7280',
-  },
+  cancelButtonText: { fontWeight: '700', color: '#6B7280' },
   saveButton: {
     flex: 1,
     backgroundColor: '#FFA500',
@@ -495,8 +471,5 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-  saveButtonText: {
-    fontWeight: '900',
-    color: '#FFF',
-  },
+  saveButtonText: { fontWeight: '900', color: '#FFF' },
 });
