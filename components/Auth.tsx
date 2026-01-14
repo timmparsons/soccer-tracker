@@ -204,7 +204,7 @@ export default function Auth() {
                 />
               </View>
 
-              <View style={styles.inputContainer}>
+              {/* <View style={styles.inputContainer}>
                 <View style={styles.inputIconContainer}>
                   <Ionicons name='people-outline' size={20} color='#6B7280' />
                 </View>
@@ -216,7 +216,7 @@ export default function Auth() {
                   style={styles.input}
                   placeholderTextColor='#9CA3AF'
                 />
-              </View>
+              </View> */}
             </>
           )}
 
