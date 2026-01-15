@@ -1,6 +1,4 @@
-import { awardXp } from '@/lib/awardXp';
 import { supabase } from '@/lib/supabase';
-import { getXpForEvent, type XpEventType } from '@/lib/xp';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 type JuggleUpdates = {
@@ -13,7 +11,6 @@ type JuggleUpdates = {
   last_session_date?: string;
   streak_days?: number;
   best_daily_streak?: number;
-  challenge_xp?: number; // NEW: Optional challenge XP to award
 };
 
 export function useUpdateJuggles(userId: string | undefined) {
@@ -23,9 +20,6 @@ export function useUpdateJuggles(userId: string | undefined) {
     mutationFn: async (updates: JuggleUpdates) => {
       if (!userId) throw new Error('No user ID provided');
       console.log('🚨 Juggle updates payload', updates);
-
-      // Extract challenge_xp before sending to database
-      const { challenge_xp, ...dbUpdates } = updates;
 
       // 1️⃣ Get existing row
       const { data: existing, error: selectError } = await supabase
@@ -39,11 +33,11 @@ export function useUpdateJuggles(userId: string | undefined) {
       // Build new scores_history entry if needed
       let newHistory = existing?.scores_history ?? [];
 
-      if (dbUpdates.last_score !== undefined && !isNaN(dbUpdates.last_score)) {
+      if (updates.last_score !== undefined && !isNaN(updates.last_score)) {
         newHistory = [
           ...newHistory,
           {
-            score: dbUpdates.last_score,
+            score: updates.last_score,
             date: new Date().toISOString(),
           },
         ];
@@ -58,7 +52,7 @@ export function useUpdateJuggles(userId: string | undefined) {
           .from('juggles')
           .insert({
             user_id: userId,
-            ...dbUpdates,
+            ...updates,
             scores_history: newHistory,
           })
           .select()
@@ -71,7 +65,7 @@ export function useUpdateJuggles(userId: string | undefined) {
         const { data: updated, error: updateError } = await supabase
           .from('juggles')
           .update({
-            ...dbUpdates,
+            ...updates,
             scores_history: newHistory,
             updated_at: new Date().toISOString(),
           })
@@ -83,26 +77,20 @@ export function useUpdateJuggles(userId: string | undefined) {
         result = updated;
       }
 
-      // 🟦🟦🟦 4️⃣ Determine XP events  ---------------------------------------------------
-      const xpEvents: XpEventType[] = ['SESSION_COMPLETED'];
+      // 4️⃣ Calculate XP to award
+      // Base XP: 1 juggle = 1 XP
+      const baseXp = updates.last_score ?? 0;
 
-      const lastScore = dbUpdates.last_score ?? null;
-      const previousHighScore = existing?.high_score ?? 0;
+      // Personal Best Bonus: +50 XP
+      const isPB =
+        updates.high_score !== undefined &&
+        updates.high_score > (existing?.high_score ?? 0);
+      const pbBonus = isPB ? 50 : 0;
 
-      // Detect Personal Best
-      const isPB = lastScore !== null && lastScore > previousHighScore;
-      if (isPB) xpEvents.push('NEW_PERSONAL_BEST');
+      const totalXpAwarded = baseXp + pbBonus;
 
-      // Detect daily target hit (change condition later)
-      const hitDailyTarget = lastScore !== null && lastScore >= 50;
-      if (hitDailyTarget) xpEvents.push('DAILY_TARGET_HIT');
-
-      // 5️⃣ Award XP for all triggered events
-      await Promise.all(xpEvents.map((event) => awardXp(userId, event)));
-
-      // 🎯 NEW: Award challenge XP if provided
-      if (challenge_xp && challenge_xp > 0) {
-        // Get current profile
+      // 5️⃣ Update profile XP in ONE database call
+      if (totalXpAwarded > 0) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('total_xp')
@@ -110,29 +98,19 @@ export function useUpdateJuggles(userId: string | undefined) {
           .single();
 
         if (profile) {
-          // Award the challenge XP directly
           await supabase
             .from('profiles')
             .update({
-              total_xp: (profile.total_xp || 0) + challenge_xp,
+              total_xp: (profile.total_xp || 0) + totalXpAwarded,
             })
             .eq('id', userId);
         }
       }
-      // 🟦🟦🟦 -------------------------------------------------------------------------
-
-      const baseXpAwarded = xpEvents.reduce(
-        (sum, event) => sum + getXpForEvent(event),
-        0
-      );
-
-      const totalXpAwarded = baseXpAwarded + (challenge_xp || 0);
 
       return { ...result, totalXpAwarded };
     },
 
-    // 6️⃣ Auto-refetch after saving XP + juggles
-    onSuccess: (_, __, context) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['juggles', userId] });
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
     },

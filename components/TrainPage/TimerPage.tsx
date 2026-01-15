@@ -3,7 +3,6 @@ import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -22,11 +21,6 @@ import XPToast from '../XPToast';
 import CoachsTip from '../common/CoachsTip';
 
 const TimerPage = () => {
-  const params = useLocalSearchParams();
-  const challengeXP = params.challengeXP
-    ? parseInt(params.challengeXP as string, 10)
-    : 20;
-
   const { data: user } = useUser();
   const { data: juggleStats } = useJuggles(user?.id);
   const updateJuggles = useUpdateJuggles(user?.id);
@@ -49,7 +43,7 @@ const TimerPage = () => {
   const [bestRecord, setBestRecord] = useState('');
   const [attempts, setAttempts] = useState('');
 
-  // XP
+  // XP Toast
   const [xpToastVisible, setXpToastVisible] = useState(false);
   const [xpAmount, setXpAmount] = useState(0);
 
@@ -146,12 +140,11 @@ const TimerPage = () => {
             : undefined,
         last_score: best,
         attempts_count: attemptCount,
-        last_session_duration: isManual ? 0 : totalTime, // Use 0 for manual entries instead of undefined
+        last_session_duration: isManual ? 0 : totalTime,
         sessions_count: (juggleStats?.sessions_count ?? 0) + 1,
         last_session_date: new Date().toISOString(),
         streak_days: newStreak,
         best_daily_streak: newBestStreak,
-        challenge_xp: challengeXP, // Pass the challenge XP to award
       },
       {
         onSuccess: (data) => {
@@ -163,7 +156,7 @@ const TimerPage = () => {
 
             setTimeout(() => {
               setXpToastVisible(false);
-            }, 1500);
+            }, 2000);
           }
 
           setShowResultsModal(false);
@@ -174,7 +167,6 @@ const TimerPage = () => {
         },
         onError: (error) => {
           console.error('Error saving juggle results:', error);
-          // Optionally show an error message to the user
         },
       }
     );
@@ -312,7 +304,6 @@ const TimerPage = () => {
           style={styles.manualButton}
           onPress={() => setShowManualScoreModal(true)}
         >
-          <Ionicons name='create-outline' size={24} color='#fff' />
           <Text style={styles.manualButtonText}>Add Score Manually</Text>
         </TouchableOpacity>
       </View>
@@ -516,11 +507,9 @@ const TimerPage = () => {
               onPress={(e) => e.stopPropagation()}
             >
               <ScrollView
-                contentContainerStyle={{
-                  flexGrow: 1,
-                  justifyContent: 'center',
-                }}
+                contentContainerStyle={styles.modalScrollContent}
                 keyboardShouldPersistTaps='handled'
+                bounces={false}
               >
                 <View style={styles.modalContent}>
                   <View style={styles.resultsIconContainer}>
@@ -542,18 +531,7 @@ const TimerPage = () => {
                       keyboardType='numeric'
                       value={bestRecord}
                       onChangeText={setBestRecord}
-                    />
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Total Attempts</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder='How many tries?'
-                      placeholderTextColor='#9CA3AF'
-                      keyboardType='numeric'
-                      value={attempts}
-                      onChangeText={setAttempts}
+                      returnKeyType='done'
                     />
                   </View>
 
@@ -581,6 +559,7 @@ const TimerPage = () => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* XP TOAST */}
       <XPToast visible={xpToastVisible} xp={xpAmount} />
     </View>
   );
@@ -780,6 +759,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tipContainer: {},
+
   // MODAL BASE
   modalOverlay: {
     flex: 1,
@@ -799,6 +779,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
   },
   modalHeader: {
     alignItems: 'center',

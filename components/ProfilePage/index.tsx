@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { memo, useCallback, useState } from 'react';
@@ -37,12 +38,10 @@ const ProfileHeader = memo(
     profile,
     team,
     onEditProfile,
-    onPickImage,
   }: {
     profile: any;
     team: any;
     onEditProfile: () => void;
-    onPickImage: () => void;
   }) => {
     const avatarUri =
       profile?.avatar_url ||
@@ -55,13 +54,10 @@ const ProfileHeader = memo(
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatarGlow} />
-
-          <TouchableOpacity onPress={onPickImage}>
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          </TouchableOpacity>
+          <Image source={{ uri: avatarUri }} style={styles.avatar} />
 
           <TouchableOpacity style={styles.editIcon} onPress={onEditProfile}>
-            <Ionicons name='settings-sharp' size={20} color='#FFF' />
+            <Ionicons name='create-outline' size={20} color='#FFF' />
           </TouchableOpacity>
         </View>
 
@@ -127,13 +123,29 @@ AccountActions.displayName = 'AccountActions';
 --------------------------------------------------------------------------- */
 export default function ProfilePage() {
   const { data: user } = useUser();
-  const { data: profile, isLoading: loadingProfile } = useProfile(user?.id);
-  const { data: juggles, isLoading: loadingJuggles } = useJuggles(user?.id);
+  const {
+    data: profile,
+    isLoading: loadingProfile,
+    refetch: refetchProfile,
+  } = useProfile(user?.id);
+  const {
+    data: juggles,
+    isLoading: loadingJuggles,
+    refetch: refetchJuggles,
+  } = useJuggles(user?.id);
   const { data: team } = useTeam(user?.id);
   const updateProfile = useUpdateProfile(user?.id);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Refetch profile data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+      refetchJuggles();
+    }, [refetchProfile, refetchJuggles])
+  );
 
   const totalXp = profile?.total_xp ?? 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
@@ -147,12 +159,16 @@ export default function ProfilePage() {
   const [bio, setBio] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [role, setRole] = useState<'player' | 'coach'>('player');
+  const [tempAvatarUri, setTempAvatarUri] = useState<string | null>(null);
 
   /* ---------------- IMAGE PICK ---------------- */
   const handlePickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required');
+      Alert.alert(
+        'Permission required',
+        'We need permission to access your photos'
+      );
       return;
     }
 
@@ -163,23 +179,11 @@ export default function ProfilePage() {
       quality: 0.8,
     });
 
-    if (result.canceled || !user?.id) return;
+    if (result.canceled) return;
 
-    const file = result.assets[0];
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
-
-    const filePath = `${user.id}/avatar.jpg`;
-
-    await supabase.storage.from('avatars').upload(filePath, blob, {
-      upsert: true,
-      contentType: 'image/jpeg',
-    });
-
-    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-    updateProfile.mutate({ avatar_url: data.publicUrl });
-  }, [user?.id]);
+    // Store the temporary URI to show in modal
+    setTempAvatarUri(result.assets[0].uri);
+  }, []);
 
   const openEditProfile = useCallback(() => {
     setFirstName(profile?.first_name ?? '');
@@ -188,10 +192,13 @@ export default function ProfilePage() {
     setBio(profile?.bio ?? '');
     setRole(profile?.role ?? 'player');
     setTeamCode('');
+    setTempAvatarUri(null);
     setModalVisible(true);
   }, [profile]);
 
   const handleSaveProfile = async () => {
+    if (!user?.id) return;
+
     let teamId = profile?.team_id ?? null;
 
     if (teamCode.trim()) {
@@ -215,6 +222,30 @@ export default function ProfilePage() {
         : firstName.trim()
       : profile?.display_name || 'Player';
 
+    // Upload avatar if changed
+    let avatarUrl = profile?.avatar_url;
+    if (tempAvatarUri) {
+      try {
+        const response = await fetch(tempAvatarUri);
+        const blob = await response.blob();
+        const filePath = `${user.id}/avatar.jpg`;
+
+        await supabase.storage.from('avatars').upload(filePath, blob, {
+          upsert: true,
+          contentType: 'image/jpeg',
+        });
+
+        const { data } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        avatarUrl = data.publicUrl;
+      } catch (error) {
+        console.error('Error uploading avatar:', error);
+        Alert.alert('Error', 'Failed to upload avatar');
+        return;
+      }
+    }
+
     updateProfile.mutate(
       {
         first_name: firstName || null,
@@ -224,8 +255,14 @@ export default function ProfilePage() {
         bio: bio || null,
         role,
         team_id: teamId,
+        avatar_url: avatarUrl,
       },
-      { onSuccess: () => setModalVisible(false) }
+      {
+        onSuccess: () => {
+          setModalVisible(false);
+          setTempAvatarUri(null);
+        },
+      }
     );
   };
 
@@ -241,6 +278,11 @@ export default function ProfilePage() {
     );
   }
 
+  const currentAvatarUri =
+    tempAvatarUri ||
+    profile?.avatar_url ||
+    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
+
   return (
     <>
       <ScrollView
@@ -254,7 +296,6 @@ export default function ProfilePage() {
           profile={profile}
           team={team}
           onEditProfile={openEditProfile}
-          onPickImage={handlePickImage}
         />
 
         <XPCard
@@ -279,12 +320,39 @@ export default function ProfilePage() {
             style={{ flex: 1, justifyContent: 'flex-end' }}
           >
             <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalHeaderTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name='close' size={28} color='#2C3E50' />
+                </TouchableOpacity>
+              </View>
+
               <ScrollView style={styles.modalBody}>
+                {/* Avatar Section */}
+                <View style={styles.avatarSection}>
+                  <Text style={styles.label}>Profile Picture</Text>
+                  <View style={styles.avatarEditContainer}>
+                    <Image
+                      source={{ uri: currentAvatarUri }}
+                      style={styles.avatarPreview}
+                    />
+                    <TouchableOpacity
+                      style={styles.changeAvatarButton}
+                      onPress={handlePickImage}
+                    >
+                      <Ionicons name='camera' size={20} color='#2B9FFF' />
+                      <Text style={styles.changeAvatarText}>Change Photo</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 <Text style={styles.label}>First Name</Text>
                 <TextInput
                   style={styles.input}
                   value={firstName}
                   onChangeText={setFirstName}
+                  placeholder='Enter first name'
+                  placeholderTextColor='#9CA3AF'
                 />
 
                 <Text style={styles.label}>Last Name</Text>
@@ -292,6 +360,8 @@ export default function ProfilePage() {
                   style={styles.input}
                   value={lastName}
                   onChangeText={setLastName}
+                  placeholder='Enter last name'
+                  placeholderTextColor='#9CA3AF'
                 />
 
                 <Text style={styles.label}>Location</Text>
@@ -299,21 +369,28 @@ export default function ProfilePage() {
                   style={styles.input}
                   value={location}
                   onChangeText={setLocation}
+                  placeholder='City, State'
+                  placeholderTextColor='#9CA3AF'
                 />
 
-                <Text style={styles.label}>Bio</Text>
+                {/* <Text style={styles.label}>Bio</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={bio}
                   onChangeText={setBio}
                   multiline
-                />
+                  placeholder='Tell us about yourself...'
+                  placeholderTextColor='#9CA3AF'
+                /> */}
 
                 <Text style={styles.label}>Team Code</Text>
                 <TextInput
                   style={styles.input}
                   value={teamCode}
                   onChangeText={setTeamCode}
+                  placeholder='Enter team code to join'
+                  placeholderTextColor='#9CA3AF'
+                  autoCapitalize='characters'
                 />
               </ScrollView>
 
@@ -325,7 +402,10 @@ export default function ProfilePage() {
               >
                 <TouchableOpacity
                   style={styles.cancelButton}
-                  onPress={() => setModalVisible(false)}
+                  onPress={() => {
+                    setModalVisible(false);
+                    setTempAvatarUri(null);
+                  }}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
@@ -429,7 +509,26 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
   },
-  modalBody: { paddingHorizontal: 20, paddingTop: 16 },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#2C3E50',
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24, // ADD THIS LINE
+  },
   modalFooter: {
     flexDirection: 'row',
     padding: 20,
@@ -437,6 +536,39 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#EEE',
     backgroundColor: '#F5F9FF',
+  },
+
+  // Avatar Edit Section
+  avatarSection: {
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  avatarEditContainer: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: '#E5E7EB',
+  },
+  changeAvatarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2B9FFF',
+  },
+  changeAvatarText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2B9FFF',
   },
 
   label: {

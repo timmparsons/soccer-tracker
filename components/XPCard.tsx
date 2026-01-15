@@ -124,11 +124,27 @@ export default function XPCard({
             </View>
 
             <View style={styles.modalContent}>
-              <Text style={styles.item}>• Juggling session → +20 XP</Text>
-              <Text style={styles.item}>• Daily target hit → +30 XP</Text>
-              <Text style={styles.item}>• New personal best → +50 XP</Text>
-              <Text style={styles.item}>• 3-day streak → +50 XP</Text>
-              <Text style={styles.item}>• 7-day streak → +100 XP</Text>
+              <Text style={styles.sectionHeader}>Earn XP:</Text>
+              <Text style={styles.item}>• 1 juggle = 1 XP</Text>
+              <Text style={styles.item}>
+                • New personal best = +50 XP bonus
+              </Text>
+              <Text style={styles.item}>
+                • Each level requires more XP to reach
+              </Text>
+
+              <Text style={[styles.sectionHeader, { marginTop: 16 }]}>
+                Progression:
+              </Text>
+              <Text style={styles.item}>
+                • Early levels are easier to reach
+              </Text>
+              <Text style={styles.item}>
+                • Higher levels require serious dedication
+              </Text>
+              <Text style={styles.item}>
+                • Level 20 "Legend" status takes years!
+              </Text>
             </View>
           </View>
         </View>
@@ -170,6 +186,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#3b82f6',
+    marginRight: 12,
   },
   progressBar: {
     height: 8,
@@ -223,6 +240,13 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     marginTop: 20,
+  },
+  sectionHeader: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    marginTop: 4,
   },
   item: {
     fontSize: 16,
