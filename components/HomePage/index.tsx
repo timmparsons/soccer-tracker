@@ -64,7 +64,6 @@ const HomeScreen = () => {
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
   const rankName = getRankName(level);
   const { color, icon } = getRankBadge(rankName);
-  const xpPercent = Math.min((xpIntoLevel / xpForNextLevel) * 100, 100);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -74,7 +73,22 @@ const HomeScreen = () => {
           <Text style={styles.greeting}>
             Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
           </Text>
+
+          {/* COMPACT LEVEL BADGE */}
+          <TouchableOpacity
+            style={[styles.levelBadge, { backgroundColor: color }]}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={icon as any} size={16} color='#FFF' />
+            <Text style={styles.levelBadgeText}>Level {level}</Text>
+            <View style={styles.xpDivider} />
+            <Text style={styles.xpBadgeText}>
+              {xpIntoLevel}/{xpForNextLevel} XP
+            </Text>
+          </TouchableOpacity>
         </View>
+
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <View style={styles.avatarGlow} />
           <Image
@@ -87,48 +101,6 @@ const HomeScreen = () => {
           />
         </TouchableOpacity>
       </SafeAreaView>
-
-      {/* LEVEL / XP CARD */}
-      <TouchableOpacity
-        style={[styles.levelCard, { borderLeftColor: color }]}
-        onPress={() => router.push('/profile')}
-        activeOpacity={0.7}
-      >
-        <View style={styles.levelHeader}>
-          <View style={styles.levelLeft}>
-            <Ionicons
-              name={icon as any}
-              size={32}
-              color={color}
-              style={{ marginRight: 12 }}
-            />
-            <View>
-              <Text style={styles.levelNumber}>Level {level}</Text>
-              <Text style={[styles.rankName, { color }]}>{rankName}</Text>
-            </View>
-          </View>
-          <View style={styles.xpNumbers}>
-            <Text style={styles.xpText}>
-              {xpIntoLevel.toLocaleString()} / {xpForNextLevel.toLocaleString()}
-            </Text>
-            <Text style={styles.xpLabel}>XP</Text>
-          </View>
-        </View>
-
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${xpPercent}%`, backgroundColor: color },
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {Math.round(xpPercent)}% to next level
-          </Text>
-        </View>
-      </TouchableOpacity>
 
       {/* BEST SCORE - TROPHY CARD */}
       <View style={styles.bestCard}>
@@ -215,7 +187,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   headerLeft: {
     flex: 1,
@@ -226,10 +198,46 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#2C3E50',
     lineHeight: 34,
+    marginBottom: 8,
   },
   nameHighlight: {
     color: '#1E90FF',
   },
+
+  // COMPACT LEVEL BADGE
+  levelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  levelBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.3,
+  },
+  xpDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 2,
+  },
+  xpBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 0.2,
+  },
+
   avatarGlow: {
     position: 'absolute',
     top: -4,
@@ -246,73 +254,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 4,
     borderColor: '#FFF',
-  },
-
-  // LEVEL / XP CARD
-  levelCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  levelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  levelLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  levelNumber: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2C3E50',
-    lineHeight: 28,
-  },
-  rankName: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  xpNumbers: {
-    alignItems: 'flex-end',
-  },
-  xpText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#2C3E50',
-  },
-  xpLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  progressBarContainer: {
-    gap: 8,
-  },
-  progressBarBg: {
-    height: 10,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 8,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textAlign: 'center',
   },
 
   // BEST SCORE
