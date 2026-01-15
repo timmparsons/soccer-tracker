@@ -13,6 +13,7 @@ type JuggleUpdates = {
   last_session_date?: string;
   streak_days?: number;
   best_daily_streak?: number;
+  challenge_xp?: number; // NEW: Optional challenge XP to award
 };
 
 export function useUpdateJuggles(userId: string | undefined) {
@@ -21,6 +22,10 @@ export function useUpdateJuggles(userId: string | undefined) {
   return useMutation({
     mutationFn: async (updates: JuggleUpdates) => {
       if (!userId) throw new Error('No user ID provided');
+      console.log('🚨 Juggle updates payload', updates);
+
+      // Extract challenge_xp before sending to database
+      const { challenge_xp, ...dbUpdates } = updates;
 
       // 1️⃣ Get existing row
       const { data: existing, error: selectError } = await supabase
@@ -34,11 +39,11 @@ export function useUpdateJuggles(userId: string | undefined) {
       // Build new scores_history entry if needed
       let newHistory = existing?.scores_history ?? [];
 
-      if (updates.last_score !== undefined && !isNaN(updates.last_score)) {
+      if (dbUpdates.last_score !== undefined && !isNaN(dbUpdates.last_score)) {
         newHistory = [
           ...newHistory,
           {
-            score: updates.last_score,
+            score: dbUpdates.last_score,
             date: new Date().toISOString(),
           },
         ];
@@ -53,7 +58,7 @@ export function useUpdateJuggles(userId: string | undefined) {
           .from('juggles')
           .insert({
             user_id: userId,
-            ...updates,
+            ...dbUpdates,
             scores_history: newHistory,
           })
           .select()
@@ -66,7 +71,7 @@ export function useUpdateJuggles(userId: string | undefined) {
         const { data: updated, error: updateError } = await supabase
           .from('juggles')
           .update({
-            ...updates,
+            ...dbUpdates,
             scores_history: newHistory,
             updated_at: new Date().toISOString(),
           })
@@ -81,7 +86,7 @@ export function useUpdateJuggles(userId: string | undefined) {
       // 🟦🟦🟦 4️⃣ Determine XP events  ---------------------------------------------------
       const xpEvents: XpEventType[] = ['SESSION_COMPLETED'];
 
-      const lastScore = updates.last_score ?? null;
+      const lastScore = dbUpdates.last_score ?? null;
       const previousHighScore = existing?.high_score ?? 0;
 
       // Detect Personal Best
@@ -94,12 +99,34 @@ export function useUpdateJuggles(userId: string | undefined) {
 
       // 5️⃣ Award XP for all triggered events
       await Promise.all(xpEvents.map((event) => awardXp(userId, event)));
+
+      // 🎯 NEW: Award challenge XP if provided
+      if (challenge_xp && challenge_xp > 0) {
+        // Get current profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('total_xp')
+          .eq('id', userId)
+          .single();
+
+        if (profile) {
+          // Award the challenge XP directly
+          await supabase
+            .from('profiles')
+            .update({
+              total_xp: (profile.total_xp || 0) + challenge_xp,
+            })
+            .eq('id', userId);
+        }
+      }
       // 🟦🟦🟦 -------------------------------------------------------------------------
 
-      const totalXpAwarded = xpEvents.reduce(
+      const baseXpAwarded = xpEvents.reduce(
         (sum, event) => sum + getXpForEvent(event),
         0
       );
+
+      const totalXpAwarded = baseXpAwarded + (challenge_xp || 0);
 
       return { ...result, totalXpAwarded };
     },

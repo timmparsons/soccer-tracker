@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 export function useTeam(userId?: string) {
   return useQuery({
     queryKey: ['team', userId],
-    enabled: !!userId,
+    enabled: typeof userId === 'string',
     staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       console.log('🔍 Fetching team for user:', userId);
@@ -12,7 +12,7 @@ export function useTeam(userId?: string) {
       // Get user's profile with team_id
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('team_id, username')
+        .select('team_id')
         .eq('id', userId)
         .single();
 

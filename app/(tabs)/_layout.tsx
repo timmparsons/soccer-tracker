@@ -7,17 +7,27 @@ import {
   Trophy,
 } from 'lucide-react-native';
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2ECC71', // Soccer green
-        tabBarInactiveTintColor: '#95A5A6', // Gray for inactive
+        tabBarActiveTintColor: '#FFA500',
+        tabBarInactiveTintColor: '#95A5A6',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          marginBottom: 4,
+          fontWeight: '600', // optional polish
+        },
         tabBarStyle: {
           borderTopColor: '#E5E7EB',
-          paddingTop: 10,
+          paddingTop: 8,
+          paddingBottom: insets.bottom + 8, // ✅ KEY FIX
+          height: 60 + insets.bottom, // ✅ KEY FIX
         },
       }}
     >
@@ -35,7 +45,7 @@ export default function TabLayout() {
         options={{
           title: 'Progress',
           tabBarIcon: ({ color, size }) => (
-            <ChartSpline color={color} size={size ?? 28} />
+            <ChartSpline size={size ?? 28} color={color} />
           ),
         }}
       />

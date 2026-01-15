@@ -1,62 +1,67 @@
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+type UpdateProfileInput = {
+  first_name?: string | null;
+  last_name?: string | null;
+  display_name?: string | null;
+  location?: string | null;
+  bio?: string | null;
+  role?: 'player' | 'coach';
+  team_id?: string | null;
+  avatar_url?: string | null;
+};
+
 export function useUpdateProfile(userId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (updates: any) => {
+    mutationFn: async (updates: UpdateProfileInput) => {
       if (!userId) {
-        throw new Error('No userId provided to useUpdateProfile');
+        throw new Error('Missing userId');
       }
-
-      let team_id;
-
-      // -------- TEAM CODE LOOKUP --------
-      if (updates.team_code) {
-        const { data: team, error: teamErr } = await supabase
-          .from('teams')
-          .select('id')
-          .eq('code', updates.team_code)
-          .maybeSingle();
-
-        if (teamErr || !team) {
-          throw new Error('Invalid team code');
-        }
-
-        team_id = team.id;
-      }
-
-      // -------- BUILD CLEAN UPDATE OBJECT --------
-      const updateData: any = {
-        ...(updates.first_name && { first_name: updates.first_name }),
-        ...(updates.last_name && { last_name: updates.last_name }),
-        ...(updates.display_name && { display_name: updates.display_name }),
-        ...(updates.location !== undefined && { location: updates.location }),
-        ...(updates.bio !== undefined && { bio: updates.bio }),
-        ...(updates.role && { role: updates.role }),
-        ...(team_id && { team_id }),
-      };
-
-      console.log('[useUpdateProfile] Running update:', updateData);
 
       const { error } = await supabase
         .from('profiles')
-        .update(updateData)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', userId);
 
-      if (error) {
-        console.error('[useUpdateProfile] SQL error:', error);
-        throw error;
-      }
-
-      return updateData;
+      if (error) throw error;
     },
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      queryClient.invalidateQueries({ queryKey: ['team'] });
-      queryClient.invalidateQueries({ queryKey: ['teamLeaderboard'] });
+    // ✅ SAFE OPTIMISTIC UPDATE (profile only)
+    onMutate: async (updates) => {
+      if (!userId) return;
+
+      await queryClient.cancelQueries({ queryKey: ['profile', userId] });
+
+      const previousProfile = queryClient.getQueryData(['profile', userId]);
+
+      queryClient.setQueryData(['profile', userId], (old: any) => ({
+        ...(old ?? {}), // 🔥 NEW-USER SAFE
+        ...updates,
+      }));
+
+      return { previousProfile };
+    },
+
+    // 🔁 Roll back on error
+    onError: (_err, _updates, context: any) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['profile', userId], context.previousProfile);
+      }
+    },
+
+    // 🔄 Always refetch real data
+    onSettled: () => {
+      if (!userId) return;
+
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['team', userId] });
+      queryClient.invalidateQueries({ queryKey: ['team-leaderboard'] });
     },
   });
 }
