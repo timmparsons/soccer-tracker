@@ -1,15 +1,37 @@
-import HomePage from '@/components/HomePage';
+import HomeScreen from '@/components/HomePage';
+import { useProfile } from '@/hooks/useProfile';
+import { useUser } from '@/hooks/useUser';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import CoachDashboard from './coach';
 
-const index = () => {
-  return (
-    <View>
-      <HomePage />
-    </View>
-  );
-};
+export default function Index() {
+  const { data: user, isLoading: userLoading } = useUser();
+  const { data: profile, isLoading: profileLoading } = useProfile(user?.id);
 
-export default index;
+  // Show loading while checking user role
+  if (userLoading || profileLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size='large' color='#FFA500' />
+      </View>
+    );
+  }
 
-const styles = StyleSheet.create({});
+  // Show coach dashboard if user is a coach
+  if (profile?.is_coach) {
+    return <CoachDashboard />;
+  }
+
+  // Show regular homepage for players
+  return <HomeScreen />;
+}
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F9FF',
+  },
+});

@@ -113,6 +113,8 @@ export function useUpdateJuggles(userId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['juggles', userId] });
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['team-players'] }); // Refresh coach dashboard
+      queryClient.invalidateQueries({ queryKey: ['team-leaderboard'] }); // Refresh leaderboard
     },
   });
 }

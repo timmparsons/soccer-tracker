@@ -1,14 +1,20 @@
 import { useProfile } from '@/hooks/useProfile';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
+import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +25,14 @@ export default function CoachDashboard() {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const { data: teamPlayers, isLoading } = useTeamPlayers(profile?.team_id);
+
+  // Modal state
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [juggleCount, setJuggleCount] = useState('');
+
+  // Get the update hook for the selected player
+  const updateJuggles = useUpdateJuggles(selectedPlayer?.id);
 
   // Redirect if not a coach
   if (!profile?.is_coach) {
@@ -53,6 +67,78 @@ export default function CoachDashboard() {
 
   const totalXp =
     teamPlayers?.reduce((sum, p) => sum + (p.total_xp || 0), 0) || 0;
+
+  // Handle opening modal for a player
+  const handlePlayerPress = (player: any) => {
+    setSelectedPlayer(player);
+    setJuggleCount('');
+    setModalVisible(true);
+  };
+
+  // Handle saving score
+  const handleSaveScore = () => {
+    const count = parseInt(juggleCount, 10);
+
+    if (!count || count <= 0 || isNaN(count)) {
+      Alert.alert('Invalid Count', 'Please enter a valid juggle count');
+      return;
+    }
+
+    if (!selectedPlayer) return;
+
+    const todayIso = new Date().toISOString().split('T')[0];
+    const lastIso = selectedPlayer.stats?.last_session_date
+      ? selectedPlayer.stats.last_session_date.split('T')[0]
+      : null;
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayIso = yesterday.toISOString().split('T')[0];
+
+    let newStreak = 1;
+
+    if (lastIso === yesterdayIso)
+      newStreak = (selectedPlayer.stats?.streak_days ?? 0) + 1;
+    else if (lastIso === todayIso)
+      newStreak = selectedPlayer.stats?.streak_days ?? 1;
+    else newStreak = 1;
+
+    const newBestStreak = Math.max(
+      selectedPlayer.stats?.best_daily_streak ?? 1,
+      newStreak
+    );
+
+    updateJuggles.mutate(
+      {
+        high_score:
+          count > (selectedPlayer.stats?.high_score ?? 0) ? count : undefined,
+        last_score: count,
+        attempts_count: 1, // Default to 1 attempt
+        last_session_duration: 0, // Coach-entered, no timer
+        sessions_count: (selectedPlayer.stats?.sessions_count ?? 0) + 1,
+        last_session_date: new Date().toISOString(),
+        streak_days: newStreak,
+        best_daily_streak: newBestStreak,
+      },
+      {
+        onSuccess: () => {
+          Alert.alert(
+            'Score Added!',
+            `${count} juggles recorded for ${
+              selectedPlayer.display_name || selectedPlayer.first_name
+            }`
+          );
+          setModalVisible(false);
+          setJuggleCount('');
+          setSelectedPlayer(null);
+        },
+        onError: (error) => {
+          console.error('Error saving score:', error);
+          Alert.alert('Error', 'Failed to save score. Please try again.');
+        },
+      }
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,6 +190,7 @@ export default function CoachDashboard() {
         {/* Player List */}
         <View style={styles.playerList}>
           <Text style={styles.sectionTitle}>Team Roster</Text>
+          <Text style={styles.tapHint}>Tap a player to add their score</Text>
 
           {teamPlayers
             ?.sort((a, b) => {
@@ -131,7 +218,8 @@ export default function CoachDashboard() {
                 <TouchableOpacity
                   key={player.id}
                   style={styles.playerCard}
-                  onPress={() => router.push(`/profile`)} // Could navigate to player detail
+                  onPress={() => handlePlayerPress(player)}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.playerHeader}>
                     <Text style={styles.playerName}>
@@ -170,11 +258,92 @@ export default function CoachDashboard() {
                       ? `${Math.floor(daysAgo / 7)} weeks ago`
                       : 'Never'}
                   </Text>
+
+                  <View style={styles.addScoreHint}>
+                    <Ionicons
+                      name='add-circle-outline'
+                      size={16}
+                      color='#2B9FFF'
+                    />
+                    <Text style={styles.addScoreHintText}>
+                      Tap to add score
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
         </View>
       </ScrollView>
+
+      {/* ADD SCORE MODAL */}
+      <Modal transparent visible={modalVisible} animationType='slide'>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => {
+              setModalVisible(false);
+              setJuggleCount('');
+              setSelectedPlayer(null);
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Ionicons name='person-add' size={32} color='#2B9FFF' />
+                  <Text style={styles.modalTitle}>
+                    Add Score for{' '}
+                    {selectedPlayer?.display_name || selectedPlayer?.first_name}
+                  </Text>
+                </View>
+
+                <Text style={styles.modalSubtitle}>
+                  Enter the juggle count to record for this player
+                </Text>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Juggle Count</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder='Enter juggle count'
+                    placeholderTextColor='#9CA3AF'
+                    keyboardType='numeric'
+                    value={juggleCount}
+                    onChangeText={setJuggleCount}
+                    autoFocus
+                    returnKeyType='done'
+                    onSubmitEditing={handleSaveScore}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSaveScore}
+                >
+                  <Text style={styles.saveButtonText}>Save Score</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setModalVisible(false);
+                    setJuggleCount('');
+                    setSelectedPlayer(null);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -284,6 +453,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#2C3E50',
+    marginBottom: 4,
+  },
+  tapHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2B9FFF',
     marginBottom: 16,
   },
   playerCard: {
@@ -335,6 +510,7 @@ const styles = StyleSheet.create({
   lastActive: {
     fontSize: 13,
     fontWeight: '600',
+    marginBottom: 8,
   },
   lastActiveGood: {
     color: '#22c55e',
@@ -344,5 +520,107 @@ const styles = StyleSheet.create({
   },
   lastActiveInactive: {
     color: '#EF4444',
+  },
+  addScoreHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  addScoreHintText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2B9FFF',
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 62, 80, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 12,
+    color: '#2C3E50',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    color: '#6B7280',
+    marginBottom: 24,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2C3E50',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: '#F5F9FF',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  saveButton: {
+    backgroundColor: '#FFA500',
+    borderRadius: 16,
+    paddingVertical: 16,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#FFA500',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  cancelButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

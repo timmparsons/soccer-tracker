@@ -8,11 +8,12 @@ export function useTeamPlayers(teamId: string | undefined) {
     queryFn: async () => {
       if (!teamId) return [];
 
-      // Get all profiles on this team
+      // Get all profiles on this team (exclude coaches)
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('team_id', teamId);
+        .eq('team_id', teamId)
+        .eq('is_coach', false); // ✅ Only get players, not coaches
 
       if (profileError) throw profileError;
       if (!profiles || profiles.length === 0) return [];

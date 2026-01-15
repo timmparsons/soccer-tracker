@@ -39,7 +39,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name='index'
         options={{
-          title: 'Home',
+          title: profile?.is_coach ? 'Team' : 'Home',
           tabBarIcon: ({ color, size }) => (
             <House size={size ?? 28} color={color} />
           ),
@@ -63,7 +63,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Play size={size ?? 28} color={color} />
           ),
-          // Hide for coaches (or keep if you want to train too!)
+          // Hide for coaches
           href: profile?.is_coach ? null : '/train',
         }}
       />
@@ -74,8 +74,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name='clipboard' size={24} color={color} />
           ),
-          // Only show to coaches
-          href: profile?.is_coach ? '/coach' : null,
+          // Hide coach tab completely (index shows it for coaches)
+          href: null,
         }}
       />
       <Tabs.Screen
