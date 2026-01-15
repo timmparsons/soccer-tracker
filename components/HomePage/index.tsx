@@ -57,14 +57,27 @@ const HomeScreen = () => {
 
   const displayName = getDisplayName(profile);
 
+  // Determine XP based on challenge type
+  const getChallengeXP = () => {
+    if (challenge.includes('5 minutes') || challenge.includes('10 minutes')) {
+      return 25;
+    }
+    if (challenge.includes('15 minutes') || challenge.includes('20 minutes')) {
+      return 50;
+    }
+    if (challenge.includes('new trick') || challenge.includes('master')) {
+      return 100;
+    }
+    return 30; // default
+  };
+
+  const challengeXP = getChallengeXP();
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* HEADER */}
       <SafeAreaView style={styles.header}>
         <View style={styles.headerLeft}>
-          {/* <View style={styles.championBadge}>
-            <Text style={styles.championText}>CHAMPION</Text>
-          </View> */}
           <Text style={styles.greeting}>
             Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
           </Text>
@@ -122,15 +135,16 @@ const HomeScreen = () => {
 
       {/* DAILY CHALLENGE */}
       <View style={styles.challengeCard}>
-        <View style={styles.xpBadge}>
-          <Text style={styles.xpText}>+20 XP</Text>
-        </View>
-
         <View style={styles.challengeHeader}>
-          <View style={styles.challengeIconContainer}>
+          {/* <View style={styles.challengeIconContainer}>
             <Text style={styles.challengeIcon}>🎯</Text>
+          </View> */}
+          <View style={styles.challengeTitleContainer}>
+            <Text style={styles.challengeTitle}>Today's Challenge</Text>
+            <View style={styles.xpBadge}>
+              <Text style={styles.xpText}>+{challengeXP} XP</Text>
+            </View>
           </View>
-          <Text style={styles.challengeTitle}>Today's Challenge</Text>
         </View>
 
         <View style={styles.missionBox}>
@@ -140,7 +154,12 @@ const HomeScreen = () => {
 
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => router.push('/train')}
+          onPress={() =>
+            router.push({
+              pathname: '/train',
+              params: { challengeXP: challengeXP.toString() },
+            })
+          }
         >
           <Text style={styles.startButtonText}>LET'S GO!</Text>
         </TouchableOpacity>
@@ -172,25 +191,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    // marginBottom: 15,
+    marginBottom: 15,
   },
   headerLeft: {
     flex: 1,
     marginRight: 15,
-  },
-  championBadge: {
-    backgroundColor: '#FFA500',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  championText: {
-    color: '#2C3E50',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
   },
   greeting: {
     fontSize: 28,
@@ -355,30 +360,6 @@ const styles = StyleSheet.create({
     elevation: 6,
     position: 'relative',
   },
-  xpBadge: {
-    position: 'absolute',
-    top: -12,
-    right: 12,
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    transform: [{ rotate: '-8deg' }],
-    borderWidth: 3,
-    borderColor: '#FFF',
-    zIndex: 10,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  xpText: {
-    color: '#2C3E50',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
   challengeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,11 +377,35 @@ const styles = StyleSheet.create({
   challengeIcon: {
     fontSize: 28,
   },
+  challengeTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   challengeTitle: {
     fontSize: 24,
     fontWeight: '900',
     color: '#FFF',
-    flex: 1,
+  },
+  xpBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFF',
+    shadowColor: '#FFA500',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  xpText: {
+    color: '#2C3E50',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   missionBox: {
     backgroundColor: 'rgba(30, 144, 255, 0.15)',

@@ -3,10 +3,14 @@ import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +22,11 @@ import XPToast from '../XPToast';
 import CoachsTip from '../common/CoachsTip';
 
 const TimerPage = () => {
+  const params = useLocalSearchParams();
+  const challengeXP = params.challengeXP
+    ? parseInt(params.challengeXP as string, 10)
+    : 20;
+
   const { data: user } = useUser();
   const { data: juggleStats } = useJuggles(user?.id);
   const updateJuggles = useUpdateJuggles(user?.id);
@@ -30,6 +39,7 @@ const TimerPage = () => {
   // Modals
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
+  const [showManualScoreModal, setShowManualScoreModal] = useState(false);
 
   // Custom time
   const [customMinutes, setCustomMinutes] = useState('');
@@ -98,9 +108,14 @@ const TimerPage = () => {
   };
 
   // ---- SAVE LOGIC ----
-  const handleSaveResults = () => {
+  const handleSaveResults = (isManual = false) => {
     const best = bestRecord ? parseInt(bestRecord, 10) : undefined;
     const attemptCount = attempts ? parseInt(attempts, 10) : undefined;
+
+    // Validate that at least one field is filled
+    if (!best && !attemptCount) {
+      return; // Don't save if both fields are empty
+    }
 
     const todayIso = new Date().toISOString().split('T')[0];
     const lastIso = juggleStats?.last_session_date
@@ -131,11 +146,12 @@ const TimerPage = () => {
             : undefined,
         last_score: best,
         attempts_count: attemptCount,
-        last_session_duration: totalTime,
+        last_session_duration: isManual ? 0 : totalTime, // Use 0 for manual entries instead of undefined
         sessions_count: (juggleStats?.sessions_count ?? 0) + 1,
         last_session_date: new Date().toISOString(),
         streak_days: newStreak,
         best_daily_streak: newBestStreak,
+        challenge_xp: challengeXP, // Pass the challenge XP to award
       },
       {
         onSuccess: (data) => {
@@ -151,9 +167,14 @@ const TimerPage = () => {
           }
 
           setShowResultsModal(false);
+          setShowManualScoreModal(false);
           setBestRecord('');
           setAttempts('');
           handleReset();
+        },
+        onError: (error) => {
+          console.error('Error saving juggle results:', error);
+          // Optionally show an error message to the user
         },
       }
     );
@@ -285,6 +306,17 @@ const TimerPage = () => {
         </TouchableOpacity>
       </View>
 
+      {/* ADD SCORE MANUALLY BUTTON */}
+      <View style={styles.manualButtonContainer}>
+        <TouchableOpacity
+          style={styles.manualButton}
+          onPress={() => setShowManualScoreModal(true)}
+        >
+          <Ionicons name='create-outline' size={24} color='#fff' />
+          <Text style={styles.manualButtonText}>Add Score Manually</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* TIP */}
       <View style={styles.tipContainer}>
         <CoachsTip />
@@ -292,122 +324,263 @@ const TimerPage = () => {
 
       {/* ---- DURATION PICKER MODAL ---- */}
       <Modal transparent visible={showDurationPicker} animationType='fade'>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons name='timer-outline' size={32} color='#FFA500' />
-              <Text style={styles.modalTitle}>Select Duration</Text>
-            </View>
-
-            <View style={styles.optionRow}>
-              {[300, 600, 900, 1200].map((value) => (
-                <Pressable
-                  key={value}
-                  style={styles.optionButton}
-                  onPress={() => handleSetDuration(value)}
-                >
-                  <Text style={styles.optionValue}>{value / 60}</Text>
-                  <Text style={styles.optionLabel}>minutes</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Custom Time */}
-            <View style={styles.customSection}>
-              <Text style={styles.customLabel}>Custom Duration</Text>
-
-              <TextInput
-                style={styles.customInput}
-                placeholder='Enter minutes...'
-                placeholderTextColor='#9CA3AF'
-                keyboardType='numeric'
-                value={customMinutes}
-                onChangeText={setCustomMinutes}
-              />
-
-              <TouchableOpacity
-                style={styles.customButton}
-                onPress={() => {
-                  const mins = parseInt(customMinutes, 10);
-                  if (!mins || mins <= 0) return;
-                  handleSetDuration(mins * 60);
-                  setCustomMinutes('');
-                }}
-              >
-                <Text style={styles.customButtonText}>Set Custom Time</Text>
-              </TouchableOpacity>
-            </View>
-
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => setShowDurationPicker(false)}
+          >
             <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowDurationPicker(false)}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <ScrollView
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  justifyContent: 'center',
+                }}
+                keyboardShouldPersistTaps='handled'
+              >
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Ionicons name='timer-outline' size={32} color='#FFA500' />
+                    <Text style={styles.modalTitle}>Select Duration</Text>
+                  </View>
+
+                  <View style={styles.optionRow}>
+                    {[300, 600, 900, 1200].map((value) => (
+                      <Pressable
+                        key={value}
+                        style={styles.optionButton}
+                        onPress={() => handleSetDuration(value)}
+                      >
+                        <Text style={styles.optionValue}>{value / 60}</Text>
+                        <Text style={styles.optionLabel}>minutes</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  {/* Custom Time */}
+                  <View style={styles.customSection}>
+                    <Text style={styles.customLabel}>Custom Duration</Text>
+
+                    <TextInput
+                      style={styles.customInput}
+                      placeholder='Enter minutes...'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={customMinutes}
+                      onChangeText={setCustomMinutes}
+                    />
+
+                    <TouchableOpacity
+                      style={styles.customButton}
+                      onPress={() => {
+                        const mins = parseInt(customMinutes, 10);
+                        if (!mins || mins <= 0) return;
+                        handleSetDuration(mins * 60);
+                        setCustomMinutes('');
+                      }}
+                    >
+                      <Text style={styles.customButtonText}>
+                        Set Custom Time
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setShowDurationPicker(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ---- RESULTS MODAL ---- */}
       <Modal transparent visible={showResultsModal} animationType='slide'>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.resultsIconContainer}>
-              <Ionicons name='checkmark-circle' size={64} color='#4ADE80' />
-            </View>
-
-            <Text style={styles.modalTitle}>Drill Complete!</Text>
-
-            <Text style={styles.modalSubtitle}>
-              Great work! You finished a {totalTime / 60}-minute training
-              session.
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Best Juggle Count</Text>
-              <TextInput
-                style={styles.input}
-                placeholder='Enter your best count'
-                placeholderTextColor='#9CA3AF'
-                keyboardType='numeric'
-                value={bestRecord}
-                onChangeText={setBestRecord}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Total Attempts</Text>
-              <TextInput
-                style={styles.input}
-                placeholder='How many tries?'
-                placeholderTextColor='#9CA3AF'
-                keyboardType='numeric'
-                value={attempts}
-                onChangeText={setAttempts}
-              />
-            </View>
-
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => {
+              setShowResultsModal(false);
+              setBestRecord('');
+              setAttempts('');
+              handleReset();
+            }}
+          >
             <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSaveResults}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Text style={styles.saveButtonText}>Save Results</Text>
-            </TouchableOpacity>
+              <ScrollView
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  justifyContent: 'center',
+                }}
+                keyboardShouldPersistTaps='handled'
+              >
+                <View style={styles.modalContent}>
+                  <View style={styles.resultsIconContainer}>
+                    <Ionicons
+                      name='checkmark-circle'
+                      size={64}
+                      color='#4ADE80'
+                    />
+                  </View>
 
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={() => {
-                setShowResultsModal(false);
-                setBestRecord('');
-                setAttempts('');
-                handleReset();
-              }}
-            >
-              <Text style={styles.skipButtonText}>Skip</Text>
+                  <Text style={styles.modalTitle}>Drill Complete!</Text>
+
+                  <Text style={styles.modalSubtitle}>
+                    Great work! You finished a {totalTime / 60}-minute training
+                    session.
+                  </Text>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Best Juggle Count</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='Enter your best count'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={bestRecord}
+                      onChangeText={setBestRecord}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Total Attempts</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='How many tries?'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={attempts}
+                      onChangeText={setAttempts}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={() => handleSaveResults(false)}
+                  >
+                    <Text style={styles.saveButtonText}>Save Results</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.skipButton}
+                    onPress={() => {
+                      setShowResultsModal(false);
+                      setBestRecord('');
+                      setAttempts('');
+                      handleReset();
+                    }}
+                  >
+                    <Text style={styles.skipButtonText}>Skip</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* ---- MANUAL SCORE MODAL ---- */}
+      <Modal transparent visible={showManualScoreModal} animationType='slide'>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => {
+              setShowManualScoreModal(false);
+              setBestRecord('');
+              setAttempts('');
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <ScrollView
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  justifyContent: 'center',
+                }}
+                keyboardShouldPersistTaps='handled'
+              >
+                <View style={styles.modalContent}>
+                  <View style={styles.resultsIconContainer}>
+                    <Ionicons name='pencil' size={64} color='#2B9FFF' />
+                  </View>
+
+                  <Text style={styles.modalTitle}>Add Score Manually</Text>
+
+                  <Text style={styles.modalSubtitle}>
+                    Enter your juggling results from your practice session.
+                  </Text>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Best Juggle Count</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='Enter your best count'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={bestRecord}
+                      onChangeText={setBestRecord}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Total Attempts</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='How many tries?'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={attempts}
+                      onChangeText={setAttempts}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={() => handleSaveResults(true)}
+                  >
+                    <Text style={styles.saveButtonText}>Save Results</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.skipButton}
+                    onPress={() => {
+                      setShowManualScoreModal(false);
+                      setBestRecord('');
+                      setAttempts('');
+                    }}
+                  >
+                    <Text style={styles.skipButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <XPToast visible={xpToastVisible} xp={xpAmount} />
     </View>
   );
@@ -553,7 +726,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   button: {
     flexDirection: 'row',
@@ -582,10 +755,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  tipContainer: {
-    marginTop: 8,
+  // MANUAL SCORE BUTTON
+  manualButtonContainer: {
+    marginBottom: 4,
+    paddingHorizontal: 8,
   },
-
+  manualButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#22c55e',
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  manualButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tipContainer: {},
   // MODAL BASE
   modalOverlay: {
     flex: 1,
