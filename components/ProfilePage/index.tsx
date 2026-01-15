@@ -191,7 +191,7 @@ export default function ProfilePage() {
     setLocation(profile?.location ?? '');
     setBio(profile?.bio ?? '');
     setRole(profile?.role ?? 'player');
-    setTeamCode('');
+    setTeamCode(''); // Keep empty - they only enter if changing teams
     setTempAvatarUri(null);
     setModalVisible(true);
   }, [profile]);
