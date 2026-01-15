@@ -1,3 +1,6 @@
+import { useProfile } from '@/hooks/useProfile';
+import { useUser } from '@/hooks/useUser';
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import {
   ChartSpline,
@@ -11,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { data: user } = useUser();
+  const { data: profile } = useProfile(user?.id);
 
   return (
     <Tabs
@@ -21,13 +26,13 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           marginBottom: 4,
-          fontWeight: '600', // optional polish
+          fontWeight: '600',
         },
         tabBarStyle: {
           borderTopColor: '#E5E7EB',
           paddingTop: 8,
-          paddingBottom: insets.bottom + 8, // ✅ KEY FIX
-          height: 60 + insets.bottom, // ✅ KEY FIX
+          paddingBottom: insets.bottom + 8,
+          height: 60 + insets.bottom,
         },
       }}
     >
@@ -47,6 +52,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <ChartSpline size={size ?? 28} color={color} />
           ),
+          // Hide for coaches
+          href: profile?.is_coach ? null : '/progress',
         }}
       />
       <Tabs.Screen
@@ -56,6 +63,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Play size={size ?? 28} color={color} />
           ),
+          // Hide for coaches (or keep if you want to train too!)
+          href: profile?.is_coach ? null : '/train',
+        }}
+      />
+      <Tabs.Screen
+        name='coach'
+        options={{
+          title: 'Coach',
+          tabBarIcon: ({ color }) => (
+            <Ionicons name='clipboard' size={24} color={color} />
+          ),
+          // Only show to coaches
+          href: profile?.is_coach ? '/coach' : null,
         }}
       />
       <Tabs.Screen
