@@ -18,11 +18,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import CoachsTip from '../common/CoachsTip';
 
 const HomeScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const { data: user, isLoading: userLoading } = useUser();
   const {
@@ -66,104 +70,107 @@ const HomeScreen = () => {
   const { color, icon } = getRankBadge(rankName);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* HEADER */}
-      <SafeAreaView style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>
-            Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
-          </Text>
-
-          {/* COMPACT LEVEL BADGE */}
-          <TouchableOpacity
-            style={[styles.levelBadge, { backgroundColor: color }]}
-            onPress={() => router.push('/profile')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={icon as any} size={16} color='#FFF' />
-            <Text style={styles.levelBadgeText}>Level {level}</Text>
-            <View style={styles.xpDivider} />
-            <Text style={styles.xpBadgeText}>
-              {xpIntoLevel}/{xpForNextLevel} XP
+    <>
+      <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* HEADER */}
+        <SafeAreaView style={styles.header} edges={[]}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>
+              Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
             </Text>
+
+            {/* COMPACT LEVEL BADGE */}
+            <TouchableOpacity
+              style={[styles.levelBadge, { backgroundColor: color }]}
+              onPress={() => router.push('/profile')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={icon as any} size={16} color='#FFF' />
+              <Text style={styles.levelBadgeText}>Level {level}</Text>
+              <View style={styles.xpDivider} />
+              <Text style={styles.xpBadgeText}>
+                {xpIntoLevel}/{xpForNextLevel} XP
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity onPress={() => router.push('/profile')}>
+            <View style={styles.avatarGlow} />
+            <Image
+              source={{
+                uri:
+                  profile?.avatar_url ||
+                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+              }}
+              style={styles.avatar}
+            />
           </TouchableOpacity>
-        </View>
+        </SafeAreaView>
 
-        <TouchableOpacity onPress={() => router.push('/profile')}>
-          <View style={styles.avatarGlow} />
-          <Image
-            source={{
-              uri:
-                profile?.avatar_url ||
-                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-            }}
-            style={styles.avatar}
-          />
-        </TouchableOpacity>
-      </SafeAreaView>
+        {/* BEST SCORE - TROPHY CARD */}
+        <View style={styles.bestCard}>
+          <Text style={styles.trophyWatermark}>🏆</Text>
+          <View style={styles.cornerAccent} />
 
-      {/* BEST SCORE - TROPHY CARD */}
-      <View style={styles.bestCard}>
-        <Text style={styles.trophyWatermark}>🏆</Text>
-        <View style={styles.cornerAccent} />
-
-        <View style={styles.recordBadge}>
-          <Text style={styles.recordBadgeText}>YOUR RECORD</Text>
-        </View>
-
-        <View style={styles.scoreRow}>
-          <Text style={styles.bestValue}>{bestScore}</Text>
-          <Text style={styles.bestUnit}>Juggles</Text>
-        </View>
-
-        <View style={styles.personalBestBadge}>
-          <Text style={styles.personalBestText}>Personal Best!</Text>
-        </View>
-      </View>
-
-      {/* QUICK STATS */}
-      <View style={styles.quickStatsRow}>
-        <View style={[styles.quickStat, styles.statNavy]}>
-          <View style={styles.statIconBg}>
-            <Text style={styles.statIcon}>🎯</Text>
+          <View style={styles.recordBadge}>
+            <Text style={styles.recordBadgeText}>YOUR RECORD</Text>
           </View>
-          <Text style={styles.quickValue}>{sessions}</Text>
-          <Text style={styles.quickLabel}>Training Sessions</Text>
-        </View>
 
-        <View style={[styles.quickStat, styles.statOrange]}>
-          <View style={styles.statIconBg}>
-            <Text style={styles.statIcon}>🔥</Text>
+          <View style={styles.scoreRow}>
+            <Text style={styles.bestValue}>{bestScore}</Text>
+            <Text style={styles.bestUnit}>Juggles</Text>
           </View>
-          <Text style={styles.quickValue}>{streak}</Text>
-          <Text style={styles.quickLabel}>Day Streak</Text>
-        </View>
-      </View>
 
-      {/* DAILY CHALLENGE */}
-      <View style={styles.challengeCard}>
-        <View style={styles.challengeHeader}>
-          <View style={styles.challengeTitleContainer}>
-            <Text style={styles.challengeTitle}>Today's Challenge</Text>
+          <View style={styles.personalBestBadge}>
+            <Text style={styles.personalBestText}>Personal Best!</Text>
           </View>
         </View>
 
-        <View style={styles.missionBox}>
-          <Text style={styles.missionLabel}>YOUR MISSION</Text>
-          <Text style={styles.challengeDesc}>{challenge}</Text>
+        {/* QUICK STATS */}
+        <View style={styles.quickStatsRow}>
+          <View style={[styles.quickStat, styles.statNavy]}>
+            <View style={styles.statIconBg}>
+              <Text style={styles.statIcon}>🎯</Text>
+            </View>
+            <Text style={styles.quickValue}>{sessions}</Text>
+            <Text style={styles.quickLabel}>Training Sessions</Text>
+          </View>
+
+          <View style={[styles.quickStat, styles.statOrange]}>
+            <View style={styles.statIconBg}>
+              <Text style={styles.statIcon}>🔥</Text>
+            </View>
+            <Text style={styles.quickValue}>{streak}</Text>
+            <Text style={styles.quickLabel}>Day Streak</Text>
+          </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={() => router.push('/train')}
-        >
-          <Text style={styles.startButtonText}>LET'S GO!</Text>
-        </TouchableOpacity>
+        {/* DAILY CHALLENGE */}
+        <View style={styles.challengeCard}>
+          <View style={styles.challengeHeader}>
+            <View style={styles.challengeTitleContainer}>
+              <Text style={styles.challengeTitle}>Today's Challenge</Text>
+            </View>
+          </View>
 
-        {/* COACH TIP */}
-        <CoachsTip />
-      </View>
-    </ScrollView>
+          <View style={styles.missionBox}>
+            <Text style={styles.missionLabel}>YOUR MISSION</Text>
+            <Text style={styles.challengeDesc}>{challenge}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => router.push('/train')}
+          >
+            <Text style={styles.startButtonText}>LET'S GO!</Text>
+          </TouchableOpacity>
+
+          {/* COACH TIP */}
+          <CoachsTip />
+        </View>
+      </ScrollView>
+    </>
   );
 };
 
