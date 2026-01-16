@@ -613,6 +613,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 17,
     letterSpacing: 0.5,
+    paddingHorizontal: 10,
   },
   cancelButton: {
     marginTop: 12,
