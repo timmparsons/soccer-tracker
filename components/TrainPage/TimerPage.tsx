@@ -1,10 +1,12 @@
 import { useJuggles } from '@/hooks/useJuggles';
+import { useProfile } from '@/hooks/useProfile';
 import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,6 +25,7 @@ import CoachsTip from '../common/CoachsTip';
 const TimerPage = () => {
   const { data: user } = useUser();
   const { data: juggleStats } = useJuggles(user?.id);
+  const { data: profile } = useProfile(user?.id);
   const updateJuggles = useUpdateJuggles(user?.id);
 
   // Timer
@@ -46,6 +49,10 @@ const TimerPage = () => {
   // XP Toast
   const [xpToastVisible, setXpToastVisible] = useState(false);
   const [xpAmount, setXpAmount] = useState(0);
+
+  // AI Coach
+  const [aiCoachFeedback, setAiCoachFeedback] = useState('');
+  const [loadingAiFeedback, setLoadingAiFeedback] = useState(false);
 
   const playEndSound = async () => {
     try {
@@ -101,8 +108,69 @@ const TimerPage = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Get AI Coach Feedback
+  const getAiCoachFeedback = async (sessionData: {
+    juggles: number;
+    highScore: number;
+    level: number;
+    isNewRecord: boolean;
+    sessionMinutes: number;
+  }) => {
+    setLoadingAiFeedback(true);
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 200,
+          messages: [
+            {
+              role: 'user',
+              content: `You are an enthusiastic soccer coach giving personalized feedback to a young player who just finished training.
+
+Player's session:
+- Juggles achieved: ${sessionData.juggles}
+- All-time high score: ${sessionData.highScore}
+- Training duration: ${sessionData.sessionMinutes} minutes
+- New personal record: ${sessionData.isNewRecord ? 'YES!' : 'No'}
+- Current level: ${sessionData.level}
+
+Give specific, personalized feedback in 2-3 sentences that:
+1. Celebrates their specific achievement (mention the actual number ${
+                sessionData.juggles
+              })
+2. ${
+                sessionData.isNewRecord
+                  ? 'Gets REALLY excited about beating their record!'
+                  : 'Encourages them and mentions how close they are to their record'
+              }
+3. Gives ONE concrete soccer juggling tip based on their level (beginner tips for level 1-3, intermediate for 4-7, advanced for 8+)
+
+Be enthusiastic, use emojis, and make it feel personal! Vary your language - don't always say "great work" or "keep it up".`,
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      console.log('AI Coach response data:', data);
+      const feedback = data.content?.[0]?.text || 'Great work! Keep it up! ⚽';
+      setAiCoachFeedback(feedback);
+    } catch (error) {
+      console.error('Error getting AI feedback:', error);
+      setAiCoachFeedback(
+        "Awesome session! Keep practicing and you'll keep improving! ⚽"
+      );
+    } finally {
+      setLoadingAiFeedback(false);
+    }
+  };
+
   // ---- SAVE LOGIC ----
-  const handleSaveResults = (isManual = false) => {
+  const handleSaveResults = async (isManual = false) => {
     const best = bestRecord ? parseInt(bestRecord, 10) : undefined;
     const attemptCount = attempts ? parseInt(attempts, 10) : undefined;
 
@@ -132,12 +200,12 @@ const TimerPage = () => {
       newStreak
     );
 
+    const isNewRecord =
+      best !== undefined && best > (juggleStats?.high_score ?? 0);
+
     updateJuggles.mutate(
       {
-        high_score:
-          best !== undefined && best > (juggleStats?.high_score ?? 0)
-            ? best
-            : undefined,
+        high_score: isNewRecord ? best : undefined,
         last_score: best,
         attempts_count: attemptCount,
         last_session_duration: isManual ? 0 : totalTime,
@@ -147,7 +215,7 @@ const TimerPage = () => {
         best_daily_streak: newBestStreak,
       },
       {
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
           const xp = data?.totalXpAwarded ?? 0;
 
           if (xp > 0) {
@@ -159,17 +227,30 @@ const TimerPage = () => {
             }, 2000);
           }
 
-          setShowResultsModal(false);
-          setShowManualScoreModal(false);
-          setBestRecord('');
-          setAttempts('');
-          handleReset();
+          // Get AI Coach feedback after successful save
+          if (best !== undefined) {
+            await getAiCoachFeedback({
+              juggles: best,
+              highScore: isNewRecord ? best : juggleStats?.high_score ?? 0,
+              level: profile?.level ?? 1,
+              isNewRecord,
+              sessionMinutes: Math.floor(totalTime / 60),
+            });
+          }
         },
         onError: (error) => {
           console.error('Error saving juggle results:', error);
         },
       }
     );
+  };
+
+  const handleCloseResults = () => {
+    setShowResultsModal(false);
+    setBestRecord('');
+    setAttempts('');
+    setAiCoachFeedback('');
+    handleReset();
   };
 
   const isLowTime = timeLeft < 60 && timeLeft > 0;
@@ -404,12 +485,7 @@ const TimerPage = () => {
           <TouchableOpacity
             activeOpacity={1}
             style={styles.modalOverlay}
-            onPress={() => {
-              setShowResultsModal(false);
-              setBestRecord('');
-              setAttempts('');
-              handleReset();
-            }}
+            onPress={handleCloseResults}
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -438,6 +514,28 @@ const TimerPage = () => {
                     session.
                   </Text>
 
+                  {/* AI Coach Feedback Section */}
+                  {aiCoachFeedback && !loadingAiFeedback && (
+                    <View style={styles.aiCoachCard}>
+                      <View style={styles.aiCoachHeader}>
+                        <Ionicons name='sparkles' size={20} color='#FFA500' />
+                        <Text style={styles.aiCoachTitle}>
+                          Coach's Feedback
+                        </Text>
+                      </View>
+                      <Text style={styles.aiCoachText}>{aiCoachFeedback}</Text>
+                    </View>
+                  )}
+
+                  {loadingAiFeedback && (
+                    <View style={styles.aiCoachCard}>
+                      <ActivityIndicator size='small' color='#FFA500' />
+                      <Text style={styles.aiCoachLoadingText}>
+                        Getting your feedback...
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Best Juggle Count</Text>
                     <TextInput
@@ -447,6 +545,7 @@ const TimerPage = () => {
                       keyboardType='numeric'
                       value={bestRecord}
                       onChangeText={setBestRecord}
+                      editable={!loadingAiFeedback && !aiCoachFeedback}
                     />
                   </View>
 
@@ -459,27 +558,36 @@ const TimerPage = () => {
                       keyboardType='numeric'
                       value={attempts}
                       onChangeText={setAttempts}
+                      editable={!loadingAiFeedback && !aiCoachFeedback}
                     />
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.saveButton}
-                    onPress={() => handleSaveResults(false)}
-                  >
-                    <Text style={styles.saveButtonText}>Save Results</Text>
-                  </TouchableOpacity>
+                  {!aiCoachFeedback && !loadingAiFeedback && (
+                    <TouchableOpacity
+                      style={styles.saveButton}
+                      onPress={() => handleSaveResults(false)}
+                    >
+                      <Text style={styles.saveButtonText}>Save Results</Text>
+                    </TouchableOpacity>
+                  )}
 
-                  <TouchableOpacity
-                    style={styles.skipButton}
-                    onPress={() => {
-                      setShowResultsModal(false);
-                      setBestRecord('');
-                      setAttempts('');
-                      handleReset();
-                    }}
-                  >
-                    <Text style={styles.skipButtonText}>Skip</Text>
-                  </TouchableOpacity>
+                  {aiCoachFeedback && (
+                    <TouchableOpacity
+                      style={styles.saveButton}
+                      onPress={handleCloseResults}
+                    >
+                      <Text style={styles.saveButtonText}>Done</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {!aiCoachFeedback && !loadingAiFeedback && (
+                    <TouchableOpacity
+                      style={styles.skipButton}
+                      onPress={handleCloseResults}
+                    >
+                      <Text style={styles.skipButtonText}>Skip</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
             </TouchableOpacity>
@@ -803,6 +911,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     fontWeight: '500',
+  },
+
+  // AI COACH CARD
+  aiCoachCard: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    width: '100%',
+    borderWidth: 2,
+    borderColor: '#FFEDD5',
+  },
+  aiCoachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  aiCoachTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2C3E50',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  aiCoachText: {
+    fontSize: 15,
+    color: '#2C3E50',
+    lineHeight: 22,
+    fontWeight: '600',
+  },
+  aiCoachLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+    fontWeight: '600',
   },
 
   // DURATION PICKER
