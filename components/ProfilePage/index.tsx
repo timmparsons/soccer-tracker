@@ -313,12 +313,14 @@ export default function ProfilePage() {
       </ScrollView>
 
       {/* EDIT PROFILE MODAL */}
+      {/* EDIT PROFILE MODAL */}
       <Modal visible={modalVisible} animationType='slide' transparent>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ flex: 1, justifyContent: 'flex-end' }}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalHeaderTitle}>Edit Profile</Text>
@@ -327,7 +329,11 @@ export default function ProfilePage() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody}>
+              <ScrollView
+                style={styles.modalBody}
+                keyboardShouldPersistTaps='handled'
+                showsVerticalScrollIndicator={false}
+              >
                 {/* Avatar Section */}
                 <View style={styles.avatarSection}>
                   <Text style={styles.label}>Profile Picture</Text>
@@ -392,6 +398,9 @@ export default function ProfilePage() {
                   placeholderTextColor='#9CA3AF'
                   autoCapitalize='characters'
                 />
+
+                {/* Add extra padding at bottom for keyboard */}
+                <View style={{ height: 100 }} />
               </ScrollView>
 
               <View
@@ -417,8 +426,8 @@ export default function ProfilePage() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
