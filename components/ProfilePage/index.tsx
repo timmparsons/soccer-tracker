@@ -28,6 +28,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import XPCard from '../XPCard';
+import {
+  TeamOverviewCard,
+  WeeklyProgressCard,
+} from '../coach/CoachProfileCard';
 import CoachsTip from '../common/CoachsTip';
 
 /* --------------------------------------------------------------------------
@@ -83,13 +87,7 @@ ProfileHeader.displayName = 'ProfileHeader';
    ACCOUNT ACTIONS
 --------------------------------------------------------------------------- */
 const AccountActions = memo(
-  ({
-    onEditProfile,
-    onSignOut,
-  }: {
-    onEditProfile: () => void;
-    onSignOut: () => void;
-  }) => (
+  ({ onEditProfile }: { onEditProfile: () => void }) => (
     <>
       <Text style={styles.sectionTitle}>Account</Text>
 
@@ -99,14 +97,6 @@ const AccountActions = memo(
             <Ionicons name='person-outline' size={22} color='#2B9FFF' />
           </View>
           <Text style={styles.actionText}>Edit Profile</Text>
-          <Ionicons name='chevron-forward' size={20} color='#9CA3AF' />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionRow} onPress={onSignOut}>
-          <View style={[styles.actionIconContainer, styles.logoutIcon]}>
-            <Ionicons name='log-out-outline' size={22} color='#EF4444' />
-          </View>
-          <Text style={[styles.actionText, { color: '#EF4444' }]}>Log Out</Text>
           <Ionicons name='chevron-forward' size={20} color='#9CA3AF' />
         </TouchableOpacity>
       </View>
@@ -298,18 +288,28 @@ export default function ProfilePage() {
           onEditProfile={openEditProfile}
         />
 
-        <XPCard
-          level={level}
-          xpIntoLevel={xpIntoLevel}
-          xpForNextLevel={xpForNextLevel}
-          rankName={rankName}
-          onOpenRoadmap={() => router.push('/(modals)/roadmap')}
-        />
+        {profile?.is_coach ? (
+          <>
+            <TeamOverviewCard teamId={profile?.team_id} />
+            <WeeklyProgressCard teamId={profile?.team_id} />
+          </>
+        ) : (
+          <XPCard
+            level={level}
+            xpIntoLevel={xpIntoLevel}
+            xpForNextLevel={xpForNextLevel}
+            rankName={rankName}
+            onOpenRoadmap={() => router.push('/(modals)/roadmap')}
+          />
+        )}
 
-        <AccountActions
-          onEditProfile={openEditProfile}
-          onSignOut={handleSignOut}
-        />
+        <AccountActions onEditProfile={openEditProfile} />
+        <View style={styles.logoutSection}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
+            <Ionicons name='log-out-outline' size={22} color='#EF4444' />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* EDIT PROFILE MODAL */}
@@ -604,4 +604,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: { fontWeight: '900', color: '#FFF' },
+  logoutSection: {
+    marginTop: 20,
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#FEF2F2',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FEE2E2',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EF4444',
+    letterSpacing: 0.3,
+  },
 });
