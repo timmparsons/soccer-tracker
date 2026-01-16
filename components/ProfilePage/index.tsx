@@ -8,6 +8,7 @@ import { getLevelFromXp, getRankName } from '@/lib/xp';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { memo, useCallback, useState } from 'react';
@@ -54,6 +55,13 @@ const ProfileHeader = memo(
     const displayName =
       profile?.display_name || profile?.first_name || 'Player';
 
+    const handleCopyCode = async () => {
+      if (team?.code) {
+        await Clipboard.setStringAsync(team.code);
+        Alert.alert('Copied!', 'Team code copied to clipboard');
+      }
+    };
+
     return (
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -68,9 +76,24 @@ const ProfileHeader = memo(
         <Text style={styles.name}>{displayName}</Text>
 
         {team?.name && (
-          <View style={styles.teamBadge}>
-            <Text style={styles.teamName}>{team.name}</Text>
-          </View>
+          <>
+            <View style={styles.teamBadge}>
+              <Text style={styles.teamName}>{team.name}</Text>
+            </View>
+
+            {team?.code && (
+              <TouchableOpacity
+                style={styles.teamCodeContainer}
+                onPress={handleCopyCode}
+                activeOpacity={0.7}
+              >
+                <Ionicons name='key' size={16} color='#6B7280' />
+                <Text style={styles.teamCodeLabel}>Team Code:</Text>
+                <Text style={styles.teamCode}>{team.code}</Text>
+                <Ionicons name='copy-outline' size={16} color='#2B9FFF' />
+              </TouchableOpacity>
+            )}
+          </>
         )}
 
         {profile?.location && (
@@ -303,6 +326,30 @@ export default function ProfilePage() {
           />
         )}
 
+        {/* TEAM SECTION - Only show if not on a team */}
+        {!profile?.team_id && (
+          <View style={styles.teamSection}>
+            <Text style={styles.sectionTitle}>Team</Text>
+            <Text style={styles.noTeamText}>You're not on a team yet</Text>
+
+            <View style={styles.teamButtons}>
+              <TouchableOpacity
+                style={styles.teamButton}
+                onPress={() => router.push('/(modals)/join-team')}
+              >
+                <Text style={styles.teamButtonText}>Join Team</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.teamButton}
+                onPress={() => router.push('/(modals)/create-team')}
+              >
+                <Text style={styles.teamButtonText}>Create Team</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <AccountActions onEditProfile={openEditProfile} />
         <View style={styles.logoutSection}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
@@ -312,7 +359,6 @@ export default function ProfilePage() {
         </View>
       </ScrollView>
 
-      {/* EDIT PROFILE MODAL */}
       {/* EDIT PROFILE MODAL */}
       <Modal visible={modalVisible} animationType='slide' transparent>
         <KeyboardAvoidingView
@@ -378,16 +424,6 @@ export default function ProfilePage() {
                   placeholder='City, State'
                   placeholderTextColor='#9CA3AF'
                 />
-
-                {/* <Text style={styles.label}>Bio</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  placeholder='Tell us about yourself...'
-                  placeholderTextColor='#9CA3AF'
-                /> */}
 
                 <Text style={styles.label}>Team Code</Text>
                 <TextInput
@@ -478,6 +514,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   teamName: { color: '#FFF', fontWeight: '700' },
+  teamCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 6,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  teamCodeLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  teamCode: {
+    fontSize: 15,
+    color: '#2C3E50',
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
   location: { marginTop: 6, color: '#6B7280' },
 
   sectionTitle: {
@@ -536,7 +595,7 @@ const styles = StyleSheet.create({
   modalBody: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 24, // ADD THIS LINE
+    paddingBottom: 24,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -634,6 +693,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#EF4444',
+    letterSpacing: 0.3,
+  },
+  teamSection: {
+    marginTop: 28,
+    marginBottom: 12,
+  },
+  noTeamText: {
+    fontSize: 15,
+    color: '#6B7280',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  teamButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  teamButton: {
+    flex: 1,
+    backgroundColor: '#2B9FFF',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  teamButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
     letterSpacing: 0.3,
   },
 });

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -7,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -16,6 +18,7 @@ import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 
 const LeaderboardPage = () => {
+  const router = useRouter();
   const { data: user } = useUser();
   const { data: team, isLoading: loadingTeam } = useTeam(user?.id);
   const {
@@ -49,8 +52,27 @@ const LeaderboardPage = () => {
         </View>
         <Text style={styles.noTeamTitle}>No Team Yet</Text>
         <Text style={styles.noTeamSub}>
-          Join a team to compete on the leaderboard
+          Join a team to compete on the leaderboard and track progress with
+          friends!
         </Text>
+
+        <View style={styles.teamButtons}>
+          <TouchableOpacity
+            style={styles.teamButton}
+            onPress={() => router.push('/(modals)/join-team')}
+          >
+            <Ionicons name='enter' size={20} color='#FFF' />
+            <Text style={styles.teamButtonText}>Join Team</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.teamButton, styles.createButton]}
+            onPress={() => router.push('/(modals)/create-team')}
+          >
+            <Ionicons name='add-circle' size={20} color='#FFF' />
+            <Text style={styles.teamButtonText}>Create Team</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -291,6 +313,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     fontWeight: '500',
+    marginBottom: 32,
+    lineHeight: 22,
+  },
+  teamButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    maxWidth: 400,
+  },
+  teamButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#2B9FFF',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  createButton: {
+    backgroundColor: '#FFA500',
+    shadowColor: '#FFA500',
+  },
+  teamButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
 
   // HEADER
