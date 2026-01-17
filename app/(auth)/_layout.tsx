@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
@@ -19,9 +20,23 @@ export default function AuthLayout() {
     return () => subscription.remove();
   }, []);
 
-  const handleDeepLink = (url: string) => {
+  const handleDeepLink = async (url: string) => {
     const { path, queryParams } = Linking.parse(url);
 
+    // Handle email confirmation for signup
+    if (path === 'auth/confirm' && queryParams?.token_hash) {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: queryParams.token_hash as string,
+        type: 'email',
+      });
+
+      if (!error) {
+        // Successfully confirmed - routing will be handled by root layout
+        router.replace('/(tabs)');
+      }
+    }
+
+    // Handle password recovery
     if (path === 'auth/confirm' && queryParams?.type === 'recovery') {
       router.push({
         pathname: '/reset-password',
@@ -29,10 +44,10 @@ export default function AuthLayout() {
       });
     }
   };
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name='index' options={{ headerShown: false }} />
-      {/* Add other auth screens like signup, forgot-password, etc. */}
     </Stack>
   );
 }
