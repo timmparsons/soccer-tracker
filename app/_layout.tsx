@@ -22,69 +22,8 @@ export default function RootLayout() {
   const [loading, setLoading] = useState(true);
   const segments = useSegments();
   const router = useRouter();
-
-  // Handle deep links BEFORE routing
-  useEffect(() => {
-    const handleDeepLink = async (url: string) => {
-      console.log('🔗 Deep link received:', url);
-
-      const { path, queryParams } = Linking.parse(url);
-      console.log('📍 Path:', path);
-      console.log('📋 Params:', queryParams);
-
-      // Handle email confirmation
-      if (
-        path === 'auth/confirm' &&
-        queryParams?.token_hash &&
-        queryParams?.type === 'signup'
-      ) {
-        console.log('✉️ Verifying email...');
-
-        try {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: queryParams.token_hash as string,
-            type: 'email',
-          });
-
-          if (error) {
-            console.error('❌ Verification error:', error);
-            router.replace('/(auth)');
-            return;
-          }
-
-          console.log('✅ Email verified!');
-
-          // Refresh session
-          const { data } = await supabase.auth.getSession();
-          setSession(data.session);
-
-          // Immediately navigate away to prevent "Unmatched Route"
-          setTimeout(() => {
-            router.replace('/(tabs)');
-          }, 100);
-        } catch (err) {
-          console.error('💥 Exception:', err);
-          router.replace('/(auth)');
-        }
-      }
-    };
-
-    // Listen for deep links
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleDeepLink(url);
-    });
-
-    // Check initial URL
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('🚀 Initial URL detected');
-        handleDeepLink(url);
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
-
+  console.log(Linking.createURL('confirm'));
+  // 🔐 Load initial session + subscribe to auth changes
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -95,26 +34,33 @@ export default function RootLayout() {
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('🔐 Auth state changed:', _event);
       setSession(session);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
+  // 🧭 Route guarding
   useEffect(() => {
-    if (loading) {
+    if (loading) return;
+
+    const rootSegment = segments[0];
+
+    const inAuthGroup = rootSegment === '(auth)';
+    const inTabsGroup = rootSegment === '(tabs)';
+    const inModalsGroup = rootSegment === '(modals)';
+    const inOnboardingGroup = rootSegment === '(onboarding)';
+
+    // Logged in but outside allowed areas
+    if (session && !inTabsGroup && !inModalsGroup && !inOnboardingGroup) {
+      checkOnboardingStatus();
       return;
     }
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
-    const inModalsGroup = segments[0] === '(modals)';
-    const inOnboardingGroup = segments[0] === '(onboarding)';
-
-    if (session && !inTabsGroup && !inModalsGroup && !inOnboardingGroup) {
-      checkOnboardingStatus();
-    } else if (!session && !inAuthGroup) {
+    // Logged out but not in auth flow
+    if (!session && !inAuthGroup) {
       router.replace('/(auth)');
     }
   }, [session, segments, loading]);
@@ -135,6 +81,7 @@ export default function RootLayout() {
     }
   };
 
+  // ⏳ App boot loading state
   if (loading) {
     return (
       <View
@@ -153,11 +100,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar backgroundColor='#FFFFFF' barStyle='dark-content' />
+        <StatusBar barStyle='dark-content' />
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name='(auth)' options={{ headerShown: false }} />
-          <Stack.Screen name='(onboarding)' options={{ headerShown: false }} />
-          <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+          <Stack.Screen name='(auth)' />
+          <Stack.Screen name='(onboarding)' />
+          <Stack.Screen name='(tabs)' />
           <Stack.Screen name='(modals)' options={{ presentation: 'modal' }} />
         </Stack>
       </QueryClientProvider>
