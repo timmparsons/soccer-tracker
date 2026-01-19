@@ -73,17 +73,30 @@ export default function Auth() {
         teamCode,
       });
 
+      // ✅ STEP 1: Create auth user WITH METADATA
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: 'exp://192.168.0.227:8081/--/callback',
+          data: {
+            first_name: firstName.trim() || null,
+            last_name: lastName.trim() || null,
+            role,
+            team_code: teamCode.trim() || null,
+          },
         },
       });
 
       console.log('[Auth] signUp response', data);
 
       if (error) throw error;
+      if (!data.user) throw new Error('User creation failed');
+
+      // ❌ REMOVED:
+      // - setTimeout
+      // - profiles.update
+      // - team lookup
+      // These cannot work before email confirmation
 
       Alert.alert(
         'Check your inbox',

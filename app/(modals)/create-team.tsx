@@ -79,7 +79,7 @@ export default function CreateTeam() {
         const { data: existing, error } = await supabase
           .from('teams')
           .select('id')
-          .eq('code', teamCode);
+          .ilike('code', teamCode);
 
         // If no error and no data, the code is unique
         if (!error && (!existing || existing.length === 0)) {

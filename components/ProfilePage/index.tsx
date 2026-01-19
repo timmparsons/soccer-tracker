@@ -218,7 +218,7 @@ export default function ProfilePage() {
       const { data } = await supabase
         .from('teams')
         .select('id')
-        .eq('code', teamCode.trim())
+        .ilike('code', teamCode.trim())
         .single();
 
       if (!data) {

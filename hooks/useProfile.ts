@@ -5,6 +5,9 @@ export function useProfile(userId?: string) {
   return useQuery({
     queryKey: ['profile', userId],
     enabled: typeof userId === 'string',
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    retry: 2,
     queryFn: async () => {
       if (!userId) return null;
 
