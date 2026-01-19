@@ -22,7 +22,7 @@ import CoachsTip from '../common/CoachsTip';
 
 const TimerPage = () => {
   const { data: user } = useUser();
-  const { data: juggleStats } = useJuggles(user?.id);
+  co?nst { data: juggleStats } = useJuggles(user?.id);
   const updateJuggles = useUpdateJuggles(user?.id);
 
   // Timer
