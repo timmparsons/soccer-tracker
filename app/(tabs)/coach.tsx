@@ -1,7 +1,7 @@
 import { useProfile } from '@/hooks/useProfile';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
-import { useUpdateJuggles } from '@/hooks/useUpdateJuggles';
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -24,15 +24,16 @@ export default function CoachDashboard() {
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const { data: teamPlayers, isLoading } = useTeamPlayers(profile?.team_id);
+  const {
+    data: teamPlayers,
+    isLoading,
+    refetch,
+  } = useTeamPlayers(profile?.team_id);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [juggleCount, setJuggleCount] = useState('');
-
-  // Get the update hook for the selected player
-  const updateJuggles = useUpdateJuggles(selectedPlayer?.id);
 
   // Redirect if not a coach
   if (!profile?.is_coach) {
@@ -75,8 +76,8 @@ export default function CoachDashboard() {
     setModalVisible(true);
   };
 
-  // Handle saving score
-  const handleSaveScore = () => {
+  // Handle saving score - using direct Supabase call
+  const handleSaveScore = async () => {
     const count = parseInt(juggleCount, 10);
 
     if (!count || count <= 0 || isNaN(count)) {
@@ -86,58 +87,80 @@ export default function CoachDashboard() {
 
     if (!selectedPlayer) return;
 
-    const todayIso = new Date().toISOString().split('T')[0];
-    const lastIso = selectedPlayer.stats?.last_session_date
-      ? selectedPlayer.stats.last_session_date.split('T')[0]
-      : null;
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const lastIso = selectedPlayer.stats?.last_session_date
+        ? selectedPlayer.stats.last_session_date.split('T')[0]
+        : null;
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayIso = yesterday.toISOString().split('T')[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayIso = yesterday.toISOString().split('T')[0];
 
-    let newStreak = 1;
+      let newStreak = 1;
 
-    if (lastIso === yesterdayIso)
-      newStreak = (selectedPlayer.stats?.streak_days ?? 0) + 1;
-    else if (lastIso === todayIso)
-      newStreak = selectedPlayer.stats?.streak_days ?? 1;
-    else newStreak = 1;
+      if (lastIso === yesterdayIso)
+        newStreak = (selectedPlayer.stats?.streak_days ?? 0) + 1;
+      else if (lastIso === todayIso)
+        newStreak = selectedPlayer.stats?.streak_days ?? 1;
+      else newStreak = 1;
 
-    const newBestStreak = Math.max(
-      selectedPlayer.stats?.best_daily_streak ?? 1,
-      newStreak
-    );
+      const newBestStreak = Math.max(
+        selectedPlayer.stats?.best_daily_streak ?? 1,
+        newStreak
+      );
 
-    updateJuggles.mutate(
-      {
-        high_score:
-          count > (selectedPlayer.stats?.high_score ?? 0) ? count : undefined,
+      const currentHighScore = selectedPlayer.stats?.high_score ?? 0;
+      const isNewHighScore = count > currentHighScore;
+
+      const updateData: any = {
         last_score: count,
-        attempts_count: 1, // Default to 1 attempt
-        last_session_duration: 0, // Coach-entered, no timer
+        attempts_count: (selectedPlayer.stats?.attempts_count ?? 0) + 1,
+        last_session_duration: 0,
         sessions_count: (selectedPlayer.stats?.sessions_count ?? 0) + 1,
         last_session_date: new Date().toISOString(),
         streak_days: newStreak,
         best_daily_streak: newBestStreak,
-      },
-      {
-        onSuccess: () => {
-          Alert.alert(
-            'Score Added!',
-            `${count} juggles recorded for ${
-              selectedPlayer.display_name || selectedPlayer.first_name
-            }`
-          );
-          setModalVisible(false);
-          setJuggleCount('');
-          setSelectedPlayer(null);
-        },
-        onError: (error) => {
-          console.error('Error saving score:', error);
-          Alert.alert('Error', 'Failed to save score. Please try again.');
-        },
+      };
+
+      // Only update high score if current count is higher
+      if (isNewHighScore) {
+        updateData.high_score = count;
       }
-    );
+
+      console.log('Updating player:', selectedPlayer.id);
+      console.log('Update data:', updateData);
+
+      const { data, error } = await supabase
+        .from('juggles')
+        .update(updateData)
+        .eq('user_id', selectedPlayer.id)
+        .select();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Update successful:', data);
+
+      Alert.alert(
+        'Score Added!',
+        `${count} juggles recorded for ${
+          selectedPlayer.display_name || selectedPlayer.first_name
+        }`
+      );
+
+      // Refresh the team players list
+      await refetch();
+
+      setModalVisible(false);
+      setJuggleCount('');
+      setSelectedPlayer(null);
+    } catch (error) {
+      console.error('Error saving score:', error);
+      Alert.alert('Error', 'Failed to save score. Please try again.');
+    }
   };
 
   return (
@@ -214,6 +237,43 @@ export default function CoachDashboard() {
               const isWarning = daysAgo > 3 && daysAgo <= 7;
               const isInactive = daysAgo > 7;
 
+              // Format last active time in local timezone
+              let lastActiveText = 'Never';
+              if (lastSessionDate) {
+                const now = new Date();
+                const localLastSession = new Date(lastSessionDate);
+
+                // Get start of today in local time
+                const todayStart = new Date(
+                  now.getFullYear(),
+                  now.getMonth(),
+                  now.getDate()
+                );
+
+                // Get start of yesterday in local time
+                const yesterdayStart = new Date(todayStart);
+                yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+                if (localLastSession >= todayStart) {
+                  lastActiveText = 'Today';
+                } else if (localLastSession >= yesterdayStart) {
+                  lastActiveText = 'Yesterday';
+                } else {
+                  const daysDiff = Math.floor(
+                    (todayStart.getTime() - localLastSession.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  );
+                  if (daysDiff < 7) {
+                    lastActiveText = `${daysDiff} days ago`;
+                  } else {
+                    const weeksDiff = Math.floor(daysDiff / 7);
+                    lastActiveText = `${weeksDiff} ${
+                      weeksDiff === 1 ? 'week' : 'weeks'
+                    } ago`;
+                  }
+                }
+              }
+
               return (
                 <TouchableOpacity
                   key={player.id}
@@ -247,16 +307,7 @@ export default function CoachDashboard() {
                       isInactive && styles.lastActiveInactive,
                     ]}
                   >
-                    Last active:{' '}
-                    {daysAgo === 0
-                      ? 'Today'
-                      : daysAgo === 1
-                      ? 'Yesterday'
-                      : daysAgo < 7
-                      ? `${daysAgo} days ago`
-                      : daysAgo < 999
-                      ? `${Math.floor(daysAgo / 7)} weeks ago`
-                      : 'Never'}
+                    Last active: {lastActiveText}
                   </Text>
 
                   <View style={styles.addScoreHint}>
@@ -293,6 +344,7 @@ export default function CoachDashboard() {
             <TouchableOpacity
               activeOpacity={1}
               onPress={(e) => e.stopPropagation()}
+              style={styles.modalWrapper}
             >
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
@@ -540,16 +592,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(44, 62, 80, 0.6)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+  modalWrapper: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   modalContent: {
     backgroundColor: '#FFF',
     borderRadius: 24,
     padding: 28,
     width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -577,6 +631,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     width: '100%',
     marginBottom: 20,
+    alignItems: 'center',
   },
   inputLabel: {
     fontSize: 14,
@@ -585,6 +640,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    alignSelf: 'center',
   },
   input: {
     backgroundColor: '#F5F9FF',
@@ -596,11 +652,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     fontWeight: '600',
     color: '#2C3E50',
+    textAlign: 'center',
   },
   saveButton: {
     backgroundColor: '#FFA500',
     borderRadius: 16,
     paddingVertical: 16,
+    paddingHorizontal: 24,
     width: '100%',
     alignItems: 'center',
     shadowColor: '#FFA500',
@@ -613,11 +671,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 17,
     letterSpacing: 0.5,
-    paddingHorizontal: 10,
   },
   cancelButton: {
     marginTop: 12,
     paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
   },
   cancelButtonText: {
     color: '#6B7280',

@@ -239,19 +239,41 @@ export default function ProfilePage() {
     let avatarUrl = profile?.avatar_url;
     if (tempAvatarUri) {
       try {
-        const response = await fetch(tempAvatarUri);
-        const blob = await response.blob();
-        const filePath = `${user.id}/avatar.jpg`;
+        // Create form data for upload
+        const fileExt = tempAvatarUri.split('.').pop() || 'jpg';
+        const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
-        await supabase.storage.from('avatars').upload(filePath, blob, {
-          upsert: true,
-          contentType: 'image/jpeg',
-        });
+        // For React Native, we need to create a proper file object
+        const formData = new FormData();
+        formData.append('file', {
+          uri: tempAvatarUri,
+          name: `avatar.${fileExt}`,
+          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        } as any);
 
-        const { data } = supabase.storage
+        // Upload using the storage API
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, formData, {
+            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          Alert.alert(
+            'Error',
+            'Failed to upload avatar: ' + uploadError.message
+          );
+          return;
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
           .from('avatars')
           .getPublicUrl(filePath);
-        avatarUrl = data.publicUrl;
+
+        avatarUrl = urlData.publicUrl;
       } catch (error) {
         console.error('Error uploading avatar:', error);
         Alert.alert('Error', 'Failed to upload avatar');

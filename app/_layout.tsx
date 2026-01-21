@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, View } from 'react-native';
@@ -22,7 +21,7 @@ export default function RootLayout() {
   const [loading, setLoading] = useState(true);
   const segments = useSegments();
   const router = useRouter();
-  console.log(Linking.createURL('confirm'));
+
   // 🔐 Load initial session + subscribe to auth changes
   useEffect(() => {
     const init = async () => {
@@ -105,7 +104,6 @@ export default function RootLayout() {
           <Stack.Screen name='(auth)' />
           <Stack.Screen name='(onboarding)' />
           <Stack.Screen name='(tabs)' />
-          <Stack.Screen name='(modals)' options={{ presentation: 'modal' }} />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>
