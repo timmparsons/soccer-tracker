@@ -2,6 +2,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -19,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function JoinTeam() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
@@ -59,11 +61,11 @@ export default function JoinTeam() {
     setLoading(true);
 
     try {
-      // Find team by code
+      // Find team by code (case-insensitive)
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .select('id, name')
-        .eq('code', teamCode.trim().toUpperCase())
+        .ilike('code', teamCode.trim())
         .single();
 
       if (teamError || !team) {
@@ -83,8 +85,19 @@ export default function JoinTeam() {
 
       if (profileError) throw profileError;
 
-      // Refetch profile to update UI
+      console.log('✅ Successfully updated profile with team_id:', team.id);
+
+      // IMPORTANT: Invalidate ALL queries related to this user
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['team', user.id] });
+
+      // Wait for database to propagate
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Force refetch with the invalidated cache
       await refetchProfile();
+
+      console.log('✅ Profile refetched');
 
       // Show success
       Alert.alert(
@@ -93,7 +106,7 @@ export default function JoinTeam() {
         [
           {
             text: 'Done',
-            onPress: () => router.replace('/'),
+            onPress: () => router.replace('/(tabs)/profile'),
           },
         ]
       );
@@ -140,7 +153,7 @@ export default function JoinTeam() {
               placeholder='e.g., ABC12345'
               placeholderTextColor='#9CA3AF'
               value={teamCode}
-              onChangeText={(text) => setTeamCode(text.toUpperCase())}
+              onChangeText={(text) => setTeamCode(text)}
               autoCapitalize='characters'
               maxLength={8}
               autoCorrect={false}

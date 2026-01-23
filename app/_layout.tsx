@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
+  // 🔐 Load initial session + subscribe to auth changes
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -34,41 +36,76 @@ export default function RootLayout() {
       setSession(session);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
+  // 🧭 Route guarding
   useEffect(() => {
-    if (loading) {
+    if (loading) return;
+
+    const rootSegment = segments[0];
+
+    const inAuthGroup = rootSegment === '(auth)';
+    const inTabsGroup = rootSegment === '(tabs)';
+    const inModalsGroup = rootSegment === '(modals)';
+    const inOnboardingGroup = rootSegment === '(onboarding)';
+
+    // Logged in but outside allowed areas
+    if (session && !inTabsGroup && !inModalsGroup && !inOnboardingGroup) {
+      checkOnboardingStatus();
       return;
     }
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
-    const inModalsGroup = segments[0] === '(modals)';
-
-    if (session && !inTabsGroup && !inModalsGroup) {
-      router.replace('/(tabs)');
-    } else if (!session && !inAuthGroup) {
+    // Logged out but not in auth flow
+    if (!session && !inAuthGroup) {
       router.replace('/(auth)');
     }
   }, [session, segments, loading]);
 
+  const checkOnboardingStatus = async () => {
+    if (!session?.user?.id) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profile?.onboarding_completed === false) {
+      router.replace('/(onboarding)');
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
+  // ⏳ App boot loading state
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size='large' />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#F5F9FF',
+        }}
+      >
+        <ActivityIndicator size='large' color='#FFA500' />
       </View>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <StatusBar backgroundColor='#FFFFFF' barStyle='dark-content' />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name='(auth)' options={{ headerShown: false }} />
-        <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
-        <Stack.Screen name='(modals)' options={{ presentation: 'modal' }} />
-      </Stack>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <StatusBar barStyle='dark-content' />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name='(auth)' />
+          <Stack.Screen name='(onboarding)' />
+          <Stack.Screen name='(tabs)' />
+        </Stack>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
