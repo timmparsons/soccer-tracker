@@ -1,7 +1,8 @@
+// app/(tabs)/leaderboard.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,10 +13,13 @@ import {
   View,
 } from 'react-native';
 
+import { TeamDashboard } from '@/components/TeamDashboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useTeamLeaderboard } from '@/hooks/useTeamLeaderboard';
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
+
+type TabType = 'rankings' | 'dashboard';
 
 const LeaderboardPage = () => {
   const router = useRouter();
@@ -26,6 +30,8 @@ const LeaderboardPage = () => {
     isLoading: loadingLeaderboard,
     refetch: leaderboardRefetch,
   } = useTeamLeaderboard(team?.id);
+
+  const [activeTab, setActiveTab] = useState<TabType>('rankings');
 
   useFocusEffect(
     useCallback(() => {
@@ -81,24 +87,8 @@ const LeaderboardPage = () => {
   const topThree = leaderboard?.slice(0, 3) || [];
   const restOfPlayers = leaderboard?.slice(3) || [];
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <View style={styles.headerIconBadge}>
-            <Ionicons name='trophy' size={28} color='#FFD700' />
-          </View>
-          <View style={styles.titleContent}>
-            <Text style={styles.title}>{team.name}</Text>
-            <Text style={styles.subtitle}>Team Leaderboard</Text>
-          </View>
-        </View>
-      </View>
-
+  const renderRankingsTab = () => (
+    <>
       {!leaderboard || leaderboard.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
@@ -259,6 +249,72 @@ const LeaderboardPage = () => {
           )}
         </>
       )}
+    </>
+  );
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View style={styles.headerIconBadge}>
+            <Ionicons name='trophy' size={28} color='#FFD700' />
+          </View>
+          <View style={styles.titleContent}>
+            <Text style={styles.title}>{team.name}</Text>
+            <Text style={styles.subtitle}>Team Hub</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* TABS - Now just 2 tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'rankings' && styles.activeTab]}
+          onPress={() => setActiveTab('rankings')}
+        >
+          <Ionicons
+            name={activeTab === 'rankings' ? 'podium' : 'podium-outline'}
+            size={18}
+            color={activeTab === 'rankings' ? '#FFF' : '#6B7280'}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'rankings' && styles.activeTabText,
+            ]}
+          >
+            Rankings
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'dashboard' && styles.activeTab]}
+          onPress={() => setActiveTab('dashboard')}
+        >
+          <Ionicons
+            name={
+              activeTab === 'dashboard' ? 'stats-chart' : 'stats-chart-outline'
+            }
+            size={18}
+            color={activeTab === 'dashboard' ? '#FFF' : '#6B7280'}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'dashboard' && styles.activeTabText,
+            ]}
+          >
+            Dashboard
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* CONTENT */}
+      {activeTab === 'rankings' && renderRankingsTab()}
+      {activeTab === 'dashboard' && <TeamDashboard />}
     </ScrollView>
   );
 };
@@ -352,7 +408,7 @@ const styles = StyleSheet.create({
   // HEADER
   header: {
     marginTop: 40,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   titleRow: {
     flexDirection: 'row',
@@ -381,6 +437,40 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '600',
     marginTop: 2,
+  },
+
+  // TABS - Updated for 2 tabs with icons
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  activeTab: {
+    backgroundColor: '#2B9FFF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#FFF',
   },
 
   sectionTitle: {

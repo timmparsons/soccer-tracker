@@ -1,3 +1,4 @@
+// hooks/useUpdateJuggles.ts
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -89,21 +90,16 @@ export function useUpdateJuggles(userId: string | undefined) {
 
       const totalXpAwarded = baseXp + pbBonus;
 
-      // 5️⃣ Update profile XP in ONE database call
+      // 5️⃣ Use add_xp RPC function to ensure trigger fires properly
       if (totalXpAwarded > 0) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('total_xp')
-          .eq('id', userId)
-          .single();
+        const { error: xpError } = await supabase.rpc('add_xp', {
+          user_id: userId,
+          xp_to_add: totalXpAwarded,
+        });
 
-        if (profile) {
-          await supabase
-            .from('profiles')
-            .update({
-              total_xp: (profile.total_xp || 0) + totalXpAwarded,
-            })
-            .eq('id', userId);
+        if (xpError) {
+          console.error('Error awarding XP:', xpError);
+          throw xpError;
         }
       }
 
@@ -113,8 +109,13 @@ export function useUpdateJuggles(userId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['juggles', userId] });
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['team-players'] }); // Refresh coach dashboard
-      queryClient.invalidateQueries({ queryKey: ['team-leaderboard'] }); // Refresh leaderboard
+      queryClient.invalidateQueries({ queryKey: ['user', userId] }); // Add this
+      queryClient.invalidateQueries({ queryKey: ['team-players'] });
+      queryClient.invalidateQueries({ queryKey: ['team-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['team-level'] }); // Add this for team level refresh
+      queryClient.invalidateQueries({
+        queryKey: ['team-player-contributions'],
+      }); // Add this for contributions
     },
   });
 }

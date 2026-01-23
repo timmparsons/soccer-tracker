@@ -264,7 +264,9 @@ export default function CoachDashboard() {
                       (1000 * 60 * 60 * 24)
                   );
                   if (daysDiff < 7) {
-                    lastActiveText = `${daysDiff} days ago`;
+                    lastActiveText = `${daysDiff} ${
+                      daysDiff === 1 ? 'day' : 'days'
+                    } ago`;
                   } else {
                     const weeksDiff = Math.floor(daysDiff / 7);
                     lastActiveText = `${weeksDiff} ${

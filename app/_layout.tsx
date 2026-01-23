@@ -51,9 +51,16 @@ export default function RootLayout() {
     const inTabsGroup = rootSegment === '(tabs)';
     const inModalsGroup = rootSegment === '(modals)';
     const inOnboardingGroup = rootSegment === '(onboarding)';
+    const inMinigamesGroup = rootSegment === 'minigames';
 
     // Logged in but outside allowed areas
-    if (session && !inTabsGroup && !inModalsGroup && !inOnboardingGroup) {
+    if (
+      session &&
+      !inTabsGroup &&
+      !inModalsGroup &&
+      !inOnboardingGroup &&
+      !inMinigamesGroup
+    ) {
       checkOnboardingStatus();
       return;
     }
@@ -104,6 +111,7 @@ export default function RootLayout() {
           <Stack.Screen name='(auth)' />
           <Stack.Screen name='(onboarding)' />
           <Stack.Screen name='(tabs)' />
+          <Stack.Screen name='minigames' />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>
