@@ -26,7 +26,7 @@ const TimerPage = () => {
   const updateJuggles = useUpdateJuggles(user?.id);
 
   // Timer
-  const [timeLeft, setTimeLeft] = useState(300); // default 5 min
+  const [timeLeft, setTimeLeft] = useState(300);
   const [totalTime, setTotalTime] = useState(300);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -39,8 +39,9 @@ const TimerPage = () => {
   const [customMinutes, setCustomMinutes] = useState('');
   const minutes = totalTime / 60;
 
-  // Results
+  // Results - UPDATED to include totalJuggles
   const [bestRecord, setBestRecord] = useState('');
+  const [totalJuggles, setTotalJuggles] = useState('');
   const [attempts, setAttempts] = useState('');
 
   // XP Toast
@@ -101,14 +102,15 @@ const TimerPage = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // ---- SAVE LOGIC ----
+  // ---- SAVE LOGIC ---- UPDATED FOR TOTAL JUGGLES
   const handleSaveResults = (isManual = false) => {
     const best = bestRecord ? parseInt(bestRecord, 10) : undefined;
+    const total = totalJuggles ? parseInt(totalJuggles, 10) : undefined;
     const attemptCount = attempts ? parseInt(attempts, 10) : undefined;
 
-    // Validate that at least one field is filled
-    if (!best && !attemptCount) {
-      return; // Don't save if both fields are empty
+    // Validate that at least best or total is filled
+    if (!best && !total) {
+      return;
     }
 
     const todayIso = new Date().toISOString().split('T')[0];
@@ -145,6 +147,7 @@ const TimerPage = () => {
         last_session_date: new Date().toISOString(),
         streak_days: newStreak,
         best_daily_streak: newBestStreak,
+        all_attempts: total ? [total] : best ? [best] : [], // Use total if provided, otherwise use best
       },
       {
         onSuccess: (data) => {
@@ -162,6 +165,7 @@ const TimerPage = () => {
           setShowResultsModal(false);
           setShowManualScoreModal(false);
           setBestRecord('');
+          setTotalJuggles('');
           setAttempts('');
           handleReset();
         },
@@ -395,7 +399,7 @@ const TimerPage = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ---- RESULTS MODAL ---- */}
+      {/* ---- RESULTS MODAL ---- UPDATED WITH TOTAL JUGGLES */}
       <Modal transparent visible={showResultsModal} animationType='slide'>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -407,6 +411,7 @@ const TimerPage = () => {
             onPress={() => {
               setShowResultsModal(false);
               setBestRecord('');
+              setTotalJuggles('');
               setAttempts('');
               handleReset();
             }}
@@ -439,10 +444,26 @@ const TimerPage = () => {
                   </Text>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Best Juggle Count</Text>
+                    <Text style={styles.inputLabel}>
+                      Total Juggles (All Attempts)
+                    </Text>
                     <TextInput
                       style={styles.input}
-                      placeholder='Enter your best count'
+                      placeholder='e.g., 250 total touches'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={totalJuggles}
+                      onChangeText={setTotalJuggles}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>
+                      Best Single Attempt (Record)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='Your highest count'
                       placeholderTextColor='#9CA3AF'
                       keyboardType='numeric'
                       value={bestRecord}
@@ -451,7 +472,7 @@ const TimerPage = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Total Attempts</Text>
+                    <Text style={styles.inputLabel}>Number of Attempts</Text>
                     <TextInput
                       style={styles.input}
                       placeholder='How many tries?'
@@ -474,6 +495,7 @@ const TimerPage = () => {
                     onPress={() => {
                       setShowResultsModal(false);
                       setBestRecord('');
+                      setTotalJuggles('');
                       setAttempts('');
                       handleReset();
                     }}
@@ -487,7 +509,7 @@ const TimerPage = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ---- MANUAL SCORE MODAL ---- */}
+      {/* ---- MANUAL SCORE MODAL ---- UPDATED WITH TOTAL JUGGLES */}
       <Modal transparent visible={showManualScoreModal} animationType='slide'>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -499,6 +521,7 @@ const TimerPage = () => {
             onPress={() => {
               setShowManualScoreModal(false);
               setBestRecord('');
+              setTotalJuggles('');
               setAttempts('');
             }}
           >
@@ -523,10 +546,27 @@ const TimerPage = () => {
                   </Text>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Best Juggle Count</Text>
+                    <Text style={styles.inputLabel}>
+                      Total Juggles (All Attempts)
+                    </Text>
                     <TextInput
                       style={styles.input}
-                      placeholder='Enter your best count'
+                      placeholder='e.g., 250 total touches'
+                      placeholderTextColor='#9CA3AF'
+                      keyboardType='numeric'
+                      value={totalJuggles}
+                      onChangeText={setTotalJuggles}
+                      returnKeyType='done'
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>
+                      Best Single Attempt (Optional)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='Your highest count'
                       placeholderTextColor='#9CA3AF'
                       keyboardType='numeric'
                       value={bestRecord}
@@ -547,6 +587,7 @@ const TimerPage = () => {
                     onPress={() => {
                       setShowManualScoreModal(false);
                       setBestRecord('');
+                      setTotalJuggles('');
                       setAttempts('');
                     }}
                   >

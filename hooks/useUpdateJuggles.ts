@@ -12,6 +12,7 @@ type JuggleUpdates = {
   last_session_date?: string;
   streak_days?: number;
   best_daily_streak?: number;
+  all_attempts?: number[];
 };
 
 export function useUpdateJuggles(userId: string | undefined) {
@@ -78,17 +79,37 @@ export function useUpdateJuggles(userId: string | undefined) {
         result = updated;
       }
 
-      // 4️⃣ Calculate XP to award
-      // Base XP: 1 juggle = 1 XP
-      const baseXp = updates.last_score ?? 0;
+      // 4️⃣ Calculate XP to award - NEW 10:1 RATIO
+      let totalXpAwarded = 0;
+      let totalJuggles = 0;
 
-      // Personal Best Bonus: +50 XP
-      const isPB =
-        updates.high_score !== undefined &&
-        updates.high_score > (existing?.high_score ?? 0);
-      const pbBonus = isPB ? 50 : 0;
+      // If all_attempts array is provided, award XP for total juggles
+      if (updates.all_attempts && updates.all_attempts.length > 0) {
+        totalJuggles = updates.all_attempts.reduce(
+          (sum, count) => sum + count,
+          0
+        );
 
-      const totalXpAwarded = baseXp + pbBonus;
+        // 10 juggles = 1 XP
+        totalXpAwarded = Math.floor(totalJuggles / 10);
+
+        // Personal Best Bonus: +50 XP if new high score
+        const isPB =
+          updates.high_score !== undefined &&
+          updates.high_score > (existing?.high_score ?? 0);
+        if (isPB) {
+          totalXpAwarded += 50;
+        }
+      } else {
+        // OLD LOGIC: Single attempt (for backwards compatibility)
+        totalJuggles = updates.last_score ?? 0;
+        const baseXp = Math.floor(totalJuggles / 10);
+        const isPB =
+          updates.high_score !== undefined &&
+          updates.high_score > (existing?.high_score ?? 0);
+        const pbBonus = isPB ? 50 : 0;
+        totalXpAwarded = baseXp + pbBonus;
+      }
 
       // 5️⃣ Use add_xp RPC function to ensure trigger fires properly
       if (totalXpAwarded > 0) {
@@ -103,19 +124,19 @@ export function useUpdateJuggles(userId: string | undefined) {
         }
       }
 
-      return { ...result, totalXpAwarded };
+      return { ...result, totalXpAwarded, totalJuggles };
     },
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['juggles', userId] });
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user', userId] }); // Add this
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
       queryClient.invalidateQueries({ queryKey: ['team-players'] });
       queryClient.invalidateQueries({ queryKey: ['team-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['team-level'] }); // Add this for team level refresh
+      queryClient.invalidateQueries({ queryKey: ['team-level'] });
       queryClient.invalidateQueries({
         queryKey: ['team-player-contributions'],
-      }); // Add this for contributions
+      });
     },
   });
 }

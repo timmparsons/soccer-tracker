@@ -236,10 +236,6 @@ export function getNextUnlock(teamLevel: number): TeamUnlockable | null {
 }
 
 export function getXpForLevel(level: number): number {
-  // Linear progression: 5,000 XP per level
-  // Level 1 = 0 XP
-  // Level 2 = 5,000 XP
-  // Level 3 = 10,000 XP
-  // etc.
-  return (level - 1) * 5000;
+  // Linear progression: 500 XP per level
+  return (level - 1) * 500;
 }

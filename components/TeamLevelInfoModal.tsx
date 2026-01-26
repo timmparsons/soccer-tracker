@@ -31,7 +31,7 @@ export function TeamLevelInfoModal({
       level === 1 ? 0 : getXpForLevel(level + 1) - getXpForLevel(level);
     const perPlayer =
       playerCount > 0 ? Math.ceil(xpNeeded / playerCount) : xpNeeded;
-    const sessions = Math.ceil(perPlayer / 50);
+    const sessions = Math.ceil(perPlayer / 30); // Assuming ~30 XP per session (300 juggles)
     const unlocks = TEAM_UNLOCKABLES.filter((u) => u.level === level);
 
     return {
@@ -71,6 +71,28 @@ export function TeamLevelInfoModal({
           <View style={styles.infoCard}>
             <Ionicons name='star' size={20} color='#F59E0B' />
             <Text style={styles.infoText}>Each level = 5,000 team XP</Text>
+          </View>
+        </View>
+
+        {/* XP Explanation Section */}
+        <View style={styles.xpExplanation}>
+          <View style={styles.xpExplanationHeader}>
+            <Ionicons name='help-circle' size={20} color='#2B9FFF' />
+            <Text style={styles.xpExplanationTitle}>How to Earn XP</Text>
+          </View>
+          <View style={styles.xpRule}>
+            <Text style={styles.xpRuleIcon}>⚽</Text>
+            <Text style={styles.xpRuleText}>10 juggles = 1 XP</Text>
+          </View>
+          <View style={styles.xpRule}>
+            <Text style={styles.xpRuleIcon}>🏆</Text>
+            <Text style={styles.xpRuleText}>Personal Best = +50 bonus XP</Text>
+          </View>
+          <View style={styles.xpRule}>
+            <Text style={styles.xpRuleIcon}>👥</Text>
+            <Text style={styles.xpRuleText}>
+              All player XP combines for team level
+            </Text>
           </View>
         </View>
 
@@ -125,13 +147,13 @@ export function TeamLevelInfoModal({
                         Team XP needed:
                       </Text>
                       <Text style={styles.requirementValue}>
-                        {levelData.xpNeeded.toLocaleString()} juggles
+                        {levelData.xpNeeded.toLocaleString()} XP
                       </Text>
                     </View>
                     <View style={styles.requirementRow}>
                       <Text style={styles.requirementLabel}>Per player:</Text>
                       <Text style={styles.requirementValue}>
-                        ~{levelData.perPlayer.toLocaleString()} juggles
+                        ~{levelData.perPlayer.toLocaleString()} XP
                       </Text>
                     </View>
                     <View style={styles.requirementRow}>
@@ -212,6 +234,40 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  xpExplanation: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  xpExplanationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  xpExplanationTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2B9FFF',
+  },
+  xpRule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  xpRuleIcon: {
+    fontSize: 18,
+  },
+  xpRuleText: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#2C3E50',
   },

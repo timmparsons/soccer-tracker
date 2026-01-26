@@ -145,15 +145,27 @@ export function TeamDashboard() {
     playerContributions
       ?.map((p) => {
         const xpThisLevel = Math.max(0, p.total_xp - currentLevelXp);
+
+        // Debug log
+        console.log('Player:', p.display_name, {
+          total_xp: p.total_xp,
+          currentLevelXp,
+          xpThisLevel,
+          minimumNeeded: minimumXpPerPlayer,
+          remaining: Math.max(0, minimumXpPerPlayer - xpThisLevel),
+        });
+
         return {
           id: p.id,
-          display_name: p.display_name,
+          display_name: p.display_name || 'Unknown Player', // Fallback for missing name
           xpThisLevel,
           minimumNeeded: minimumXpPerPlayer,
           remaining: Math.max(0, minimumXpPerPlayer - xpThisLevel),
         };
       })
-      .filter((p) => p.xpThisLevel < minimumXpPerPlayer) || [];
+      .filter((p) => p.remaining > 0) || []; // Changed from xpThisLevel < minimumXpPerPlayer
+
+  console.log('Players needing minimum:', playersNeedingMinimum);
 
   const unlockedItems = getUnlockedItems(teamData.team_level);
   const nextUnlock = getNextUnlock(teamData.team_level);
