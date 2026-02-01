@@ -19,6 +19,7 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
@@ -59,7 +60,8 @@ export default function RootLayout() {
       !inTabsGroup &&
       !inModalsGroup &&
       !inOnboardingGroup &&
-      !inMinigamesGroup
+      !inMinigamesGroup &&
+      !hasCheckedOnboarding
     ) {
       checkOnboardingStatus();
       return;
@@ -67,23 +69,57 @@ export default function RootLayout() {
 
     // Logged out but not in auth flow
     if (!session && !inAuthGroup) {
+      setHasCheckedOnboarding(false); // Reset when logged out
       router.replace('/(auth)');
     }
-  }, [session, segments, loading]);
+  }, [session, segments, loading, hasCheckedOnboarding]);
 
   const checkOnboardingStatus = async () => {
     if (!session?.user?.id) return;
 
-    const { data: profile } = await supabase
+    setHasCheckedOnboarding(true);
+
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, name, display_name')
       .eq('id', session.user.id)
       .single();
 
-    if (profile?.onboarding_completed === false) {
-      router.replace('/(onboarding)');
-    } else {
+    console.log('🔍 Onboarding check:', {
+      userId: session.user.id,
+      profile,
+      error,
+      onboarding_completed: profile?.onboarding_completed,
+    });
+
+    // Sync name from user metadata if display_name looks like email prefix
+    const metadata = session.user.user_metadata;
+    const metaFirstName = metadata?.first_name;
+    const metaLastName = metadata?.last_name;
+    const emailPrefix = session.user.email?.split('@')[0];
+
+    // If metadata has first_name and display_name is still the email prefix, update it
+    if (metaFirstName && profile?.display_name === emailPrefix) {
+      const fullName = [metaFirstName, metaLastName].filter(Boolean).join(' ').trim();
+      await supabase
+        .from('profiles')
+        .update({
+          name: fullName,
+          display_name: metaFirstName,
+        })
+        .eq('id', session.user.id);
+      console.log('✅ Profile display_name synced:', metaFirstName);
+
+      // Invalidate the profile cache so the UI updates
+      queryClient.invalidateQueries({ queryKey: ['profile', session.user.id] });
+    }
+
+    // If onboarding_completed is explicitly true, go to tabs
+    // Otherwise (false, null, undefined, or no profile) go to onboarding
+    if (profile?.onboarding_completed === true) {
       router.replace('/(tabs)');
+    } else {
+      router.replace('/(onboarding)');
     }
   };
 

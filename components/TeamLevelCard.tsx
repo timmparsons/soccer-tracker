@@ -225,7 +225,7 @@ export function TeamLevelCard() {
             </View>
             <View style={styles.exampleBox}>
               <Text style={styles.exampleText}>
-                💡 Example: If each player does 50 juggles per practice, that's
+                💡 Example: If each player does 50 juggles per practice, that&apos;s
                 about{' '}
                 {Math.ceil(
                   Math.ceil(

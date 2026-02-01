@@ -85,6 +85,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Trophy size={size ?? 28} color={color} />
           ),
+          // Only show if user is on a team
+          href: profile?.team_id ? '/leaderboard' : null,
         }}
       />
       <Tabs.Screen

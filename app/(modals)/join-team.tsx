@@ -27,16 +27,17 @@ export default function JoinTeam() {
 
   const [teamCode, setTeamCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [justJoined, setJustJoined] = useState(false);
 
-  // If already on a team, redirect
-  if (profile?.team_id) {
+  // If already on a team (and didn't just join), show message
+  if (profile?.team_id && !justJoined) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <Ionicons name='checkmark-circle' size={64} color='#22c55e' />
           <Text style={styles.title}>Already on a Team!</Text>
           <Text style={styles.subtitle}>
-            You're already part of a team. Leave your current team to join a
+            You&apos;re already part of a team. Leave your current team to join a
             different one.
           </Text>
           <TouchableOpacity style={styles.button} onPress={() => router.back()}>
@@ -87,12 +88,15 @@ export default function JoinTeam() {
 
       console.log('✅ Successfully updated profile with team_id:', team.id);
 
+      // Mark as just joined to prevent "Already on a Team" screen from showing
+      setJustJoined(true);
+
       // IMPORTANT: Invalidate ALL queries related to this user
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       queryClient.invalidateQueries({ queryKey: ['team', user.id] });
 
       // Wait for database to propagate
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Force refetch with the invalidated cache
       await refetchProfile();
@@ -169,7 +173,7 @@ export default function JoinTeam() {
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>What Happens Next</Text>
               <Text style={styles.infoText}>
-                • You'll join your team's leaderboard{'\n'}• See your teammates'
+                • You&apos;ll join your team&apos;s leaderboard{'\n'}• See your teammates&apos;
                 progress{'\n'}• Compete together and track improvement
               </Text>
             </View>
@@ -178,7 +182,7 @@ export default function JoinTeam() {
           <View style={styles.helpCard}>
             <Ionicons name='help-circle' size={20} color='#6B7280' />
             <View style={styles.helpContent}>
-              <Text style={styles.helpTitle}>Don't have a code?</Text>
+              <Text style={styles.helpTitle}>Don&apos;t have a code?</Text>
               <Text style={styles.helpText}>
                 Ask your coach or a teammate to share it, or{' '}
                 <Text

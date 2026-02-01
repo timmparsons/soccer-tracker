@@ -27,7 +27,7 @@ export default function ConfirmScreen() {
       return;
     }
 
-    const { error } = await supabase.auth.verifyOtp({
+    const { data: verifyData, error } = await supabase.auth.verifyOtp({
       token_hash,
       type: 'email',
     });
@@ -42,6 +42,32 @@ export default function ConfirmScreen() {
     }
 
     console.log('✅ Email verified successfully!');
+
+    // Sync user metadata to profile after confirmation
+    if (verifyData.user) {
+      const metadata = verifyData.user.user_metadata;
+      const firstName = metadata?.first_name;
+      const lastName = metadata?.last_name;
+
+      if (firstName) {
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name: fullName,
+            display_name: firstName,
+          })
+          .eq('id', verifyData.user.id);
+
+        if (profileError) {
+          console.error('❌ Failed to update profile with name:', profileError);
+        } else {
+          console.log('✅ Profile updated with display_name:', firstName);
+        }
+      }
+    }
+
     setStatus('success');
 
     // ✅ DO NOT ROUTE MANUALLY

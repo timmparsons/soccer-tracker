@@ -1,186 +1,56 @@
-import { useJuggles } from '@/hooks/useJuggles';
 import { useProfile } from '@/hooks/useProfile';
-import { useTeam } from '@/hooks/useTeam';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { getLevelFromXp, getRankName } from '@/lib/xp';
-
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Clipboard from 'expo-clipboard';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import React, { memo, useCallback, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import XPCard from '../XPCard';
 import {
-  TeamOverviewCard,
-  WeeklyProgressCard,
-} from '../coach/CoachProfileCard';
-import CoachsTip from '../common/CoachsTip';
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-/* --------------------------------------------------------------------------
-   PROFILE HEADER
---------------------------------------------------------------------------- */
-const ProfileHeader = memo(
-  ({
-    profile,
-    team,
-    onEditProfile,
-  }: {
-    profile: any;
-    team: any;
-    onEditProfile: () => void;
-  }) => {
-    const avatarUri =
-      profile?.avatar_url ||
-      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
-
-    const displayName =
-      profile?.display_name || profile?.first_name || 'Player';
-
-    const handleCopyCode = async () => {
-      if (team?.code) {
-        await Clipboard.setStringAsync(team.code);
-        Alert.alert('Copied!', 'Team code copied to clipboard');
-      }
-    };
-
-    return (
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatarGlow} />
-          <Image source={{ uri: avatarUri }} style={styles.avatar} />
-
-          <TouchableOpacity style={styles.editIcon} onPress={onEditProfile}>
-            <Ionicons name='create-outline' size={20} color='#FFF' />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.name}>{displayName}</Text>
-
-        {team?.name && (
-          <>
-            <View style={styles.teamBadge}>
-              <Text style={styles.teamName}>{team.name}</Text>
-            </View>
-
-            {team?.code && (
-              <TouchableOpacity
-                style={styles.teamCodeContainer}
-                onPress={handleCopyCode}
-                activeOpacity={0.7}
-              >
-                <Ionicons name='key' size={16} color='#6B7280' />
-                <Text style={styles.teamCodeLabel}>Team Code:</Text>
-                <Text style={styles.teamCode}>{team.code}</Text>
-                <Ionicons name='copy-outline' size={16} color='#2B9FFF' />
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-
-        {profile?.location && (
-          <Text style={styles.location}>{profile.location}</Text>
-        )}
-      </View>
-    );
-  }
-);
-
-ProfileHeader.displayName = 'ProfileHeader';
-
-/* --------------------------------------------------------------------------
-   ACCOUNT ACTIONS
---------------------------------------------------------------------------- */
-const AccountActions = memo(
-  ({ onEditProfile }: { onEditProfile: () => void }) => (
-    <>
-      <Text style={styles.sectionTitle}>Account</Text>
-
-      <View style={styles.actionList}>
-        <TouchableOpacity style={styles.actionRow} onPress={onEditProfile}>
-          <View style={styles.actionIconContainer}>
-            <Ionicons name='person-outline' size={22} color='#2B9FFF' />
-          </View>
-          <Text style={styles.actionText}>Edit Profile</Text>
-          <Ionicons name='chevron-forward' size={20} color='#9CA3AF' />
-        </TouchableOpacity>
-      </View>
-
-      <CoachsTip />
-    </>
-  )
-);
-
-AccountActions.displayName = 'AccountActions';
-
-/* --------------------------------------------------------------------------
-   PROFILE PAGE
---------------------------------------------------------------------------- */
-export default function ProfilePage() {
-  const { data: user } = useUser();
-  const {
-    data: profile,
-    isLoading: loadingProfile,
-    refetch: refetchProfile,
-  } = useProfile(user?.id);
-  const {
-    data: juggles,
-    isLoading: loadingJuggles,
-    refetch: refetchJuggles,
-  } = useJuggles(user?.id);
-  const { data: team } = useTeam(user?.id);
-  const updateProfile = useUpdateProfile(user?.id);
-
-  const router = useRouter();
+const ProfilePage = () => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: user } = useUser();
+  const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { mutateAsync: updateProfile } = useUpdateProfile(user?.id);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Refetch profile data when screen comes into focus
+  // Refetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      refetchProfile();
-      refetchJuggles();
-    }, [refetchProfile, refetchJuggles])
+      if (user?.id) {
+        refetchProfile();
+        queryClient.invalidateQueries({ queryKey: ['lifetime-stats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['touch-tracking', user.id] });
+      }
+    }, [user?.id, refetchProfile, queryClient])
   );
 
-  const totalXp = profile?.total_xp ?? 0;
-  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
-  const rankName = getRankName(level);
+  const handlePickImage = async () => {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [location, setLocation] = useState('');
-  const [bio, setBio] = useState('');
-  const [teamCode, setTeamCode] = useState('');
-  const [role, setRole] = useState<'player' | 'coach'>('player');
-  const [tempAvatarUri, setTempAvatarUri] = useState<string | null>(null);
-
-  /* ---------------- IMAGE PICK ---------------- */
-  const handlePickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    if (!permissionResult.granted) {
       Alert.alert(
-        'Permission required',
-        'We need permission to access your photos'
+        'Permission Required',
+        'Please allow access to your photo library to change your avatar.'
       );
       return;
     }
@@ -192,561 +62,634 @@ export default function ProfilePage() {
       quality: 0.8,
     });
 
-    if (result.canceled) return;
+    if (!result.canceled && result.assets[0]) {
+      await uploadAvatar(result.assets[0].uri);
+    }
+  };
 
-    // Store the temporary URI to show in modal
-    setTempAvatarUri(result.assets[0].uri);
-  }, []);
-
-  const openEditProfile = useCallback(() => {
-    setFirstName(profile?.first_name ?? '');
-    setLastName(profile?.last_name ?? '');
-    setLocation(profile?.location ?? '');
-    setBio(profile?.bio ?? '');
-    setRole(profile?.role ?? 'player');
-    setTeamCode(''); // Keep empty - they only enter if changing teams
-    setTempAvatarUri(null);
-    setModalVisible(true);
-  }, [profile]);
-
-  const handleSaveProfile = async () => {
+  const uploadAvatar = async (uri: string) => {
     if (!user?.id) return;
 
-    let teamId = profile?.team_id ?? null;
+    setUploadingAvatar(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
-    if (teamCode.trim()) {
-      const { data } = await supabase
-        .from('teams')
-        .select('id')
-        .ilike('code', teamCode.trim())
-        .single();
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
 
-      if (!data) {
-        Alert.alert('Invalid team code');
-        return;
-      }
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
 
-      teamId = data.id;
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      await updateProfile({ avatar_url: publicUrl });
+      await refetchProfile();
+
+      Alert.alert('Success', 'Your avatar has been updated!');
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      Alert.alert('Upload Failed', error.message || 'Could not upload image');
+    } finally {
+      setUploadingAvatar(false);
     }
-
-    const displayName = firstName.trim()
-      ? lastName.trim()
-        ? `${firstName.trim()} ${lastName.trim()[0].toUpperCase()}.`
-        : firstName.trim()
-      : profile?.display_name || 'Player';
-
-    // Upload avatar if changed
-    let avatarUrl = profile?.avatar_url;
-    if (tempAvatarUri) {
-      try {
-        // Create form data for upload
-        const fileExt = tempAvatarUri.split('.').pop() || 'jpg';
-        const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
-
-        // For React Native, we need to create a proper file object
-        const formData = new FormData();
-        formData.append('file', {
-          uri: tempAvatarUri,
-          name: `avatar.${fileExt}`,
-          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        } as any);
-
-        // Upload using the storage API
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, formData, {
-            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-            upsert: true,
-          });
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          Alert.alert(
-            'Error',
-            'Failed to upload avatar: ' + uploadError.message
-          );
-          return;
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-
-        avatarUrl = urlData.publicUrl;
-      } catch (error) {
-        console.error('Error uploading avatar:', error);
-        Alert.alert('Error', 'Failed to upload avatar');
-        return;
-      }
-    }
-
-    updateProfile.mutate(
-      {
-        first_name: firstName || null,
-        last_name: lastName || null,
-        display_name: displayName,
-        location: location || null,
-        bio: bio || null,
-        role,
-        team_id: teamId,
-        avatar_url: avatarUrl,
-      },
-      {
-        onSuccess: () => {
-          setModalVisible(false);
-          setTempAvatarUri(null);
-        },
-      }
-    );
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase.auth.signOut();
+        },
+      },
+    ]);
   };
 
-  if (loadingProfile || loadingJuggles) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#FFA500' />
-      </View>
-    );
-  }
+  const handleJoinTeam = () => {
+    router.push('/(modals)/join-team');
+  };
 
-  const currentAvatarUri =
-    tempAvatarUri ||
-    profile?.avatar_url ||
-    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
+  // Get touch tracking stats
+  const { data: touchStats } = useTouchTracking(user?.id);
+
+  // Get lifetime stats from daily_sessions
+  const { data: lifetimeStats } = useQuery({
+    queryKey: ['lifetime-stats', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data: sessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged, date, created_at')
+        .eq('user_id', user!.id);
+
+      if (!sessions || sessions.length === 0) {
+        return {
+          lifetime_touches: 0,
+          total_sessions: 0,
+          days_active: 0,
+          avg_daily_touches: 0,
+          longest_streak: 0,
+        };
+      }
+
+      const lifetimeTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
+      const uniqueDays = new Set(sessions.map(s => s.date)).size;
+      const avgDaily = uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
+
+      // Calculate longest streak
+      const dates = [...new Set(sessions.map(s => s.date))].sort();
+      let longestStreak = 0;
+      let currentStreak = 1;
+
+      for (let i = 1; i < dates.length; i++) {
+        const prev = new Date(dates[i - 1]);
+        const curr = new Date(dates[i]);
+        const diffDays = Math.floor((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          longestStreak = Math.max(longestStreak, currentStreak);
+          currentStreak = 1;
+        }
+      }
+      longestStreak = Math.max(longestStreak, currentStreak);
+
+      return {
+        lifetime_touches: lifetimeTouches,
+        total_sessions: sessions.length,
+        days_active: uniqueDays,
+        avg_daily_touches: avgDaily,
+        longest_streak: longestStreak,
+      };
+    },
+  });
+
+  const displayName = profile?.name || profile?.display_name || 'Player';
+  const dailyTarget = touchStats?.daily_target || 1000;
+  const currentStreak = touchStats?.current_streak || 0;
 
   return (
     <>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{
-          paddingBottom: 120,
-          paddingTop: insets.top + 16,
-        }}
-      >
-        <ProfileHeader
-          profile={profile}
-          team={team}
-          onEditProfile={openEditProfile}
-        />
-
-        {profile?.is_coach ? (
-          <>
-            <TeamOverviewCard teamId={profile?.team_id} />
-            <WeeklyProgressCard teamId={profile?.team_id} />
-          </>
-        ) : (
-          <XPCard
-            level={level}
-            xpIntoLevel={xpIntoLevel}
-            xpForNextLevel={xpForNextLevel}
-            rankName={rankName}
-            onOpenRoadmap={() => router.push('/(modals)/roadmap')}
-          />
-        )}
-
-        {/* TEAM SECTION - Only show if not on a team */}
-        {!profile?.team_id && (
-          <View style={styles.teamSection}>
-            <Text style={styles.sectionTitle}>Team</Text>
-            <Text style={styles.noTeamText}>You're not on a team yet</Text>
-
-            <View style={styles.teamButtons}>
+      <View style={{ height: insets.top, backgroundColor: '#F5F7FA' }} />
+      <SafeAreaView style={styles.container} edges={[]}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarGlow} />
+              <Image
+                source={{
+                  uri:
+                    profile?.avatar_url ||
+                    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                }}
+                style={styles.avatar}
+              />
               <TouchableOpacity
-                style={styles.teamButton}
-                onPress={() => router.push('/(modals)/join-team')}
+                style={styles.editAvatarButton}
+                onPress={handlePickImage}
+                disabled={uploadingAvatar}
               >
-                <Text style={styles.teamButtonText}>Join Team</Text>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size='small' color='#FFF' />
+                ) : (
+                  <Ionicons name='camera' size={20} color='#FFF' />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.name}>{displayName}</Text>
+            <Text style={styles.role}>
+              {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
+            </Text>
+
+            {/* Daily Target Badge */}
+            <View style={styles.targetBadge}>
+              <Ionicons name='flag' size={20} color='#5C6BC0' />
+              <Text style={styles.targetText}>
+                Daily Target: {dailyTarget.toLocaleString()} touches
+              </Text>
+            </View>
+          </View>
+
+          {/* Lifetime Stats Card */}
+          <View style={styles.lifetimeCard}>
+            <View style={styles.lifetimeHeader}>
+              <Text style={styles.lifetimeEmoji}>🏆</Text>
+              <Text style={styles.lifetimeTitle}>Lifetime Stats</Text>
+            </View>
+            <View style={styles.bigStatContainer}>
+              <Text style={styles.bigStatValue}>
+                {(lifetimeStats?.lifetime_touches || 0).toLocaleString()}
+              </Text>
+              <Text style={styles.bigStatLabel}>Total Touches</Text>
+            </View>
+            <View style={styles.lifetimeGrid}>
+              <View style={styles.lifetimeStat}>
+                <Text style={styles.lifetimeStatValue}>
+                  {lifetimeStats?.total_sessions || 0}
+                </Text>
+                <Text style={styles.lifetimeStatLabel}>Sessions</Text>
+              </View>
+              <View style={styles.lifetimeStat}>
+                <Text style={styles.lifetimeStatValue}>
+                  {lifetimeStats?.days_active || 0}
+                </Text>
+                <Text style={styles.lifetimeStatLabel}>Days Active</Text>
+              </View>
+              <View style={styles.lifetimeStat}>
+                <Text style={styles.lifetimeStatValue}>
+                  {(lifetimeStats?.avg_daily_touches || 0).toLocaleString()}
+                </Text>
+                <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Streaks Card */}
+          <View style={styles.streaksCard}>
+            <View style={styles.streakRow}>
+              <View style={styles.streakItem}>
+                <View style={styles.streakIconContainer}>
+                  <Text style={styles.streakEmoji}>🔥</Text>
+                </View>
+                <View style={styles.streakInfo}>
+                  <Text style={styles.streakValue}>
+                    {currentStreak}
+                  </Text>
+                  <Text style={styles.streakLabel}>Current Streak</Text>
+                </View>
+              </View>
+
+              <View style={styles.streakDivider} />
+
+              <View style={styles.streakItem}>
+                <View style={styles.streakIconContainer}>
+                  <Text style={styles.streakEmoji}>⭐</Text>
+                </View>
+                <View style={styles.streakInfo}>
+                  <Text style={styles.streakValue}>
+                    {lifetimeStats?.longest_streak || 0}
+                  </Text>
+                  <Text style={styles.streakLabel}>Best Streak</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Account Info Card */}
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Account Info</Text>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconBg}>
+                <Ionicons name='mail' size={20} color='#5C6BC0' />
+              </View>
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>
+                  {user?.email || 'No email'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconBg}>
+                <Ionicons name='people' size={20} color='#FF7043' />
+              </View>
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Team</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.teams?.name || 'No team'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconBg}>
+                <Ionicons name='calendar' size={20} color='#42A5F5' />
+              </View>
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Member Since</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.created_at
+                    ? new Date(profile.created_at).toLocaleDateString('en-US', {
+                        month: 'long',
+                        year: 'numeric',
+                      })
+                    : 'Unknown'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Team Buttons (if no team) */}
+          {!profile?.team_id && (
+            <View style={styles.teamButtonsContainer}>
+              <TouchableOpacity
+                style={styles.joinTeamButton}
+                onPress={handleJoinTeam}
+              >
+                <Ionicons name='people' size={24} color='#FFF' />
+                <Text style={styles.joinTeamButtonText}>Join a Team</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.teamButton}
+                style={styles.createTeamButton}
                 onPress={() => router.push('/(modals)/create-team')}
               >
-                <Text style={styles.teamButtonText}>Create Team</Text>
+                <Ionicons name='add-circle' size={24} color='#5C6BC0' />
+                <Text style={styles.createTeamButtonText}>Create a Team</Text>
               </TouchableOpacity>
             </View>
+          )}
+
+          {/* Action Buttons */}
+          <View style={styles.actionsCard}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+              <Ionicons name='log-out' size={24} color='#FF7043' />
+              <Text style={styles.actionButtonText}>Sign Out</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        <AccountActions onEditProfile={openEditProfile} />
-        <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
-            <Ionicons name='log-out-outline' size={22} color='#EF4444' />
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* EDIT PROFILE MODAL */}
-      <Modal visible={modalVisible} animationType='slide' transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalHeaderTitle}>Edit Profile</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name='close' size={28} color='#2C3E50' />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.modalBody}
-                keyboardShouldPersistTaps='handled'
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Avatar Section */}
-                <View style={styles.avatarSection}>
-                  <Text style={styles.label}>Profile Picture</Text>
-                  <View style={styles.avatarEditContainer}>
-                    <Image
-                      source={{ uri: currentAvatarUri }}
-                      style={styles.avatarPreview}
-                    />
-                    <TouchableOpacity
-                      style={styles.changeAvatarButton}
-                      onPress={handlePickImage}
-                    >
-                      <Ionicons name='camera' size={20} color='#2B9FFF' />
-                      <Text style={styles.changeAvatarText}>Change Photo</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <Text style={styles.label}>First Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder='Enter first name'
-                  placeholderTextColor='#9CA3AF'
-                />
-
-                <Text style={styles.label}>Last Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder='Enter last name'
-                  placeholderTextColor='#9CA3AF'
-                />
-
-                <Text style={styles.label}>Location</Text>
-                <TextInput
-                  style={styles.input}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder='City, State'
-                  placeholderTextColor='#9CA3AF'
-                />
-
-                <Text style={styles.label}>Team Code</Text>
-                <TextInput
-                  style={styles.input}
-                  value={teamCode}
-                  onChangeText={setTeamCode}
-                  placeholder='Enter team code to join'
-                  placeholderTextColor='#9CA3AF'
-                  autoCapitalize='characters'
-                />
-
-                {/* Add extra padding at bottom for keyboard */}
-                <View style={{ height: 100 }} />
-              </ScrollView>
-
-              <View
-                style={[
-                  styles.modalFooter,
-                  { paddingBottom: Math.max(insets.bottom, 16) },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setModalVisible(false);
-                    setTempAvatarUri(null);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveProfile}
-                >
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          {/* Version */}
+          <Text style={styles.version}>Version 2.0.0</Text>
+        </ScrollView>
+      </SafeAreaView>
     </>
   );
-}
+};
 
-/* --------------------------------------------------------------------------
-   STYLES
---------------------------------------------------------------------------- */
+export default ProfilePage;
+
 const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#F5F9FF', paddingHorizontal: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
 
-  header: { alignItems: 'center', marginBottom: 24 },
-  avatarContainer: { width: 110, height: 110, marginBottom: 16 },
+  // HEADER
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingVertical: 20,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   avatarGlow: {
     position: 'absolute',
-    top: -6,
-    left: -6,
-    right: -6,
-    bottom: -6,
-    borderRadius: 60,
-    backgroundColor: '#FFA500',
-    opacity: 0.3,
+    top: -8,
+    left: -8,
+    right: -8,
+    bottom: -8,
+    borderRadius: 68,
+    backgroundColor: '#5C6BC0',
+    opacity: 0.2,
   },
   avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 4,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 6,
     borderColor: '#FFF',
   },
-  editIcon: {
+  editAvatarButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#2B9FFF',
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  name: { fontSize: 28, fontWeight: '900', color: '#2C3E50' },
-  teamBadge: {
-    backgroundColor: '#2B9FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  teamName: { color: '#FFF', fontWeight: '700' },
-  teamCodeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 8,
-    gap: 6,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  teamCodeLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  teamCode: {
-    fontSize: 15,
-    color: '#2C3E50',
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  location: { marginTop: 6, color: '#6B7280' },
-
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 28,
-    marginBottom: 12,
-    color: '#2C3E50',
-  },
-  actionList: { backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden' },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  actionIconContainer: {
+    backgroundColor: '#5C6BC0',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F0F9FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  logoutIcon: { backgroundColor: '#FEF2F2' },
-  actionText: { flex: 1, fontSize: 16, fontWeight: '600', color: '#2C3E50' },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalHeaderTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#2C3E50',
-  },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
-    backgroundColor: '#F5F9FF',
-  },
-
-  // Avatar Edit Section
-  avatarSection: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  avatarEditContainer: {
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatarPreview: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     borderWidth: 4,
-    borderColor: '#E5E7EB',
+    borderColor: '#FFF',
   },
-  changeAvatarButton: {
+  name: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 4,
+  },
+  role: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 16,
+  },
+  targetBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#E8EAF6',
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#2B9FFF',
+    paddingVertical: 12,
+    borderRadius: 20,
   },
-  changeAvatarText: {
+  targetText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#2B9FFF',
+    fontWeight: '800',
+    color: '#5C6BC0',
   },
 
-  label: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-    color: '#2C3E50',
+  // LIFETIME STATS CARD
+  lifetimeCard: {
+    backgroundColor: '#5C6BC0',
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#5C6BC0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  input: {
-    backgroundColor: '#F5F9FF',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-  },
-  textArea: { minHeight: 100, textAlignVertical: 'top' },
-
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  cancelButtonText: { fontWeight: '700', color: '#6B7280' },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#FFA500',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveButtonText: { fontWeight: '900', color: '#FFF' },
-  logoutSection: {
-    marginTop: 20,
-    marginBottom: 40,
-    paddingHorizontal: 20,
-  },
-  logoutButton: {
+  lifetimeHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  lifetimeEmoji: {
+    fontSize: 28,
+  },
+  lifetimeTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  bigStatContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  bigStatValue: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  bigStatLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  lifetimeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  lifetimeStat: {
+    alignItems: 'center',
+  },
+  lifetimeStatValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFD54F',
+    marginBottom: 4,
+  },
+  lifetimeStatLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+
+  // STREAKS CARD
+  streaksCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  streakItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  streakIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFF3E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakEmoji: {
+    fontSize: 28,
+  },
+  streakInfo: {
+    flex: 1,
+  },
+  streakValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  streakLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  streakDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 16,
+  },
+
+  // INFO CARD
+  infoCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  infoTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 16,
+  },
+  infoIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+
+  // TEAM BUTTONS
+  teamButtonsContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  joinTeamButton: {
+    flexDirection: 'row',
+    backgroundColor: '#5C6BC0',
+    padding: 20,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#FEE2E2',
+    shadowColor: '#5C6BC0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#EF4444',
-    letterSpacing: 0.3,
-  },
-  teamSection: {
-    marginTop: 28,
-    marginBottom: 12,
-  },
-  noTeamText: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginBottom: 16,
-    fontWeight: '500',
-  },
-  teamButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  teamButton: {
-    flex: 1,
-    backgroundColor: '#2B9FFF',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#2B9FFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  teamButtonText: {
+  joinTeamButtonText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  createTeamButton: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#5C6BC0',
+  },
+  createTeamButtonText: {
+    color: '#5C6BC0',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  // ACTIONS CARD
+  actionsCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 20,
+  },
+  actionButtonText: {
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    color: '#1a1a2e',
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: '#F5F7FA',
+    marginHorizontal: 20,
+  },
+
+  // VERSION
+  version: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B0BEC5',
   },
 });
