@@ -79,18 +79,11 @@ export default function RootLayout() {
 
     setHasCheckedOnboarding(true);
 
-    const { data: profile, error } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('onboarding_completed, name, display_name')
       .eq('id', session.user.id)
       .single();
-
-    console.log('🔍 Onboarding check:', {
-      userId: session.user.id,
-      profile,
-      error,
-      onboarding_completed: profile?.onboarding_completed,
-    });
 
     // Sync name from user metadata if display_name looks like email prefix
     const metadata = session.user.user_metadata;
@@ -108,7 +101,6 @@ export default function RootLayout() {
           display_name: metaFirstName,
         })
         .eq('id', session.user.id);
-      console.log('✅ Profile display_name synced:', metaFirstName);
 
       // Invalidate the profile cache so the UI updates
       queryClient.invalidateQueries({ queryKey: ['profile', session.user.id] });

@@ -61,11 +61,8 @@ const Leaderboard = () => {
     queryKey: ['team-touches-leaderboard', profile?.team_id],
     queryFn: async () => {
       if (!profile?.team_id) {
-        console.log('🔍 Leaderboard: No team_id found in profile', profile);
         return [];
       }
-
-      console.log('🔍 Leaderboard: Fetching team members for team_id:', profile.team_id);
 
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
@@ -74,79 +71,54 @@ const Leaderboard = () => {
         .eq('team_id', profile.team_id)
         .eq('is_coach', false);
 
-      console.log('🔍 Leaderboard: Team members found:', teamMembers, 'Error:', membersError);
-
       if (membersError) throw membersError;
       if (!teamMembers || teamMembers.length === 0) return [];
 
       // Get touch stats for each member
-      console.log('🔍 Fetching stats for members, today:', today, 'weekStart:', weekStartDate);
-
       const memberStats: TeamMemberStats[] = await Promise.all(
         teamMembers.map(async (member) => {
-          try {
-            // Get weekly touches
-            const { data: weeklyData, error: weeklyError } = await supabase
-              .from('daily_sessions')
-              .select('touches_logged, date')
-              .eq('user_id', member.id)
-              .gte('date', weekStartDate)
-              .lte('date', today);
+          // Get weekly touches
+          const { data: weeklyData } = await supabase
+            .from('daily_sessions')
+            .select('touches_logged')
+            .eq('user_id', member.id)
+            .gte('date', weekStartDate)
+            .lte('date', today);
 
-            console.log(`🔍 Weekly data for ${member.name || member.display_name}:`, weeklyData, 'Error:', weeklyError);
+          const weekly_touches = weeklyData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
 
-            const weekly_touches = weeklyData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
+          // Get today's touches
+          const { data: todayData } = await supabase
+            .from('daily_sessions')
+            .select('touches_logged')
+            .eq('user_id', member.id)
+            .eq('date', today);
 
-            // Get today's touches
-            const { data: todayData, error: todayError } = await supabase
-              .from('daily_sessions')
-              .select('touches_logged, date')
-              .eq('user_id', member.id)
-              .eq('date', today);
+          const today_touches = todayData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
 
-            console.log(`🔍 Today data for ${member.name || member.display_name}:`, todayData, 'Error:', todayError);
+          // Get user's daily target
+          const { data: targetData } = await supabase
+            .from('user_targets')
+            .select('daily_target_touches')
+            .eq('user_id', member.id)
+            .single();
 
-            const today_touches = todayData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
-
-            // Get user's daily target
-            const { data: targetData } = await supabase
-              .from('user_targets')
-              .select('daily_target_touches')
-              .eq('user_id', member.id)
-              .single();
-
-            return {
-              id: member.id,
-              name: member.name || member.display_name || 'Unknown Player',
-              avatar_url: member.avatar_url,
-              weekly_touches,
-              today_touches,
-              daily_target: targetData?.daily_target_touches || 1000,
-            };
-          } catch (err) {
-            console.error(`🔍 Error fetching stats for ${member.name}:`, err);
-            return {
-              id: member.id,
-              name: member.name || member.display_name || 'Unknown Player',
-              avatar_url: member.avatar_url,
-              weekly_touches: 0,
-              today_touches: 0,
-              daily_target: 1000,
-            };
-          }
+          return {
+            id: member.id,
+            name: member.name || member.display_name || 'Unknown Player',
+            avatar_url: member.avatar_url,
+            weekly_touches,
+            today_touches,
+            daily_target: targetData?.daily_target_touches || 1000,
+          };
         })
       );
 
       // Sort by weekly touches descending
-      const sorted = memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
-      console.log('🔍 Leaderboard: Final sorted stats:', sorted);
-      return sorted;
+      return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
     },
     enabled: !!profile?.team_id,
   });
-
-  // Debug: log what the component has
-  console.log('🔍 Leaderboard render: touchesLeaderboard=', touchesLeaderboard, 'loading=', touchesLoading);
 
   // Fetch juggling records
   const {
@@ -218,7 +190,7 @@ const Leaderboard = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#5C6BC0' />
+        <ActivityIndicator size='large' color='#2B9FFF' />
       </View>
     );
   }
@@ -648,8 +620,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tabActive: {
-    backgroundColor: '#5C6BC0',
-    shadowColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
+    shadowColor: '#2B9FFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -669,7 +641,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   weekBadge: {
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -745,7 +717,7 @@ const styles = StyleSheet.create({
   podiumTouches: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
     marginBottom: 8,
   },
   podiumRank1: {
@@ -791,7 +763,7 @@ const styles = StyleSheet.create({
   },
   currentUserCard: {
     borderWidth: 2,
-    borderColor: '#5C6BC0',
+    borderColor: '#2B9FFF',
     backgroundColor: '#F3F4FF',
   },
   playerLeft: {
@@ -835,7 +807,7 @@ const styles = StyleSheet.create({
   youBadge: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
   statsRow: {
     flexDirection: 'row',
@@ -869,7 +841,7 @@ const styles = StyleSheet.create({
   weeklyTouches: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
     marginBottom: 2,
   },
   jugglingScore: {

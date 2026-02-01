@@ -113,7 +113,7 @@ const LogSessionModal = ({
       case 'advanced':
         return '#F44336';
       default:
-        return '#5C6BC0';
+        return '#2B9FFF';
     }
   };
 
@@ -161,7 +161,7 @@ const LogSessionModal = ({
                     autoFocus={true}
                   />
                   <View style={styles.inputIconBg}>
-                    <Ionicons name='football' size={20} color='#5C6BC0' />
+                    <Ionicons name='football' size={20} color='#2B9FFF' />
                   </View>
                 </View>
               </View>
@@ -219,7 +219,7 @@ const LogSessionModal = ({
                 {drillsLoading ? (
                   <ActivityIndicator
                     size='small'
-                    color='#5C6BC0'
+                    color='#2B9FFF'
                     style={styles.loader}
                   />
                 ) : (
@@ -233,7 +233,7 @@ const LogSessionModal = ({
                     >
                       <View style={styles.drillOptionContent}>
                         <View style={styles.drillIconCircle}>
-                          <Ionicons name='football' size={24} color='#5C6BC0' />
+                          <Ionicons name='football' size={24} color='#2B9FFF' />
                         </View>
                         <Text
                           style={[
@@ -249,7 +249,7 @@ const LogSessionModal = ({
                         <Ionicons
                           name='checkmark-circle'
                           size={24}
-                          color='#5C6BC0'
+                          color='#2B9FFF'
                         />
                       )}
                     </TouchableOpacity>
@@ -299,7 +299,7 @@ const LogSessionModal = ({
                           <Ionicons
                             name='checkmark-circle'
                             size={24}
-                            color='#5C6BC0'
+                            color='#2B9FFF'
                           />
                         )}
                       </TouchableOpacity>
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   },
   drillOptionSelected: {
     backgroundColor: '#E8EAF6',
-    borderColor: '#5C6BC0',
+    borderColor: '#2B9FFF',
   },
   drillOptionContent: {
     flexDirection: 'row',
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
   drillOptionTextSelected: {
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
   drillTargetText: {
     fontSize: 12,

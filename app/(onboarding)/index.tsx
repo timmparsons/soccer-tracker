@@ -124,58 +124,33 @@ export default function OnboardingScreen() {
   };
 
   const handleFinish = async () => {
-    if (!user?.id) {
-      console.error('❌ No user ID available');
-      return;
-    }
-
-    console.log('📝 Completing onboarding for user:', user.id);
+    if (!user?.id) return;
 
     // Mark onboarding as completed
-    const { data: profileData, error: profileError } = await supabase
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({
         onboarding_completed: true,
       })
-      .eq('id', user.id)
-      .select();
-
-    console.log('📝 Profile update result:', { profileData, profileError });
+      .eq('id', user.id);
 
     if (profileError) {
-      console.error('Failed to complete onboarding:', profileError);
-      // If update failed, try to check if profile exists
-      const { data: existingProfile } = await supabase
+      // If update failed, try to create profile
+      await supabase
         .from('profiles')
-        .select('id, onboarding_completed')
-        .eq('id', user.id)
-        .single();
-
-      console.log('📝 Existing profile:', existingProfile);
-
-      if (!existingProfile) {
-        // Profile doesn't exist, create it
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            onboarding_completed: true,
-          });
-        console.log('📝 Profile insert result:', { insertError });
-      }
+        .insert({
+          id: user.id,
+          onboarding_completed: true,
+        });
     }
 
     // Save daily target to user_targets table
-    const { error: targetError } = await supabase
+    await supabase
       .from('user_targets')
       .upsert({
         user_id: user.id,
         daily_target_touches: dailyTarget,
       });
-
-    if (targetError) {
-      console.error('Failed to save daily target:', targetError);
-    }
 
     router.replace('/(tabs)');
   };

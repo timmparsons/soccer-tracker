@@ -34,24 +34,12 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       // Get today's total touches (using local date)
       const today = getLocalDate();
-      console.log('🔍 useTouchTracking: Fetching for today:', today);
 
-      const { data: todaySessions, error: todayError } = await supabase
+      const { data: todaySessions } = await supabase
         .from('daily_sessions')
-        .select('touches_logged, date')
+        .select('touches_logged')
         .eq('user_id', userId)
         .eq('date', today);
-
-      console.log('🔍 useTouchTracking: Today sessions:', todaySessions, 'Error:', todayError);
-
-      // Debug: show ALL sessions for this user
-      const { data: debugSessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged, date, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      console.log('🔍 useTouchTracking: All recent sessions:', debugSessions);
 
       const todayTouches =
         todaySessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;

@@ -283,17 +283,17 @@ export default function CoachDashboard() {
         {/* Team Code Card */}
         <View style={styles.codeCard}>
           <View style={styles.codeHeader}>
-            <Ionicons name="key" size={20} color="#5C6BC0" />
+            <Ionicons name="key" size={20} color="#2B9FFF" />
             <Text style={styles.codeLabel}>Team Code</Text>
           </View>
           <Text style={styles.codeText}>{team?.code || '---'}</Text>
           <View style={styles.codeActions}>
             <TouchableOpacity style={styles.codeButton} onPress={handleCopyCode}>
-              <Ionicons name="copy-outline" size={18} color="#5C6BC0" />
+              <Ionicons name="copy-outline" size={18} color="#2B9FFF" />
               <Text style={styles.codeButtonText}>Copy</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.codeButton} onPress={handleShareCode}>
-              <Ionicons name="share-outline" size={18} color="#5C6BC0" />
+              <Ionicons name="share-outline" size={18} color="#2B9FFF" />
               <Text style={styles.codeButtonText}>Share</Text>
             </TouchableOpacity>
           </View>
@@ -372,7 +372,7 @@ export default function CoachDashboard() {
                   </View>
 
                   <View style={styles.addTouchesHint}>
-                    <Ionicons name="add-circle-outline" size={16} color="#5C6BC0" />
+                    <Ionicons name="add-circle-outline" size={16} color="#2B9FFF" />
                     <Text style={styles.addTouchesText}>Tap to log touches</Text>
                   </View>
                 </TouchableOpacity>
@@ -412,7 +412,7 @@ export default function CoachDashboard() {
             >
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Ionicons name="football" size={32} color="#5C6BC0" />
+                  <Ionicons name="football" size={32} color="#2B9FFF" />
                   <Text style={styles.modalTitle}>
                     Log Touches for {selectedPlayer?.display_name || selectedPlayer?.name}
                   </Text>
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   codeButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
 
   // Stats Card
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
   playerStatValue: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
     marginBottom: 2,
   },
   playerStatLabel: {
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   addTouchesText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
 
   // Empty State

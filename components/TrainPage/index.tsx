@@ -19,10 +19,60 @@ import {
   View,
 } from 'react-native';
 
+// Pro tips - mix of quotes and practical training advice
+const PRO_TIPS = [
+  // Inspirational quotes
+  { text: "The ball is like a magnet. If you can control it, you can do anything.", author: "Ronaldinho" },
+  { text: "I always tell young players to work on your technique. That's the foundation.", author: "Xavi Hernández" },
+  { text: "You have to fight to reach your dream. Sacrifice and work hard for it.", author: "Lionel Messi" },
+  { text: "Every training session is an opportunity to improve. Never waste one.", author: "Pep Guardiola" },
+  { text: "Ball control is everything. The best players touch the ball 10,000 times a day.", author: "Wiel Coerver" },
+  { text: "Work on your weaknesses until they become your strengths.", author: "Johan Cruyff" },
+  { text: "The secret is to believe in your dreams. They can come true.", author: "Cristiano Ronaldo" },
+
+  // Practical tips - Ball Control
+  { text: "Keep the ball close to your feet. The tighter your control, the harder you are to dispossess.", author: "Training Tip" },
+  { text: "Use all surfaces of your foot - inside, outside, sole, and laces. Versatility is key.", author: "Training Tip" },
+  { text: "Practice with your weaker foot as much as your strong foot. Two-footed players are unstoppable.", author: "Training Tip" },
+  { text: "Keep your knees slightly bent and stay on your toes. Good balance means better control.", author: "Training Tip" },
+
+  // Practical tips - First Touch
+  { text: "Cushion the ball on your first touch. A soft touch keeps the ball close and ready.", author: "Training Tip" },
+  { text: "Always know where you want to go before the ball arrives. Look up, then receive.", author: "Training Tip" },
+  { text: "Practice receiving the ball while turning. It saves time and beats defenders.", author: "Training Tip" },
+
+  // Practical tips - Dribbling
+  { text: "Keep your head up while dribbling. The ball should be felt, not watched.", author: "Training Tip" },
+  { text: "Change pace and direction suddenly. Unpredictability is your greatest weapon.", author: "Training Tip" },
+  { text: "Use your body to shield the ball. Get between the defender and the ball.", author: "Training Tip" },
+
+  // Practical tips - Training Habits
+  { text: "Quality over quantity. 100 focused touches beat 500 sloppy ones.", author: "Training Tip" },
+  { text: "Train in short bursts throughout the day. Consistency beats intensity.", author: "Training Tip" },
+  { text: "Practice under pressure. Add time limits or challenges to simulate game situations.", author: "Training Tip" },
+  { text: "Record yourself training. Watching your technique helps you spot mistakes.", author: "Training Tip" },
+];
+
+// Get 3 tips for today based on the date
+const getTodaysTips = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor(
+    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const startIndex = (dayOfYear * 3) % PRO_TIPS.length;
+  return [
+    PRO_TIPS[startIndex % PRO_TIPS.length],
+    PRO_TIPS[(startIndex + 1) % PRO_TIPS.length],
+    PRO_TIPS[(startIndex + 2) % PRO_TIPS.length],
+  ];
+};
+
 const TrainPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const [modalVisible, setModalVisible] = useState(false);
+
+  const todaysTips = getTodaysTips();
 
   // Timer state
   const [timerActive, setTimerActive] = useState(false);
@@ -160,7 +210,7 @@ const TrainPage = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#5C6BC0' />
+        <ActivityIndicator size='large' color='#2B9FFF' />
       </View>
     );
   }
@@ -230,7 +280,7 @@ const TrainPage = () => {
                 </Text>
               </View>
               <View style={styles.timerBadge}>
-                <Ionicons name='time' size={14} color='#5C6BC0' />
+                <Ionicons name='time' size={14} color='#2B9FFF' />
                 <Text style={styles.timerBadgeText}>
                   {challengeDurationFormatted}
                 </Text>
@@ -262,37 +312,37 @@ const TrainPage = () => {
           </View>
         )}
 
+        {/* Training Videos */}
+        <View style={styles.videosCard}>
+          <View style={styles.videosHeader}>
+            <Text style={styles.videosIcon}>🎬</Text>
+            <Text style={styles.videosTitle}>Training Videos</Text>
+          </View>
+
+          <View style={styles.videosPlaceholder}>
+            <Ionicons name='videocam' size={48} color='#B0BEC5' />
+            <Text style={styles.videosPlaceholderText}>Coming Soon</Text>
+            <Text style={styles.videosPlaceholderSubtext}>
+              Pro tutorials and drills to level up your game
+            </Text>
+          </View>
+        </View>
+
         {/* Quick Tips */}
         <View style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
             <Text style={styles.tipsIcon}>💡</Text>
-            <Text style={styles.tipsTitle}>Pro Training Tips</Text>
+            <Text style={styles.tipsTitle}>Today&apos;s Tips</Text>
           </View>
           <View style={styles.tipsList}>
-            <View style={styles.tipItem}>
-              <View style={styles.tipDot} />
-              <Text style={styles.tipText}>
-                Quality over quantity - focus on clean touches
-              </Text>
-            </View>
-            <View style={styles.tipItem}>
-              <View style={styles.tipDot} />
-              <Text style={styles.tipText}>
-                Practice in short bursts throughout the day
-              </Text>
-            </View>
-            <View style={styles.tipItem}>
-              <View style={styles.tipDot} />
-              <Text style={styles.tipText}>
-                Keep the ball close and under control
-              </Text>
-            </View>
-            <View style={styles.tipItem}>
-              <View style={styles.tipDot} />
-              <Text style={styles.tipText}>
-                Use both feet equally to develop balance
-              </Text>
-            </View>
+            {todaysTips.map((tip, index) => (
+              <View key={index} style={styles.tipItem}>
+                <View style={styles.tipContent}>
+                  <Text style={styles.tipText}>&quot;{tip.text}&quot;</Text>
+                  <Text style={styles.tipAuthor}>— {tip.author}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -420,12 +470,12 @@ const styles = StyleSheet.create({
 
   // PROGRESS CARD
   progressCard: {
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     paddingVertical: 28,
     paddingHorizontal: 24,
     borderRadius: 24,
     marginBottom: 20,
-    shadowColor: '#5C6BC0',
+    shadowColor: '#2B9FFF',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -561,7 +611,7 @@ const styles = StyleSheet.create({
   timerBadgeText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
   challengeContent: {
     alignItems: 'center',
@@ -611,7 +661,7 @@ const styles = StyleSheet.create({
   // TIMER MODAL
   timerModal: {
     flex: 1,
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -745,6 +795,50 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 
+  // VIDEOS CARD
+  videosCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  videosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  videosIcon: {
+    fontSize: 24,
+  },
+  videosTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  videosPlaceholder: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  videosPlaceholderText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#78909C',
+    marginTop: 12,
+  },
+  videosPlaceholderSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#B0BEC5',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
   // TIPS CARD
   tipsCard: {
     backgroundColor: '#FFF8E1',
@@ -772,22 +866,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tipItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9800',
   },
-  tipDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF9800',
-    marginTop: 7,
+  tipContent: {
+    gap: 6,
   },
   tipText: {
-    flex: 1,
     fontSize: 14,
     color: '#5D4037',
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: 21,
+    fontStyle: 'italic',
+  },
+  tipAuthor: {
+    fontSize: 12,
+    color: '#8D6E63',
+    fontWeight: '700',
   },
 });

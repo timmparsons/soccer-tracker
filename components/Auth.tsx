@@ -1,11 +1,13 @@
-import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,255 +25,246 @@ export default function Auth() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState<'player' | 'coach'>('player');
-  const [teamCode, setTeamCode] = useState('');
 
   const [loading, setLoading] = useState(false);
-
-  const updateProfile = useUpdateProfile();
 
   const toggleMode = () =>
     setMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
 
-  // ---------------------------------------------------------------------
   // SIGN IN
-  // ---------------------------------------------------------------------
   const signIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Missing Fields', 'Please enter your email and password');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      console.log('[Auth] signIn →', { email });
-
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-
-      console.log('[Auth] signIn response:', data);
     } catch (err: any) {
-      console.log('[Auth] signIn error:', err);
-      Alert.alert('Error', err.message);
+      Alert.alert('Sign In Failed', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------------------
   // SIGN UP
-  // ---------------------------------------------------------------------
   const signUp = async () => {
+    if (!email || !password) {
+      Alert.alert('Missing Fields', 'Please enter your email and password');
+      return;
+    }
+
+    if (!firstName.trim()) {
+      Alert.alert('Missing Name', 'Please enter your first name');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      console.log('[Auth] signUp start', {
-        email,
-        firstName,
-        lastName,
-        role,
-        teamCode,
-      });
-
-      // ✅ STEP 1: Create auth user WITH METADATA
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            first_name: firstName.trim() || null,
+            first_name: firstName.trim(),
             last_name: lastName.trim() || null,
-            role,
-            team_code: teamCode.trim() || null,
           },
         },
       });
 
-      console.log('[Auth] signUp response', data);
-
       if (error) throw error;
       if (!data.user) throw new Error('User creation failed');
 
-      // ❌ REMOVED:
-      // - setTimeout
-      // - profiles.update
-      // - team lookup
-      // These cannot work before email confirmation
-
       Alert.alert(
-        'Check your inbox',
-        'Please confirm your email before signing in.'
+        'Check Your Email',
+        'We sent you a confirmation link. Please check your inbox to complete signup.'
       );
     } catch (err: any) {
-      console.log('[Auth] signUp caught error', err);
+      Alert.alert('Sign Up Failed', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // RESET PASSWORD
+  const resetPassword = async () => {
+    if (!email) {
+      Alert.alert('Enter Email', 'Please enter your email address first');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      Alert.alert('Check Your Email', 'Password reset link has been sent.');
+    } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------------------
-  // RESET PASSWORD
-  // ---------------------------------------------------------------------
-  const resetPassword = async () => {
-    if (!email) return Alert.alert('Enter your email first');
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'exp://192.168.0.227:8081/--/callback',
-      });
-      if (error) throw error;
-      Alert.alert('Check email', 'Password reset link sent.');
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
-    }
-  };
-
-  // ---------------------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/images/app-logo-transparent.png')}
-              style={styles.logo}
-            />
-          </View>
-
-          <Text style={styles.title}>
-            {mode === 'signin' ? 'Welcome Back' : 'Join the Team'}
-          </Text>
-
-          <Text style={styles.subtitle}>
-            {mode === 'signin'
-              ? 'Log in to continue your training'
-              : 'Start your juggling journey today'}
-          </Text>
-        </View>
-
-        {/* FORM CARD */}
-        <View style={styles.card}>
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name='mail-outline' size={20} color='#6B7280' />
-            </View>
-            <TextInput
-              placeholder='Email'
-              autoCapitalize='none'
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              placeholderTextColor='#9CA3AF'
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name='lock-closed-outline' size={20} color='#6B7280' />
-            </View>
-            <TextInput
-              placeholder='Password'
-              secureTextEntry
-              autoCapitalize='none'
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-              placeholderTextColor='#9CA3AF'
-            />
-          </View>
-
-          {mode === 'signup' && (
-            <>
-              <View style={styles.inputContainer}>
-                <View style={styles.inputIconContainer}>
-                  <Ionicons name='person-outline' size={20} color='#6B7280' />
-                </View>
-                <TextInput
-                  placeholder='First Name'
-                  autoCapitalize='words'
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  style={styles.input}
-                  placeholderTextColor='#9CA3AF'
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* HEADER */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoCircle}>
+                <Image
+                  source={require('../assets/images/app-logo-transparent.png')}
+                  style={styles.logo}
                 />
               </View>
+            </View>
 
-              <View style={styles.inputContainer}>
-                <View style={styles.inputIconContainer}>
-                  <Ionicons name='person-outline' size={20} color='#6B7280' />
-                </View>
-                <TextInput
-                  placeholder='Last Name (optional)'
-                  autoCapitalize='words'
-                  value={lastName}
-                  onChangeText={setLastName}
-                  style={styles.input}
-                  placeholderTextColor='#9CA3AF'
-                />
-              </View>
-
-              {/* <View style={styles.inputContainer}>
-                <View style={styles.inputIconContainer}>
-                  <Ionicons name='people-outline' size={20} color='#6B7280' />
-                </View>
-                <TextInput
-                  placeholder='Team Code (optional)'
-                  autoCapitalize='none'
-                  value={teamCode}
-                  onChangeText={setTeamCode}
-                  style={styles.input}
-                  placeholderTextColor='#9CA3AF'
-                />
-              </View> */}
-            </>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              mode === 'signin' ? styles.signInButton : styles.signUpButton,
-            ]}
-            onPress={mode === 'signin' ? signIn : signUp}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color='#fff' />
-            ) : (
-              <Text style={styles.buttonText}>
-                {mode === 'signin' ? 'Sign In' : 'Create Account'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {mode === 'signin' && (
-            <TouchableOpacity
-              onPress={resetPassword}
-              style={styles.forgotButton}
-            >
-              <Text style={styles.forgotLink}>Forgot Password?</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* SWITCH MODE */}
-        <TouchableOpacity onPress={toggleMode} style={styles.switchContainer}>
-          <Text style={styles.switchText}>
-            {mode === 'signin'
-              ? "Don't have an account? "
-              : 'Already have an account? '}
-            <Text style={styles.switchLink}>
-              {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+            <Text style={styles.title}>
+              {mode === 'signin' ? 'Welcome Back!' : 'Join the Team'}
             </Text>
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+
+            <Text style={styles.subtitle}>
+              {mode === 'signin'
+                ? 'Log in to track your progress'
+                : 'Start building your skills today'}
+            </Text>
+          </View>
+
+          {/* FORM CARD */}
+          <View style={styles.card}>
+            {/* Email */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#78909C" />
+                <TextInput
+                  placeholder="Enter your email"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.input}
+                  placeholderTextColor="#B0BEC5"
+                />
+              </View>
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#78909C" />
+                <TextInput
+                  placeholder="Enter your password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  value={password}
+                  onChangeText={setPassword}
+                  style={styles.input}
+                  placeholderTextColor="#B0BEC5"
+                />
+              </View>
+            </View>
+
+            {/* Sign Up Fields */}
+            {mode === 'signup' && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>First Name</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="person-outline" size={20} color="#78909C" />
+                    <TextInput
+                      placeholder="Enter your first name"
+                      autoCapitalize="words"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      style={styles.input}
+                      placeholderTextColor="#B0BEC5"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Last Name (Optional)</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="person-outline" size={20} color="#78909C" />
+                    <TextInput
+                      placeholder="Enter your last name"
+                      autoCapitalize="words"
+                      value={lastName}
+                      onChangeText={setLastName}
+                      style={styles.input}
+                      placeholderTextColor="#B0BEC5"
+                    />
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={mode === 'signin' ? signIn : signUp}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={mode === 'signin' ? ['#2B9FFF', '#7E57C2'] : ['#FF7043', '#FF5722']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.submitButtonGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>
+                    {mode === 'signin' ? 'Sign In' : 'Create Account'}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Forgot Password */}
+            {mode === 'signin' && (
+              <TouchableOpacity
+                onPress={resetPassword}
+                style={styles.forgotButton}
+                disabled={loading}
+              >
+                <Text style={styles.forgotLink}>Forgot Password?</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* SWITCH MODE */}
+          <TouchableOpacity onPress={toggleMode} style={styles.switchContainer}>
+            <Text style={styles.switchText}>
+              {mode === 'signin'
+                ? "Don't have an account? "
+                : 'Already have an account? '}
+              <Text style={styles.switchLink}>
+                {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -279,47 +272,54 @@ export default function Auth() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 40,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
 
   // HEADER
   header: {
-    marginTop: 40,
     alignItems: 'center',
     marginBottom: 32,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFF',
+    marginBottom: 24,
+  },
+  logoCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#2B9FFF',
-    shadowOpacity: 0.2,
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 70,
+    height: 70,
   },
   title: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#2C3E50',
+    color: '#1a1a2e',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
+    fontSize: 16,
+    color: '#78909C',
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   // FORM CARD
@@ -328,77 +328,81 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
   },
 
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F9FF',
-    borderRadius: 12,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    marginBottom: 16,
+    borderColor: '#E8EAF6',
     paddingHorizontal: 16,
-  },
-  inputIconContainer: {
-    marginRight: 12,
+    gap: 12,
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
-    color: '#2C3E50',
+    color: '#1a1a2e',
     fontWeight: '600',
   },
 
-  button: {
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
+  submitButton: {
     marginTop: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  signInButton: {
-    backgroundColor: '#2B9FFF',
+  submitButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
   },
-  signUpButton: {
-    backgroundColor: '#FFA500',
-  },
-  buttonText: {
+  submitButtonText: {
     color: '#FFF',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
 
   forgotButton: {
-    marginTop: 16,
+    marginTop: 20,
     alignSelf: 'center',
   },
   forgotLink: {
     color: '#2B9FFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
 
   // SWITCH MODE
   switchContainer: {
-    marginTop: 24,
+    marginTop: 28,
     alignItems: 'center',
   },
   switchText: {
     textAlign: 'center',
     fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: '#78909C',
+    fontWeight: '600',
   },
   switchLink: {
     color: '#2B9FFF',

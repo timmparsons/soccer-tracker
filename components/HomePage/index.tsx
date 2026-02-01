@@ -38,7 +38,7 @@ const HomeScreen = () => {
   if (statsLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#5C6BC0' />
+        <ActivityIndicator size='large' color='#2B9FFF' />
       </View>
     );
   }
@@ -182,12 +182,12 @@ const styles = StyleSheet.create({
 
   // PROGRESS CARD
   progressCard: {
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     paddingVertical: 28,
     paddingHorizontal: 24,
     borderRadius: 24,
     marginBottom: 20,
-    shadowColor: '#5C6BC0',
+    shadowColor: '#2B9FFF',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

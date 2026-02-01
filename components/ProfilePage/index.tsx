@@ -218,7 +218,7 @@ const ProfilePage = () => {
 
             {/* Daily Target Badge */}
             <View style={styles.targetBadge}>
-              <Ionicons name='flag' size={20} color='#5C6BC0' />
+              <Ionicons name='flag' size={20} color='#2B9FFF' />
               <Text style={styles.targetText}>
                 Daily Target: {dailyTarget.toLocaleString()} touches
               </Text>
@@ -296,7 +296,7 @@ const ProfilePage = () => {
 
             <View style={styles.infoRow}>
               <View style={styles.infoIconBg}>
-                <Ionicons name='mail' size={20} color='#5C6BC0' />
+                <Ionicons name='mail' size={20} color='#2B9FFF' />
               </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Email</Text>
@@ -351,7 +351,7 @@ const ProfilePage = () => {
                 style={styles.createTeamButton}
                 onPress={() => router.push('/(modals)/create-team')}
               >
-                <Ionicons name='add-circle' size={24} color='#5C6BC0' />
+                <Ionicons name='add-circle' size={24} color='#2B9FFF' />
                 <Text style={styles.createTeamButtonText}>Create a Team</Text>
               </TouchableOpacity>
             </View>
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     right: -8,
     bottom: -8,
     borderRadius: 68,
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     opacity: 0.2,
   },
   avatar: {
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -449,16 +449,16 @@ const styles = StyleSheet.create({
   targetText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
 
   // LIFETIME STATS CARD
   lifetimeCard: {
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     padding: 24,
     borderRadius: 24,
     marginBottom: 16,
-    shadowColor: '#5C6BC0',
+    shadowColor: '#2B9FFF',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -620,13 +620,13 @@ const styles = StyleSheet.create({
   },
   joinTeamButton: {
     flexDirection: 'row',
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
     padding: 20,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    shadowColor: '#5C6BC0',
+    shadowColor: '#2B9FFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -647,10 +647,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     borderWidth: 2,
-    borderColor: '#5C6BC0',
+    borderColor: '#2B9FFF',
   },
   createTeamButtonText: {
-    color: '#5C6BC0',
+    color: '#2B9FFF',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.5,

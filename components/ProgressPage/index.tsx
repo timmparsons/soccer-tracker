@@ -230,7 +230,7 @@ const ProgressPage = () => {
     datasets: [
       {
         data: chartStats?.data?.length ? chartStats.data : [0],
-        color: (opacity = 1) => `rgba(92, 107, 192, ${opacity})`,
+        color: (opacity = 1) => `rgba(43, 159, 255, ${opacity})`,
         strokeWidth: 3,
       },
     ],
@@ -302,7 +302,7 @@ const ProgressPage = () => {
               backgroundGradientFrom: '#FFF',
               backgroundGradientTo: '#FFF',
               decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(92, 107, 192, ${opacity})`,
+              color: (opacity = 1) => `rgba(43, 159, 255, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(120, 144, 156, ${opacity})`,
               style: {
                 borderRadius: 16,
@@ -310,7 +310,7 @@ const ProgressPage = () => {
               propsForDots: {
                 r: '6',
                 strokeWidth: '2',
-                stroke: '#5C6BC0',
+                stroke: '#2B9FFF',
               },
               propsForBackgroundLines: {
                 strokeDasharray: '',
@@ -357,7 +357,7 @@ const ProgressPage = () => {
           </View>
 
           {sessionsLoading ? (
-            <ActivityIndicator size="small" color="#5C6BC0" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="small" color="#2B9FFF" style={{ marginVertical: 20 }} />
           ) : recentSessions && recentSessions.length > 0 ? (
             recentSessions.map((session) => (
               <View key={session.id} style={styles.sessionItem}>
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   filterButtonActive: {
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
   },
   filterButtonText: {
     fontSize: 14,
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#5C6BC0',
+    backgroundColor: '#2B9FFF',
   },
   legendText: {
     fontSize: 12,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
   },
   sessionItem: {
     flexDirection: 'row',
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   sessionTouches: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#5C6BC0',
+    color: '#2B9FFF',
     marginBottom: 2,
   },
   sessionTouchesLabel: {
