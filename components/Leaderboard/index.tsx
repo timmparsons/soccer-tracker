@@ -140,16 +140,17 @@ const Leaderboard = () => {
       if (membersError) throw membersError;
       if (!teamMembers || teamMembers.length === 0) return [];
 
-      // Get high scores for each member
+      // Get high scores for each member (only from sessions with juggle_count)
       const memberRecords: JugglingRecord[] = await Promise.all(
         teamMembers.map(async (member) => {
-          // Get their best juggling session (using touches_logged as score for now)
+          // Get their best juggling session
           const { data: bestSession } = await supabase
             .from('daily_sessions')
-            .select('touches_logged, date')
+            .select('juggle_count, date')
             .eq('user_id', member.id)
-            .gt('touches_logged', 0)
-            .order('touches_logged', { ascending: false })
+            .not('juggle_count', 'is', null)
+            .gt('juggle_count', 0)
+            .order('juggle_count', { ascending: false })
             .limit(1)
             .single();
 
@@ -157,7 +158,7 @@ const Leaderboard = () => {
             id: member.id,
             name: member.name || member.display_name || 'Unknown Player',
             avatar_url: member.avatar_url,
-            high_score: bestSession?.touches_logged || 0,
+            high_score: bestSession?.juggle_count || 0,
             date_achieved: bestSession?.date || today,
           };
         })

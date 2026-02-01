@@ -86,8 +86,6 @@ export default function JoinTeam() {
 
       if (profileError) throw profileError;
 
-      console.log('✅ Successfully updated profile with team_id:', team.id);
-
       // Mark as just joined to prevent "Already on a Team" screen from showing
       setJustJoined(true);
 
@@ -100,8 +98,6 @@ export default function JoinTeam() {
 
       // Force refetch with the invalidated cache
       await refetchProfile();
-
-      console.log('✅ Profile refetched');
 
       // Show success
       Alert.alert(

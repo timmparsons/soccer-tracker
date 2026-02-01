@@ -83,10 +83,7 @@ export default function Auth() {
       if (error) throw error;
       if (!data.user) throw new Error('User creation failed');
 
-      Alert.alert(
-        'Check Your Email',
-        'We sent you a confirmation link. Please check your inbox to complete signup.'
-      );
+      // User is automatically signed in - auth state listener will redirect
     } catch (err: any) {
       Alert.alert('Sign Up Failed', err.message);
     } finally {

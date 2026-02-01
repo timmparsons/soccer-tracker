@@ -66,6 +66,7 @@ const LogSessionModal = ({
         drill_id: selectedDrillId,
         touches_logged: touchCount,
         duration_minutes: duration ? parseInt(duration) : null,
+        juggle_count: juggles ? parseInt(juggles) : null,
         date: today,
       });
 

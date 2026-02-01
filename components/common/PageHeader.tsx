@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   Image,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -78,11 +77,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#F5F7FA',
-    ...Platform.select({
-      android: {
-        paddingTop: 20,
-      },
-    }),
   },
   headerLeft: {
     flex: 1,
