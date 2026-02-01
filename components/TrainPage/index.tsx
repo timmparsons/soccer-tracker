@@ -51,6 +51,14 @@ const PRO_TIPS = [
   { text: "Train in short bursts throughout the day. Consistency beats intensity.", author: "Training Tip" },
   { text: "Practice under pressure. Add time limits or challenges to simulate game situations.", author: "Training Tip" },
   { text: "Record yourself training. Watching your technique helps you spot mistakes.", author: "Training Tip" },
+
+  // Game Speed Training
+  { text: "Train faster than you play. If you can do it fast in training, it'll be easy in a game.", author: "Training Tip" },
+  { text: "Perfect practice at slow speed is useless. The game is fast - your training should be too.", author: "Training Tip" },
+  { text: "Mistakes at speed are better than perfection at a snail's pace. Learn from errors, keep pushing.", author: "Training Tip" },
+  { text: "Aim for 50+ touches per minute. That's game speed. Anything less is warm-up.", author: "Training Tip" },
+  { text: "Speed is a skill. The more you practice fast, the more comfortable you'll be under pressure.", author: "Training Tip" },
+  { text: "In a game, you have 1-2 seconds on the ball. Train like you have even less.", author: "Training Tip" },
 ];
 
 // Get 3 tips for today based on the date

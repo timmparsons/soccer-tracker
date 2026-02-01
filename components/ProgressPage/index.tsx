@@ -104,12 +104,12 @@ const ProgressPage = () => {
 
       const { data: sessions } = await supabase
         .from('daily_sessions')
-        .select('touches_logged, date')
+        .select('touches_logged, duration_minutes, date')
         .eq('user_id', user!.id)
         .gte('date', sevenDaysAgo.toISOString().split('T')[0]);
 
       if (!sessions || sessions.length === 0) {
-        return { bestDay: 0, dailyAvg: 0, daysHitTarget: 0 };
+        return { bestDay: 0, dailyAvg: 0, daysHitTarget: 0, avgTpm: 0 };
       }
 
       // Group by date
@@ -123,7 +123,12 @@ const ProgressPage = () => {
       const dailyAvg = Math.round(dailyTotals.reduce((a, b) => a + b, 0) / 7);
       const daysHitTarget = dailyTotals.filter(t => t >= 1000).length;
 
-      return { bestDay, dailyAvg, daysHitTarget };
+      // Calculate average TPM
+      const totalTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
+      const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+      const avgTpm = totalMinutes > 0 ? Math.round(totalTouches / totalMinutes) : 0;
+
+      return { bestDay, dailyAvg, daysHitTarget, avgTpm };
     },
   });
 
@@ -343,11 +348,24 @@ const ProgressPage = () => {
               <Text style={styles.statLabel}>Daily Avg</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>🎯</Text>
-              <Text style={styles.statValue}>{quickStats?.daysHitTarget || 0}/7</Text>
-              <Text style={styles.statLabel}>Hit Target</Text>
+              <Text style={styles.statEmoji}>⚡</Text>
+              <Text style={styles.statValue}>{quickStats?.avgTpm || 0}</Text>
+              <Text style={styles.statLabel}>Tempo</Text>
             </View>
           </View>
+          {(quickStats?.avgTpm || 0) > 0 && (
+            <View style={styles.tpmHint}>
+              <Text style={styles.tpmHintText}>
+                {(quickStats?.avgTpm || 0) < 30
+                  ? '💡 Try practicing faster - aim for game speed!'
+                  : (quickStats?.avgTpm || 0) < 50
+                  ? '👍 Good pace! Push for 50+ touches/min'
+                  : (quickStats?.avgTpm || 0) < 80
+                  ? '🔥 Great tempo! You\'re training at game speed'
+                  : '⚡ Elite intensity! Keep it up!'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Session History */}
@@ -383,6 +401,11 @@ const ProgressPage = () => {
                 <View style={styles.sessionRight}>
                   <Text style={styles.sessionTouches}>{session.touches_logged.toLocaleString()}</Text>
                   <Text style={styles.sessionTouchesLabel}>touches</Text>
+                  {session.duration_minutes && session.duration_minutes > 0 && (
+                    <Text style={styles.sessionTpm}>
+                      ⚡ {Math.round(session.touches_logged / session.duration_minutes)}/min
+                    </Text>
+                  )}
                 </View>
               </View>
             ))
@@ -594,6 +617,18 @@ const styles = StyleSheet.create({
     color: '#78909C',
     textAlign: 'center',
   },
+  tpmHint: {
+    marginTop: 16,
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 12,
+  },
+  tpmHintText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1976D2',
+    textAlign: 'center',
+  },
 
   // SESSION HISTORY
   historyCard: {
@@ -685,6 +720,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
     textTransform: 'uppercase',
+  },
+  sessionTpm: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF9800',
+    marginTop: 4,
   },
 
   // ACHIEVEMENTS

@@ -48,7 +48,17 @@ const HomeScreen = () => {
   const dailyTarget = touchStats?.daily_target || 1000;
   const weekTouches = touchStats?.this_week_touches || 0;
   const streak = touchStats?.current_streak || 0;
+  const weekTpm = touchStats?.this_week_tpm || 0;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
+
+  // TPM intensity indicator
+  const getTpmLabel = (tpm: number) => {
+    if (tpm === 0) return 'No data';
+    if (tpm < 30) return 'Slow pace';
+    if (tpm < 50) return 'Moderate';
+    if (tpm < 80) return 'Good tempo!';
+    return 'Game speed!';
+  };
 
   return (
     <View style={styles.container}>
@@ -122,15 +132,11 @@ const HomeScreen = () => {
 
           <View style={[styles.statCard, styles.statBest]}>
             <View style={styles.statIconBg}>
-              <Text style={styles.statIcon}>🏆</Text>
+              <Text style={styles.statIcon}>⚡</Text>
             </View>
-            <Text style={styles.statValue}>
-              {Math.round((todayTouches / dailyTarget) * 100)}%
-            </Text>
-            <Text style={styles.statLabel}>Today&apos;s Goal</Text>
-            <Text style={styles.statSubtext}>
-              {dailyTarget.toLocaleString()} target
-            </Text>
+            <Text style={styles.statValue}>{weekTpm}</Text>
+            <Text style={styles.statLabel}>Touches/Min</Text>
+            <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
           </View>
 
           <View style={[styles.statCard, styles.statAvg]}>

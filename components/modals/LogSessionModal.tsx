@@ -166,6 +166,43 @@ const LogSessionModal = ({
                 </View>
               </View>
 
+              {/* Duration Input - Prominent for TPM tracking */}
+              <View style={styles.sectionHighlight}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionLabel}>
+                    How long did you practice?
+                  </Text>
+                  <View style={styles.tpmBadge}>
+                    <Ionicons name='flash' size={12} color='#FF9800' />
+                    <Text style={styles.tpmBadgeText}>Tracks tempo</Text>
+                  </View>
+                </View>
+                <Text style={styles.sectionHint}>
+                  Add time to see your touches per minute - aim for game speed!
+                </Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder='Minutes'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={duration}
+                    onChangeText={setDuration}
+                  />
+                  <View style={styles.inputIconBg}>
+                    <Ionicons name='time' size={20} color='#FF9800' />
+                  </View>
+                </View>
+                {touches && duration && parseInt(duration) > 0 && (
+                  <View style={styles.tpmPreview}>
+                    <Text style={styles.tpmPreviewText}>
+                      ⚡ {Math.round(parseInt(touches) / parseInt(duration))} touches/min
+                      {parseInt(touches) / parseInt(duration) >= 50 ? ' - Game speed!' : parseInt(touches) / parseInt(duration) >= 30 ? ' - Good pace!' : ' - Try going faster!'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               {/* Juggling Record */}
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>
@@ -185,24 +222,6 @@ const LogSessionModal = ({
                   />
                   <View style={styles.inputIconBg}>
                     <Ionicons name='trophy' size={20} color='#FFD700' />
-                  </View>
-                </View>
-              </View>
-
-              {/* Duration Input (Optional) */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>How long? (optional)</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder='Minutes'
-                    placeholderTextColor='#B0BEC5'
-                    keyboardType='number-pad'
-                    value={duration}
-                    onChangeText={setDuration}
-                  />
-                  <View style={styles.inputIconBg}>
-                    <Ionicons name='time' size={20} color='#42A5F5' />
                   </View>
                 </View>
               </View>
@@ -381,6 +400,46 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  sectionHighlight: {
+    marginBottom: 24,
+    backgroundColor: '#FFF8E1',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFE082',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  tpmBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  tpmBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF9800',
+  },
+  tpmPreview: {
+    marginTop: 12,
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  tpmPreviewText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FF9800',
   },
   sectionLabel: {
     fontSize: 15,

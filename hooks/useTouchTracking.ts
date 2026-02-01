@@ -3,8 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 
 interface DailyStats {
   today_touches: number;
+  today_minutes: number;
+  today_tpm: number;
   daily_target: number;
   this_week_touches: number;
+  this_week_minutes: number;
+  this_week_tpm: number;
   current_streak: number;
   last_session_time: string | null;
 }
@@ -37,12 +41,15 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       const { data: todaySessions } = await supabase
         .from('daily_sessions')
-        .select('touches_logged')
+        .select('touches_logged, duration_minutes')
         .eq('user_id', userId)
         .eq('date', today);
 
       const todayTouches =
         todaySessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
+      const todayMinutes =
+        todaySessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
+      const todayTpm = todayMinutes > 0 ? Math.round(todayTouches / todayMinutes) : 0;
 
       // Get user's daily target
       const { data: targetData } = await supabase
@@ -60,12 +67,15 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       const { data: weekSessions } = await supabase
         .from('daily_sessions')
-        .select('touches_logged, date')
+        .select('touches_logged, duration_minutes, date')
         .eq('user_id', userId)
         .gte('date', weekStart);
 
       const weekTouches =
         weekSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
+      const weekMinutes =
+        weekSessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
+      const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
 
       // Calculate streak (consecutive days with at least 1 session)
       const { data: allSessions } = await supabase
@@ -106,8 +116,12 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       return {
         today_touches: todayTouches,
+        today_minutes: todayMinutes,
+        today_tpm: todayTpm,
         daily_target: dailyTarget,
         this_week_touches: weekTouches,
+        this_week_minutes: weekMinutes,
+        this_week_tpm: weekTpm,
         current_streak: streak,
         last_session_time: lastSession?.created_at || null,
       };
