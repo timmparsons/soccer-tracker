@@ -400,8 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: screenHeight * 0.9,
-    minHeight: screenHeight * 0.5,
+    height: screenHeight * 0.85,
   },
   scrollContent: {
     paddingBottom: 20,
