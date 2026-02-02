@@ -1,7 +1,7 @@
 import { useDrills, useJugglingRecord } from '@/hooks/useTouchTracking';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -37,6 +37,7 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: drills, isLoading: drillsLoading } = useDrills();
   const { data: currentRecord } = useJugglingRecord(userId);
@@ -128,11 +129,11 @@ const LogSessionModal = ({
       animationType='slide'
       transparent={true}
       onRequestClose={onClose}
+      statusBarTranslucent={Platform.OS === 'android'}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={styles.modalContent}>
             {/* Header */}
@@ -144,6 +145,7 @@ const LogSessionModal = ({
             </View>
 
             <ScrollView
+              ref={scrollViewRef}
               style={styles.modalBody}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps='handled'
@@ -162,6 +164,13 @@ const LogSessionModal = ({
                     keyboardType='number-pad'
                     value={touches}
                     onChangeText={setTouches}
+                    onFocus={() => {
+                      if (Platform.OS === 'android') {
+                        setTimeout(() => {
+                          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                        }, 100);
+                      }
+                    }}
                   />
                   <View style={styles.inputIconBg}>
                     <Ionicons name='football' size={20} color='#2B9FFF' />
@@ -400,7 +409,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: screenHeight * 0.85,
+    height: Platform.OS === 'android' ? screenHeight * 0.6 : screenHeight * 0.85,
+    maxHeight: screenHeight * 0.85,
   },
   scrollContent: {
     paddingBottom: 20,
