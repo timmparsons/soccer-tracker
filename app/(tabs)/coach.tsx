@@ -4,13 +4,16 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -32,7 +35,19 @@ interface PlayerStats {
   total_sessions: number;
   last_session_date: string | null;
   current_streak: number;
+  daily_target: number;
+  week_minutes: number;
+  week_tpm: number;
+  days_active_this_week: number;
 }
+
+// Helper to get local date
+const getLocalDate = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function CoachDashboard() {
   const { data: user } = useUser();
@@ -42,7 +57,9 @@ export default function CoachDashboard() {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [touchCount, setTouchCount] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Get team info
   const { data: team } = useQuery({
@@ -59,7 +76,7 @@ export default function CoachDashboard() {
     },
   });
 
-  // Get team players with their touch stats
+  // Get team players with comprehensive stats
   const {
     data: teamPlayers,
     isLoading,
@@ -78,10 +95,10 @@ export default function CoachDashboard() {
       if (playersError) throw playersError;
       if (!players) return [];
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDate();
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const weekStart = sevenDaysAgo.toISOString().split('T')[0];
+      const weekStart = getLocalDate(sevenDaysAgo);
 
       // Get stats for each player
       const playersWithStats: PlayerStats[] = await Promise.all(
@@ -89,25 +106,33 @@ export default function CoachDashboard() {
           // Get all sessions for this player
           const { data: sessions } = await supabase
             .from('daily_sessions')
-            .select('touches_logged, date, created_at')
+            .select('touches_logged, duration_minutes, date, created_at')
             .eq('user_id', player.id)
             .order('created_at', { ascending: false });
 
+          // Get player's daily target
+          const { data: targetData } = await supabase
+            .from('user_targets')
+            .select('daily_target_touches')
+            .eq('user_id', player.id)
+            .single();
+
           const allSessions = sessions || [];
+          const weekSessions = allSessions.filter((s) => s.date >= weekStart);
 
           // Calculate stats
           const todayTouches = allSessions
             .filter((s) => s.date === today)
             .reduce((sum, s) => sum + s.touches_logged, 0);
 
-          const weekTouches = allSessions
-            .filter((s) => s.date >= weekStart)
-            .reduce((sum, s) => sum + s.touches_logged, 0);
+          const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+          const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+          const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
 
-          const totalTouches = allSessions.reduce(
-            (sum, s) => sum + s.touches_logged,
-            0
-          );
+          const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+
+          // Days active this week
+          const uniqueWeekDays = new Set(weekSessions.map((s) => s.date)).size;
 
           // Calculate streak
           const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
@@ -139,6 +164,10 @@ export default function CoachDashboard() {
             total_sessions: allSessions.length,
             last_session_date: allSessions[0]?.created_at || null,
             current_streak: streak,
+            daily_target: targetData?.daily_target_touches || 1000,
+            week_minutes: weekMinutes,
+            week_tpm: weekTpm,
+            days_active_this_week: uniqueWeekDays,
           };
         })
       );
@@ -147,6 +176,21 @@ export default function CoachDashboard() {
       return playersWithStats.sort((a, b) => b.week_touches - a.week_touches);
     },
   });
+
+  // Refetch on focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+      refetchProfile();
+    }, [refetch, refetchProfile])
+  );
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   // Redirect if not a coach
   if (!profile?.is_coach) {
@@ -166,7 +210,7 @@ export default function CoachDashboard() {
     );
   }
 
-  // Calculate team stats
+  // Calculate comprehensive team stats
   const totalPlayers = teamPlayers?.length || 0;
   const activePlayers = teamPlayers?.filter((p) => {
     if (!p.last_session_date) return false;
@@ -176,13 +220,37 @@ export default function CoachDashboard() {
     return lastSession > threeDaysAgo;
   }).length || 0;
 
+  const inactivePlayers = teamPlayers?.filter((p) => {
+    if (!p.last_session_date) return true;
+    const lastSession = new Date(p.last_session_date);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return lastSession < sevenDaysAgo;
+  }) || [];
+
   const teamTodayTouches = teamPlayers?.reduce((sum, p) => sum + p.today_touches, 0) || 0;
   const teamWeekTouches = teamPlayers?.reduce((sum, p) => sum + p.week_touches, 0) || 0;
+  const teamTotalTouches = teamPlayers?.reduce((sum, p) => sum + p.total_touches, 0) || 0;
+
+  // Team averages
+  const avgWeekTouches = totalPlayers > 0 ? Math.round(teamWeekTouches / totalPlayers) : 0;
+  const avgDailyTouches = totalPlayers > 0 ? Math.round(teamWeekTouches / 7 / totalPlayers) : 0;
+
+  // Team TPM (weighted average)
+  const totalWeekMinutes = teamPlayers?.reduce((sum, p) => sum + p.week_minutes, 0) || 0;
+  const teamAvgTpm = totalWeekMinutes > 0 ? Math.round(teamWeekTouches / totalWeekMinutes) : 0;
+
+  // Players who hit their target today
+  const playersHitTarget = teamPlayers?.filter((p) => p.today_touches >= p.daily_target).length || 0;
+
+  // Top performer this week
+  const topPerformer = teamPlayers && teamPlayers.length > 0 ? teamPlayers[0] : null;
 
   // Handle opening modal for a player
   const handlePlayerPress = (player: PlayerStats) => {
     setSelectedPlayer(player);
     setTouchCount('');
+    setDurationMinutes('');
     setModalVisible(true);
   };
 
@@ -200,11 +268,13 @@ export default function CoachDashboard() {
     setSaving(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDate();
+      const duration = durationMinutes ? parseInt(durationMinutes, 10) : null;
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: selectedPlayer.id,
         touches_logged: count,
+        duration_minutes: duration,
         date: today,
       });
 
@@ -218,9 +288,9 @@ export default function CoachDashboard() {
       await refetch();
       setModalVisible(false);
       setTouchCount('');
+      setDurationMinutes('');
       setSelectedPlayer(null);
     } catch (error) {
-      console.error('Error saving touches:', error);
       Alert.alert('Error', 'Failed to save touches. Please try again.');
     } finally {
       setSaving(false);
@@ -236,7 +306,7 @@ export default function CoachDashboard() {
         message: `Join my team "${team.name}" on Master Touch!\n\nTeam Code: ${team.code}`,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      // Sharing cancelled
     }
   };
 
@@ -264,9 +334,32 @@ export default function CoachDashboard() {
     return `${Math.floor(diffDays / 7)}w ago`;
   };
 
+  // Get TPM label
+  const getTpmLabel = (tpm: number) => {
+    if (tpm === 0) return 'No data';
+    if (tpm < 30) return 'Slow';
+    if (tpm < 50) return 'Moderate';
+    if (tpm < 80) return 'Good';
+    return 'Game speed';
+  };
+
+  // Get TPM color
+  const getTpmColor = (tpm: number) => {
+    if (tpm === 0) return '#9CA3AF';
+    if (tpm < 30) return '#EF4444';
+    if (tpm < 50) return '#F59E0B';
+    if (tpm < 80) return '#22C55E';
+    return '#10B981';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
@@ -275,7 +368,7 @@ export default function CoachDashboard() {
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
             <Text style={styles.headerSubtitle}>
-              {totalPlayers} {totalPlayers === 1 ? 'player' : 'players'}
+              {totalPlayers} {totalPlayers === 1 ? 'player' : 'players'} • {activePlayers} active
             </Text>
           </View>
         </View>
@@ -299,28 +392,113 @@ export default function CoachDashboard() {
           </View>
         </View>
 
-        {/* Team Stats */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Team Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{teamTodayTouches.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Today</Text>
+        {/* Team Overview Card */}
+        <View style={styles.overviewCard}>
+          <Text style={styles.sectionTitle}>Team Overview</Text>
+
+          <View style={styles.overviewGrid}>
+            <View style={styles.overviewItem}>
+              <Text style={styles.overviewEmoji}>📊</Text>
+              <Text style={styles.overviewValue}>{teamTodayTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewLabel}>Today</Text>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{teamWeekTouches.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>This Week</Text>
+            <View style={styles.overviewItem}>
+              <Text style={styles.overviewEmoji}>📈</Text>
+              <Text style={styles.overviewValue}>{teamWeekTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewLabel}>This Week</Text>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{activePlayers}/{totalPlayers}</Text>
-              <Text style={styles.statLabel}>Active</Text>
+            <View style={styles.overviewItem}>
+              <Text style={styles.overviewEmoji}>🏆</Text>
+              <Text style={styles.overviewValue}>{teamTotalTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewLabel}>All Time</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Avg Daily/Player</Text>
+              <Text style={styles.statValue}>{avgDailyTouches.toLocaleString()}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Team Tempo</Text>
+              <Text style={[styles.statValue, { color: getTpmColor(teamAvgTpm) }]}>
+                {teamAvgTpm > 0 ? `${teamAvgTpm}/min` : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Hit Target Today</Text>
+              <Text style={styles.statValue}>{playersHitTarget}/{totalPlayers}</Text>
             </View>
           </View>
         </View>
 
+        {/* Top Performer Card */}
+        {topPerformer && topPerformer.week_touches > 0 && (
+          <View style={styles.topPerformerCard}>
+            <View style={styles.topPerformerHeader}>
+              <Text style={styles.topPerformerEmoji}>⭐</Text>
+              <Text style={styles.topPerformerTitle}>Top Performer This Week</Text>
+            </View>
+            <View style={styles.topPerformerContent}>
+              <Image
+                source={{
+                  uri: topPerformer.avatar_url ||
+                    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                }}
+                style={styles.topPerformerAvatar}
+              />
+              <View style={styles.topPerformerInfo}>
+                <Text style={styles.topPerformerName}>
+                  {topPerformer.display_name || topPerformer.name}
+                </Text>
+                <Text style={styles.topPerformerStats}>
+                  {topPerformer.week_touches.toLocaleString()} touches • {topPerformer.days_active_this_week} days active
+                </Text>
+              </View>
+              <View style={styles.topPerformerBadge}>
+                <Text style={styles.topPerformerBadgeText}>🔥 {topPerformer.current_streak}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Needs Attention Section */}
+        {inactivePlayers.length > 0 && (
+          <View style={styles.attentionCard}>
+            <View style={styles.attentionHeader}>
+              <Ionicons name="alert-circle" size={20} color="#F59E0B" />
+              <Text style={styles.attentionTitle}>Needs Attention</Text>
+              <View style={styles.attentionBadge}>
+                <Text style={styles.attentionBadgeText}>{inactivePlayers.length}</Text>
+              </View>
+            </View>
+            <Text style={styles.attentionSubtitle}>
+              Players who haven't trained in 7+ days
+            </Text>
+            <View style={styles.attentionList}>
+              {inactivePlayers.slice(0, 3).map((player) => (
+                <TouchableOpacity
+                  key={player.id}
+                  style={styles.attentionPlayer}
+                  onPress={() => handlePlayerPress(player)}
+                >
+                  <Text style={styles.attentionPlayerName}>
+                    {player.display_name || player.name}
+                  </Text>
+                  <Text style={styles.attentionPlayerTime}>
+                    {formatLastActive(player.last_session_date)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Player List */}
         <View style={styles.playerList}>
-          <Text style={styles.sectionTitle}>Players</Text>
+          <Text style={styles.sectionTitle}>All Players</Text>
 
           {teamPlayers && teamPlayers.length > 0 ? (
             teamPlayers.map((player) => {
@@ -329,6 +507,7 @@ export default function CoachDashboard() {
               const isWarning = player.last_session_date &&
                 new Date(player.last_session_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) &&
                 !isActive;
+              const targetProgress = Math.min((player.today_touches / player.daily_target) * 100, 100);
 
               return (
                 <TouchableOpacity
@@ -338,13 +517,27 @@ export default function CoachDashboard() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.playerTop}>
+                    <Image
+                      source={{
+                        uri: player.avatar_url ||
+                          'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                      }}
+                      style={styles.playerAvatar}
+                    />
                     <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>
-                        {player.display_name || player.name || 'Player'}
-                      </Text>
+                      <View style={styles.playerNameRow}>
+                        <Text style={styles.playerName}>
+                          {player.display_name || player.name || 'Player'}
+                        </Text>
+                        {player.current_streak > 0 && (
+                          <View style={styles.streakBadge}>
+                            <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.playerLastActive}>
                         {formatLastActive(player.last_session_date)}
-                        {player.current_streak > 0 && ` • ${player.current_streak} day streak`}
+                        {player.days_active_this_week > 0 && ` • ${player.days_active_this_week}/7 days`}
                       </Text>
                     </View>
                     <View style={styles.playerStatus}>
@@ -354,12 +547,28 @@ export default function CoachDashboard() {
                     </View>
                   </View>
 
-                  <View style={styles.playerStats}>
-                    <View style={styles.playerStat}>
-                      <Text style={styles.playerStatValue}>{player.today_touches.toLocaleString()}</Text>
-                      <Text style={styles.playerStatLabel}>Today</Text>
+                  {/* Today's Target Progress */}
+                  <View style={styles.targetProgressContainer}>
+                    <View style={styles.targetProgressHeader}>
+                      <Text style={styles.targetProgressLabel}>Today's Target</Text>
+                      <Text style={styles.targetProgressValue}>
+                        {player.today_touches.toLocaleString()} / {player.daily_target.toLocaleString()}
+                      </Text>
                     </View>
-                    <View style={styles.playerStatDivider} />
+                    <View style={styles.targetProgressBar}>
+                      <View
+                        style={[
+                          styles.targetProgressFill,
+                          {
+                            width: `${targetProgress}%`,
+                            backgroundColor: targetProgress >= 100 ? '#22C55E' : '#2B9FFF',
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.playerStats}>
                     <View style={styles.playerStat}>
                       <Text style={styles.playerStatValue}>{player.week_touches.toLocaleString()}</Text>
                       <Text style={styles.playerStatLabel}>Week</Text>
@@ -368,6 +577,18 @@ export default function CoachDashboard() {
                     <View style={styles.playerStat}>
                       <Text style={styles.playerStatValue}>{player.total_touches.toLocaleString()}</Text>
                       <Text style={styles.playerStatLabel}>Total</Text>
+                    </View>
+                    <View style={styles.playerStatDivider} />
+                    <View style={styles.playerStat}>
+                      <Text style={[styles.playerStatValue, { color: getTpmColor(player.week_tpm) }]}>
+                        {player.week_tpm > 0 ? player.week_tpm : '-'}
+                      </Text>
+                      <Text style={styles.playerStatLabel}>Tempo</Text>
+                    </View>
+                    <View style={styles.playerStatDivider} />
+                    <View style={styles.playerStat}>
+                      <Text style={styles.playerStatValue}>{player.total_sessions}</Text>
+                      <Text style={styles.playerStatLabel}>Sessions</Text>
                     </View>
                   </View>
 
@@ -402,6 +623,7 @@ export default function CoachDashboard() {
             onPress={() => {
               setModalVisible(false);
               setTouchCount('');
+              setDurationMinutes('');
               setSelectedPlayer(null);
             }}
           >
@@ -418,11 +640,8 @@ export default function CoachDashboard() {
                   </Text>
                 </View>
 
-                <Text style={styles.modalSubtitle}>
-                  Enter the number of touches to add for this player
-                </Text>
-
-                <View style={styles.inputContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Touch Count *</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter touch count"
@@ -431,9 +650,22 @@ export default function CoachDashboard() {
                     value={touchCount}
                     onChangeText={setTouchCount}
                     autoFocus
-                    returnKeyType="done"
-                    onSubmitEditing={handleSaveTouches}
                   />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Duration (minutes)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Optional - for tempo tracking"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="number-pad"
+                    value={durationMinutes}
+                    onChangeText={setDurationMinutes}
+                  />
+                  <Text style={styles.inputHint}>
+                    Adding duration helps track training intensity
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -453,6 +685,7 @@ export default function CoachDashboard() {
                   onPress={() => {
                     setModalVisible(false);
                     setTouchCount('');
+                    setDurationMinutes('');
                     setSelectedPlayer(null);
                   }}
                 >
@@ -470,7 +703,7 @@ export default function CoachDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
   },
   content: {
     padding: 20,
@@ -514,7 +747,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#2C3E50',
+    color: '#1a1a2e',
   },
   headerSubtitle: {
     fontSize: 15,
@@ -551,7 +784,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#2C3E50',
+    color: '#1a1a2e',
     letterSpacing: 4,
     textAlign: 'center',
     marginBottom: 16,
@@ -576,56 +809,200 @@ const styles = StyleSheet.create({
     color: '#2B9FFF',
   },
 
-  // Stats Card
-  statsCard: {
+  // Overview Card
+  overviewCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-  statsTitle: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#2C3E50',
+    fontWeight: '900',
+    color: '#1a1a2e',
     marginBottom: 16,
   },
-  statsGrid: {
+  overviewGrid: {
     flexDirection: 'row',
     gap: 12,
   },
-  statBox: {
+  overviewItem: {
     flex: 1,
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
   },
-  statValue: {
+  overviewEmoji: {
     fontSize: 24,
+    marginBottom: 8,
+  },
+  overviewValue: {
+    fontSize: 20,
     fontWeight: '900',
-    color: '#2C3E50',
+    color: '#1a1a2e',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
+  overviewLabel: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#6B7280',
+    textTransform: 'uppercase',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+
+  // Top Performer Card
+  topPerformerCard: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FFE082',
+  },
+  topPerformerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  topPerformerEmoji: {
+    fontSize: 20,
+  },
+  topPerformerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  topPerformerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  topPerformerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#FFD700',
+  },
+  topPerformerInfo: {
+    flex: 1,
+  },
+  topPerformerName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  topPerformerStats: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  topPerformerBadge: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  topPerformerBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+
+  // Attention Card
+  attentionCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FDE68A',
+  },
+  attentionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  attentionTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  attentionBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  attentionBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  attentionSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B45309',
+    marginBottom: 12,
+  },
+  attentionList: {
+    gap: 8,
+  },
+  attentionPlayer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 12,
+  },
+  attentionPlayerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  attentionPlayerTime: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F59E0B',
   },
 
   // Player List
   playerList: {
     marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#2C3E50',
-    marginBottom: 16,
   },
   playerCard: {
     backgroundColor: '#FFF',
@@ -640,23 +1017,46 @@ const styles = StyleSheet.create({
   },
   playerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
+  },
+  playerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
   playerInfo: {
     flex: 1,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   playerName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#2C3E50',
-    marginBottom: 4,
+    color: '#1a1a2e',
+  },
+  streakBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  streakText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
   },
   playerLastActive: {
     fontSize: 13,
     fontWeight: '600',
     color: '#9CA3AF',
+    marginTop: 2,
   },
   playerStatus: {
     paddingLeft: 12,
@@ -675,9 +1075,41 @@ const styles = StyleSheet.create({
   statusInactive: {
     backgroundColor: '#D1D5DB',
   },
+
+  // Target Progress
+  targetProgressContainer: {
+    marginBottom: 16,
+  },
+  targetProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  targetProgressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  targetProgressValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  targetProgressBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  targetProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+
   playerStats: {
     flexDirection: 'row',
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -687,13 +1119,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playerStatValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#2B9FFF',
     marginBottom: 2,
   },
   playerStatLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#9CA3AF',
     textTransform: 'uppercase',
@@ -736,7 +1168,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(44, 62, 80, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
@@ -757,38 +1189,40 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '900',
     marginTop: 12,
-    color: '#2C3E50',
+    color: '#1a1a2e',
     textAlign: 'center',
   },
-  modalSubtitle: {
-    color: '#6B7280',
-    marginBottom: 24,
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
     fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 20,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F5F9FF',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 16,
     width: '100%',
-    fontSize: 24,
+    fontSize: 18,
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    fontWeight: '800',
-    color: '#2C3E50',
-    textAlign: 'center',
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  inputHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginTop: 6,
   },
   saveButton: {
     backgroundColor: '#FFA500',
@@ -797,6 +1231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     width: '100%',
     alignItems: 'center',
+    marginTop: 8,
     shadowColor: '#FFA500',
     shadowOpacity: 0.4,
     shadowRadius: 8,

@@ -181,6 +181,27 @@ export const useDrills = () => {
 // Time durations for challenges (in seconds)
 const CHALLENGE_DURATIONS = [60, 90, 120, 180]; // 1, 1.5, 2, 3 minutes
 
+export const useJugglingRecord = (userId: string | undefined) => {
+  return useQuery({
+    queryKey: ['juggling-record', userId],
+    queryFn: async (): Promise<number> => {
+      if (!userId) throw new Error('No user ID');
+
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('juggle_count')
+        .eq('user_id', userId)
+        .not('juggle_count', 'is', null)
+        .order('juggle_count', { ascending: false })
+        .limit(1)
+        .single();
+
+      return data?.juggle_count || 0;
+    },
+    enabled: !!userId,
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['today-challenge', userId],

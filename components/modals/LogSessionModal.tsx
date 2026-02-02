@@ -1,4 +1,4 @@
-import { useDrills } from '@/hooks/useTouchTracking';
+import { useDrills, useJugglingRecord } from '@/hooks/useTouchTracking';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -39,6 +39,7 @@ const LogSessionModal = ({
   const [submitting, setSubmitting] = useState(false);
 
   const { data: drills, isLoading: drillsLoading } = useDrills();
+  const { data: currentRecord } = useJugglingRecord(userId);
 
   // Helper to get local date in YYYY-MM-DD format
   const getLocalDate = (): string => {
@@ -206,11 +207,23 @@ const LogSessionModal = ({
 
               {/* Juggling Record */}
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>
-                  Juggling record (optional)
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionLabel}>
+                    Juggling record (optional)
+                  </Text>
+                  {currentRecord && currentRecord > 0 && (
+                    <View style={styles.recordBadge}>
+                      <Ionicons name='trophy' size={12} color='#FFD700' />
+                      <Text style={styles.recordBadgeText}>
+                        PR: {currentRecord}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.sectionHint}>
-                  Did you set a new personal best?
+                  {currentRecord && currentRecord > 0
+                    ? `Can you beat ${currentRecord}? Enter your best from this session!`
+                    : 'Did you set a new personal best?'}
                 </Text>
                 <View style={styles.inputContainer}>
                   <TextInput
@@ -225,6 +238,21 @@ const LogSessionModal = ({
                     <Ionicons name='trophy' size={20} color='#FFD700' />
                   </View>
                 </View>
+                {juggles && parseInt(juggles) > 0 && currentRecord !== undefined && (
+                  <View style={[
+                    styles.jugglePreview,
+                    parseInt(juggles) > currentRecord && styles.jugglePreviewRecord
+                  ]}>
+                    <Text style={[
+                      styles.jugglePreviewText,
+                      parseInt(juggles) > currentRecord && styles.jugglePreviewTextRecord
+                    ]}>
+                      {parseInt(juggles) > currentRecord
+                        ? `🎉 NEW PERSONAL BEST! +${parseInt(juggles) - currentRecord} from your record!`
+                        : `${currentRecord - parseInt(juggles)} away from your PR`}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Drill Selection */}
@@ -429,6 +457,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#FF9800',
+  },
+  recordBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  recordBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F9A825',
+  },
+  jugglePreview: {
+    marginTop: 12,
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  jugglePreviewRecord: {
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  jugglePreviewText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  jugglePreviewTextRecord: {
+    color: '#F9A825',
+    fontWeight: '800',
   },
   tpmPreview: {
     marginTop: 12,

@@ -216,79 +216,85 @@ const ProfilePage = () => {
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
 
-            {/* Daily Target Badge */}
-            <View style={styles.targetBadge}>
-              <Ionicons name='flag' size={20} color='#2B9FFF' />
-              <Text style={styles.targetText}>
-                Daily Target: {dailyTarget.toLocaleString()} touches
-              </Text>
-            </View>
+            {/* Daily Target Badge - only for players */}
+            {!profile?.is_coach && (
+              <View style={styles.targetBadge}>
+                <Ionicons name='flag' size={20} color='#2B9FFF' />
+                <Text style={styles.targetText}>
+                  Daily Target: {dailyTarget.toLocaleString()} touches
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Lifetime Stats Card */}
-          <View style={styles.lifetimeCard}>
-            <View style={styles.lifetimeHeader}>
-              <Text style={styles.lifetimeEmoji}>🏆</Text>
-              <Text style={styles.lifetimeTitle}>Lifetime Stats</Text>
-            </View>
-            <View style={styles.bigStatContainer}>
-              <Text style={styles.bigStatValue}>
-                {(lifetimeStats?.lifetime_touches || 0).toLocaleString()}
-              </Text>
-              <Text style={styles.bigStatLabel}>Total Touches</Text>
-            </View>
-            <View style={styles.lifetimeGrid}>
-              <View style={styles.lifetimeStat}>
-                <Text style={styles.lifetimeStatValue}>
-                  {lifetimeStats?.total_sessions || 0}
-                </Text>
-                <Text style={styles.lifetimeStatLabel}>Sessions</Text>
+          {/* Lifetime Stats Card - only for players */}
+          {!profile?.is_coach && (
+            <View style={styles.lifetimeCard}>
+              <View style={styles.lifetimeHeader}>
+                <Text style={styles.lifetimeEmoji}>🏆</Text>
+                <Text style={styles.lifetimeTitle}>Lifetime Stats</Text>
               </View>
-              <View style={styles.lifetimeStat}>
-                <Text style={styles.lifetimeStatValue}>
-                  {lifetimeStats?.days_active || 0}
+              <View style={styles.bigStatContainer}>
+                <Text style={styles.bigStatValue}>
+                  {(lifetimeStats?.lifetime_touches || 0).toLocaleString()}
                 </Text>
-                <Text style={styles.lifetimeStatLabel}>Days Active</Text>
+                <Text style={styles.bigStatLabel}>Total Touches</Text>
               </View>
-              <View style={styles.lifetimeStat}>
-                <Text style={styles.lifetimeStatValue}>
-                  {(lifetimeStats?.avg_daily_touches || 0).toLocaleString()}
-                </Text>
-                <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Streaks Card */}
-          <View style={styles.streaksCard}>
-            <View style={styles.streakRow}>
-              <View style={styles.streakItem}>
-                <View style={styles.streakIconContainer}>
-                  <Text style={styles.streakEmoji}>🔥</Text>
-                </View>
-                <View style={styles.streakInfo}>
-                  <Text style={styles.streakValue}>
-                    {currentStreak}
+              <View style={styles.lifetimeGrid}>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {lifetimeStats?.total_sessions || 0}
                   </Text>
-                  <Text style={styles.streakLabel}>Current Streak</Text>
+                  <Text style={styles.lifetimeStatLabel}>Sessions</Text>
                 </View>
-              </View>
-
-              <View style={styles.streakDivider} />
-
-              <View style={styles.streakItem}>
-                <View style={styles.streakIconContainer}>
-                  <Text style={styles.streakEmoji}>⭐</Text>
-                </View>
-                <View style={styles.streakInfo}>
-                  <Text style={styles.streakValue}>
-                    {lifetimeStats?.longest_streak || 0}
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {lifetimeStats?.days_active || 0}
                   </Text>
-                  <Text style={styles.streakLabel}>Best Streak</Text>
+                  <Text style={styles.lifetimeStatLabel}>Days Active</Text>
+                </View>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {(lifetimeStats?.avg_daily_touches || 0).toLocaleString()}
+                  </Text>
+                  <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
                 </View>
               </View>
             </View>
-          </View>
+          )}
+
+          {/* Streaks Card - only for players */}
+          {!profile?.is_coach && (
+            <View style={styles.streaksCard}>
+              <View style={styles.streakRow}>
+                <View style={styles.streakItem}>
+                  <View style={styles.streakIconContainer}>
+                    <Text style={styles.streakEmoji}>🔥</Text>
+                  </View>
+                  <View style={styles.streakInfo}>
+                    <Text style={styles.streakValue}>
+                      {currentStreak}
+                    </Text>
+                    <Text style={styles.streakLabel}>Current Streak</Text>
+                  </View>
+                </View>
+
+                <View style={styles.streakDivider} />
+
+                <View style={styles.streakItem}>
+                  <View style={styles.streakIconContainer}>
+                    <Text style={styles.streakEmoji}>⭐</Text>
+                  </View>
+                  <View style={styles.streakInfo}>
+                    <Text style={styles.streakValue}>
+                      {lifetimeStats?.longest_streak || 0}
+                    </Text>
+                    <Text style={styles.streakLabel}>Best Streak</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Account Info Card */}
           <View style={styles.infoCard}>
