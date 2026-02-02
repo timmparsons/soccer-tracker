@@ -19,6 +19,24 @@ import {
 
 const screenHeight = Dimensions.get('window').height;
 
+// Drill descriptions for users who may not know the terms
+const DRILL_DESCRIPTIONS: Record<string, string> = {
+  // Beginner
+  'Toe Taps': 'Alternating taps on top of the ball with the sole of each foot',
+  'Inside-Outside Taps': 'Tap the ball side to side using inside and outside of the same foot',
+  'Sole Rolls': 'Roll the ball side to side under your foot using your sole',
+  'Foundation Touches': 'Basic ball control - taps, rolls, and touches with all parts of the foot',
+  // Intermediate
+  'Around the World': 'Circle your foot around the ball while juggling',
+  'Thigh Catches': 'Cushion the ball on your thigh and control it back down',
+  'Pull-Push': 'Pull the ball back with your sole, then push it forward with your laces',
+  'La Croqueta': 'Quick side-to-side touch between feet, made famous by Iniesta',
+  // Advanced
+  'Cruyff Turn': 'Fake a pass then drag the ball behind your standing leg',
+  'Elastico': 'Push the ball outside then quickly snap it back inside with the same foot',
+  'Maradona Spin': 'Drag the ball with one foot while spinning 360° over it',
+};
+
 interface LogSessionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -52,9 +70,12 @@ const LogSessionModal = ({
   };
 
   const handleSubmit = async () => {
-    const touchCount = parseInt(touches);
-    if (!touchCount || touchCount <= 0) {
-      Alert.alert('Invalid Input', 'Please enter a valid number of touches');
+    const touchCount = touches ? parseInt(touches) : 0;
+    const juggleCount = juggles ? parseInt(juggles) : 0;
+
+    // Must have either touches or juggles
+    if (touchCount <= 0 && juggleCount <= 0) {
+      Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
       return;
     }
 
@@ -68,7 +89,7 @@ const LogSessionModal = ({
         drill_id: selectedDrillId,
         touches_logged: touchCount,
         duration_minutes: duration ? parseInt(duration) : null,
-        juggle_count: juggles ? parseInt(juggles) : null,
+        juggle_count: juggleCount > 0 ? juggleCount : null,
         date: today,
       });
 
@@ -80,10 +101,17 @@ const LogSessionModal = ({
       setJuggles('');
       setSelectedDrillId(null);
 
-      Alert.alert(
-        'Success!',
-        `Logged ${touchCount.toLocaleString()} touches! 🎉`
-      );
+      // Build success message
+      let successMsg = '';
+      if (touchCount > 0 && juggleCount > 0) {
+        successMsg = `Logged ${touchCount.toLocaleString()} touches and ${juggleCount} juggles! 🎉`;
+      } else if (touchCount > 0) {
+        successMsg = `Logged ${touchCount.toLocaleString()} touches! 🎉`;
+      } else {
+        successMsg = `Logged juggling record of ${juggleCount}! 🏆`;
+      }
+
+      Alert.alert('Success!', successMsg);
       onSuccess();
       onClose();
     } catch (error) {
@@ -120,8 +148,10 @@ const LogSessionModal = ({
     }
   };
 
-  // Check if form is valid
-  const isFormValid = touches && parseInt(touches) > 0;
+  // Check if form is valid - allow either touches OR juggles
+  const touchCount = touches ? parseInt(touches) : 0;
+  const juggleCount = juggles ? parseInt(juggles) : 0;
+  const isFormValid = touchCount > 0 || juggleCount > 0;
 
   return (
     <Modal
@@ -154,7 +184,7 @@ const LogSessionModal = ({
               {/* Touches Input */}
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>
-                  How many touches? <Text style={styles.required}>*</Text>
+                  How many touches?
                 </Text>
                 <View style={styles.inputContainer}>
                   <TextInput
@@ -221,7 +251,7 @@ const LogSessionModal = ({
                   <Text style={styles.sectionLabel}>
                     Juggling record (optional)
                   </Text>
-                  {currentRecord && currentRecord > 0 && (
+                  {currentRecord !== undefined && currentRecord > 0 && (
                     <View style={styles.recordBadge}>
                       <Ionicons name='trophy' size={12} color='#FFD700' />
                       <Text style={styles.recordBadgeText}>
@@ -231,7 +261,7 @@ const LogSessionModal = ({
                   )}
                 </View>
                 <Text style={styles.sectionHint}>
-                  {currentRecord && currentRecord > 0
+                  {currentRecord !== undefined && currentRecord > 0
                     ? `Can you beat ${currentRecord}? Enter your best from this session!`
                     : 'Did you set a new personal best?'}
                 </Text>
@@ -251,15 +281,15 @@ const LogSessionModal = ({
                 {juggles && parseInt(juggles) > 0 && currentRecord !== undefined && (
                   <View style={[
                     styles.jugglePreview,
-                    parseInt(juggles) > currentRecord && styles.jugglePreviewRecord
+                    parseInt(juggles) > (currentRecord || 0) && styles.jugglePreviewRecord
                   ]}>
                     <Text style={[
                       styles.jugglePreviewText,
-                      parseInt(juggles) > currentRecord && styles.jugglePreviewTextRecord
+                      parseInt(juggles) > (currentRecord || 0) && styles.jugglePreviewTextRecord
                     ]}>
-                      {parseInt(juggles) > currentRecord
-                        ? `🎉 NEW PERSONAL BEST! +${parseInt(juggles) - currentRecord} from your record!`
-                        : `${currentRecord - parseInt(juggles)} away from your PR`}
+                      {parseInt(juggles) > (currentRecord || 0)
+                        ? '🎉 NEW PERSONAL BEST! +' + (parseInt(juggles) - (currentRecord || 0)) + ' from your record!'
+                        : ((currentRecord || 0) - parseInt(juggles)) + ' away from your PR'}
                     </Text>
                   </View>
                 )}
@@ -347,6 +377,11 @@ const LogSessionModal = ({
                             >
                               {drill.name}
                             </Text>
+                            {DRILL_DESCRIPTIONS[drill.name] && (
+                              <Text style={styles.drillDescription}>
+                                {DRILL_DESCRIPTIONS[drill.name]}
+                              </Text>
+                            )}
                             <Text style={styles.drillTargetText}>
                               Target: {drill.target_touches} touches •{' '}
                               {drill.target_duration_seconds}s
@@ -384,9 +419,13 @@ const LogSessionModal = ({
                   <ActivityIndicator size='small' color='#FFF' />
                 ) : (
                   <Text style={styles.submitButtonText}>
-                    LOG SESSION{' '}
-                    {touches &&
-                      `• ${parseInt(touches).toLocaleString()} TOUCHES`}
+                    {touchCount > 0 && juggleCount > 0
+                      ? 'LOG ' + touchCount.toLocaleString() + ' TOUCHES + ' + juggleCount + ' JUGGLES'
+                      : touchCount > 0
+                      ? 'LOG ' + touchCount.toLocaleString() + ' TOUCHES'
+                      : juggleCount > 0
+                      ? 'LOG JUGGLING RECORD • ' + juggleCount
+                      : 'LOG SESSION'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -604,11 +643,18 @@ const styles = StyleSheet.create({
   drillOptionTextSelected: {
     color: '#2B9FFF',
   },
-  drillTargetText: {
+  drillDescription: {
     fontSize: 12,
     color: '#78909C',
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 2,
+    lineHeight: 16,
+  },
+  drillTargetText: {
+    fontSize: 11,
+    color: '#B0BEC5',
+    fontWeight: '600',
+    marginTop: 4,
   },
   buttonContainer: {
     backgroundColor: '#FFF',

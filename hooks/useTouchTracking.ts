@@ -171,9 +171,15 @@ export const useDrills = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('drills')
-        .select('*')
-        .order('difficulty_level', { ascending: true });
-      return data || [];
+        .select('*');
+
+      // Sort by difficulty: beginner → intermediate → advanced
+      const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
+      return (data || []).sort((a, b) => {
+        const orderA = difficultyOrder[a.difficulty_level as keyof typeof difficultyOrder] || 99;
+        const orderB = difficultyOrder[b.difficulty_level as keyof typeof difficultyOrder] || 99;
+        return orderA - orderB;
+      });
     },
   });
 };
