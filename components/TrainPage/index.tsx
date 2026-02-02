@@ -88,7 +88,19 @@ const TrainPage = () => {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
   const [submittingScore, setSubmittingScore] = useState(false);
+  const [isFreeTimer, setIsFreeTimer] = useState(false);
+  const [freeTimerDuration, setFreeTimerDuration] = useState(0);
+  const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const TIMER_OPTIONS = [
+    { label: '1 min', seconds: 60 },
+    { label: '2 min', seconds: 120 },
+    { label: '3 min', seconds: 180 },
+    { label: '5 min', seconds: 300 },
+    { label: '10 min', seconds: 600 },
+  ];
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: todayChallenge, refetch: refetchChallenge } = useTodayChallenge(
@@ -104,9 +116,18 @@ const TrainPage = () => {
   const startTimer = useCallback(() => {
     if (!todayChallenge?.challenge_duration_seconds) return;
 
+    setIsFreeTimer(false);
     setTimeRemaining(todayChallenge.challenge_duration_seconds);
     setTimerActive(true);
   }, [todayChallenge]);
+
+  const startFreeTimer = useCallback((seconds: number) => {
+    setIsFreeTimer(true);
+    setFreeTimerDuration(seconds);
+    setTimeRemaining(seconds);
+    setShowTimerPicker(false);
+    setTimerActive(true);
+  }, []);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -161,19 +182,20 @@ const TrainPage = () => {
       return;
     }
 
-    if (!user?.id || !todayChallenge) return;
+    if (!user?.id) return;
+    if (!isFreeTimer && !todayChallenge) return;
 
     setSubmittingScore(true);
 
     try {
       const today = getLocalDate();
-      const durationMinutes = Math.ceil(
-        todayChallenge.challenge_duration_seconds / 60
-      );
+      const durationMinutes = isFreeTimer
+        ? Math.ceil(freeTimerDuration / 60)
+        : Math.ceil(todayChallenge!.challenge_duration_seconds / 60);
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: user.id,
-        drill_id: todayChallenge.id,
+        drill_id: isFreeTimer ? null : todayChallenge!.id,
         touches_logged: score,
         duration_minutes: durationMinutes,
         date: today,
@@ -182,15 +204,19 @@ const TrainPage = () => {
       if (error) throw error;
 
       Alert.alert(
-        'Challenge Complete!',
-        `You logged ${score.toLocaleString()} ${todayChallenge.name}!`
+        isFreeTimer ? 'Session Complete!' : 'Challenge Complete!',
+        isFreeTimer
+          ? `You logged ${score.toLocaleString()} touches!`
+          : `You logged ${score.toLocaleString()} ${todayChallenge!.name}!`
       );
 
       setScoreInput('');
       setShowScoreModal(false);
+      setIsFreeTimer(false);
+      setFreeTimerDuration(0);
       handleSessionLogged();
     } catch (error) {
-      console.error('Error logging challenge:', error);
+      console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
     } finally {
       setSubmittingScore(false);
@@ -266,17 +292,28 @@ const TrainPage = () => {
           </Text>
         </View>
 
-        {/* Log Session Button */}
-        <TouchableOpacity
-          style={styles.logButton}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.logButtonContent}>
-            <Ionicons name='add-circle' size={28} color='#FFF' />
-            <Text style={styles.logButtonText}>LOG PRACTICE SESSION</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Action Buttons Row */}
+        <View style={styles.actionButtonsRow}>
+          {/* Log Session Button */}
+          <TouchableOpacity
+            style={styles.logButton}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name='add-circle' size={24} color='#FFF' />
+            <Text style={styles.logButtonText}>LOG SESSION</Text>
+          </TouchableOpacity>
+
+          {/* Start Timer Button */}
+          <TouchableOpacity
+            style={styles.timerButton}
+            onPress={() => setShowTimerPicker(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name='timer' size={24} color='#FFF' />
+            <Text style={styles.timerButtonText}>START TIMER</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Today's Timed Challenge */}
         {todayChallenge && (
@@ -365,10 +402,10 @@ const TrainPage = () => {
         <View style={styles.timerModal}>
           <View style={styles.timerContent}>
             <Text style={styles.timerChallengeName}>
-              {todayChallenge?.name}
+              {isFreeTimer ? 'Free Practice' : todayChallenge?.name}
             </Text>
             <Text style={styles.timerInstructions}>
-              Do as many as you can!
+              {isFreeTimer ? 'Get as many touches as you can!' : 'Do as many as you can!'}
             </Text>
 
             <View style={styles.timerCircle}>
@@ -399,7 +436,9 @@ const TrainPage = () => {
               <Text style={styles.scoreModalEmoji}>🎉</Text>
               <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
               <Text style={styles.scoreModalSubtitle}>
-                How many {todayChallenge?.name} did you do?
+                {isFreeTimer
+                  ? 'How many touches did you get?'
+                  : `How many ${todayChallenge?.name} did you do?`}
               </Text>
             </View>
 
@@ -442,6 +481,78 @@ const TrainPage = () => {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Timer Picker Modal */}
+      <Modal
+        visible={showTimerPicker}
+        animationType='slide'
+        transparent={true}
+        onRequestClose={() => setShowTimerPicker(false)}
+      >
+        <View style={styles.timerPickerOverlay}>
+          <View style={styles.timerPickerContent}>
+            <View style={styles.timerPickerHeader}>
+              <Text style={styles.timerPickerEmoji}>⏱️</Text>
+              <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
+              <Text style={styles.timerPickerSubtitle}>
+                Choose a duration for your session
+              </Text>
+            </View>
+
+            <View style={styles.timerOptionsGrid}>
+              {TIMER_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.seconds}
+                  style={styles.timerOption}
+                  onPress={() => startFreeTimer(option.seconds)}
+                >
+                  <Text style={styles.timerOptionText}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.customTimerSection}>
+              <Text style={styles.customTimerLabel}>Custom duration</Text>
+              <View style={styles.customTimerRow}>
+                <TextInput
+                  style={styles.customTimerInput}
+                  placeholder='Minutes'
+                  placeholderTextColor='#B0BEC5'
+                  keyboardType='number-pad'
+                  value={customMinutes}
+                  onChangeText={setCustomMinutes}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.customTimerButton,
+                    !customMinutes && styles.customTimerButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    const mins = parseInt(customMinutes);
+                    if (mins > 0) {
+                      startFreeTimer(mins * 60);
+                      setCustomMinutes('');
+                    }
+                  }}
+                  disabled={!customMinutes}
+                >
+                  <Text style={styles.customTimerButtonText}>Start</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.timerPickerCancel}
+              onPress={() => {
+                setShowTimerPicker(false);
+                setCustomMinutes('');
+              }}
+            >
+              <Text style={styles.timerPickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -552,29 +663,53 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // LOG BUTTON
-  logButton: {
-    backgroundColor: '#FF7043',
-    borderRadius: 20,
-    paddingVertical: 22,
+  // ACTION BUTTONS ROW
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 24,
-    shadowColor: '#FF7043',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
   },
-  logButtonContent: {
+  logButton: {
+    flex: 1,
+    backgroundColor: '#FF7043',
+    borderRadius: 16,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
+    shadowColor: '#FF7043',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   logButtonText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 1.2,
+    letterSpacing: 0.5,
+  },
+  timerButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    borderRadius: 16,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  timerButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 
   // CHALLENGE CARD
@@ -894,5 +1029,115 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8D6E63',
     fontWeight: '700',
+  },
+
+  // TIMER PICKER MODAL
+  timerPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  timerPickerContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 340,
+  },
+  timerPickerHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  timerPickerEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  timerPickerTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 8,
+  },
+  timerPickerSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+  },
+  timerOptionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  timerOption: {
+    width: '30%',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  timerOptionText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  customTimerSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 20,
+    marginBottom: 16,
+  },
+  customTimerLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 12,
+  },
+  customTimerRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  customTimerInput: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  customTimerButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customTimerButtonDisabled: {
+    backgroundColor: '#B0BEC5',
+  },
+  customTimerButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  timerPickerCancel: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  timerPickerCancelText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#78909C',
   },
 });

@@ -177,7 +177,7 @@ const ProfilePage = () => {
     },
   });
 
-  const displayName = profile?.name || profile?.display_name || 'Player';
+  const displayName = profile?.name || profile?.display_name || (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
 

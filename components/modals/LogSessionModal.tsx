@@ -129,12 +129,12 @@ const LogSessionModal = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <View style={styles.modalContent}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={styles.modalContent}>
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Log Practice Session</Text>
@@ -146,6 +146,8 @@ const LogSessionModal = ({
             <ScrollView
               style={styles.modalBody}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps='handled'
+              contentContainerStyle={styles.scrollContent}
             >
               {/* Touches Input */}
               <View style={styles.section}>
@@ -160,7 +162,6 @@ const LogSessionModal = ({
                     keyboardType='number-pad'
                     value={touches}
                     onChangeText={setTouches}
-                    autoFocus={true}
                   />
                   <View style={styles.inputIconBg}>
                     <Ionicons name='football' size={20} color='#2B9FFF' />
@@ -357,7 +358,7 @@ const LogSessionModal = ({
               </View>
 
               {/* Bottom padding for scrolling */}
-              <View style={{ height: 120 }} />
+              <View style={{ height: 20 }} />
             </ScrollView>
 
             {/* Submit Button - Fixed at bottom */}
@@ -381,9 +382,8 @@ const LogSessionModal = ({
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -396,14 +396,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  keyboardView: {
-    maxHeight: screenHeight * 0.9,
-  },
   modalContent: {
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: screenHeight * 0.9,
+    maxHeight: screenHeight * 0.9,
+    minHeight: screenHeight * 0.5,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',
