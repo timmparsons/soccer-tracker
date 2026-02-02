@@ -12,9 +12,11 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -31,6 +33,16 @@ const ProfilePage = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { mutateAsync: updateProfile } = useUpdateProfile(user?.id);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showTargetModal, setShowTargetModal] = useState(false);
+  const [customTarget, setCustomTarget] = useState('');
+  const [savingTarget, setSavingTarget] = useState(false);
+
+  const TARGET_PRESETS = [
+    { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
+    { value: 1000, label: '1,000', subtitle: 'Building habits', emoji: '💪' },
+    { value: 2500, label: '2,500', subtitle: 'Getting serious', emoji: '🔥' },
+    { value: 5000, label: '5,000', subtitle: 'Elite mode', emoji: '⭐' },
+  ];
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -119,6 +131,34 @@ const ProfilePage = () => {
 
   const handleJoinTeam = () => {
     router.push('/(modals)/join-team');
+  };
+
+  const handleSaveTarget = async (newTarget: number) => {
+    if (!user?.id || newTarget <= 0) return;
+
+    setSavingTarget(true);
+    try {
+      const { error } = await supabase
+        .from('user_targets')
+        .upsert(
+          { user_id: user.id, daily_target_touches: newTarget },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+
+      // Refresh the touch tracking data to get the new target
+      queryClient.invalidateQueries({ queryKey: ['touch-tracking', user.id] });
+
+      setShowTargetModal(false);
+      setCustomTarget('');
+      Alert.alert('Success', `Daily target set to ${newTarget.toLocaleString()} touches!`);
+    } catch (error) {
+      console.error('Error saving target:', error);
+      Alert.alert('Error', 'Failed to save target. Please try again.');
+    } finally {
+      setSavingTarget(false);
+    }
   };
 
   // Get touch tracking stats
@@ -363,6 +403,30 @@ const ProfilePage = () => {
             </View>
           )}
 
+          {/* Settings Card - only for players */}
+          {!profile?.is_coach && (
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsTitle}>Settings</Text>
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => setShowTargetModal(true)}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={styles.settingsIconBg}>
+                    <Ionicons name='flag' size={20} color='#2B9FFF' />
+                  </View>
+                  <View>
+                    <Text style={styles.settingsLabel}>Daily Target</Text>
+                    <Text style={styles.settingsValue}>
+                      {dailyTarget.toLocaleString()} touches
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.actionsCard}>
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
@@ -374,6 +438,99 @@ const ProfilePage = () => {
           {/* Version */}
           <Text style={styles.version}>Version 2.0.0</Text>
         </ScrollView>
+
+        {/* Daily Target Modal */}
+        <Modal
+          visible={showTargetModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowTargetModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalEmoji}>🎯</Text>
+                <Text style={styles.modalTitle}>Set Daily Target</Text>
+                <Text style={styles.modalSubtitle}>
+                  How many touches do you want to hit each day?
+                </Text>
+              </View>
+
+              <View style={styles.presetsList}>
+                {TARGET_PRESETS.map((preset) => (
+                  <TouchableOpacity
+                    key={preset.value}
+                    style={[
+                      styles.presetCard,
+                      dailyTarget === preset.value && styles.presetCardActive,
+                    ]}
+                    onPress={() => handleSaveTarget(preset.value)}
+                    disabled={savingTarget}
+                  >
+                    <Text style={styles.presetEmoji}>{preset.emoji}</Text>
+                    <View style={styles.presetTextContainer}>
+                      <Text
+                        style={[
+                          styles.presetValue,
+                          dailyTarget === preset.value && styles.presetValueActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                      <Text style={styles.presetSubtitle}>{preset.subtitle}</Text>
+                    </View>
+                    {dailyTarget === preset.value && (
+                      <Ionicons name='checkmark-circle' size={24} color='#2B9FFF' />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.customSection}>
+                <Text style={styles.customLabel}>Or enter a custom target</Text>
+                <View style={styles.customRow}>
+                  <TextInput
+                    style={styles.customInput}
+                    placeholder='e.g. 1500'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={customTarget}
+                    onChangeText={setCustomTarget}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.customButton,
+                      (!customTarget || savingTarget) && styles.customButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      const target = parseInt(customTarget);
+                      if (target > 0) {
+                        handleSaveTarget(target);
+                      }
+                    }}
+                    disabled={!customTarget || savingTarget}
+                  >
+                    {savingTarget ? (
+                      <ActivityIndicator size='small' color='#FFF' />
+                    ) : (
+                      <Text style={styles.customButtonText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowTargetModal(false);
+                  setCustomTarget('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -697,5 +854,179 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#B0BEC5',
+  },
+
+  // SETTINGS CARD
+  settingsCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  settingsTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 16,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  settingsRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  settingsIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8EAF6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 2,
+  },
+  settingsValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+
+  // MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 360,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+  },
+  presetsList: {
+    gap: 10,
+    marginBottom: 24,
+  },
+  presetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 14,
+  },
+  presetCardActive: {
+    backgroundColor: '#E8EAF6',
+    borderColor: '#2B9FFF',
+  },
+  presetEmoji: {
+    fontSize: 28,
+  },
+  presetTextContainer: {
+    flex: 1,
+  },
+  presetValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  presetValueActive: {
+    color: '#2B9FFF',
+  },
+  presetSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  customSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 20,
+    marginBottom: 16,
+  },
+  customLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 12,
+  },
+  customRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  customInput: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  customButton: {
+    backgroundColor: '#2B9FFF',
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customButtonDisabled: {
+    backgroundColor: '#B0BEC5',
+  },
+  customButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+  },
+  modalCancel: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#78909C',
   },
 });
