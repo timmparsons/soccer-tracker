@@ -33,8 +33,12 @@ export default function RootLayout() {
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        router.replace('/(auth)/reset-password');
+      }
     });
 
     return () => {
