@@ -29,7 +29,6 @@ const DRILL_DESCRIPTIONS: Record<string, string> = {
   'Foundation Touches':
     'Basic ball control - taps, rolls, and touches with all parts of the foot',
   // Intermediate
-  'Around the World': 'Circle your foot around the ball while juggling',
   'Thigh Catches': 'Cushion the ball on your thigh and control it back down',
   'Pull-Push':
     'Pull the ball back with your sole, then push it forward with your laces',
@@ -40,6 +39,7 @@ const DRILL_DESCRIPTIONS: Record<string, string> = {
   Elastico:
     'Push the ball outside then quickly snap it back inside with the same foot',
   'Maradona Spin': 'Drag the ball with one foot while spinning 360° over it',
+  'Around the World': 'Circle your foot around the ball while juggling',
 };
 
 interface LogSessionModalProps {

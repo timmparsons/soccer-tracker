@@ -72,20 +72,26 @@ const ProfilePage = () => {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      await uploadAvatar(result.assets[0].uri);
+      const asset = result.assets[0];
+      await uploadAvatar(asset.uri, asset.base64);
     }
   };
 
-  const uploadAvatar = async (uri: string) => {
-    if (!user?.id) return;
+  const uploadAvatar = async (uri: string, base64Data?: string | null) => {
+    if (!user?.id || !base64Data) return;
 
     setUploadingAvatar(true);
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Convert base64 to ArrayBuffer
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
@@ -93,7 +99,7 @@ const ProfilePage = () => {
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, {
+        .upload(filePath, bytes, {
           contentType: `image/${fileExt}`,
           upsert: true,
         });
