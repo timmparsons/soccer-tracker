@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, View } from 'react-native';
@@ -20,12 +21,19 @@ export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
   // 🔐 Load initial session + subscribe to auth changes
   useEffect(() => {
     const init = async () => {
+      // Check if app was opened via password reset deep link
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl?.includes('reset-password') || initialUrl?.includes('type=recovery')) {
+        setIsPasswordRecovery(true);
+      }
+
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
       setLoading(false);
@@ -34,11 +42,14 @@ export default function RootLayout() {
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-
       if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+        setSession(session);
         router.replace('/(auth)/reset-password');
+        return;
       }
+
+      setSession(session);
     });
 
     return () => {
@@ -71,12 +82,12 @@ export default function RootLayout() {
       return;
     }
 
-    // Logged out but not in auth flow
-    if (!session && !inAuthGroup) {
+    // Logged out but not in auth flow (skip if in password recovery)
+    if (!session && !inAuthGroup && !isPasswordRecovery) {
       setHasCheckedOnboarding(false); // Reset when logged out
       router.replace('/(auth)');
     }
-  }, [session, segments, loading, hasCheckedOnboarding]);
+  }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery]);
 
   const checkOnboardingStatus = async () => {
     if (!session?.user?.id) return;

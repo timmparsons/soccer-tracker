@@ -1,4 +1,4 @@
-import { useDrills, useJugglingRecord } from '@/hooks/useTouchTracking';
+import { useJugglingRecord } from '@/hooks/useTouchTracking';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
@@ -19,29 +19,6 @@ import {
 
 const screenHeight = Dimensions.get('window').height;
 
-// Drill descriptions for users who may not know the terms
-const DRILL_DESCRIPTIONS: Record<string, string> = {
-  // Beginner
-  'Toe Taps': 'Alternating taps on top of the ball with the sole of each foot',
-  'Inside-Outside Taps':
-    'Tap the ball side to side using inside and outside of the same foot',
-  'Sole Rolls': 'Roll the ball side to side under your foot using your sole',
-  'Foundation Touches':
-    'Basic ball control - taps, rolls, and touches with all parts of the foot',
-  // Intermediate
-  'Thigh Catches': 'Cushion the ball on your thigh and control it back down',
-  'Pull-Push':
-    'Pull the ball back with your sole, then push it forward with your laces',
-  'La Croqueta':
-    'Quick side-to-side touch between feet, made famous by Iniesta',
-  // Advanced
-  'Cruyff Turn': 'Fake a pass then drag the ball behind your standing leg',
-  Elastico:
-    'Push the ball outside then quickly snap it back inside with the same foot',
-  'Maradona Spin': 'Drag the ball with one foot while spinning 360° over it',
-  'Around the World': 'Circle your foot around the ball while juggling',
-};
-
 interface LogSessionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -58,11 +35,9 @@ const LogSessionModal = ({
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
-  const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const { data: drills, isLoading: drillsLoading } = useDrills();
   const { data: currentRecord } = useJugglingRecord(userId);
 
   // Helper to get local date in YYYY-MM-DD format
@@ -91,7 +66,7 @@ const LogSessionModal = ({
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: userId,
-        drill_id: selectedDrillId,
+        drill_id: null,
         touches_logged: touchCount,
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
@@ -104,7 +79,6 @@ const LogSessionModal = ({
       setTouches('');
       setDuration('');
       setJuggles('');
-      setSelectedDrillId(null);
 
       // Build success message
       let successMsg = '';
@@ -124,32 +98,6 @@ const LogSessionModal = ({
       Alert.alert('Error', 'Failed to log session. Please try again.');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const getDifficultyIcon = (level: string) => {
-    switch (level) {
-      case 'beginner':
-        return '🟢';
-      case 'intermediate':
-        return '🟡';
-      case 'advanced':
-        return '🔴';
-      default:
-        return '⚽';
-    }
-  };
-
-  const getDifficultyColor = (level: string) => {
-    switch (level) {
-      case 'beginner':
-        return '#4CAF50';
-      case 'intermediate':
-        return '#FFC107';
-      case 'advanced':
-        return '#F44336';
-      default:
-        return '#2B9FFF';
     }
   };
 
@@ -186,6 +134,66 @@ const LogSessionModal = ({
             keyboardShouldPersistTaps='handled'
             contentContainerStyle={styles.scrollContent}
           >
+            {/* Juggling Record - Featured at top */}
+            <View style={styles.jugglingSection}>
+              <View style={styles.jugglingSectionHeader}>
+                <Text style={styles.jugglingEmoji}>🏆</Text>
+                <View style={styles.jugglingTitleContainer}>
+                  <Text style={styles.jugglingTitle}>Juggling Record</Text>
+                  {currentRecord !== undefined && currentRecord > 0 && (
+                    <Text style={styles.jugglingCurrentRecord}>
+                      Current PR: {currentRecord}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Text style={styles.jugglingHint}>
+                {currentRecord !== undefined && currentRecord > 0
+                  ? `Beat your record of ${currentRecord}!`
+                  : 'How many consecutive juggles can you do?'}
+              </Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.jugglingInput}
+                  placeholder='Enter your best juggles'
+                  placeholderTextColor='#B8860B'
+                  keyboardType='number-pad'
+                  value={juggles}
+                  onChangeText={setJuggles}
+                />
+                <View style={styles.inputIconBgGold}>
+                  <Ionicons name='trophy' size={20} color='#FFD700' />
+                </View>
+              </View>
+              {juggles &&
+                parseInt(juggles) > 0 &&
+                currentRecord !== undefined && (
+                  <View
+                    style={[
+                      styles.jugglePreview,
+                      parseInt(juggles) > (currentRecord || 0) &&
+                        styles.jugglePreviewRecord,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.jugglePreviewText,
+                        parseInt(juggles) > (currentRecord || 0) &&
+                          styles.jugglePreviewTextRecord,
+                      ]}
+                    >
+                      {parseInt(juggles) > (currentRecord || 0)
+                        ? '🎉 NEW PERSONAL BEST! +' +
+                          (parseInt(juggles) - (currentRecord || 0)) +
+                          ' from your record!'
+                        : (currentRecord || 0) -
+                          parseInt(juggles) +
+                          ' away from your PR'}
+                    </Text>
+                  </View>
+                )}
+            </View>
+
             {/* Touches Input */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>How many touches?</Text>
@@ -256,174 +264,6 @@ const LogSessionModal = ({
               )}
             </View>
 
-            {/* Juggling Record */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionLabel}>
-                  Juggling record (optional)
-                </Text>
-                {currentRecord !== undefined && currentRecord > 0 && (
-                  <View style={styles.recordBadge}>
-                    <Ionicons name='trophy' size={12} color='#FFD700' />
-                    <Text style={styles.recordBadgeText}>
-                      PR: {currentRecord}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.sectionHint}>
-                {currentRecord !== undefined && currentRecord > 0
-                  ? `Can you beat ${currentRecord}? Enter your best from this session!`
-                  : 'Did you set a new personal best?'}
-              </Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder='Consecutive juggles'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  value={juggles}
-                  onChangeText={setJuggles}
-                />
-                <View style={styles.inputIconBg}>
-                  <Ionicons name='trophy' size={20} color='#FFD700' />
-                </View>
-              </View>
-              {juggles &&
-                parseInt(juggles) > 0 &&
-                currentRecord !== undefined && (
-                  <View
-                    style={[
-                      styles.jugglePreview,
-                      parseInt(juggles) > (currentRecord || 0) &&
-                        styles.jugglePreviewRecord,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.jugglePreviewText,
-                        parseInt(juggles) > (currentRecord || 0) &&
-                          styles.jugglePreviewTextRecord,
-                      ]}
-                    >
-                      {parseInt(juggles) > (currentRecord || 0)
-                        ? '🎉 NEW PERSONAL BEST! +' +
-                          (parseInt(juggles) - (currentRecord || 0)) +
-                          ' from your record!'
-                        : (currentRecord || 0) -
-                          parseInt(juggles) +
-                          ' away from your PR'}
-                    </Text>
-                  </View>
-                )}
-            </View>
-
-            {/* Drill Selection */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>
-                What did you practice? (optional)
-              </Text>
-              <Text style={styles.sectionHint}>
-                Choose a drill or select &quot;Free Practice&quot;
-              </Text>
-
-              {drillsLoading ? (
-                <ActivityIndicator
-                  size='small'
-                  color='#2B9FFF'
-                  style={styles.loader}
-                />
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[
-                      styles.drillOption,
-                      selectedDrillId === null && styles.drillOptionSelected,
-                    ]}
-                    onPress={() => setSelectedDrillId(null)}
-                  >
-                    <View style={styles.drillOptionContent}>
-                      <View style={styles.drillIconCircle}>
-                        <Ionicons name='football' size={24} color='#2B9FFF' />
-                      </View>
-                      <Text
-                        style={[
-                          styles.drillOptionText,
-                          selectedDrillId === null &&
-                            styles.drillOptionTextSelected,
-                        ]}
-                      >
-                        Free Practice
-                      </Text>
-                    </View>
-                    {selectedDrillId === null && (
-                      <Ionicons
-                        name='checkmark-circle'
-                        size={24}
-                        color='#2B9FFF'
-                      />
-                    )}
-                  </TouchableOpacity>
-
-                  {drills?.map((drill) => (
-                    <TouchableOpacity
-                      key={drill.id}
-                      style={[
-                        styles.drillOption,
-                        selectedDrillId === drill.id &&
-                          styles.drillOptionSelected,
-                      ]}
-                      onPress={() => setSelectedDrillId(drill.id)}
-                    >
-                      <View style={styles.drillOptionContent}>
-                        <View
-                          style={[
-                            styles.drillIconCircle,
-                            {
-                              backgroundColor: `${getDifficultyColor(
-                                drill.difficulty_level
-                              )}15`,
-                            },
-                          ]}
-                        >
-                          <Text style={styles.difficultyEmoji}>
-                            {getDifficultyIcon(drill.difficulty_level)}
-                          </Text>
-                        </View>
-                        <View style={styles.drillTextContainer}>
-                          <Text
-                            style={[
-                              styles.drillOptionText,
-                              selectedDrillId === drill.id &&
-                                styles.drillOptionTextSelected,
-                            ]}
-                          >
-                            {drill.name}
-                          </Text>
-                          {DRILL_DESCRIPTIONS[drill.name] && (
-                            <Text style={styles.drillDescription}>
-                              {DRILL_DESCRIPTIONS[drill.name]}
-                            </Text>
-                          )}
-                          <Text style={styles.drillTargetText}>
-                            Target: {drill.target_touches} touches •{' '}
-                            {drill.target_duration_seconds}s
-                          </Text>
-                        </View>
-                      </View>
-                      {selectedDrillId === drill.id && (
-                        <Ionicons
-                          name='checkmark-circle'
-                          size={24}
-                          color='#2B9FFF'
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </>
-              )}
-            </View>
-
             {/* Bottom padding for scrolling */}
             <View style={{ height: 20 }} />
           </ScrollView>
@@ -475,8 +315,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: screenHeight * 0.58,
-    maxHeight: screenHeight * 0.85,
+    height: screenHeight * 0.75,
+    maxHeight: screenHeight * 0.9,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -505,6 +345,59 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  jugglingSection: {
+    marginBottom: 24,
+    backgroundColor: '#FFF8DC',
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  jugglingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
+  jugglingEmoji: {
+    fontSize: 36,
+  },
+  jugglingTitleContainer: {
+    flex: 1,
+  },
+  jugglingTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#B8860B',
+  },
+  jugglingCurrentRecord: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#DAA520',
+    marginTop: 2,
+  },
+  jugglingHint: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#B8860B',
+    marginBottom: 14,
+  },
+  jugglingInput: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    paddingRight: 50,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    borderWidth: 2,
+    borderColor: '#FFD700',
   },
   sectionHighlight: {
     marginBottom: 24,
@@ -598,9 +491,6 @@ const styles = StyleSheet.create({
     color: '#78909C',
     marginBottom: 12,
   },
-  loader: {
-    marginVertical: 20,
-  },
   inputContainer: {
     position: 'relative',
   },
@@ -627,61 +517,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  drillOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  drillOptionSelected: {
-    backgroundColor: '#E8EAF6',
-    borderColor: '#2B9FFF',
-  },
-  drillOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  drillIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E8EAF6',
+  inputIconBgGold: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -16 }],
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF9E6',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  difficultyEmoji: {
-    fontSize: 20,
-  },
-  drillTextContainer: {
-    flex: 1,
-  },
-  drillOptionText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-  drillOptionTextSelected: {
-    color: '#2B9FFF',
-  },
-  drillDescription: {
-    fontSize: 12,
-    color: '#78909C',
-    fontWeight: '500',
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  drillTargetText: {
-    fontSize: 11,
-    color: '#B0BEC5',
-    fontWeight: '600',
-    marginTop: 4,
   },
   buttonContainer: {
     backgroundColor: '#FFF',

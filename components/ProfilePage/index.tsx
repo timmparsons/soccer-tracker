@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -133,6 +134,24 @@ const ProfilePage = () => {
         },
       },
     ]);
+  };
+
+  const handleFeedback = async () => {
+    const email = 'timmparsons85@gmail.com';
+    const subject = 'Master Touch Feedback';
+    const body = `\n\n---\nApp Version: 2.0.0\nUser: ${user?.email || 'Unknown'}`;
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert(
+        'Send Feedback',
+        `Email us at:\n${email}`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleJoinTeam = () => {
@@ -435,6 +454,11 @@ const ProfilePage = () => {
 
           {/* Action Buttons */}
           <View style={styles.actionsCard}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleFeedback}>
+              <Ionicons name='chatbubble-ellipses' size={24} color='#2B9FFF' />
+              <Text style={styles.actionButtonText}>Send Feedback</Text>
+            </TouchableOpacity>
+            <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
               <Ionicons name='log-out' size={24} color='#FF7043' />
               <Text style={styles.actionButtonText}>Sign Out</Text>
