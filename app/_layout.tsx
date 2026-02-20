@@ -27,11 +27,42 @@ export default function RootLayout() {
 
   // 🔐 Load initial session + subscribe to auth changes
   useEffect(() => {
+    const handleRecoveryUrl = async (url: string) => {
+      if (!url.includes('reset-password') && !url.includes('type=recovery')) return;
+
+      setIsPasswordRecovery(true);
+
+      // PKCE flow: exchange the code for a session (triggers PASSWORD_RECOVERY event)
+      const queryPart = url.split('?')[1]?.split('#')[0] ?? '';
+      const params = new URLSearchParams(queryPart);
+      const code = params.get('code');
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+        } catch (e) {
+          console.error('Error exchanging recovery code:', e);
+        }
+        return;
+      }
+
+      // Implicit flow fallback: extract tokens from URL hash
+      const fragment = url.split('#')[1] ?? '';
+      const hashParams = new URLSearchParams(fragment);
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      if (accessToken && refreshToken) {
+        try {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        } catch (e) {
+          console.error('Error setting recovery session:', e);
+        }
+      }
+    };
+
     const init = async () => {
-      // Check if app was opened via password reset deep link
       const initialUrl = await Linking.getInitialURL();
-      if (initialUrl?.includes('reset-password') || initialUrl?.includes('type=recovery')) {
-        setIsPasswordRecovery(true);
+      if (initialUrl) {
+        await handleRecoveryUrl(initialUrl);
       }
 
       const { data } = await supabase.auth.getSession();
@@ -41,6 +72,9 @@ export default function RootLayout() {
 
     init();
 
+    // Handle deep link when app is already open
+    const urlSub = Linking.addEventListener('url', ({ url }) => handleRecoveryUrl(url));
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
@@ -49,11 +83,21 @@ export default function RootLayout() {
         return;
       }
 
+      if (event === 'USER_UPDATED') {
+        // Password was successfully reset — clear recovery mode so route guard
+        // can route the user to tabs/onboarding normally
+        setIsPasswordRecovery(false);
+        setHasCheckedOnboarding(false);
+        setSession(session);
+        return;
+      }
+
       setSession(session);
     });
 
     return () => {
       sub.subscription.unsubscribe();
+      urlSub.remove();
     };
   }, []);
 
@@ -69,14 +113,15 @@ export default function RootLayout() {
     const inOnboardingGroup = rootSegment === '(onboarding)';
     const inMinigamesGroup = rootSegment === 'minigames';
 
-    // Logged in but outside allowed areas
+    // Logged in but outside allowed areas (skip if in password recovery)
     if (
       session &&
       !inTabsGroup &&
       !inModalsGroup &&
       !inOnboardingGroup &&
       !inMinigamesGroup &&
-      !hasCheckedOnboarding
+      !hasCheckedOnboarding &&
+      !isPasswordRecovery
     ) {
       checkOnboardingStatus();
       return;
