@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,7 +18,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Auth() {
-  const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
 
   const [email, setEmail] = useState('');
@@ -253,14 +251,6 @@ export default function Auth() {
             )}
           </View>
 
-          {/* DEV ONLY - Remove before release */}
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/reset-password')}
-            style={styles.devButton}
-          >
-            <Text style={styles.devButtonText}>🛠 Preview Reset Password Screen</Text>
-          </TouchableOpacity>
-
           {/* SWITCH MODE */}
           <TouchableOpacity onPress={toggleMode} style={styles.switchContainer}>
             <Text style={styles.switchText}>
@@ -402,22 +392,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // SWITCH MODE
-  devButton: {
-    marginTop: 20,
-    alignSelf: 'center',
-    padding: 8,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFB74D',
-    borderStyle: 'dashed',
-  },
-  devButtonText: {
-    fontSize: 12,
-    color: '#E65100',
-    fontWeight: '600',
-  },
   switchContainer: {
     marginTop: 28,
     alignItems: 'center',

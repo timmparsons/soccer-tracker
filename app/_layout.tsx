@@ -1,3 +1,4 @@
+import { requestNotificationPermission } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -169,6 +170,7 @@ export default function RootLayout() {
     // If onboarding_completed is explicitly true, go to tabs
     // Otherwise (false, null, undefined, or no profile) go to onboarding
     if (profile?.onboarding_completed === true) {
+      requestNotificationPermission();
       router.replace('/(tabs)');
     } else {
       router.replace('/(onboarding)');

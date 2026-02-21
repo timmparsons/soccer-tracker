@@ -1,4 +1,5 @@
 import { useJugglingRecord } from '@/hooks/useTouchTracking';
+import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
@@ -74,6 +75,9 @@ const LogSessionModal = ({
       });
 
       if (error) throw error;
+
+      // Reschedule inactivity reminders — reset the 2-day countdown
+      scheduleInactivityReminders();
 
       // Reset form
       setTouches('');
