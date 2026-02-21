@@ -4,7 +4,7 @@ import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useTouchTracking } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,11 +41,14 @@ const HomeScreen = () => {
     refetch: refetchStats,
   } = useTouchTracking(user?.id);
 
+  const { data: challengeStats, refetch: refetchChallengeStats } = useChallengeStats(user?.id, undefined);
+
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
-    }, [refetchProfile, refetchStats])
+      refetchChallengeStats();
+    }, [refetchProfile, refetchStats, refetchChallengeStats])
   );
 
   if (statsLoading) {
@@ -60,6 +63,7 @@ const HomeScreen = () => {
   const weekTouches = touchStats?.this_week_touches || 0;
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
+  const challengeStreak = challengeStats?.challengeStreak || 0;
 
   // TPM intensity indicator
   const getTpmLabel = (tpm: number) => {
@@ -142,15 +146,13 @@ const HomeScreen = () => {
 
           <View style={[styles.statCard, styles.statAvg]}>
             <View style={styles.statIconBg}>
-              <Text style={styles.statIcon}>📈</Text>
+              <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={styles.statValue}>
-              {weekTouches > 0
-                ? Math.round(weekTouches / 7).toLocaleString()
-                : 0}
+            <Text style={styles.statValue}>{challengeStreak}</Text>
+            <Text style={styles.statLabel}>Challenge Streak</Text>
+            <Text style={styles.statSubtext}>
+              {challengeStreak === 0 ? 'Do today\'s challenge!' : 'Days in a row'}
             </Text>
-            <Text style={styles.statLabel}>Daily Average</Text>
-            <Text style={styles.statSubtext}>This week</Text>
           </View>
         </View>
       </ScrollView>
@@ -171,7 +173,7 @@ const HomeScreen = () => {
           onSuccess={() => {
             refetchProfile();
             refetchStats();
-            queryClient.invalidateQueries({ queryKey: ['challenge-stats', user.id] });
+            refetchChallengeStats();
           }}
           onSessionLogged={(tc, isChallenge, drillName) => {
             setVinnieTouches(tc);
@@ -188,6 +190,7 @@ const HomeScreen = () => {
         isChallenge={vinnieIsChallenge}
         drillName={vinnieDrillName}
         streak={streak}
+        challengeStreak={challengeStreak}
         onClose={() => setVinnieVisible(false)}
       />
     </View>

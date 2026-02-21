@@ -61,7 +61,26 @@ export const VINNIE_CELEBRATIONS: string[] = [
   "Now THAT'S a footballer! Keep it up!",
 ];
 
+export const VINNIE_CHALLENGE_CELEBRATIONS: string[] = [
+  "Challenge DONE. That's what sets you apart from the rest.",
+  "Look at you completing challenges! That's elite mentality.",
+  "NAILED IT! That drill just got a lot easier for you.",
+  "Challenge done and dusted. You're building something special.",
+  "That's a challenge ticked off! Keep stacking them up.",
+  "Most kids skip this. You didn't. That's why you'll be different.",
+];
+
 export const VINNIE_STREAK_MILESTONES = [7, 14, 21, 30, 50, 100];
+
+export const VINNIE_CHALLENGE_STREAK_MILESTONES = [3, 7, 14, 21, 30];
+
+export const VINNIE_CHALLENGE_STREAK_MESSAGES: Record<number, string> = {
+  3: "3 challenges in a row! You're making this a habit ⚽",
+  7: "A whole week of challenges! That's serious dedication 🔥",
+  14: "14 challenge days! You're doing the work others won't 💪",
+  21: "21 consecutive challenges! That's elite consistency 🏆",
+  30: "30 DAYS of challenges! You're built different. Absolute legend 🌟",
+};
 
 export const VINNIE_STREAK_MESSAGES: Record<number, string> = {
   7: "A whole week straight! You're building real habits now 🔥",
@@ -115,3 +134,6 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
 
 export const getVinnieCelebration = (): string =>
   pickRandom(VINNIE_CELEBRATIONS);
+
+export const getVinnieChallengeCelebration = (): string =>
+  pickRandom(VINNIE_CHALLENGE_CELEBRATIONS);

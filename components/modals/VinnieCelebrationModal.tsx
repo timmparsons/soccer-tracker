@@ -1,4 +1,4 @@
-import { getVinnieCelebration } from '@/lib/vinnie';
+import { getVinnieChallengeCelebration, getVinnieCelebration } from '@/lib/vinnie';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -15,6 +15,7 @@ interface VinnieCelebrationModalProps {
   onClose: () => void;
   touchCount: number;
   streak?: number;
+  challengeStreak?: number;
   isChallenge?: boolean;
   drillName?: string;
   overrideMessage?: string;
@@ -25,6 +26,7 @@ const VinnieCelebrationModal = ({
   onClose,
   touchCount,
   streak,
+  challengeStreak,
   isChallenge,
   drillName,
   overrideMessage,
@@ -34,7 +36,9 @@ const VinnieCelebrationModal = ({
 
   useEffect(() => {
     if (visible) {
-      setMessage(overrideMessage ?? getVinnieCelebration());
+      setMessage(
+        overrideMessage ?? (isChallenge ? getVinnieChallengeCelebration() : getVinnieCelebration())
+      );
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
@@ -44,7 +48,7 @@ const VinnieCelebrationModal = ({
     } else {
       scaleAnim.setValue(0);
     }
-  }, [visible, scaleAnim]);
+  }, [visible, scaleAnim, overrideMessage, isChallenge]);
 
   const sessionLabel =
     isChallenge && drillName
@@ -78,6 +82,12 @@ const VinnieCelebrationModal = ({
           {/* Session summary */}
           <View style={styles.summary}>
             <Text style={styles.summaryText}>{sessionLabel}</Text>
+            {isChallenge && challengeStreak !== undefined && challengeStreak > 0 && (
+              <View style={styles.streakRow}>
+                <Text style={styles.streakFire}>⚽</Text>
+                <Text style={styles.streakText}>{challengeStreak} day challenge streak</Text>
+              </View>
+            )}
             {streak !== undefined && streak > 0 && (
               <View style={styles.streakRow}>
                 <Text style={styles.streakFire}>🔥</Text>

@@ -1,4 +1,5 @@
 import PageHeader from '@/components/common/PageHeader';
+import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import { useProfile } from '@/hooks/useProfile';
@@ -99,6 +100,8 @@ const TrainPage = () => {
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
   const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoName, setVideoName] = useState<string>('');
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
@@ -326,32 +329,41 @@ const TrainPage = () => {
                 </View>
                 <View style={styles.drillGrid}>
                   {levelDrills.map((drill) => (
-                    <TouchableOpacity
-                      key={drill.id}
-                      style={styles.drillCard}
-                      onPress={() => {
-                        setChallengeDrillId(drill.id);
-                        setChallengeName(drill.name);
-                        setModalVisible(true);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.drillName}>{drill.name}</Text>
-                      {drill.description && (
-                        <Text style={styles.drillDescription} numberOfLines={2}>
-                          {drill.description}
-                        </Text>
-                      )}
+                    <View key={drill.id} style={styles.drillCard}>
                       <TouchableOpacity
-                        style={styles.drillVideoButton}
-                        onPress={() =>
-                          Alert.alert('Coming Soon', 'Video tutorials are on the way!')
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.drillTapArea}
+                        onPress={() => {
+                          setChallengeDrillId(drill.id);
+                          setChallengeName(drill.name);
+                          setModalVisible(true);
+                        }}
+                        activeOpacity={0.7}
                       >
-                        <Ionicons name='play-circle' size={22} color='#FF7043' />
+                        <Text style={styles.drillName}>{drill.name}</Text>
+                        {drill.description && (
+                          <Text style={styles.drillDescription} numberOfLines={2}>
+                            {drill.description}
+                          </Text>
+                        )}
                       </TouchableOpacity>
-                    </TouchableOpacity>
+                      {drill.video_url ? (
+                        <TouchableOpacity
+                          style={styles.videoButton}
+                          onPress={() => {
+                            setVideoUrl(drill.video_url!);
+                            setVideoName(drill.name);
+                          }}
+                        >
+                          <Ionicons name='play-circle' size={13} color='#10B981' />
+                          <Text style={styles.videoButtonText}>Watch tutorial</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.comingSoonBadge}>
+                          <Ionicons name='videocam-outline' size={11} color='#78909C' />
+                          <Text style={styles.comingSoonText}>Video coming soon</Text>
+                        </View>
+                      )}
+                    </View>
                   ))}
                 </View>
               </View>
@@ -543,6 +555,16 @@ const TrainPage = () => {
         touchCount={celebrationTouches}
         onClose={() => setShowVinnieCelebration(false)}
       />
+
+      {/* Drill Video */}
+      {videoUrl && (
+        <DrillVideoModal
+          visible={!!videoUrl}
+          onClose={() => setVideoUrl(null)}
+          videoUrl={videoUrl}
+          drillName={videoName}
+        />
+      )}
 
       {/* Log Session Modal */}
       {user?.id && (
@@ -774,8 +796,32 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginBottom: 8,
   },
-  drillVideoButton: {
+  drillTapArea: {
+    marginBottom: 4,
+  },
+  comingSoonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  comingSoonText: {
+    fontSize: 11,
+    color: '#78909C',
+    fontWeight: '600',
+  },
+  videoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  videoButtonText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '700',
   },
 
   // TIMER MODAL

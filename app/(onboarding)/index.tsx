@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,6 +27,7 @@ interface Slide {
   gradientColors: [string, string, string];
   accentEmoji: string;
   isGoalSlide?: boolean;
+  isVinnieSlide?: boolean;
 }
 
 const slides: Slide[] = [
@@ -82,6 +84,7 @@ const slides: Slide[] = [
     icon: 'football',
     gradientColors: ['#11998e', '#1a1a2e', '#11998e'],
     accentEmoji: '⚽',
+    isVinnieSlide: true,
   },
   {
     id: '7',
@@ -216,6 +219,29 @@ export default function OnboardingScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+          </LinearGradient>
+        </View>
+      );
+    }
+
+    if (item.isVinnieSlide) {
+      return (
+        <View style={styles.slideContainer}>
+          <LinearGradient
+            colors={item.gradientColors}
+            style={styles.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.vinnieSlideContent}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Image
+                source={require('@/assets/images/vinnie.png')}
+                style={styles.vinnieSlideImage}
+                resizeMode='contain'
+              />
+              <Text style={styles.description}>{item.description}</Text>
             </View>
           </LinearGradient>
         </View>
@@ -373,6 +399,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
     paddingBottom: 160,
+  },
+  vinnieSlideContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 160,
+    gap: 24,
+  },
+  vinnieSlideImage: {
+    width: 300,
+    height: 194,
   },
   goalContent: {
     flex: 1,

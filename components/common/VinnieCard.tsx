@@ -44,8 +44,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   vinnieImage: {
-    width: 90,
-    height: 90,
+    width: 120,
+    height: 78,
     flexShrink: 0,
   },
   bubbleRow: {
