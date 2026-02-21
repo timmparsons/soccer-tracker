@@ -1,6 +1,8 @@
 import PageHeader from '@/components/common/PageHeader';
+import VinnieCard from '@/components/common/VinnieCard';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -26,6 +28,10 @@ const HomeScreen = () => {
   const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [vinnieVisible, setVinnieVisible] = useState(false);
+  const [vinnieTouches, setVinnieTouches] = useState(0);
+  const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
+  const [vinnieDrillName, setVinnieDrillName] = useState<string | undefined>();
 
   const queryClient = useQueryClient();
 
@@ -74,6 +80,12 @@ const HomeScreen = () => {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* VINNIE */}
+        <VinnieCard
+          trainedToday={(touchStats?.today_touches || 0) > 0}
+          streak={streak}
+        />
+
         {/* TODAY'S CHALLENGE */}
         {user?.id && (
           <TodayChallengeCard
@@ -161,8 +173,23 @@ const HomeScreen = () => {
             refetchStats();
             queryClient.invalidateQueries({ queryKey: ['challenge-stats', user.id] });
           }}
+          onSessionLogged={(tc, isChallenge, drillName) => {
+            setVinnieTouches(tc);
+            setVinnieIsChallenge(isChallenge);
+            setVinnieDrillName(drillName);
+            setVinnieVisible(true);
+          }}
         />
       )}
+
+      <VinnieCelebrationModal
+        visible={vinnieVisible}
+        touchCount={vinnieTouches}
+        isChallenge={vinnieIsChallenge}
+        drillName={vinnieDrillName}
+        streak={streak}
+        onClose={() => setVinnieVisible(false)}
+      />
     </View>
   );
 };

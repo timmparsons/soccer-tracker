@@ -17,19 +17,31 @@ const REMINDER_HOUR = 15; // 3pm local time
 function getReminderMessage(daysSinceLastSession: number): { title: string; body: string } {
   if (daysSinceLastSession === 2) {
     return {
-      title: 'Time to practice!',
-      body: "⚽ You haven't trained in 2 days. Lace up!",
+      title: 'Coach Vinnie here! 👟',
+      body: "Two days off? The ball's getting lonely. Lace up!",
     };
   }
   if (daysSinceLastSession === 3) {
     return {
-      title: 'Missing the ball?',
-      body: '🔥 3 days without a touch — get back out there!',
+      title: 'Coach Vinnie calling... ⚽',
+      body: "3 days without a touch. I'm not angry, I'm disappointed.",
+    };
+  }
+  if (daysSinceLastSession === 4) {
+    return {
+      title: 'Coach Vinnie 😤',
+      body: "4 days?! Your boots are collecting dust. Get out there!",
+    };
+  }
+  if (daysSinceLastSession === 5) {
+    return {
+      title: 'Coach Vinnie 😤',
+      body: "5 days. FIVE. Champions don't take this long off.",
     };
   }
   return {
-    title: `Day ${daysSinceLastSession} without practice`,
-    body: `💪 Day ${daysSinceLastSession} — your skills need you. Go practice!`,
+    title: `Coach Vinnie — Day ${daysSinceLastSession} 😤`,
+    body: `${daysSinceLastSession} days without training. I didn't coach you to give up. Go!`,
   };
 }
 

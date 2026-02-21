@@ -76,6 +76,15 @@ const slides: Slide[] = [
   },
   {
     id: '6',
+    title: 'Meet Coach\nVinnie',
+    description:
+      "Your personal soccer coach. He'll keep you on track, celebrate your wins, and won't let you skip a session without a fight.",
+    icon: 'football',
+    gradientColors: ['#11998e', '#1a1a2e', '#11998e'],
+    accentEmoji: '⚽',
+  },
+  {
+    id: '7',
     title: "Let's\nBegin",
     description:
       'The players who separate themselves from the pack do it on their own time.',

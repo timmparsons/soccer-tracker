@@ -25,6 +25,7 @@ interface LogSessionModalProps {
   onClose: () => void;
   userId: string;
   onSuccess: () => void;
+  onSessionLogged?: (touchCount: number, isChallenge: boolean, drillName?: string) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
   challengeName?: string;
@@ -35,6 +36,7 @@ const LogSessionModal = ({
   onClose,
   userId,
   onSuccess,
+  onSessionLogged,
   challengeDrillId,
   challengeDurationMinutes,
   challengeName,
@@ -102,19 +104,9 @@ const LogSessionModal = ({
       setDuration('');
       setJuggles('');
 
-      // Build success message
-      let successMsg = '';
-      if (touchCount > 0 && juggleCount > 0) {
-        successMsg = `Logged ${touchCount.toLocaleString()} touches and ${juggleCount} juggles! 🎉`;
-      } else if (touchCount > 0) {
-        successMsg = `Logged ${touchCount.toLocaleString()} touches! 🎉`;
-      } else {
-        successMsg = `Logged juggling record of ${juggleCount}! 🏆`;
-      }
-
-      Alert.alert('Success!', successMsg);
       onSuccess();
       onClose();
+      onSessionLogged?.(touchCount || juggleCount, isChallengeMode, challengeName);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');

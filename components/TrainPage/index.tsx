@@ -1,4 +1,5 @@
 import PageHeader from '@/components/common/PageHeader';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -98,6 +99,8 @@ const TrainPage = () => {
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
   const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
+  const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -195,12 +198,12 @@ const TrainPage = () => {
 
       if (error) throw error;
 
-      Alert.alert('Session Complete!', `You logged ${score.toLocaleString()} touches!`);
-
+      setCelebrationTouches(score);
       setScoreInput('');
       setShowScoreModal(false);
       setFreeTimerDuration(0);
       handleSessionLogged();
+      setShowVinnieCelebration(true);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
@@ -534,6 +537,13 @@ const TrainPage = () => {
         </View>
       </Modal>
 
+      {/* Vinnie Celebration */}
+      <VinnieCelebrationModal
+        visible={showVinnieCelebration}
+        touchCount={celebrationTouches}
+        onClose={() => setShowVinnieCelebration(false)}
+      />
+
       {/* Log Session Modal */}
       {user?.id && (
         <LogSessionModal
@@ -547,6 +557,10 @@ const TrainPage = () => {
           onSuccess={handleSessionLogged}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
+          onSessionLogged={(tc) => {
+            setCelebrationTouches(tc);
+            setShowVinnieCelebration(true);
+          }}
         />
       )}
     </View>
