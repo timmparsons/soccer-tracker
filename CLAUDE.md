@@ -4,7 +4,7 @@
 - **Always create a commit** after completing a task. Stage only the files changed for that task.
 - Commit message format: lowercase, no period, action-oriented verb, ~50 chars
   - Examples: `add local notifications for practice reminders`, `fix juggling record display bug`
-- Always co-author: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+- No co-author lines in commits
 
 ## Package Manager
 - Use **npm** (not bun, yarn, or pnpm). Lock file is `package-lock.json`.
