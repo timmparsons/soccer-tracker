@@ -1,6 +1,15 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+// Must be set at module load time so iOS knows how to display notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 const DAYS_BEFORE_FIRST_REMINDER = 2;
 const TOTAL_REMINDER_DAYS = 7;
 const REMINDER_HOUR = 15; // 3pm local time
