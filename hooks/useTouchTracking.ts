@@ -208,6 +208,86 @@ export const useJugglingRecord = (userId: string | undefined) => {
   });
 };
 
+export const useChallengeStats = (
+  userId: string | undefined,
+  todayDrillId: string | null | undefined
+) => {
+  return useQuery({
+    queryKey: ['challenge-stats', userId, todayDrillId],
+    queryFn: async () => {
+      if (!userId) throw new Error('No user ID');
+
+      const today = getLocalDate();
+
+      // Check if completed today's specific challenge
+      let completedToday = false;
+      if (todayDrillId) {
+        const { data: todayChallenge } = await supabase
+          .from('daily_sessions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('date', today)
+          .eq('drill_id', todayDrillId)
+          .limit(1);
+        completedToday = (todayChallenge?.length ?? 0) > 0;
+      }
+
+      // Calculate consecutive challenge streak (days with drill_id NOT NULL)
+      const { data: challengeSessions } = await supabase
+        .from('daily_sessions')
+        .select('date')
+        .eq('user_id', userId)
+        .not('drill_id', 'is', null)
+        .order('date', { ascending: false });
+
+      let challengeStreak = 0;
+      if (challengeSessions && challengeSessions.length > 0) {
+        const uniqueDates = [...new Set(challengeSessions.map((s) => s.date))];
+        let checkDate = new Date();
+
+        for (const dateStr of uniqueDates) {
+          const sessionDate = new Date(dateStr);
+          const daysDiff = Math.floor(
+            (checkDate.getTime() - sessionDate.getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
+
+          if (daysDiff === 0 || daysDiff === 1) {
+            challengeStreak++;
+            checkDate = sessionDate;
+          } else {
+            break;
+          }
+        }
+      }
+
+      // Count distinct drill_ids ever logged
+      const { data: drillSessions } = await supabase
+        .from('daily_sessions')
+        .select('drill_id')
+        .eq('user_id', userId)
+        .not('drill_id', 'is', null);
+
+      const uniqueDrillsCompleted = new Set(
+        drillSessions?.map((s) => s.drill_id) || []
+      ).size;
+
+      // Total drills available
+      const { count: totalDrillsAvailable } = await supabase
+        .from('drills')
+        .select('*', { count: 'exact', head: true });
+
+      return {
+        completedToday,
+        challengeStreak,
+        uniqueDrillsCompleted,
+        totalDrillsAvailable: totalDrillsAvailable || 0,
+      };
+    },
+    enabled: !!userId,
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['today-challenge', userId],

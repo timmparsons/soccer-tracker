@@ -1,6 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import { useProfile } from '@/hooks/useProfile';
-import { useRecentSessions } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useRecentSessions } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +40,9 @@ const ProgressPage = () => {
 
   // Get recent sessions
   const { data: recentSessions, isLoading: sessionsLoading } = useRecentSessions(user?.id, 10);
+
+  // Get challenge stats for badges
+  const { data: challengeStats } = useChallengeStats(user?.id, null);
 
   // Get chart data
   const { data: chartStats } = useQuery({
@@ -225,6 +228,26 @@ const ProgressPage = () => {
       unlocked: (lifetimeStats?.totalTouches || 0) >= 100000,
       progress: Math.min(lifetimeStats?.totalTouches || 0, 100000),
       total: 100000,
+    },
+    {
+      id: '5',
+      title: 'Challenge Streak',
+      description: 'Complete challenges 7 days in a row',
+      icon: '🗓️',
+      unlocked: (challengeStats?.challengeStreak || 0) >= 7,
+      progress: Math.min(challengeStats?.challengeStreak || 0, 7),
+      total: 7,
+    },
+    {
+      id: '6',
+      title: 'Drill Explorer',
+      description: 'Complete every type of drill at least once',
+      icon: '🔍',
+      unlocked:
+        (challengeStats?.totalDrillsAvailable || 0) > 0 &&
+        (challengeStats?.uniqueDrillsCompleted || 0) >= (challengeStats?.totalDrillsAvailable || 1),
+      progress: challengeStats?.uniqueDrillsCompleted || 0,
+      total: challengeStats?.totalDrillsAvailable || 1,
     },
   ];
 
@@ -421,7 +444,7 @@ const ProgressPage = () => {
           <View style={styles.achievementsHeader}>
             <Text style={styles.sectionTitle}>Achievements</Text>
             <View style={styles.achievementsBadge}>
-              <Text style={styles.achievementsBadgeText}>{unlockedCount}/4 Unlocked</Text>
+              <Text style={styles.achievementsBadgeText}>{unlockedCount}/{achievements.length} Unlocked</Text>
             </View>
           </View>
 
