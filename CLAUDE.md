@@ -1,7 +1,7 @@
 # Claude Code Guidelines — Soccer Tracker
 
 ## Commits
-- **Always create a commit** after completing a task. Stage only the files changed for that task.
+- **Always provide a commit message** after completing a task, but wait for explicit approval before running `git commit`. Stage only the files changed for that task.
 - Commit message format: lowercase, no period, action-oriented verb, ~50 chars
   - Examples: `add local notifications for practice reminders`, `fix juggling record display bug`
 - No co-author lines in commits
