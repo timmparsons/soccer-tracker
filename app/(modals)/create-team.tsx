@@ -34,7 +34,7 @@ export default function CreateTeam() {
           <Ionicons name='checkmark-circle' size={64} color='#22c55e' />
           <Text style={styles.title}>Already on a Team!</Text>
           <Text style={styles.subtitle}>
-            You're already part of a team. Leave your current team to create a
+            You&apos;re already part of a team. Leave your current team to create a
             new one.
           </Text>
           <TouchableOpacity style={styles.button} onPress={() => router.back()}>
@@ -81,10 +81,17 @@ export default function CreateTeam() {
           .select('id')
           .ilike('code', teamCode);
 
-        // If no error and no data, the code is unique
-        if (!error && (!existing || existing.length === 0)) {
+        // If there's a database error, log it and assume the code is unique
+        // (the insert will fail if there's a real conflict)
+        if (error) {
+          console.log('Error checking team code uniqueness:', error);
+          // Assume unique and let the insert handle any conflicts
+          isUnique = true;
+        } else if (!existing || existing.length === 0) {
+          // No existing team with this code
           isUnique = true;
         } else {
+          // Code exists, generate a new one
           teamCode = generateTeamCode();
           attempts++;
         }
@@ -94,12 +101,13 @@ export default function CreateTeam() {
         throw new Error('Could not generate unique team code');
       }
 
-      // Create team
+      // Create team with user as coach
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
           name: teamName.trim(),
           code: teamCode,
+          coach_id: user.id,
         })
         .select()
         .single();
@@ -113,10 +121,14 @@ export default function CreateTeam() {
         throw new Error('Team was not created');
       }
 
-      // Update user's profile to join the team
+      // Update user's profile to join the team AND become a coach
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ team_id: team.id })
+        .update({
+          team_id: team.id,
+          is_coach: true,
+          role: 'coach'
+        })
         .eq('id', user.id);
 
       if (profileError) {
@@ -193,28 +205,20 @@ export default function CreateTeam() {
           <View style={styles.infoCard}>
             <Ionicons name='information-circle' size={24} color='#2B9FFF' />
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>What You'll Get</Text>
+              <Text style={styles.infoTitle}>What You&apos;ll Get</Text>
               <Text style={styles.infoText}>
                 • A unique team code to share{'\n'}• Team leaderboard with your
-                friends{'\n'}• Track everyone's progress together
+                friends{'\n'}• Track everyone&apos;s progress together
               </Text>
             </View>
           </View>
 
-          {profile?.is_coach ? null : (
-            <View style={styles.coachCard}>
-              <Ionicons name='bulb' size={20} color='#FFA500' />
-              <Text style={styles.coachText}>
-                Want to manage your team?{' '}
-                <Text
-                  style={styles.coachLink}
-                  onPress={() => router.push('/become-coach')}
-                >
-                  Become a coach
-                </Text>
-              </Text>
-            </View>
-          )}
+          <View style={styles.coachCard}>
+            <Ionicons name='star' size={20} color='#FFA500' />
+            <Text style={styles.coachText}>
+              You&apos;ll become the team coach and can manage your players
+            </Text>
+          </View>
 
           {/* Create Button */}
           <TouchableOpacity

@@ -1,44 +1,32 @@
-import data from '@/constants/allCoachesTips.json';
-import { useJuggles } from '@/hooks/useJuggles';
+import PageHeader from '@/components/common/PageHeader';
+import LogSessionModal from '@/components/modals/LogSessionModal';
 import { useProfile } from '@/hooks/useProfile';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
-import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { getDisplayName } from '@/utils/getDisplayName';
-import { getRandomDailyChallenge } from '@/utils/getRandomCoachTips';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-import CoachsTip from '../common/CoachsTip';
 
 const HomeScreen = () => {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { data: user } = useUser();
+  const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
 
-  const { data: user, isLoading: userLoading } = useUser();
+  const [modalVisible, setModalVisible] = useState(false);
+
   const {
-    data: profile,
-    isLoading: loadingProfile,
-    refetch: refetchProfile,
-  } = useProfile(user?.id);
-  const {
-    data: stats,
+    data: touchStats,
     isLoading: statsLoading,
     refetch: refetchStats,
-  } = useJuggles(user?.id);
+  } = useTouchTracking(user?.id);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,130 +35,137 @@ const HomeScreen = () => {
     }, [refetchProfile, refetchStats])
   );
 
-  if (userLoading || statsLoading || loadingProfile) {
+  if (statsLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#FFA500' />
+        <ActivityIndicator size='large' color='#2B9FFF' />
       </View>
     );
   }
 
-  // --- REAL DATA ---
-  const bestScore = stats?.high_score ?? 0;
-  const streak = stats?.streak_days ?? 0;
-  const sessions = stats?.sessions_count ?? 0;
-  const challenge = getRandomDailyChallenge(data);
-
   const displayName = getDisplayName(profile);
+  const todayTouches = touchStats?.today_touches || 0;
+  const dailyTarget = touchStats?.daily_target || 1000;
+  const weekTouches = touchStats?.this_week_touches || 0;
+  const streak = touchStats?.current_streak || 0;
+  const weekTpm = touchStats?.this_week_tpm || 0;
+  const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
 
-  // XP Data
-  const totalXp = profile?.total_xp ?? 0;
-  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(totalXp);
-  const rankName = getRankName(level);
-  const { color, icon } = getRankBadge(rankName);
+  // TPM intensity indicator
+  const getTpmLabel = (tpm: number) => {
+    if (tpm === 0) return 'No data';
+    if (tpm < 30) return 'Slow pace';
+    if (tpm < 50) return 'Moderate';
+    if (tpm < 80) return 'Good tempo!';
+    return 'Game speed!';
+  };
 
   return (
-    <>
-      <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* HEADER */}
-        <SafeAreaView style={styles.header} edges={[]}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>
-              Hey <Text style={styles.nameHighlight}>{displayName}</Text>! 👋
+    <View style={styles.container}>
+      <PageHeader
+        title={`Hey ${displayName}! 👋`}
+        subtitle='Ready to get some touches?'
+        showAvatar={true}
+        avatarUrl={profile?.avatar_url}
+      />
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* DAILY PROGRESS CARD */}
+        <View style={styles.progressCard}>
+          <View style={styles.progressSparkle}>
+            <Text style={styles.sparkleEmoji}>✨</Text>
+          </View>
+          <Text style={styles.progressLabel}>TODAY&apos;S PROGRESS</Text>
+          <View style={styles.touchesRow}>
+            <Text style={styles.touchesValue}>
+              {todayTouches.toLocaleString()}
             </Text>
-
-            {/* COMPACT LEVEL BADGE */}
-            <TouchableOpacity
-              style={[styles.levelBadge, { backgroundColor: color }]}
-              onPress={() => router.push('/profile')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={icon as any} size={16} color='#FFF' />
-              <Text style={styles.levelBadgeText}>Level {level}</Text>
-              <View style={styles.xpDivider} />
-              <Text style={styles.xpBadgeText}>
-                {xpIntoLevel}/{xpForNextLevel} XP
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.touchesDivider}>/</Text>
+            <Text style={styles.touchesTarget}>
+              {dailyTarget.toLocaleString()}
+            </Text>
           </View>
+          <Text style={styles.touchesLabel}>touches</Text>
 
-          <TouchableOpacity onPress={() => router.push('/profile')}>
-            <View style={styles.avatarGlow} />
-            <Image
-              source={{
-                uri:
-                  profile?.avatar_url ||
-                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-              }}
-              style={styles.avatar}
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
             />
-          </TouchableOpacity>
-        </SafeAreaView>
-
-        {/* BEST SCORE - TROPHY CARD */}
-        <View style={styles.bestCard}>
-          <Text style={styles.trophyWatermark}>🏆</Text>
-          <View style={styles.cornerAccent} />
-
-          <View style={styles.recordBadge}>
-            <Text style={styles.recordBadgeText}>YOUR RECORD</Text>
           </View>
 
-          <View style={styles.scoreRow}>
-            <Text style={styles.bestValue}>{bestScore}</Text>
-            <Text style={styles.bestUnit}>Juggles</Text>
-          </View>
-
-          <View style={styles.personalBestBadge}>
-            <Text style={styles.personalBestText}>Personal Best!</Text>
-          </View>
+          <Text style={styles.progressPercentText}>
+            {Math.round(progressPercent)}% Complete
+          </Text>
         </View>
 
+        {/* LOG PRACTICE BUTTON */}
+        <TouchableOpacity
+          style={styles.logButton}
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.logButtonContent}>
+            <Ionicons name='add-circle' size={28} color='#FFF' />
+            <Text style={styles.logButtonText}>LOG PRACTICE SESSION</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* QUICK STATS */}
-        <View style={styles.quickStatsRow}>
-          <View style={[styles.quickStat, styles.statNavy]}>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, styles.statWeek]}>
             <View style={styles.statIconBg}>
-              <Text style={styles.statIcon}>🎯</Text>
+              <Text style={styles.statIcon}>📊</Text>
             </View>
-            <Text style={styles.quickValue}>{sessions}</Text>
-            <Text style={styles.quickLabel}>Training Sessions</Text>
+            <Text style={styles.statValue}>{weekTouches.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={styles.statSubtext}>Last 7 days</Text>
           </View>
 
-          <View style={[styles.quickStat, styles.statOrange]}>
+          <View style={[styles.statCard, styles.statStreak]}>
             <View style={styles.statIconBg}>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
-            <Text style={styles.quickValue}>{streak}</Text>
-            <Text style={styles.quickLabel}>Day Streak</Text>
+            <Text style={styles.statValue}>{streak}</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+            <Text style={styles.statSubtext}>Keep it going!</Text>
           </View>
-        </View>
 
-        {/* DAILY CHALLENGE */}
-        <View style={styles.challengeCard}>
-          <View style={styles.challengeHeader}>
-            <View style={styles.challengeTitleContainer}>
-              <Text style={styles.challengeTitle}>Today's Challenge</Text>
+          <View style={[styles.statCard, styles.statBest]}>
+            <View style={styles.statIconBg}>
+              <Text style={styles.statIcon}>⚡</Text>
             </View>
+            <Text style={styles.statValue}>{weekTpm}</Text>
+            <Text style={styles.statLabel}>Touches/Min</Text>
+            <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
           </View>
 
-          <View style={styles.missionBox}>
-            <Text style={styles.missionLabel}>YOUR MISSION</Text>
-            <Text style={styles.challengeDesc}>{challenge}</Text>
+          <View style={[styles.statCard, styles.statAvg]}>
+            <View style={styles.statIconBg}>
+              <Text style={styles.statIcon}>📈</Text>
+            </View>
+            <Text style={styles.statValue}>
+              {weekTouches > 0
+                ? Math.round(weekTouches / 7).toLocaleString()
+                : 0}
+            </Text>
+            <Text style={styles.statLabel}>Daily Average</Text>
+            <Text style={styles.statSubtext}>This week</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => router.push('/train')}
-          >
-            <Text style={styles.startButtonText}>LET'S GO!</Text>
-          </TouchableOpacity>
-
-          {/* COACH TIP */}
-          <CoachsTip />
         </View>
       </ScrollView>
-    </>
+
+      {user?.id && (
+        <LogSessionModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          userId={user.id}
+          onSuccess={() => {
+            refetchProfile();
+            refetchStats();
+          }}
+        />
+      )}
+    </View>
   );
 };
 
@@ -181,191 +176,150 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
   },
   container: {
-    padding: 20,
-    paddingTop: 30,
-    backgroundColor: '#F5F9FF',
-  },
-
-  // HEADER
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  headerLeft: {
     flex: 1,
-    marginRight: 15,
+    backgroundColor: '#F5F7FA',
   },
-  greeting: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#2C3E50',
-    lineHeight: 34,
-    marginBottom: 8,
-  },
-  nameHighlight: {
-    color: '#1E90FF',
+  scrollContent: {
+    padding: 20,
   },
 
-  // COMPACT LEVEL BADGE
-  levelBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  levelBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.3,
-  },
-  xpDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 2,
-  },
-  xpBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.9)',
-    letterSpacing: 0.2,
-  },
-
-  avatarGlow: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 35,
-    backgroundColor: '#FFA500',
-    opacity: 0.3,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 4,
-    borderColor: '#FFF',
-  },
-
-  // BEST SCORE
-  bestCard: {
+  // PROGRESS CARD
+  progressCard: {
     backgroundColor: '#2B9FFF',
-    paddingVertical: 20,
+    paddingVertical: 28,
     paddingHorizontal: 24,
     borderRadius: 24,
-    marginBottom: 24,
-    shadowColor: '#1E90FF',
-    shadowOffset: { width: 0, height: 8 },
+    marginBottom: 20,
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
     position: 'relative',
-    overflow: 'hidden',
   },
-  trophyWatermark: {
+  progressSparkle: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    fontSize: 100,
-    opacity: 0.15,
+    top: 20,
+    right: 20,
   },
-  cornerAccent: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 80,
-    height: 80,
-    backgroundColor: 'rgba(255, 165, 0, 0.2)',
-    transform: [{ rotate: '45deg' }],
+  sparkleEmoji: {
+    fontSize: 28,
   },
-  recordBadge: {
-    marginBottom: 12,
-  },
-  recordBadgeText: {
-    color: '#FFD700',
+  progressLabel: {
     fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 16,
+    letterSpacing: 1.2,
   },
-  scoreRow: {
+  touchesRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  touchesValue: {
+    fontSize: 54,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    lineHeight: 54,
+  },
+  touchesDivider: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 8,
+  },
+  touchesTarget: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  touchesLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 20,
+  },
+  progressBarContainer: {
+    height: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 6,
+    overflow: 'hidden',
     marginBottom: 12,
   },
-  bestValue: {
-    color: '#FFFFFF',
-    fontSize: 72,
-    fontWeight: '900',
-    lineHeight: 72,
-    marginRight: 12,
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFD54F',
+    borderRadius: 6,
   },
-  bestUnit: {
-    color: '#FFD700',
-    fontSize: 28,
+  progressPercentText: {
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 8,
-  },
-  personalBestBadge: {
-    backgroundColor: 'rgba(255, 215, 0, 0.25)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#FFD700',
-    alignSelf: 'flex-start',
-  },
-  personalBestText: {
-    color: '#FFD700',
-    fontSize: 13,
-    fontWeight: '800',
+    color: '#FFD54F',
+    textAlign: 'center',
   },
 
-  // QUICK STATS
-  quickStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  // LOG BUTTON
+  logButton: {
+    backgroundColor: '#FF7043',
+    borderRadius: 20,
+    paddingVertical: 22,
     marginBottom: 24,
+    shadowColor: '#FF7043',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  logButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
-  quickStat: {
-    flex: 1,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+  logButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+
+  // STATS GRID (2x2)
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    width: '48%',
+    padding: 20,
     borderRadius: 20,
-    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  statNavy: {
-    backgroundColor: '#2C3E50',
+  statWeek: {
+    backgroundColor: '#FFF',
   },
-  statOrange: {
-    backgroundColor: '#FFA500',
+  statStreak: {
+    backgroundColor: '#FFF',
+  },
+  statBest: {
+    backgroundColor: '#FFF',
+  },
+  statAvg: {
+    backgroundColor: '#FFF',
   },
   statIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F7FA',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -373,81 +327,21 @@ const styles = StyleSheet.create({
   statIcon: {
     fontSize: 24,
   },
-  quickValue: {
-    fontSize: 36,
+  statValue: {
+    fontSize: 28,
     fontWeight: '900',
-    color: '#FFF',
+    color: '#1a1a2e',
     marginBottom: 4,
   },
-  quickLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-
-  // DAILY CHALLENGE
-  challengeCard: {
-    backgroundColor: '#2C3E50',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 26,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-    position: 'relative',
-  },
-  challengeHeader: {
-    marginBottom: 20,
-  },
-  challengeTitleContainer: {
-    flex: 1,
-  },
-  challengeTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  missionBox: {
-    backgroundColor: 'rgba(30, 144, 255, 0.15)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFA500',
-  },
-  missionLabel: {
-    color: '#FFA500',
-    fontSize: 12,
+  statLabel: {
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 12,
+    color: '#1a1a2e',
+    marginBottom: 2,
   },
-  challengeDesc: {
-    fontSize: 15,
-    color: '#FFF',
-    lineHeight: 22,
-    fontWeight: '500',
-  },
-  startButton: {
-    backgroundColor: '#FFA500',
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  startButtonText: {
-    color: '#FFF',
-    fontWeight: '900',
-    fontSize: 18,
-    letterSpacing: 1,
+  statSubtext: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
   },
 });

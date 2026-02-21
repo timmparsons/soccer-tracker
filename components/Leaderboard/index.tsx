@@ -1,10 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import PageHeader from '@/components/common/PageHeader';
+import { useProfile } from '@/hooks/useProfile';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { useFocusEffect } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,382 +16,845 @@ import {
   View,
 } from 'react-native';
 
-import { useTeam } from '@/hooks/useTeam';
-import { useTeamLeaderboard } from '@/hooks/useTeamLeaderboard';
-import { useUser } from '@/hooks/useUser';
-import { getDisplayName } from '@/utils/getDisplayName';
+interface TeamMemberStats {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  weekly_touches: number;
+  today_touches: number;
+  daily_target: number;
+}
 
-const LeaderboardPage = () => {
-  const router = useRouter();
+interface JugglingRecord {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  high_score: number;
+  date_achieved: string;
+}
+
+// Helper to get local date in YYYY-MM-DD format
+const getLocalDate = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const Leaderboard = () => {
   const { data: user } = useUser();
-  const { data: team, isLoading: loadingTeam } = useTeam(user?.id);
-  const {
-    data: leaderboard,
-    isLoading: loadingLeaderboard,
-    refetch: leaderboardRefetch,
-  } = useTeamLeaderboard(team?.id);
+  const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
 
+  // Get today's date and week start date (using local time)
+  const today = getLocalDate();
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 7);
+  const weekStartDate = getLocalDate(weekStart);
+
+  // Fetch team members with their touch stats
+  const {
+    data: touchesLeaderboard = [],
+    isLoading: touchesLoading,
+    refetch: refetchTouches,
+  } = useQuery({
+    queryKey: ['team-touches-leaderboard', profile?.team_id],
+    queryFn: async () => {
+      if (!profile?.team_id) {
+        return [];
+      }
+
+      // Get all team members (excluding coaches)
+      const { data: teamMembers, error: membersError } = await supabase
+        .from('profiles')
+        .select('id, name, display_name, avatar_url')
+        .eq('team_id', profile.team_id)
+        .eq('is_coach', false);
+
+      if (membersError) throw membersError;
+      if (!teamMembers || teamMembers.length === 0) return [];
+
+      // Get touch stats for each member
+      const memberStats: TeamMemberStats[] = await Promise.all(
+        teamMembers.map(async (member) => {
+          // Get weekly touches
+          const { data: weeklyData } = await supabase
+            .from('daily_sessions')
+            .select('touches_logged')
+            .eq('user_id', member.id)
+            .gte('date', weekStartDate)
+            .lte('date', today);
+
+          const weekly_touches = weeklyData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
+
+          // Get today's touches
+          const { data: todayData } = await supabase
+            .from('daily_sessions')
+            .select('touches_logged')
+            .eq('user_id', member.id)
+            .eq('date', today);
+
+          const today_touches = todayData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
+
+          // Get user's daily target
+          const { data: targetData } = await supabase
+            .from('user_targets')
+            .select('daily_target_touches')
+            .eq('user_id', member.id)
+            .single();
+
+          return {
+            id: member.id,
+            name: member.name || member.display_name || 'Unknown Player',
+            avatar_url: member.avatar_url,
+            weekly_touches,
+            today_touches,
+            daily_target: targetData?.daily_target_touches || 1000,
+          };
+        })
+      );
+
+      // Sort by weekly touches descending
+      return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
+    },
+    enabled: !!profile?.team_id,
+  });
+
+  // Fetch juggling records
+  const {
+    data: jugglingLeaderboard = [],
+    isLoading: jugglingLoading,
+    refetch: refetchJuggling,
+  } = useQuery({
+    queryKey: ['team-juggling-leaderboard', profile?.team_id],
+    queryFn: async () => {
+      if (!profile?.team_id) return [];
+
+      // Get all team members (excluding coaches)
+      const { data: teamMembers, error: membersError } = await supabase
+        .from('profiles')
+        .select('id, name, display_name, avatar_url')
+        .eq('team_id', profile.team_id)
+        .eq('is_coach', false);
+
+      if (membersError) throw membersError;
+      if (!teamMembers || teamMembers.length === 0) return [];
+
+      // Get high scores for each member (only from sessions with juggle_count)
+      const memberRecords: JugglingRecord[] = await Promise.all(
+        teamMembers.map(async (member) => {
+          // Get their best juggling session
+          const { data: bestSession } = await supabase
+            .from('daily_sessions')
+            .select('juggle_count, date')
+            .eq('user_id', member.id)
+            .not('juggle_count', 'is', null)
+            .gt('juggle_count', 0)
+            .order('juggle_count', { ascending: false })
+            .limit(1)
+            .single();
+
+          return {
+            id: member.id,
+            name: member.name || member.display_name || 'Unknown Player',
+            avatar_url: member.avatar_url,
+            high_score: bestSession?.juggle_count || 0,
+            date_achieved: bestSession?.date || today,
+          };
+        })
+      );
+
+      // Filter out those with no high score and sort descending
+      return memberRecords
+        .filter((r) => r.high_score > 0)
+        .sort((a, b) => b.high_score - a.high_score);
+    },
+    enabled: !!profile?.team_id,
+  });
+
+  const isLoading = touchesLoading || jugglingLoading;
+
+  const handleRefresh = () => {
+    refetchTouches();
+    refetchJuggling();
+  };
+
+  // Refetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (team?.id && leaderboardRefetch) {
-        leaderboardRefetch();
-      }
-    }, [team?.id, leaderboardRefetch])
+      refetchProfile();
+      refetchTouches();
+      refetchJuggling();
+    }, [refetchProfile, refetchTouches, refetchJuggling])
   );
 
-  if (loadingTeam || loadingLeaderboard) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#FFA500' />
-        <Text style={styles.loadingText}>Loading leaderboard...</Text>
+        <ActivityIndicator size='large' color='#2B9FFF' />
       </View>
     );
   }
 
-  if (!team) {
-    return (
-      <View style={styles.centered}>
-        <View style={styles.emptyIconContainer}>
-          <Ionicons name='people' size={64} color='#2B9FFF' />
-        </View>
-        <Text style={styles.noTeamTitle}>No Team Yet</Text>
-        <Text style={styles.noTeamSub}>
-          Join a team to compete on the leaderboard and track progress with
-          friends!
-        </Text>
+  const getMedalEmoji = (index: number) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return '';
+  };
 
-        <View style={styles.teamButtons}>
-          <TouchableOpacity
-            style={styles.teamButton}
-            onPress={() => router.push('/(modals)/join-team')}
-          >
-            <Ionicons name='enter' size={20} color='#FFF' />
-            <Text style={styles.teamButtonText}>Join Team</Text>
-          </TouchableOpacity>
+  const getCurrentUserId = () => user?.id;
 
-          <TouchableOpacity
-            style={[styles.teamButton, styles.createButton]}
-            onPress={() => router.push('/(modals)/create-team')}
-          >
-            <Ionicons name='add-circle' size={20} color='#FFF' />
-            <Text style={styles.teamButtonText}>Create Team</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const diffDays = Math.floor(
+      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
     );
-  }
 
-  // Top 3 players for podium
-  const topThree = leaderboard?.slice(0, 3) || [];
-  const restOfPlayers = leaderboard?.slice(3) || [];
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <View style={styles.headerIconBadge}>
-            <Ionicons name='trophy' size={28} color='#FFD700' />
-          </View>
-          <View style={styles.titleContent}>
-            <Text style={styles.title}>{team.name}</Text>
-            <Text style={styles.subtitle}>Team Leaderboard</Text>
-          </View>
-        </View>
+    <View style={styles.container}>
+      <PageHeader
+        title='Team Leaderboard'
+        showAvatar={true}
+        avatarUrl={profile?.avatar_url}
+      />
+
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'touches' && styles.tabActive]}
+          onPress={() => setActiveTab('touches')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'touches' && styles.tabTextActive,
+            ]}
+          >
+            📊 Weekly Touches
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'juggling' && styles.tabActive]}
+          onPress={() => setActiveTab('juggling')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'juggling' && styles.tabTextActive,
+            ]}
+          >
+            ⚽ Juggling Records
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {!leaderboard || leaderboard.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name='bar-chart-outline' size={64} color='#9CA3AF' />
-          </View>
-          <Text style={styles.emptyTitle}>No Rankings Yet</Text>
-          <Text style={styles.emptyText}>
-            Complete training sessions to appear on the leaderboard
-          </Text>
-        </View>
-      ) : (
-        <>
-          {/* TOP 3 PODIUM */}
-          {topThree.length > 0 && (
-            <View style={styles.podiumSection}>
-              <Text style={styles.sectionTitle}>Top Performers</Text>
-              <View style={styles.podiumContainer}>
-                {/* 2nd Place */}
-                {topThree[1] && (
-                  <View style={[styles.podiumCard, styles.podiumSecond]}>
-                    <View style={styles.podiumRankBadge}>
-                      <Text style={styles.podiumRankText}>2</Text>
-                    </View>
-                    <View style={styles.avatarContainer}>
-                      <Image
-                        source={{
-                          uri:
-                            topThree[1].avatar_url ||
-                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                        }}
-                        style={styles.podiumAvatar}
-                      />
-                      <View style={[styles.medalBadge, styles.silverMedal]}>
-                        <Ionicons name='medal' size={16} color='#9CA3AF' />
-                      </View>
-                    </View>
-                    <Text style={styles.podiumName} numberOfLines={1}>
-                      {topThree[1].display_name ||
-                        topThree[1].first_name ||
-                        'Player'}
-                    </Text>
-                    <Text style={styles.podiumScore}>
-                      {topThree[1].high_score}
-                    </Text>
-                    <Text style={styles.podiumLabel}>juggles</Text>
-                  </View>
-                )}
-
-                {/* 1st Place */}
-                {topThree[0] && (
-                  <View style={[styles.podiumCard, styles.podiumFirst]}>
-                    <View style={styles.crownIcon}>
-                      <Text style={styles.crownEmoji}>👑</Text>
-                    </View>
-                    <View style={styles.podiumRankBadge}>
-                      <Text style={styles.podiumRankText}>1</Text>
-                    </View>
-                    <View style={styles.avatarContainer}>
-                      <Image
-                        source={{
-                          uri:
-                            topThree[0].avatar_url ||
-                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                        }}
-                        style={styles.podiumAvatarFirst}
-                      />
-                      <View style={[styles.medalBadge, styles.goldMedal]}>
-                        <Ionicons name='medal' size={20} color='#FFD700' />
-                      </View>
-                    </View>
-                    <Text style={styles.podiumNameFirst} numberOfLines={1}>
-                      {topThree[0].display_name ||
-                        topThree[0].first_name ||
-                        'Player'}
-                    </Text>
-                    <Text style={styles.podiumScoreFirst}>
-                      {topThree[0].high_score}
-                    </Text>
-                    <Text style={styles.podiumLabel}>juggles</Text>
-                  </View>
-                )}
-
-                {/* 3rd Place */}
-                {topThree[2] && (
-                  <View style={[styles.podiumCard, styles.podiumThird]}>
-                    <View style={styles.podiumRankBadge}>
-                      <Text style={styles.podiumRankText}>3</Text>
-                    </View>
-                    <View style={styles.avatarContainer}>
-                      <Image
-                        source={{
-                          uri:
-                            topThree[2].avatar_url ||
-                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                        }}
-                        style={styles.podiumAvatar}
-                      />
-                      <View style={[styles.medalBadge, styles.bronzeMedal]}>
-                        <Ionicons name='medal' size={16} color='#CD7F32' />
-                      </View>
-                    </View>
-                    <Text style={styles.podiumName} numberOfLines={1}>
-                      {topThree[2].display_name ||
-                        topThree[2].first_name ||
-                        'Player'}
-                    </Text>
-                    <Text style={styles.podiumScore}>
-                      {topThree[2].high_score}
-                    </Text>
-                    <Text style={styles.podiumLabel}>juggles</Text>
-                  </View>
-                )}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
+      >
+        {activeTab === 'touches' ? (
+          <>
+            {/* Weekly Touches View */}
+            <View style={styles.weekBadgeContainer}>
+              <View style={styles.weekBadge}>
+                <Text style={styles.weekBadgeText}>Last 7 Days</Text>
               </View>
             </View>
-          )}
 
-          {/* REST OF LEADERBOARD */}
-          {restOfPlayers.length > 0 && (
-            <View style={styles.listSection}>
-              <Text style={styles.sectionTitle}>All Rankings</Text>
-              {restOfPlayers.map((player: any, index: number) => {
-                const actualRank = index + 4;
+            {/* Empty state for touches */}
+            {touchesLeaderboard.length === 0 && !touchesLoading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>No Data Yet</Text>
+                <Text style={styles.emptyStateText}>
+                  Team members will appear here once they start logging touches.
+                </Text>
+              </View>
+            )}
+
+            {/* Top 3 Podium for Touches */}
+            {touchesLeaderboard.length >= 3 && (
+              <View style={styles.podium}>
+                {/* 2nd Place */}
+                <View style={styles.podiumSpot}>
+                  <Image
+                    source={{
+                      uri:
+                        touchesLeaderboard[1].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar2}
+                  />
+                  <Text style={styles.podiumMedal}>🥈</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {touchesLeaderboard[1].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {touchesLeaderboard[1].weekly_touches.toLocaleString()}
+                  </Text>
+                  <View style={styles.podiumRank2}>
+                    <Text style={styles.podiumRankText}>2nd</Text>
+                  </View>
+                </View>
+
+                {/* 1st Place */}
+                <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                  <View style={styles.crownContainer}>
+                    <Text style={styles.crown}>👑</Text>
+                  </View>
+                  <Image
+                    source={{
+                      uri:
+                        touchesLeaderboard[0].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar1}
+                  />
+                  <Text style={styles.podiumMedal}>🥇</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {touchesLeaderboard[0].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {touchesLeaderboard[0].weekly_touches.toLocaleString()}
+                  </Text>
+                  <View style={styles.podiumRank1}>
+                    <Text style={styles.podiumRankText}>1st</Text>
+                  </View>
+                </View>
+
+                {/* 3rd Place */}
+                <View style={styles.podiumSpot}>
+                  <Image
+                    source={{
+                      uri:
+                        touchesLeaderboard[2].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar3}
+                  />
+                  <Text style={styles.podiumMedal}>🥉</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {touchesLeaderboard[2].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {touchesLeaderboard[2].weekly_touches.toLocaleString()}
+                  </Text>
+                  <View style={styles.podiumRank3}>
+                    <Text style={styles.podiumRankText}>3rd</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Rest of Touches List */}
+            <View style={styles.listContainer}>
+              {touchesLeaderboard.map((player, index) => {
+                const isCurrentUser = player.id === getCurrentUserId();
+                const hitTarget = player.today_touches >= player.daily_target;
+
                 return (
-                  <View key={player.id} style={styles.row}>
-                    <View style={styles.rankBadge}>
-                      <Text style={styles.rank}>{actualRank}</Text>
-                    </View>
+                  <View
+                    key={player.id}
+                    style={[
+                      styles.playerCard,
+                      isCurrentUser && styles.currentUserCard,
+                    ]}
+                  >
+                    <View style={styles.playerLeft}>
+                      <View style={styles.rankContainer}>
+                        {index < 3 ? (
+                          <Text style={styles.medalEmoji}>
+                            {getMedalEmoji(index)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.rankNumber}>{index + 1}</Text>
+                        )}
+                      </View>
 
-                    <Image
-                      source={{
-                        uri:
-                          player.avatar_url ||
-                          'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                      }}
-                      style={styles.avatar}
-                    />
+                      <Image
+                        source={{
+                          uri:
+                            player.avatar_url ||
+                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                        }}
+                        style={styles.avatar}
+                      />
 
-                    <View style={styles.info}>
-                      <Text style={styles.username}>
-                        {getDisplayName(player, 'Player')}
-                      </Text>
-                      <View style={styles.streakRow}>
-                        <Ionicons name='flame' size={14} color='#FFA500' />
-                        <Text style={styles.streak}>
-                          {player.streak_days} day streak
-                        </Text>
+                      <View style={styles.playerInfo}>
+                        <View style={styles.nameRow}>
+                          <Text style={styles.playerName}>
+                            {player.name}
+                            {isCurrentUser && (
+                              <Text style={styles.youBadge}> (You)</Text>
+                            )}
+                          </Text>
+                        </View>
+                        <View style={styles.statsRow}>
+                          <Text style={styles.todayTouches}>
+                            {player.today_touches.toLocaleString()} today
+                          </Text>
+                          {hitTarget && (
+                            <View style={styles.targetHitBadge}>
+                              <Text style={styles.targetHitText}>
+                                🎯 Target Hit
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
 
-                    <View style={styles.scoreContainer}>
-                      <Text style={styles.score}>{player.high_score}</Text>
-                      <Text style={styles.scoreLabel}>juggles</Text>
+                    <View style={styles.playerRight}>
+                      <Text style={styles.weeklyTouches}>
+                        {player.weekly_touches.toLocaleString()}
+                      </Text>
+                      <Text style={styles.touchesLabel}>touches</Text>
                     </View>
                   </View>
                 );
               })}
             </View>
-          )}
-        </>
-      )}
-    </ScrollView>
+          </>
+        ) : (
+          <>
+            {/* Juggling Records View */}
+            <View style={styles.weekBadgeContainer}>
+              <View style={styles.jugglingBadge}>
+                <Text style={styles.weekBadgeText}>All-Time Records</Text>
+              </View>
+            </View>
+
+            {/* Empty state for juggling */}
+            {jugglingLeaderboard.length === 0 && !jugglingLoading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>No Juggling Records</Text>
+                <Text style={styles.emptyStateText}>
+                  Team members will appear here once they set juggling high scores.
+                </Text>
+              </View>
+            )}
+
+            {/* Top 3 Podium for Juggling */}
+            {jugglingLeaderboard.length >= 3 && (
+              <View style={styles.podium}>
+                {/* 2nd Place */}
+                <View style={styles.podiumSpot}>
+                  <Image
+                    source={{
+                      uri:
+                        jugglingLeaderboard[1].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar2}
+                  />
+                  <Text style={styles.podiumMedal}>🥈</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {jugglingLeaderboard[1].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {jugglingLeaderboard[1].high_score}
+                  </Text>
+                  <View style={styles.podiumRank2}>
+                    <Text style={styles.podiumRankText}>2nd</Text>
+                  </View>
+                </View>
+
+                {/* 1st Place */}
+                <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                  <View style={styles.crownContainer}>
+                    <Text style={styles.crown}>👑</Text>
+                  </View>
+                  <Image
+                    source={{
+                      uri:
+                        jugglingLeaderboard[0].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar1}
+                  />
+                  <Text style={styles.podiumMedal}>🥇</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {jugglingLeaderboard[0].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {jugglingLeaderboard[0].high_score}
+                  </Text>
+                  <View style={styles.podiumRank1}>
+                    <Text style={styles.podiumRankText}>1st</Text>
+                  </View>
+                </View>
+
+                {/* 3rd Place */}
+                <View style={styles.podiumSpot}>
+                  <Image
+                    source={{
+                      uri:
+                        jugglingLeaderboard[2].avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar3}
+                  />
+                  <Text style={styles.podiumMedal}>🥉</Text>
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {jugglingLeaderboard[2].name}
+                  </Text>
+                  <Text style={styles.podiumTouches}>
+                    {jugglingLeaderboard[2].high_score}
+                  </Text>
+                  <View style={styles.podiumRank3}>
+                    <Text style={styles.podiumRankText}>3rd</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Rest of Juggling List */}
+            <View style={styles.listContainer}>
+              {jugglingLeaderboard.map((player, index) => {
+                const isCurrentUser = player.id === getCurrentUserId();
+
+                return (
+                  <View
+                    key={player.id}
+                    style={[
+                      styles.playerCard,
+                      isCurrentUser && styles.currentUserCard,
+                    ]}
+                  >
+                    <View style={styles.playerLeft}>
+                      <View style={styles.rankContainer}>
+                        {index < 3 ? (
+                          <Text style={styles.medalEmoji}>
+                            {getMedalEmoji(index)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.rankNumber}>{index + 1}</Text>
+                        )}
+                      </View>
+
+                      <Image
+                        source={{
+                          uri:
+                            player.avatar_url ||
+                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                        }}
+                        style={styles.avatar}
+                      />
+
+                      <View style={styles.playerInfo}>
+                        <View style={styles.nameRow}>
+                          <Text style={styles.playerName}>
+                            {player.name}
+                            {isCurrentUser && (
+                              <Text style={styles.youBadge}> (You)</Text>
+                            )}
+                          </Text>
+                        </View>
+                        <Text style={styles.jugglingDate}>
+                          {formatDate(player.date_achieved)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.playerRight}>
+                      <Text style={styles.jugglingScore}>
+                        {player.high_score}
+                      </Text>
+                      <Text style={styles.touchesLabel}>juggles</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
-export default LeaderboardPage;
+export default Leaderboard;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F9FF',
-  },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F5F7FA',
   },
-  loadingText: {
-    marginTop: 12,
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  centered: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F9FF',
-    paddingHorizontal: 30,
+    backgroundColor: '#F5F7FA',
   },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(43, 159, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
+  content: {
+    padding: 20,
   },
-  noTeamTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#2C3E50',
+
+  // TABS
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+    backgroundColor: '#F5F7FA',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabActive: {
+    backgroundColor: '#2B9FFF',
+    shadowColor: '#2B9FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#78909C',
+  },
+  tabTextActive: {
+    color: '#FFF',
+  },
+
+  weekBadgeContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  weekBadge: {
+    backgroundColor: '#2B9FFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  jugglingBadge: {
+    backgroundColor: '#FF7043',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  weekBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // PODIUM
+  podium: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    marginBottom: 32,
+    gap: 8,
+  },
+  podiumSpot: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  podiumFirst: {
+    marginBottom: 20,
+  },
+  crownContainer: {
     marginBottom: 8,
   },
-  noTeamSub: {
-    color: '#6B7280',
-    fontSize: 15,
-    textAlign: 'center',
-    fontWeight: '500',
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  teamButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-    maxWidth: 400,
-  },
-  teamButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#2B9FFF',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#2B9FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  createButton: {
-    backgroundColor: '#FFA500',
-    shadowColor: '#FFA500',
-  },
-  teamButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-
-  // HEADER
-  header: {
-    marginTop: 40,
-    marginBottom: 24,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  titleContent: {
-    flex: 1,
-  },
-  title: {
+  crown: {
     fontSize: 32,
-    fontWeight: '900',
-    color: '#2C3E50',
-    lineHeight: 36,
   },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '600',
-    marginTop: 2,
+  podiumAvatar1: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#FFD700',
+    marginBottom: 8,
+  },
+  podiumAvatar2: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 4,
+    borderColor: '#C0C0C0',
+    marginBottom: 8,
+  },
+  podiumAvatar3: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 4,
+    borderColor: '#CD7F32',
+    marginBottom: 8,
+  },
+  podiumMedal: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  podiumName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  podiumTouches: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2B9FFF',
+    marginBottom: 8,
+  },
+  podiumRank1: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  podiumRank2: {
+    backgroundColor: '#C0C0C0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  podiumRank3: {
+    backgroundColor: '#CD7F32',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  podiumRankText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '900',
   },
 
-  sectionTitle: {
+  // LIST
+  listContainer: {
+    gap: 12,
+  },
+  playerCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  currentUserCard: {
+    borderWidth: 2,
+    borderColor: '#2B9FFF',
+    backgroundColor: '#F3F4FF',
+  },
+  playerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  rankContainer: {
+    width: 32,
+    alignItems: 'center',
+  },
+  medalEmoji: {
+    fontSize: 24,
+  },
+  rankNumber: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#2C3E50',
-    marginBottom: 16,
+    color: '#78909C',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  playerName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  youBadge: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2B9FFF',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  todayTouches: {
+    fontSize: 13,
+    color: '#78909C',
+    fontWeight: '600',
+  },
+  jugglingDate: {
+    fontSize: 13,
+    color: '#78909C',
+    fontWeight: '600',
+  },
+  targetHitBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  targetHitText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#388E3C',
+  },
+  playerRight: {
+    alignItems: 'flex-end',
+  },
+  weeklyTouches: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#2B9FFF',
+    marginBottom: 2,
+  },
+  jugglingScore: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FF7043',
+    marginBottom: 2,
+  },
+  touchesLabel: {
+    fontSize: 11,
+    color: '#78909C',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -395,217 +862,22 @@ const styles = StyleSheet.create({
   // EMPTY STATE
   emptyState: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 40,
   },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '900',
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#2C3E50',
-    marginBottom: 8,
-  },
-  emptyText: {
-    color: '#6B7280',
+    marginBottom: 12,
     textAlign: 'center',
+  },
+  emptyStateText: {
     fontSize: 15,
+    color: '#78909C',
+    textAlign: 'center',
+    lineHeight: 22,
     fontWeight: '500',
-  },
-
-  // PODIUM SECTION
-  podiumSection: {
-    marginBottom: 32,
-  },
-  podiumContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  podiumCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    position: 'relative',
-  },
-  podiumFirst: {
-    flex: 1,
-    borderWidth: 3,
-    borderColor: '#FFD700',
-    paddingVertical: 20,
-  },
-  podiumSecond: {
-    flex: 0.9,
-    borderWidth: 2,
-    borderColor: '#9CA3AF',
-  },
-  podiumThird: {
-    flex: 0.9,
-    borderWidth: 2,
-    borderColor: '#CD7F32',
-  },
-  crownIcon: {
-    position: 'absolute',
-    top: -16,
-    zIndex: 10,
-  },
-  crownEmoji: {
-    fontSize: 32,
-  },
-  podiumRankBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#2B9FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  podiumRankText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  podiumAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  podiumAvatarFirst: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    borderColor: '#FFD700',
-  },
-  medalBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  goldMedal: {
-    borderColor: '#FFD700',
-  },
-  silverMedal: {
-    borderColor: '#9CA3AF',
-  },
-  bronzeMedal: {
-    borderColor: '#CD7F32',
-  },
-  podiumName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2C3E50',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  podiumNameFirst: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#2C3E50',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  podiumScore: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFA500',
-  },
-  podiumScoreFirst: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#FFD700',
-  },
-  podiumLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-
-  // LIST SECTION
-  listSection: {
-    marginBottom: 24,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  rankBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F9FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  rank: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#2B9FFF',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#F5F9FF',
-  },
-  info: {
-    flex: 1,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2C3E50',
-    marginBottom: 4,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  streak: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  scoreContainer: {
-    alignItems: 'flex-end',
-  },
-  score: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2C3E50',
-  },
-  scoreLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '600',
   },
 });

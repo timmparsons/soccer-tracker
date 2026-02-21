@@ -1,16 +1,15 @@
-import { getRankBadge } from '@/lib/xp';
+// components/XPCard.tsx
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-type XPCardProps = {
+interface XPCardProps {
   level: number;
   xpIntoLevel: number;
   xpForNextLevel: number;
   rankName: string;
-  onOpenRoadmap?: () => void;
-};
+  onOpenRoadmap: () => void;
+}
 
 export default function XPCard({
   level,
@@ -19,238 +18,171 @@ export default function XPCard({
   rankName,
   onOpenRoadmap,
 }: XPCardProps) {
-  const pct = Math.min((xpIntoLevel / xpForNextLevel) * 100, 100);
-  const { color, icon } = getRankBadge(rankName);
+  const progressPercent = (xpIntoLevel / xpForNextLevel) * 100;
 
-  const [modalVisible, setModalVisible] = useState(false);
-
-  /* -----------------------------------------------------------
-     CONFETTI LOGIC (LEVEL UP ONLY)
-  ------------------------------------------------------------ */
-  const prevLevelRef = useRef<number | null>(null);
-  const [showConfetti, setShowConfetti] = useState(false);
-
-  useEffect(() => {
-    // First render: initialize, do NOT celebrate
-    if (prevLevelRef.current === null) {
-      prevLevelRef.current = level;
-      return;
-    }
-
-    if (level > prevLevelRef.current) {
-      // Small delay makes it feel intentional
-      setTimeout(() => setShowConfetti(true), 300);
-    }
-
-    prevLevelRef.current = level;
-  }, [level]);
-
-  useEffect(() => {
-    if (!showConfetti) return;
-
-    const timer = setTimeout(() => {
-      setShowConfetti(false);
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [showConfetti]);
-
-  /* -----------------------------------------------------------
-     UI
-  ------------------------------------------------------------ */
   return (
-    <>
-      <View style={[styles.card, { borderLeftColor: color }]}>
-        <View style={styles.topRow}>
-          <Ionicons
-            name={icon as any}
-            size={28}
-            color={color}
-            style={{ marginRight: 10 }}
-          />
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.level}>Level {level}</Text>
-            <Text style={[styles.rank, { color }]}>{rankName}</Text>
-          </View>
-
-          <Text style={styles.xpText}>
-            {xpIntoLevel} / {xpForNextLevel} XP
-          </Text>
-
-          <TouchableOpacity onPress={() => setModalVisible(true)}>
-            <Ionicons name='help-circle-outline' size={22} color='#6b7280' />
-          </TouchableOpacity>
+    <View style={styles.container}>
+      {/* Level & Rank */}
+      <View style={styles.header}>
+        <View style={styles.levelBadge}>
+          <Text style={styles.levelLabel}>LEVEL</Text>
+          <Text style={styles.levelNumber}>{level}</Text>
         </View>
+        <View style={styles.rankContainer}>
+          <Text style={styles.rankLabel}>RANK</Text>
+          <Text style={styles.rankName}>{rankName}</Text>
+        </View>
+      </View>
 
+      {/* Progress Bar */}
+      <View style={styles.progressSection}>
         <View style={styles.progressBar}>
           <View
             style={[
               styles.progressFill,
-              { width: `${pct}%`, backgroundColor: color },
+              { width: `${Math.min(progressPercent, 100)}%` },
             ]}
           />
         </View>
-
-        <TouchableOpacity
-          style={[styles.roadmapButton, { borderColor: color }]}
-          onPress={onOpenRoadmap}
-        >
-          <Text style={[styles.roadmapButtonText, { color }]}>
-            View Roadmap
-          </Text>
-          <Ionicons name='chevron-forward' size={18} color={color} />
-        </TouchableOpacity>
+        <Text style={styles.progressText}>
+          {xpIntoLevel.toLocaleString()} / {xpForNextLevel.toLocaleString()} XP
+        </Text>
       </View>
 
-      {/* CONFETTI (LEVEL UP ONLY) */}
-      {showConfetti && (
-        <ConfettiCannon
-          count={Math.min(120, level * 10)}
-          fadeOut
-          origin={{ x: -10, y: 0 }}
-        />
-      )}
-
-      {/* HOW XP WORKS MODAL */}
-      <Modal transparent animationType='slide' visible={modalVisible}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>How XP Works</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name='close' size={26} color='#111827' />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalContent}>
-              <Text style={styles.sectionHeader}>Earn XP:</Text>
-              <Text style={styles.item}>• 1 juggle = 1 XP</Text>
-              <Text style={styles.item}>
-                • New personal best = +50 XP bonus
-              </Text>
-              <Text style={styles.item}>
-                • Each level requires more XP to reach
-              </Text>
-
-              <Text style={[styles.sectionHeader, { marginTop: 16 }]}>
-                Progression:
-              </Text>
-              <Text style={styles.item}>
-                • Early levels are easier to reach
-              </Text>
-              <Text style={styles.item}>
-                • Higher levels require serious dedication
-              </Text>
-              <Text style={styles.item}>
-                • Level 20 "Legend" status takes years!
-              </Text>
-            </View>
-          </View>
+      {/* XP Info */}
+      <View style={styles.xpInfo}>
+        <View style={styles.xpInfoRow}>
+          <Ionicons name='football' size={18} color='#2B9FFF' />
+          <Text style={styles.xpInfoText}>10 juggles = 1 XP</Text>
         </View>
-      </Modal>
-    </>
+        <View style={styles.xpInfoRow}>
+          <Ionicons name='trophy' size={18} color='#FFD700' />
+          <Text style={styles.xpInfoText}>Personal Best = +50 XP</Text>
+        </View>
+      </View>
+
+      {/* Roadmap Button */}
+      <TouchableOpacity style={styles.roadmapButton} onPress={onOpenRoadmap}>
+        <Ionicons name='map' size={20} color='#FFF' />
+        <Text style={styles.roadmapButtonText}>View Roadmap</Text>
+        <Ionicons name='chevron-forward' size={20} color='#FFF' />
+      </TouchableOpacity>
+    </View>
   );
 }
 
-/* -----------------------------------------------------------
-   STYLES
------------------------------------------------------------- */
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 20,
-    borderLeftWidth: 6,
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+  container: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  topRow: {
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  levelBadge: {
+    backgroundColor: '#2B9FFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 12,
+    minWidth: 100,
+    shadowColor: '#2B9FFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  level: {
+  levelLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#E0F2FE',
+    letterSpacing: 1,
+  },
+  levelNumber: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFF',
+    marginTop: 4,
+  },
+  rankContainer: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  rankLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  rankName: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '900',
+    color: '#2C3E50',
   },
-  rank: {
-    fontSize: 14,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  xpText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3b82f6',
-    marginRight: 12,
+  progressSection: {
+    marginBottom: 16,
   },
   progressBar: {
-    height: 8,
-    backgroundColor: '#e5e7eb',
+    height: 12,
+    backgroundColor: '#F3F4F6',
     borderRadius: 6,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#FFA500',
+    borderRadius: 6,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  xpInfo: {
+    backgroundColor: '#F5F9FF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 8,
+  },
+  xpInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  xpInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C3E50',
   },
   roadmapButton: {
-    marginTop: 14,
-    paddingVertical: 10,
-    borderWidth: 1.5,
-    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    backgroundColor: '#FFA500',
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: '#FFA500',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   roadmapButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  modalContent: {
-    marginTop: 20,
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  item: {
     fontSize: 16,
-    color: '#374151',
-    marginBottom: 12,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.3,
   },
 });

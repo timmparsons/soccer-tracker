@@ -1,86 +1,67 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+// components/XPToast.tsx
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-type Props = {
+interface XPToastProps {
   visible: boolean;
   xp: number;
-};
+  juggles?: number;
+}
 
-export default function XPToast({ visible, xp }: Props) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(opacity, {
-              toValue: 0,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: 20,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }, 1200);
-      });
-    }
-  }, [visible]);
-
+export default function XPToast({ visible, xp, juggles }: XPToastProps) {
   if (!visible) return null;
 
   return (
-    <Animated.View
-      style={[styles.toast, { opacity, transform: [{ translateY }] }]}
-    >
-      <Text style={styles.xp}>{`+${xp} XP`}</Text>
-      <Text style={styles.message}>Great work!</Text>
-    </Animated.View>
+    <View style={styles.container}>
+      <View style={styles.toast}>
+        <Ionicons name='trophy' size={32} color='#FFD700' />
+        <View style={styles.textContainer}>
+          <Text style={styles.xpText}>+{xp} XP</Text>
+          {juggles && juggles > 0 && (
+            <Text style={styles.jugglesText}>{juggles} juggles</Text>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  toast: {
+  container: {
     position: 'absolute',
-    top: 300,
-    alignSelf: 'center',
-    backgroundColor: '#1d4ed8', // EA Sports blue
-    paddingVertical: 40,
-    paddingHorizontal: 60,
-    borderRadius: 20,
-    shadowColor: '#3b82f6',
-    shadowOpacity: 0.55,
-    shadowRadius: 20,
-    elevation: 6,
+    top: 100,
+    left: 0,
+    right: 0,
     alignItems: 'center',
+    zIndex: 1000,
   },
-  xp: {
-    fontSize: 44,
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2C3E50',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  textContainer: {
+    alignItems: 'flex-start',
+  },
+  xpText: {
+    fontSize: 24,
     fontWeight: '900',
-    color: '#ffffff',
-    textShadowColor: 'rgba(255,255,255,0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
+    color: '#FFD700',
+    letterSpacing: 0.5,
   },
-  message: {
-    marginTop: 8,
-    fontSize: 16,
+  jugglesText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)',
+    color: '#9CA3AF',
+    marginTop: 2,
   },
 });

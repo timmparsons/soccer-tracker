@@ -17,6 +17,37 @@ export default function AuthCallback() {
       }
 
       if (data.session) {
+        // Sync user metadata to profile if needed
+        const user = data.session.user;
+        const metadata = user.user_metadata;
+        const firstName = metadata?.first_name;
+        const lastName = metadata?.last_name;
+
+        if (firstName) {
+          const emailPrefix = user.email?.split('@')[0];
+
+          // Check if profile display_name is still the email prefix
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', user.id)
+            .single();
+
+          // Only update if display_name is the email prefix
+          if (profile?.display_name === emailPrefix) {
+            const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+            await supabase
+              .from('profiles')
+              .update({
+                name: fullName,
+                display_name: firstName,
+              })
+              .eq('id', user.id);
+
+            console.log('✅ Profile synced with display_name:', firstName);
+          }
+        }
+
         // ✅ user is authenticated
         router.replace('/(tabs)');
       } else {

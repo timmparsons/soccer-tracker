@@ -150,7 +150,7 @@ export const WeeklyProgressCard = memo(({ teamId }: { teamId?: string }) => {
         <View style={styles.iconBadge}>
           <Ionicons name='bar-chart' size={24} color='#2B9FFF' />
         </View>
-        <Text style={styles.cardTitle}>This Week's Progress</Text>
+        <Text style={styles.cardTitle}>This Week&apos;s Progress</Text>
       </View>
 
       <View style={styles.weeklyStats}>

@@ -1,7 +1,7 @@
 {
   "name": "soccer-tracker",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -32,6 +32,7 @@
     "expo-image-picker": "^17.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.8",
+    "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.8",
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
@@ -46,6 +47,7 @@
     "react-dom": "19.1.0",
     "react-i18next": "^16.0.0",
     "react-native": "0.81.4",
+    "react-native-chart-kit": "^6.12.0",
     "react-native-circular-progress": "^1.4.1",
     "react-native-confetti-cannon": "^1.5.2",
     "react-native-gesture-handler": "~2.28.0",

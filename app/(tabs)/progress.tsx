@@ -1,20 +1,7 @@
-import TrainPage from '@/components/ProgressPage';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import ProgressPage from '@/components/ProgressPage';
 
-const Train = () => {
-  return (
-    <SafeAreaView style={styles.container}>
-      <TrainPage />
-    </SafeAreaView>
-  );
+const Progress = () => {
+  return <ProgressPage />;
 };
 
-export default Train;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-});
+export default Progress;

@@ -11,7 +11,7 @@ const CoachsTip = () => {
     <View style={styles.tipCard}>
       <View style={styles.headerRow}>
         <Ionicons name='bulb-outline' size={20} color='#6B7280' />
-        <Text style={styles.tipTitle}>Coach's Tip</Text>
+        <Text style={styles.tipTitle}>Coach&apos;s Tip</Text>
       </View>
       <Text style={styles.tipText}>{tip}</Text>
     </View>
