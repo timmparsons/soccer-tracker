@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useEffect } from 'react';
+import { ResizeMode, Video } from 'expo-av';
+import React, { useRef } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -18,39 +18,41 @@ interface DrillVideoModalProps {
 }
 
 const DrillVideoModal = ({ visible, onClose, videoUrl, drillName }: DrillVideoModalProps) => {
-  const player = useVideoPlayer(videoUrl, (p) => {
-    p.loop = false;
-  });
+  const videoRef = useRef<Video>(null);
 
-  useEffect(() => {
-    if (!visible) {
-      player.pause();
-    }
-  }, [visible, player]);
+  const handleClose = async () => {
+    await videoRef.current?.pauseAsync();
+    onClose();
+  };
 
   return (
     <Modal
       visible={visible}
       animationType='slide'
       presentationStyle='pageSheet'
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title} numberOfLines={1}>{drillName}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name='close' size={24} color='#1a1a2e' />
+          <TouchableOpacity
+            onPress={handleClose}
+            style={styles.closeButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name='close' size={24} color='#FFF' />
           </TouchableOpacity>
         </View>
 
         {/* Video */}
-        <VideoView
-          player={player}
+        <Video
+          ref={videoRef}
+          source={{ uri: videoUrl }}
           style={styles.video}
-          allowsFullscreen
-          allowsPictureInPicture
-          contentFit='contain'
+          resizeMode={ResizeMode.CONTAIN}
+          useNativeControls
+          shouldPlay={visible}
         />
 
         <Text style={styles.caption}>Drill Tutorial — Coach Vinnie</Text>
@@ -98,5 +100,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 16,
+    marginBottom: 8,
   },
 });
