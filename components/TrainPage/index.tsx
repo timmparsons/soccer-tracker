@@ -1,7 +1,9 @@
 import PageHeader from '@/components/common/PageHeader';
+import DrillVideoModal from '@/components/modals/DrillVideoModal';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useTodayChallenge, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +63,12 @@ const PRO_TIPS = [
   { text: "In a game, you have 1-2 seconds on the ball. Train like you have even less.", author: "Training Tip" },
 ];
 
+const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
+  beginner: { bg: '#E8F5E9', text: '#388E3C' },
+  intermediate: { bg: '#FFF3E0', text: '#F57C00' },
+  advanced: { bg: '#FFEBEE', text: '#D32F2F' },
+};
+
 // Get 3 tips for today based on the date
 const getTodaysTips = () => {
   const today = new Date();
@@ -88,9 +96,14 @@ const TrainPage = () => {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
   const [submittingScore, setSubmittingScore] = useState(false);
-  const [isFreeTimer, setIsFreeTimer] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
+  const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoName, setVideoName] = useState<string>('');
+  const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
+  const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -103,26 +116,14 @@ const TrainPage = () => {
   ];
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
-  const { data: todayChallenge, refetch: refetchChallenge } = useTodayChallenge(
-    user?.id
-  );
+  const { data: drills = [] } = useDrills();
 
   const handleSessionLogged = () => {
     refetch();
-    refetchChallenge();
   };
 
   // Timer logic
-  const startTimer = useCallback(() => {
-    if (!todayChallenge?.challenge_duration_seconds) return;
-
-    setIsFreeTimer(false);
-    setTimeRemaining(todayChallenge.challenge_duration_seconds);
-    setTimerActive(true);
-  }, [todayChallenge]);
-
   const startFreeTimer = useCallback((seconds: number) => {
-    setIsFreeTimer(true);
     setFreeTimerDuration(seconds);
     setTimeRemaining(seconds);
     setShowTimerPicker(false);
@@ -183,19 +184,16 @@ const TrainPage = () => {
     }
 
     if (!user?.id) return;
-    if (!isFreeTimer && !todayChallenge) return;
 
     setSubmittingScore(true);
 
     try {
       const today = getLocalDate();
-      const durationMinutes = isFreeTimer
-        ? Math.ceil(freeTimerDuration / 60)
-        : Math.ceil(todayChallenge!.challenge_duration_seconds / 60);
+      const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: user.id,
-        drill_id: isFreeTimer ? null : todayChallenge!.id,
+        drill_id: null,
         touches_logged: score,
         duration_minutes: durationMinutes,
         date: today,
@@ -203,18 +201,12 @@ const TrainPage = () => {
 
       if (error) throw error;
 
-      Alert.alert(
-        isFreeTimer ? 'Session Complete!' : 'Challenge Complete!',
-        isFreeTimer
-          ? `You logged ${score.toLocaleString()} touches!`
-          : `You logged ${score.toLocaleString()} ${todayChallenge!.name}!`
-      );
-
+      setCelebrationTouches(score);
       setScoreInput('');
       setShowScoreModal(false);
-      setIsFreeTimer(false);
       setFreeTimerDuration(0);
       handleSessionLogged();
+      setShowVinnieCelebration(true);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
@@ -223,9 +215,9 @@ const TrainPage = () => {
     }
   };
 
-  const cancelChallenge = () => {
+  const cancelTimer = () => {
     Alert.alert(
-      'Cancel Challenge?',
+      'Stop Timer?',
       'Are you sure you want to stop the timer?',
       [
         { text: 'Keep Going', style: 'cancel' },
@@ -253,9 +245,11 @@ const TrainPage = () => {
   const dailyTarget = touchStats?.daily_target || 1000;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
 
-  const challengeDurationFormatted = todayChallenge?.challenge_duration_seconds
-    ? formatTime(todayChallenge.challenge_duration_seconds)
-    : '2:00';
+  const drillsByDifficulty = {
+    beginner: drills.filter((d) => d.difficulty_level === 'beginner'),
+    intermediate: drills.filter((d) => d.difficulty_level === 'intermediate'),
+    advanced: drills.filter((d) => d.difficulty_level === 'advanced'),
+  };
 
   return (
     <View style={styles.container}>
@@ -315,62 +309,66 @@ const TrainPage = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Today's Timed Challenge */}
-        {todayChallenge && (
-          <View style={styles.challengeCard}>
-            <View style={styles.challengeTopBar}>
-              <View style={styles.challengeBadge}>
-                <Text style={styles.challengeBadgeText}>
-                  TIMED CHALLENGE
-                </Text>
+        {/* Drill Library */}
+        <View style={styles.libraryCard}>
+          <View style={styles.libraryHeader}>
+            <Text style={styles.libraryTitle}>Drill Library</Text>
+            <Text style={styles.librarySubtitle}>Tap a drill to log a session</Text>
+          </View>
+
+          {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
+            const levelDrills = drillsByDifficulty[level];
+            if (levelDrills.length === 0) return null;
+            const color = DIFFICULTY_COLORS[level];
+            return (
+              <View key={level} style={styles.difficultySection}>
+                <View style={[styles.difficultyHeader, { backgroundColor: color.bg }]}>
+                  <Text style={[styles.difficultyLabel, { color: color.text }]}>
+                    {level.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.drillGrid}>
+                  {levelDrills.map((drill) => (
+                    <View key={drill.id} style={styles.drillCard}>
+                      <TouchableOpacity
+                        style={styles.drillTapArea}
+                        onPress={() => {
+                          setChallengeDrillId(drill.id);
+                          setChallengeName(drill.name);
+                          setModalVisible(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.drillName}>{drill.name}</Text>
+                        {drill.description && (
+                          <Text style={styles.drillDescription} numberOfLines={2}>
+                            {drill.description}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      {drill.video_url ? (
+                        <TouchableOpacity
+                          style={styles.videoButton}
+                          onPress={() => {
+                            setVideoUrl(drill.video_url!);
+                            setVideoName(drill.name);
+                          }}
+                        >
+                          <Ionicons name='play-circle' size={13} color='#10B981' />
+                          <Text style={styles.videoButtonText}>Watch tutorial</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.comingSoonBadge}>
+                          <Ionicons name='videocam-outline' size={11} color='#78909C' />
+                          <Text style={styles.comingSoonText}>Video coming soon</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
               </View>
-              <View style={styles.timerBadge}>
-                <Ionicons name='time' size={14} color='#2B9FFF' />
-                <Text style={styles.timerBadgeText}>
-                  {challengeDurationFormatted}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.challengeContent}>
-              <Text style={styles.challengePrompt}>Do as many</Text>
-              <Text style={styles.challengeName}>{todayChallenge.name}</Text>
-              <Text style={styles.challengePrompt}>
-                as you can in {challengeDurationFormatted}
-              </Text>
-            </View>
-
-            {todayChallenge.description && (
-              <Text style={styles.challengeDescription}>
-                {todayChallenge.description}
-              </Text>
-            )}
-
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startTimer}
-              activeOpacity={0.8}
-            >
-              <Ionicons name='play' size={24} color='#FFF' />
-              <Text style={styles.startButtonText}>START CHALLENGE</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Training Videos */}
-        <View style={styles.videosCard}>
-          <View style={styles.videosHeader}>
-            <Text style={styles.videosIcon}>🎬</Text>
-            <Text style={styles.videosTitle}>Training Videos</Text>
-          </View>
-
-          <View style={styles.videosPlaceholder}>
-            <Ionicons name='videocam' size={48} color='#B0BEC5' />
-            <Text style={styles.videosPlaceholderText}>Coming Soon</Text>
-            <Text style={styles.videosPlaceholderSubtext}>
-              Pro tutorials and drills to level up your game
-            </Text>
-          </View>
+            );
+          })}
         </View>
 
         {/* Quick Tips */}
@@ -397,16 +395,12 @@ const TrainPage = () => {
         visible={timerActive}
         animationType='fade'
         transparent={false}
-        onRequestClose={cancelChallenge}
+        onRequestClose={cancelTimer}
       >
         <View style={styles.timerModal}>
           <View style={styles.timerContent}>
-            <Text style={styles.timerChallengeName}>
-              {isFreeTimer ? 'Free Practice' : todayChallenge?.name}
-            </Text>
-            <Text style={styles.timerInstructions}>
-              {isFreeTimer ? 'Get as many touches as you can!' : 'Do as many as you can!'}
-            </Text>
+            <Text style={styles.timerChallengeName}>Free Practice</Text>
+            <Text style={styles.timerInstructions}>Get as many touches as you can!</Text>
 
             <View style={styles.timerCircle}>
               <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
@@ -415,7 +409,7 @@ const TrainPage = () => {
 
             <TouchableOpacity
               style={styles.cancelTimerButton}
-              onPress={cancelChallenge}
+              onPress={cancelTimer}
             >
               <Text style={styles.cancelTimerText}>Cancel</Text>
             </TouchableOpacity>
@@ -436,9 +430,7 @@ const TrainPage = () => {
               <Text style={styles.scoreModalEmoji}>🎉</Text>
               <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
               <Text style={styles.scoreModalSubtitle}>
-                {isFreeTimer
-                  ? 'How many touches did you get?'
-                  : `How many ${todayChallenge?.name} did you do?`}
+                How many touches did you get?
               </Text>
             </View>
 
@@ -557,13 +549,40 @@ const TrainPage = () => {
         </View>
       </Modal>
 
-      {/* Regular Log Session Modal */}
+      {/* Vinnie Celebration */}
+      <VinnieCelebrationModal
+        visible={showVinnieCelebration}
+        touchCount={celebrationTouches}
+        onClose={() => setShowVinnieCelebration(false)}
+      />
+
+      {/* Drill Video */}
+      {videoUrl && (
+        <DrillVideoModal
+          visible={!!videoUrl}
+          onClose={() => setVideoUrl(null)}
+          videoUrl={videoUrl}
+          drillName={videoName}
+        />
+      )}
+
+      {/* Log Session Modal */}
       {user?.id && (
         <LogSessionModal
           visible={modalVisible}
-          onClose={() => setModalVisible(false)}
+          onClose={() => {
+            setModalVisible(false);
+            setChallengeDrillId(undefined);
+            setChallengeName(undefined);
+          }}
           userId={user.id}
           onSuccess={handleSessionLogged}
+          challengeDrillId={challengeDrillId}
+          challengeName={challengeName}
+          onSessionLogged={(tc) => {
+            setCelebrationTouches(tc);
+            setShowVinnieCelebration(true);
+          }}
         />
       )}
     </View>
@@ -712,93 +731,97 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // CHALLENGE CARD
-  challengeCard: {
+  // DRILL LIBRARY
+  libraryCard: {
     backgroundColor: '#FFF',
-    padding: 24,
+    padding: 20,
     borderRadius: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  challengeTopBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  challengeBadge: {
-    backgroundColor: '#FF7043',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  challengeBadgeText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E8EAF6',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  timerBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#2B9FFF',
-  },
-  challengeContent: {
-    alignItems: 'center',
+  libraryHeader: {
     marginBottom: 16,
   },
-  challengePrompt: {
-    fontSize: 16,
+  libraryTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  librarySubtitle: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#78909C',
   },
-  challengeName: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginVertical: 8,
-    textAlign: 'center',
+  difficultySection: {
+    marginBottom: 16,
   },
-  challengeDescription: {
+  difficultyHeader: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  difficultyLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  drillGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  drillCard: {
+    width: '48%',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 14,
+    padding: 14,
+  },
+  drillName: {
     fontSize: 14,
-    color: '#78909C',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-    fontWeight: '500',
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 4,
   },
-  startButton: {
+  drillDescription: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  drillTapArea: {
+    marginBottom: 4,
+  },
+  comingSoonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#4CAF50',
-    paddingVertical: 16,
-    borderRadius: 16,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
-  startButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  comingSoonText: {
+    fontSize: 11,
+    color: '#78909C',
+    fontWeight: '600',
+  },
+  videoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  videoButtonText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '700',
   },
 
   // TIMER MODAL
@@ -938,49 +961,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 
-  // VIDEOS CARD
-  videosCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  videosHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  videosIcon: {
-    fontSize: 24,
-  },
-  videosTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  videosPlaceholder: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  videosPlaceholderText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#78909C',
-    marginTop: 12,
-  },
-  videosPlaceholderSubtext: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#B0BEC5',
-    marginTop: 4,
-    textAlign: 'center',
-  },
 
   // TIPS CARD
   tipsCard: {

@@ -1,11 +1,15 @@
 import PageHeader from '@/components/common/PageHeader';
+import VinnieCard from '@/components/common/VinnieCard';
+import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useTouchTracking } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +25,15 @@ const HomeScreen = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
+  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
+  const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [vinnieVisible, setVinnieVisible] = useState(false);
+  const [vinnieTouches, setVinnieTouches] = useState(0);
+  const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
+  const [vinnieDrillName, setVinnieDrillName] = useState<string | undefined>();
+
+  const queryClient = useQueryClient();
 
   const {
     data: touchStats,
@@ -28,11 +41,14 @@ const HomeScreen = () => {
     refetch: refetchStats,
   } = useTouchTracking(user?.id);
 
+  const { data: challengeStats, refetch: refetchChallengeStats } = useChallengeStats(user?.id, undefined);
+
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
-    }, [refetchProfile, refetchStats])
+      refetchChallengeStats();
+    }, [refetchProfile, refetchStats, refetchChallengeStats])
   );
 
   if (statsLoading) {
@@ -44,12 +60,10 @@ const HomeScreen = () => {
   }
 
   const displayName = getDisplayName(profile);
-  const todayTouches = touchStats?.today_touches || 0;
-  const dailyTarget = touchStats?.daily_target || 1000;
   const weekTouches = touchStats?.this_week_touches || 0;
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
-  const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
+  const challengeStreak = challengeStats?.challengeStreak || 0;
 
   // TPM intensity indicator
   const getTpmLabel = (tpm: number) => {
@@ -70,33 +84,24 @@ const HomeScreen = () => {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* DAILY PROGRESS CARD */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressSparkle}>
-            <Text style={styles.sparkleEmoji}>✨</Text>
-          </View>
-          <Text style={styles.progressLabel}>TODAY&apos;S PROGRESS</Text>
-          <View style={styles.touchesRow}>
-            <Text style={styles.touchesValue}>
-              {todayTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.touchesDivider}>/</Text>
-            <Text style={styles.touchesTarget}>
-              {dailyTarget.toLocaleString()}
-            </Text>
-          </View>
-          <Text style={styles.touchesLabel}>touches</Text>
+        {/* VINNIE */}
+        <VinnieCard
+          trainedToday={(touchStats?.today_touches || 0) > 0}
+          streak={streak}
+        />
 
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-            />
-          </View>
-
-          <Text style={styles.progressPercentText}>
-            {Math.round(progressPercent)}% Complete
-          </Text>
-        </View>
+        {/* TODAY'S CHALLENGE */}
+        {user?.id && (
+          <TodayChallengeCard
+            userId={user.id}
+            onStartChallenge={(drillId, durationMinutes, drillName) => {
+              setChallengeDrillId(drillId);
+              setChallengeDurationMinutes(durationMinutes);
+              setChallengeName(drillName);
+              setModalVisible(true);
+            }}
+          />
+        )}
 
         {/* LOG PRACTICE BUTTON */}
         <TouchableOpacity
@@ -141,15 +146,13 @@ const HomeScreen = () => {
 
           <View style={[styles.statCard, styles.statAvg]}>
             <View style={styles.statIconBg}>
-              <Text style={styles.statIcon}>📈</Text>
+              <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={styles.statValue}>
-              {weekTouches > 0
-                ? Math.round(weekTouches / 7).toLocaleString()
-                : 0}
+            <Text style={styles.statValue}>{challengeStreak}</Text>
+            <Text style={styles.statLabel}>Challenge Streak</Text>
+            <Text style={styles.statSubtext}>
+              {challengeStreak === 0 ? 'Do today\'s challenge!' : 'Days in a row'}
             </Text>
-            <Text style={styles.statLabel}>Daily Average</Text>
-            <Text style={styles.statSubtext}>This week</Text>
           </View>
         </View>
       </ScrollView>
@@ -157,14 +160,39 @@ const HomeScreen = () => {
       {user?.id && (
         <LogSessionModal
           visible={modalVisible}
-          onClose={() => setModalVisible(false)}
+          onClose={() => {
+            setModalVisible(false);
+            setChallengeDrillId(undefined);
+            setChallengeDurationMinutes(undefined);
+            setChallengeName(undefined);
+          }}
           userId={user.id}
+          challengeDrillId={challengeDrillId}
+          challengeDurationMinutes={challengeDurationMinutes}
+          challengeName={challengeName}
           onSuccess={() => {
             refetchProfile();
             refetchStats();
+            refetchChallengeStats();
+          }}
+          onSessionLogged={(tc, isChallenge, drillName) => {
+            setVinnieTouches(tc);
+            setVinnieIsChallenge(isChallenge);
+            setVinnieDrillName(drillName);
+            setVinnieVisible(true);
           }}
         />
       )}
+
+      <VinnieCelebrationModal
+        visible={vinnieVisible}
+        touchCount={vinnieTouches}
+        isChallenge={vinnieIsChallenge}
+        drillName={vinnieDrillName}
+        streak={streak}
+        challengeStreak={challengeStreak}
+        onClose={() => setVinnieVisible(false)}
+      />
     </View>
   );
 };
@@ -184,82 +212,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-  },
-
-  // PROGRESS CARD
-  progressCard: {
-    backgroundColor: '#2B9FFF',
-    paddingVertical: 28,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    marginBottom: 20,
-    shadowColor: '#2B9FFF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-    position: 'relative',
-  },
-  progressSparkle: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-  },
-  sparkleEmoji: {
-    fontSize: 28,
-  },
-  progressLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginBottom: 16,
-    letterSpacing: 1.2,
-  },
-  touchesRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 4,
-  },
-  touchesValue: {
-    fontSize: 54,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    lineHeight: 54,
-  },
-  touchesDivider: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 8,
-  },
-  touchesTarget: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  touchesLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 20,
-  },
-  progressBarContainer: {
-    height: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#FFD54F',
-    borderRadius: 6,
-  },
-  progressPercentText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFD54F',
-    textAlign: 'center',
   },
 
   // LOG BUTTON

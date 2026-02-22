@@ -1,12 +1,14 @@
 import PageHeader from '@/components/common/PageHeader';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useRecentSessions } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,10 +22,16 @@ import { LineChart } from 'react-native-chart-kit';
 
 const screenWidth = Dimensions.get('window').width;
 
+// Track which milestones have been celebrated this app session
+const shownMilestones = new Set<number>();
+
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
+  const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);
+  const [milestoneMessage, setMilestoneMessage] = useState('');
+  const [milestoneStreak, setMilestoneStreak] = useState(0);
   const queryClient = useQueryClient();
 
   // Refetch all data when screen comes into focus
@@ -40,6 +48,26 @@ const ProgressPage = () => {
 
   // Get recent sessions
   const { data: recentSessions, isLoading: sessionsLoading } = useRecentSessions(user?.id, 10);
+
+  // Get challenge stats for badges
+  const { data: challengeStats } = useChallengeStats(user?.id, null);
+
+  // Get touch stats for streak milestone detection
+  const { data: touchStats } = useTouchTracking(user?.id);
+
+  useEffect(() => {
+    const streak = touchStats?.current_streak || 0;
+    const trainedToday = (touchStats?.today_touches || 0) > 0;
+    if (!trainedToday || streak === 0) return;
+
+    const milestone = VINNIE_STREAK_MILESTONES.find((m) => m === streak);
+    if (milestone && !shownMilestones.has(milestone)) {
+      shownMilestones.add(milestone);
+      setMilestoneStreak(milestone);
+      setMilestoneMessage(VINNIE_STREAK_MESSAGES[milestone]);
+      setShowVinnieMilestone(true);
+    }
+  }, [touchStats?.current_streak, touchStats?.today_touches]);
 
   // Get chart data
   const { data: chartStats } = useQuery({
@@ -225,6 +253,26 @@ const ProgressPage = () => {
       unlocked: (lifetimeStats?.totalTouches || 0) >= 100000,
       progress: Math.min(lifetimeStats?.totalTouches || 0, 100000),
       total: 100000,
+    },
+    {
+      id: '5',
+      title: 'Challenge Streak',
+      description: 'Complete challenges 7 days in a row',
+      icon: '🗓️',
+      unlocked: (challengeStats?.challengeStreak || 0) >= 7,
+      progress: Math.min(challengeStats?.challengeStreak || 0, 7),
+      total: 7,
+    },
+    {
+      id: '6',
+      title: 'Drill Explorer',
+      description: 'Complete every type of drill at least once',
+      icon: '🔍',
+      unlocked:
+        (challengeStats?.totalDrillsAvailable || 0) > 0 &&
+        (challengeStats?.uniqueDrillsCompleted || 0) >= (challengeStats?.totalDrillsAvailable || 1),
+      progress: challengeStats?.uniqueDrillsCompleted || 0,
+      total: challengeStats?.totalDrillsAvailable || 1,
     },
   ];
 
@@ -421,7 +469,7 @@ const ProgressPage = () => {
           <View style={styles.achievementsHeader}>
             <Text style={styles.sectionTitle}>Achievements</Text>
             <View style={styles.achievementsBadge}>
-              <Text style={styles.achievementsBadgeText}>{unlockedCount}/4 Unlocked</Text>
+              <Text style={styles.achievementsBadgeText}>{unlockedCount}/{achievements.length} Unlocked</Text>
             </View>
           </View>
 
@@ -483,6 +531,15 @@ const ProgressPage = () => {
           ))}
         </View>
       </ScrollView>
+
+      {/* Vinnie streak milestone celebration */}
+      <VinnieCelebrationModal
+        visible={showVinnieMilestone}
+        touchCount={milestoneStreak}
+        streak={milestoneStreak}
+        overrideMessage={milestoneMessage}
+        onClose={() => setShowVinnieMilestone(false)}
+      />
     </View>
   );
 };

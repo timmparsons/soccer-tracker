@@ -2,7 +2,7 @@ import { useJugglingRecord } from '@/hooks/useTouchTracking';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,10 @@ interface LogSessionModalProps {
   onClose: () => void;
   userId: string;
   onSuccess: () => void;
+  onSessionLogged?: (touchCount: number, isChallenge: boolean, drillName?: string) => void;
+  challengeDrillId?: string;
+  challengeDurationMinutes?: number;
+  challengeName?: string;
 }
 
 const LogSessionModal = ({
@@ -32,11 +36,21 @@ const LogSessionModal = ({
   onClose,
   userId,
   onSuccess,
+  onSessionLogged,
+  challengeDrillId,
+  challengeDurationMinutes,
+  challengeName,
 }: LogSessionModalProps) => {
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setDuration(challengeDurationMinutes ? String(challengeDurationMinutes) : '');
+    }
+  }, [visible, challengeDurationMinutes]);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: currentRecord } = useJugglingRecord(userId);
@@ -50,12 +64,18 @@ const LogSessionModal = ({
     return `${year}-${month}-${day}`;
   };
 
+  const isChallengeMode = !!challengeDrillId;
+
   const handleSubmit = async () => {
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
 
-    // Must have either touches or juggles
-    if (touchCount <= 0 && juggleCount <= 0) {
+    if (isChallengeMode) {
+      if (touchCount <= 0) {
+        Alert.alert('Invalid Input', 'Please enter your score or rep count');
+        return;
+      }
+    } else if (touchCount <= 0 && juggleCount <= 0) {
       Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
       return;
     }
@@ -67,7 +87,7 @@ const LogSessionModal = ({
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: userId,
-        drill_id: null,
+        drill_id: challengeDrillId ?? null,
         touches_logged: touchCount,
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
@@ -84,19 +104,9 @@ const LogSessionModal = ({
       setDuration('');
       setJuggles('');
 
-      // Build success message
-      let successMsg = '';
-      if (touchCount > 0 && juggleCount > 0) {
-        successMsg = `Logged ${touchCount.toLocaleString()} touches and ${juggleCount} juggles! 🎉`;
-      } else if (touchCount > 0) {
-        successMsg = `Logged ${touchCount.toLocaleString()} touches! 🎉`;
-      } else {
-        successMsg = `Logged juggling record of ${juggleCount}! 🏆`;
-      }
-
-      Alert.alert('Success!', successMsg);
       onSuccess();
       onClose();
+      onSessionLogged?.(touchCount || juggleCount, isChallengeMode, challengeName);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
@@ -105,10 +115,10 @@ const LogSessionModal = ({
     }
   };
 
-  // Check if form is valid - allow either touches OR juggles
+  // Check if form is valid
   const touchCount = touches ? parseInt(touches) : 0;
   const juggleCount = juggles ? parseInt(juggles) : 0;
-  const isFormValid = touchCount > 0 || juggleCount > 0;
+  const isFormValid = isChallengeMode ? touchCount > 0 : touchCount > 0 || juggleCount > 0;
 
   return (
     <Modal
@@ -138,69 +148,83 @@ const LogSessionModal = ({
             keyboardShouldPersistTaps='handled'
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Juggling Record - Featured at top */}
-            <View style={styles.jugglingSection}>
-              <View style={styles.jugglingSectionHeader}>
-                <Text style={styles.jugglingEmoji}>🏆</Text>
-                <View style={styles.jugglingTitleContainer}>
-                  <Text style={styles.jugglingTitle}>Juggling Record</Text>
-                  {currentRecord !== undefined && currentRecord > 0 && (
-                    <Text style={styles.jugglingCurrentRecord}>
-                      Current PR: {currentRecord}
-                    </Text>
-                  )}
-                </View>
+            {/* Challenge label */}
+            {challengeName && (
+              <View style={styles.challengeLabel}>
+                <Text style={styles.challengeLabelText}>Challenge: {challengeName}</Text>
               </View>
-              <Text style={styles.jugglingHint}>
-                {currentRecord !== undefined && currentRecord > 0
-                  ? `Beat your record of ${currentRecord}!`
-                  : 'How many consecutive juggles can you do?'}
-              </Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.jugglingInput}
-                  placeholder='Enter your best juggles'
-                  placeholderTextColor='#B8860B'
-                  keyboardType='number-pad'
-                  value={juggles}
-                  onChangeText={setJuggles}
-                />
-                <View style={styles.inputIconBgGold}>
-                  <Ionicons name='trophy' size={20} color='#FFD700' />
+            )}
+
+            {/* Juggling Record - Regular mode only */}
+            {!isChallengeMode && (
+              <View style={styles.jugglingSection}>
+                <View style={styles.jugglingSectionHeader}>
+                  <Text style={styles.jugglingEmoji}>🏆</Text>
+                  <View style={styles.jugglingTitleContainer}>
+                    <Text style={styles.jugglingTitle}>Juggling Record</Text>
+                    {currentRecord !== undefined && currentRecord > 0 && (
+                      <Text style={styles.jugglingCurrentRecord}>
+                        Current PR: {currentRecord}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              </View>
-              {juggles &&
-                parseInt(juggles) > 0 &&
-                currentRecord !== undefined && (
-                  <View
-                    style={[
-                      styles.jugglePreview,
-                      parseInt(juggles) > (currentRecord || 0) &&
-                        styles.jugglePreviewRecord,
-                    ]}
-                  >
-                    <Text
+                <Text style={styles.jugglingHint}>
+                  {currentRecord !== undefined && currentRecord > 0
+                    ? `Beat your record of ${currentRecord}!`
+                    : 'How many consecutive juggles can you do?'}
+                </Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.jugglingInput}
+                    placeholder='Enter your best juggles'
+                    placeholderTextColor='#B8860B'
+                    keyboardType='number-pad'
+                    value={juggles}
+                    onChangeText={setJuggles}
+                  />
+                  <View style={styles.inputIconBgGold}>
+                    <Ionicons name='trophy' size={20} color='#FFD700' />
+                  </View>
+                </View>
+                {juggles &&
+                  parseInt(juggles) > 0 &&
+                  currentRecord !== undefined && (
+                    <View
                       style={[
-                        styles.jugglePreviewText,
+                        styles.jugglePreview,
                         parseInt(juggles) > (currentRecord || 0) &&
-                          styles.jugglePreviewTextRecord,
+                          styles.jugglePreviewRecord,
                       ]}
                     >
-                      {parseInt(juggles) > (currentRecord || 0)
-                        ? '🎉 NEW PERSONAL BEST! +' +
-                          (parseInt(juggles) - (currentRecord || 0)) +
-                          ' from your record!'
-                        : (currentRecord || 0) -
-                          parseInt(juggles) +
-                          ' away from your PR'}
-                    </Text>
-                  </View>
-                )}
-            </View>
+                      <Text
+                        style={[
+                          styles.jugglePreviewText,
+                          parseInt(juggles) > (currentRecord || 0) &&
+                            styles.jugglePreviewTextRecord,
+                        ]}
+                      >
+                        {parseInt(juggles) > (currentRecord || 0)
+                          ? '🎉 NEW PERSONAL BEST! +' +
+                            (parseInt(juggles) - (currentRecord || 0)) +
+                            ' from your record!'
+                          : (currentRecord || 0) -
+                            parseInt(juggles) +
+                            ' away from your PR'}
+                      </Text>
+                    </View>
+                  )}
+              </View>
+            )}
 
-            {/* Touches Input */}
+            {/* Touches / Score Input */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>How many touches?</Text>
+              <Text style={styles.sectionLabel}>
+                {isChallengeMode ? 'Score / Reps' : 'How many touches?'}
+              </Text>
+              {isChallengeMode && (
+                <Text style={styles.sectionHint}>Enter your score or rep count</Text>
+              )}
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
@@ -221,7 +245,11 @@ const LogSessionModal = ({
                   }}
                 />
                 <View style={styles.inputIconBg}>
-                  <Ionicons name='football' size={20} color='#2B9FFF' />
+                  {isChallengeMode ? (
+                    <Ionicons name='trophy' size={20} color='#FF7043' />
+                  ) : (
+                    <Ionicons name='football' size={20} color='#2B9FFF' />
+                  )}
                 </View>
               </View>
             </View>
@@ -253,7 +281,7 @@ const LogSessionModal = ({
                   <Ionicons name='time' size={20} color='#FF9800' />
                 </View>
               </View>
-              {touches && duration && parseInt(duration) > 0 && (
+              {!isChallengeMode && touches && duration && parseInt(duration) > 0 && (
                 <View style={styles.tpmPreview}>
                   <Text style={styles.tpmPreviewText}>
                     ⚡ {Math.round(parseInt(touches) / parseInt(duration))}{' '}
@@ -286,7 +314,9 @@ const LogSessionModal = ({
                 <ActivityIndicator size='small' color='#FFF' />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {touchCount > 0 && juggleCount > 0
+                  {isChallengeMode
+                    ? 'LOG CHALLENGE'
+                    : touchCount > 0 && juggleCount > 0
                     ? 'LOG ' +
                       touchCount.toLocaleString() +
                       ' TOUCHES + ' +
@@ -565,5 +595,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  challengeLabel: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+  },
+  challengeLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#388E3C',
   },
 });
