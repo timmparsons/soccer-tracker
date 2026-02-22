@@ -106,37 +106,37 @@ const HomeScreen = () => {
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, styles.statWeek]}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: '#DBEAFE' }]}>
               <Text style={styles.statIcon}>📊</Text>
             </View>
-            <Text style={styles.statValue}>{weekTouches.toLocaleString()}</Text>
+            <Text style={[styles.statValue, { color: '#2B9FFF' }]}>{weekTouches.toLocaleString()}</Text>
             <Text style={styles.statLabel}>This Week</Text>
             <Text style={styles.statSubtext}>Last 7 days</Text>
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF3C7' }]}>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
-            <Text style={styles.statValue}>{streak}</Text>
+            <Text style={[styles.statValue, { color: '#F59E0B' }]}>{streak}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
             <Text style={styles.statSubtext}>Keep it going!</Text>
           </View>
 
           <View style={[styles.statCard, styles.statBest]}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FFE4DC' }]}>
               <Text style={styles.statIcon}>⚡</Text>
             </View>
-            <Text style={styles.statValue}>{weekTpm}</Text>
+            <Text style={[styles.statValue, { color: '#FF7043' }]}>{weekTpm}</Text>
             <Text style={styles.statLabel}>Touches/Min</Text>
             <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
           </View>
 
           <View style={[styles.statCard, styles.statAvg]}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: '#D1FAE5' }]}>
               <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={styles.statValue}>{challengeStreak}</Text>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>{challengeStreak}</Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
             <Text style={styles.statSubtext}>
               {challengeStreak === 0 ? 'Do today\'s challenge!' : 'Days in a row'}
@@ -221,16 +221,24 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statWeek: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#F0F8FF',
+    borderTopWidth: 4,
+    borderTopColor: '#2B9FFF',
   },
   statStreak: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFBF0',
+    borderTopWidth: 4,
+    borderTopColor: '#F59E0B',
   },
   statBest: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFF8F6',
+    borderTopWidth: 4,
+    borderTopColor: '#FF7043',
   },
   statAvg: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#F0FDF9',
+    borderTopWidth: 4,
+    borderTopColor: '#10B981',
   },
   statIconBg: {
     width: 48,
