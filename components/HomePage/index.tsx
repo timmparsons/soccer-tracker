@@ -7,7 +7,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
@@ -16,7 +15,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -28,6 +26,7 @@ const HomeScreen = () => {
   const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   const [vinnieVisible, setVinnieVisible] = useState(false);
   const [vinnieTouches, setVinnieTouches] = useState(0);
   const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
@@ -94,26 +93,15 @@ const HomeScreen = () => {
         {user?.id && (
           <TodayChallengeCard
             userId={user.id}
-            onStartChallenge={(drillId, durationMinutes, drillName) => {
+            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
               setChallengeDrillId(drillId);
               setChallengeDurationMinutes(durationMinutes);
               setChallengeName(drillName);
+              setChallengeDifficulty(difficulty);
               setModalVisible(true);
             }}
           />
         )}
-
-        {/* LOG PRACTICE BUTTON */}
-        <TouchableOpacity
-          style={styles.logButton}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.logButtonContent}>
-            <Ionicons name='add-circle' size={28} color='#FFF' />
-            <Text style={styles.logButtonText}>LOG PRACTICE SESSION</Text>
-          </View>
-        </TouchableOpacity>
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
@@ -165,11 +153,13 @@ const HomeScreen = () => {
             setChallengeDrillId(undefined);
             setChallengeDurationMinutes(undefined);
             setChallengeName(undefined);
+            setChallengeDifficulty(undefined);
           }}
           userId={user.id}
           challengeDrillId={challengeDrillId}
           challengeDurationMinutes={challengeDurationMinutes}
           challengeName={challengeName}
+          challengeDifficulty={challengeDifficulty}
           onSuccess={() => {
             refetchProfile();
             refetchStats();
@@ -212,31 +202,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-  },
-
-  // LOG BUTTON
-  logButton: {
-    backgroundColor: '#FF7043',
-    borderRadius: 20,
-    paddingVertical: 22,
-    marginBottom: 24,
-    shadowColor: '#FF7043',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  logButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  logButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1.2,
   },
 
   // STATS GRID (2x2)

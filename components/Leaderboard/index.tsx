@@ -16,6 +16,14 @@ import {
   View,
 } from 'react-native';
 
+const getVinnieRankMessage = (rank: number, total: number): string => {
+  if (rank === 0) return "No sessions this week yet? Show the team what you've got! ⚽";
+  if (rank === 1) return "YOU'RE LEADING THE TEAM! Don't let anyone catch you! 🥇🔥";
+  if (rank <= 3) return `#${rank} on the board! Top 3! Keep grinding — first place is within reach! 💪`;
+  if (total > 0 && rank <= Math.ceil(total / 2)) return `#${rank} out of ${total}. Solid. Keep stacking touches to climb higher!`;
+  return `#${rank} out of ${total}. Time to put in the work. More sessions = more spots gained!`;
+};
+
 interface TeamMemberStats {
   id: string;
   name: string;
@@ -262,6 +270,28 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
+        {/* Vinnie rank reaction */}
+        {touchesLeaderboard.length > 0 && (
+          <View style={styles.vinnieRow}>
+            <Image
+              source={require('@/assets/images/vinnie.png')}
+              style={styles.vinnieImage}
+              resizeMode='contain'
+            />
+            <View style={styles.vinnieBubbleRow}>
+              <View style={styles.vinnieTail} />
+              <View style={styles.vinnieBubble}>
+                <Text style={styles.vinnieMessage}>
+                  {getVinnieRankMessage(
+                    touchesLeaderboard.findIndex((p) => p.id === getCurrentUserId()) + 1,
+                    touchesLeaderboard.length,
+                  )} — Coach Vinnie
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {activeTab === 'touches' ? (
           <>
             {/* Weekly Touches View */}
@@ -857,6 +887,46 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+
+  // VINNIE RANK REACTION
+  vinnieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  vinnieImage: {
+    width: 100,
+    height: 65,
+    flexShrink: 0,
+  },
+  vinnieBubbleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vinnieTail: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 12,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#E8E8E8',
+  },
+  vinnieBubble: {
+    flex: 1,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  vinnieMessage: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    lineHeight: 20,
   },
 
   // EMPTY STATE

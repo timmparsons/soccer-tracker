@@ -8,10 +8,12 @@ interface VinnieCardProps {
 }
 
 const VinnieCard = ({ trainedToday, streak }: VinnieCardProps) => {
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
+  const dayOfWeek = now.getDay();
 
   const { message } = useMemo(
-    () => getVinnieMood({ trainedToday, streak, hour }),
+    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trainedToday, streak]
   );

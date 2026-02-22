@@ -1,11 +1,11 @@
 import { useChallengeStats, useTodayChallenge } from '@/hooks/useTouchTracking';
-import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface TodayChallengeCardProps {
   userId: string;
-  onStartChallenge: (drillId: string, durationMinutes: number, drillName: string) => void;
+  onStartChallenge: (drillId: string, durationMinutes: number, drillName: string, difficulty: string) => void;
 }
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -15,6 +15,7 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProps) => {
+  const router = useRouter();
   const { data: challenge, isLoading: challengeLoading } = useTodayChallenge(userId);
   const { data: stats } = useChallengeStats(userId, challenge?.id);
 
@@ -37,13 +38,8 @@ const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProp
     <View style={styles.card}>
       <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
 
-      {/* Video placeholder */}
-      <View style={styles.videoPlaceholder}>
-        <View style={styles.playButton}>
-          <Ionicons name='play' size={28} color='#FFF' />
-        </View>
-        <Text style={styles.videoCaption}>Drill Tutorial</Text>
-      </View>
+      {/* Video coming soon */}
+      <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
 
       <View style={styles.drillRow}>
         <Text style={styles.drillName}>{challenge.name}</Text>
@@ -59,13 +55,22 @@ const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProp
       </Text>
 
       {completedToday ? (
-        <View style={styles.completedButton}>
-          <Text style={styles.completedText}>Completed today! Come back tomorrow 🎉</Text>
-        </View>
+        <>
+          <View style={styles.completedBadge}>
+            <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.keepTrainingButton}
+            onPress={() => router.push('/(tabs)/train')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.keepTrainingText}>Keep Training →</Text>
+          </TouchableOpacity>
+        </>
       ) : (
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name)}
+          onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
           activeOpacity={0.8}
         >
           <Text style={styles.startButtonText}>Start Challenge</Text>
@@ -144,37 +149,36 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  completedButton: {
-    backgroundColor: '#F5F7FA',
+  completedBadge: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  completedBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  keepTrainingButton: {
+    backgroundColor: '#1a1a2e',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  completedText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#78909C',
+  keepTrainingText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  videoPlaceholder: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    height: 170,
-    marginBottom: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-  playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoCaption: {
+  videoComingSoon: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#78909C',
+    color: '#B0BEC5',
+    marginBottom: 14,
   },
 });

@@ -29,7 +29,14 @@ interface LogSessionModalProps {
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
   challengeName?: string;
+  challengeDifficulty?: string;
 }
+
+const DRILL_TIPS: Record<string, string> = {
+  beginner: "Focus on clean touches, not speed. Get comfortable with the ball first! ⚽",
+  intermediate: "Keep your head up and work both feet. Consistency is key! 💪",
+  advanced: "Game speed every rep. No breaks — this is where champions are made! 🔥",
+};
 
 const LogSessionModal = ({
   visible,
@@ -40,6 +47,7 @@ const LogSessionModal = ({
   challengeDrillId,
   challengeDurationMinutes,
   challengeName,
+  challengeDifficulty,
 }: LogSessionModalProps) => {
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
@@ -152,6 +160,14 @@ const LogSessionModal = ({
             {challengeName && (
               <View style={styles.challengeLabel}>
                 <Text style={styles.challengeLabelText}>Challenge: {challengeName}</Text>
+              </View>
+            )}
+
+            {/* Vinnie coaching tip - challenge mode only */}
+            {isChallengeMode && challengeDifficulty && DRILL_TIPS[challengeDifficulty] && (
+              <View style={styles.drillTip}>
+                <Text style={styles.drillTipLabel}>Coach Vinnie says:</Text>
+                <Text style={styles.drillTipText}>{DRILL_TIPS[challengeDifficulty]}</Text>
               </View>
             )}
 
@@ -601,7 +617,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginBottom: 16,
+    marginBottom: 12,
     borderLeftWidth: 3,
     borderLeftColor: '#10B981',
   },
@@ -609,5 +625,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#388E3C',
+  },
+  drillTip: {
+    backgroundColor: '#EDE9FE',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7C3AED',
+  },
+  drillTipLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#7C3AED',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  drillTipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4C1D95',
+    lineHeight: 19,
   },
 });

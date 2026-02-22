@@ -9,6 +9,7 @@ export interface VinnieContext {
   trainedToday: boolean;
   streak: number;
   hour: number;
+  dayOfWeek?: number; // 0=Sun, 1=Mon, ..., 6=Sat
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -100,8 +101,20 @@ export const MOOD_EMOJI: Record<VinnieMood, string> = {
   encouraging: '⚽',
 };
 
+const MONDAY_MESSAGES: string[] = [
+  "New week, new goals! What are you going to achieve this week? ⚽",
+  "Monday! The best players start their week with a session. Let's go!",
+  "Fresh week, fresh start. Let's make this one count! 🔥",
+  "It's Monday — time to set the tone for the whole week. Train now!",
+];
+
 export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
-  const { trainedToday, streak, hour } = ctx;
+  const { trainedToday, streak, hour, dayOfWeek } = ctx;
+
+  // Monday morning recap — special motivator at the start of the week
+  if (dayOfWeek === 1 && !trainedToday && hour < 12) {
+    return { mood: 'encouraging', message: pickRandom(MONDAY_MESSAGES) };
+  }
 
   if (trainedToday) {
     if (streak >= 30) {

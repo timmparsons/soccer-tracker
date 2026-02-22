@@ -48,8 +48,10 @@ export const useTouchTracking = (userId: string | undefined) => {
       const todayTouches =
         todaySessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
       const todayMinutes =
-        todaySessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
-      const todayTpm = todayMinutes > 0 ? Math.round(todayTouches / todayMinutes) : 0;
+        todaySessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) ||
+        0;
+      const todayTpm =
+        todayMinutes > 0 ? Math.round(todayTouches / todayMinutes) : 0;
 
       // Get user's daily target
       const { data: targetData } = await supabase
@@ -74,8 +76,10 @@ export const useTouchTracking = (userId: string | undefined) => {
       const weekTouches =
         weekSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
       const weekMinutes =
-        weekSessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
-      const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
+        weekSessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) ||
+        0;
+      const weekTpm =
+        weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
 
       // Calculate streak (consecutive days with at least 1 session)
       const { data: allSessions } = await supabase
@@ -93,7 +97,7 @@ export const useTouchTracking = (userId: string | undefined) => {
           const sessionDate = new Date(dateStr);
           const daysDiff = Math.floor(
             (checkDate.getTime() - sessionDate.getTime()) /
-              (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           );
 
           if (daysDiff === 0 || daysDiff === 1) {
@@ -146,7 +150,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           duration_minutes,
           created_at,
           drills (name)
-        `
+        `,
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -169,15 +173,17 @@ export const useDrills = () => {
   return useQuery({
     queryKey: ['drills'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('drills')
-        .select('*');
+      const { data } = await supabase.from('drills').select('*');
 
       // Sort by difficulty: beginner → intermediate → advanced
       const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
       return (data || []).sort((a, b) => {
-        const orderA = difficultyOrder[a.difficulty_level as keyof typeof difficultyOrder] || 99;
-        const orderB = difficultyOrder[b.difficulty_level as keyof typeof difficultyOrder] || 99;
+        const orderA =
+          difficultyOrder[a.difficulty_level as keyof typeof difficultyOrder] ||
+          99;
+        const orderB =
+          difficultyOrder[b.difficulty_level as keyof typeof difficultyOrder] ||
+          99;
         return orderA - orderB;
       });
     },
@@ -185,7 +191,7 @@ export const useDrills = () => {
 };
 
 // Time durations for challenges (in seconds)
-const CHALLENGE_DURATIONS = [60, 90, 120, 180]; // 1, 1.5, 2, 3 minutes
+const CHALLENGE_DURATIONS = [180, 240, 300, 360]; // 3, 4, 5, 6 minutes
 
 export const useJugglingRecord = (userId: string | undefined) => {
   return useQuery({
@@ -210,7 +216,7 @@ export const useJugglingRecord = (userId: string | undefined) => {
 
 export const useChallengeStats = (
   userId: string | undefined,
-  todayDrillId: string | null | undefined
+  todayDrillId: string | null | undefined,
 ) => {
   return useQuery({
     queryKey: ['challenge-stats', userId, todayDrillId],
@@ -249,7 +255,7 @@ export const useChallengeStats = (
           const sessionDate = new Date(dateStr);
           const daysDiff = Math.floor(
             (checkDate.getTime() - sessionDate.getTime()) /
-              (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           );
 
           if (daysDiff === 0 || daysDiff === 1) {
@@ -269,7 +275,7 @@ export const useChallengeStats = (
         .not('drill_id', 'is', null);
 
       const uniqueDrillsCompleted = new Set(
-        drillSessions?.map((s) => s.drill_id) || []
+        drillSessions?.map((s) => s.drill_id) || [],
       ).size;
 
       // Total drills available
@@ -295,9 +301,7 @@ export const useTodayChallenge = (userId: string | undefined) => {
       if (!userId) return null;
 
       // Get all available drills
-      const { data: drills } = await supabase
-        .from('drills')
-        .select('*');
+      const { data: drills } = await supabase.from('drills').select('*');
 
       if (!drills || drills.length === 0) {
         return null;
@@ -305,7 +309,9 @@ export const useTodayChallenge = (userId: string | undefined) => {
 
       // Use the current date as a seed for "random" but consistent daily selection
       const today = getLocalDate();
-      const seed = today.split('-').reduce((acc, val) => acc + parseInt(val), 0);
+      const seed = today
+        .split('-')
+        .reduce((acc, val) => acc + parseInt(val), 0);
 
       // Pick a random drill based on the date seed
       const drillIndex = seed % drills.length;
