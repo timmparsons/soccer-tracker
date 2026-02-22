@@ -23,10 +23,16 @@ const HomeScreen = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
-  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
+  const [challengeDrillId, setChallengeDrillId] = useState<
+    string | undefined
+  >();
+  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<
+    number | undefined
+  >();
   const [challengeName, setChallengeName] = useState<string | undefined>();
-  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
+  const [challengeDifficulty, setChallengeDifficulty] = useState<
+    string | undefined
+  >();
   const [vinnieVisible, setVinnieVisible] = useState(false);
   const [vinnieTouches, setVinnieTouches] = useState(0);
   const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
@@ -40,14 +46,15 @@ const HomeScreen = () => {
     refetch: refetchStats,
   } = useTouchTracking(user?.id);
 
-  const { data: challengeStats, refetch: refetchChallengeStats } = useChallengeStats(user?.id, undefined);
+  const { data: challengeStats, refetch: refetchChallengeStats } =
+    useChallengeStats(user?.id, undefined);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-    }, [refetchProfile, refetchStats, refetchChallengeStats])
+    }, [refetchProfile, refetchStats, refetchChallengeStats]),
   );
 
   if (statsLoading) {
@@ -76,7 +83,7 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       <PageHeader
-        title={`Hey ${displayName}! 👋`}
+        title={`Hey ${displayName}!`}
         subtitle='Ready to get some touches?'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
@@ -93,7 +100,12 @@ const HomeScreen = () => {
         {user?.id && (
           <TodayChallengeCard
             userId={user.id}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
+            onStartChallenge={(
+              drillId,
+              durationMinutes,
+              drillName,
+              difficulty,
+            ) => {
               setChallengeDrillId(drillId);
               setChallengeDurationMinutes(durationMinutes);
               setChallengeName(drillName);
@@ -109,7 +121,9 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#DBEAFE' }]}>
               <Text style={styles.statIcon}>📊</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#2B9FFF' }]}>{weekTouches.toLocaleString()}</Text>
+            <Text style={[styles.statValue, { color: '#2B9FFF' }]}>
+              {weekTouches.toLocaleString()}
+            </Text>
             <Text style={styles.statLabel}>This Week</Text>
             <Text style={styles.statSubtext}>Last 7 days</Text>
           </View>
@@ -118,7 +132,9 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#FEF3C7' }]}>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#F59E0B' }]}>{streak}</Text>
+            <Text style={[styles.statValue, { color: '#F59E0B' }]}>
+              {streak}
+            </Text>
             <Text style={styles.statLabel}>Day Streak</Text>
             <Text style={styles.statSubtext}>Keep it going!</Text>
           </View>
@@ -127,7 +143,9 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#FFE4DC' }]}>
               <Text style={styles.statIcon}>⚡</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#FF7043' }]}>{weekTpm}</Text>
+            <Text style={[styles.statValue, { color: '#FF7043' }]}>
+              {weekTpm}
+            </Text>
             <Text style={styles.statLabel}>Touches/Min</Text>
             <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
           </View>
@@ -136,10 +154,14 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#D1FAE5' }]}>
               <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{challengeStreak}</Text>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>
+              {challengeStreak}
+            </Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
             <Text style={styles.statSubtext}>
-              {challengeStreak === 0 ? 'Do today\'s challenge!' : 'Days in a row'}
+              {challengeStreak === 0
+                ? "Do today's challenge!"
+                : 'Days in a row'}
             </Text>
           </View>
         </View>
