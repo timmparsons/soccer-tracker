@@ -186,6 +186,7 @@ const HomeScreen = () => {
             refetchProfile();
             refetchStats();
             refetchChallengeStats();
+            queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
           }}
           onSessionLogged={(tc, isChallenge, drillName) => {
             setVinnieTouches(tc);

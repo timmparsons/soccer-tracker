@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,7 +26,11 @@ interface LogSessionModalProps {
   onClose: () => void;
   userId: string;
   onSuccess: () => void;
-  onSessionLogged?: (touchCount: number, isChallenge: boolean, drillName?: string) => void;
+  onSessionLogged?: (
+    touchCount: number,
+    isChallenge: boolean,
+    drillName?: string,
+  ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
   challengeName?: string;
@@ -33,9 +38,11 @@ interface LogSessionModalProps {
 }
 
 const DRILL_TIPS: Record<string, string> = {
-  beginner: "Focus on clean touches, not speed. Get comfortable with the ball first! ⚽",
-  intermediate: "Keep your head up and work both feet. Consistency is key! 💪",
-  advanced: "Game speed every rep. No breaks — this is where champions are made! 🔥",
+  beginner:
+    'Focus on clean touches, not speed. Get comfortable with the ball first! ⚽',
+  intermediate: 'Keep your head up and work both feet. Consistency is key! 💪',
+  advanced:
+    'Game speed every rep. No breaks — this is where champions are made! 🔥',
 };
 
 const LogSessionModal = ({
@@ -56,7 +63,9 @@ const LogSessionModal = ({
 
   useEffect(() => {
     if (visible) {
-      setDuration(challengeDurationMinutes ? String(challengeDurationMinutes) : '');
+      setDuration(
+        challengeDurationMinutes ? String(challengeDurationMinutes) : '',
+      );
     }
   }, [visible, challengeDurationMinutes]);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -114,7 +123,11 @@ const LogSessionModal = ({
 
       onSuccess();
       onClose();
-      onSessionLogged?.(touchCount || juggleCount, isChallengeMode, challengeName);
+      onSessionLogged?.(
+        touchCount || juggleCount,
+        isChallengeMode,
+        challengeName,
+      );
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
@@ -126,7 +139,9 @@ const LogSessionModal = ({
   // Check if form is valid
   const touchCount = touches ? parseInt(touches) : 0;
   const juggleCount = juggles ? parseInt(juggles) : 0;
-  const isFormValid = isChallengeMode ? touchCount > 0 : touchCount > 0 || juggleCount > 0;
+  const isFormValid = isChallengeMode
+    ? touchCount > 0
+    : touchCount > 0 || juggleCount > 0;
 
   return (
     <Modal
@@ -159,17 +174,32 @@ const LogSessionModal = ({
             {/* Challenge label */}
             {challengeName && (
               <View style={styles.challengeLabel}>
-                <Text style={styles.challengeLabelText}>Challenge: {challengeName}</Text>
+                <Text style={styles.challengeLabelText}>
+                  Challenge: {challengeName}
+                </Text>
               </View>
             )}
 
             {/* Vinnie coaching tip - challenge mode only */}
-            {isChallengeMode && challengeDifficulty && DRILL_TIPS[challengeDifficulty] && (
-              <View style={styles.drillTip}>
-                <Text style={styles.drillTipLabel}>Coach Vinnie says:</Text>
-                <Text style={styles.drillTipText}>{DRILL_TIPS[challengeDifficulty]}</Text>
-              </View>
-            )}
+            {isChallengeMode &&
+              challengeDifficulty &&
+              DRILL_TIPS[challengeDifficulty] && (
+                <View style={styles.vinnieTipRow}>
+                  <Image
+                    source={require('@/assets/images/vinnie.png')}
+                    style={styles.vinnieTipImage}
+                    resizeMode='contain'
+                  />
+                  <View style={styles.vinnieTipBubbleRow}>
+                    <View style={styles.vinnieTipTail} />
+                    <View style={styles.vinnieTipBubble}>
+                      <Text style={styles.vinnieTipText}>
+                        {DRILL_TIPS[challengeDifficulty]} — Coach Vinnie
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
             {/* Juggling Record - Regular mode only */}
             {!isChallengeMode && (
@@ -239,7 +269,9 @@ const LogSessionModal = ({
                 {isChallengeMode ? 'Score / Reps' : 'How many touches?'}
               </Text>
               {isChallengeMode && (
-                <Text style={styles.sectionHint}>Enter your score or rep count</Text>
+                <Text style={styles.sectionHint}>
+                  Enter your score or rep count
+                </Text>
               )}
               <View style={styles.inputContainer}>
                 <TextInput
@@ -297,19 +329,22 @@ const LogSessionModal = ({
                   <Ionicons name='time' size={20} color='#FF9800' />
                 </View>
               </View>
-              {!isChallengeMode && touches && duration && parseInt(duration) > 0 && (
-                <View style={styles.tpmPreview}>
-                  <Text style={styles.tpmPreviewText}>
-                    ⚡ {Math.round(parseInt(touches) / parseInt(duration))}{' '}
-                    touches/min
-                    {parseInt(touches) / parseInt(duration) >= 50
-                      ? ' - Game speed!'
-                      : parseInt(touches) / parseInt(duration) >= 30
-                      ? ' - Good pace!'
-                      : ' - Try going faster!'}
-                  </Text>
-                </View>
-              )}
+              {!isChallengeMode &&
+                touches &&
+                duration &&
+                parseInt(duration) > 0 && (
+                  <View style={styles.tpmPreview}>
+                    <Text style={styles.tpmPreviewText}>
+                      ⚡ {Math.round(parseInt(touches) / parseInt(duration))}{' '}
+                      touches/min
+                      {parseInt(touches) / parseInt(duration) >= 50
+                        ? ' - Game speed!'
+                        : parseInt(touches) / parseInt(duration) >= 30
+                          ? ' - Good pace!'
+                          : ' - Try going faster!'}
+                    </Text>
+                  </View>
+                )}
             </View>
 
             {/* Bottom padding for scrolling */}
@@ -333,16 +368,16 @@ const LogSessionModal = ({
                   {isChallengeMode
                     ? 'LOG CHALLENGE'
                     : touchCount > 0 && juggleCount > 0
-                    ? 'LOG ' +
-                      touchCount.toLocaleString() +
-                      ' TOUCHES + ' +
-                      juggleCount +
-                      ' JUGGLES'
-                    : touchCount > 0
-                    ? 'LOG ' + touchCount.toLocaleString() + ' TOUCHES'
-                    : juggleCount > 0
-                    ? 'LOG JUGGLING RECORD • ' + juggleCount
-                    : 'LOG SESSION'}
+                      ? 'LOG ' +
+                        touchCount.toLocaleString() +
+                        ' TOUCHES + ' +
+                        juggleCount +
+                        ' JUGGLES'
+                      : touchCount > 0
+                        ? 'LOG ' + touchCount.toLocaleString() + ' TOUCHES'
+                        : juggleCount > 0
+                          ? 'LOG JUGGLING RECORD • ' + juggleCount
+                          : 'LOG SESSION'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -626,26 +661,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#388E3C',
   },
-  drillTip: {
-    backgroundColor: '#EDE9FE',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  vinnieTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
-    borderLeftWidth: 3,
-    borderLeftColor: '#7C3AED',
   },
-  drillTipLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#7C3AED',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  vinnieTipImage: {
+    width: 80,
+    height: 52,
+    flexShrink: 0,
   },
-  drillTipText: {
+  vinnieTipBubbleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vinnieTipTail: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#E8E8E8',
+  },
+  vinnieTipBubble: {
+    flex: 1,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  vinnieTipText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4C1D95',
+    fontWeight: '700',
+    color: '#1a1a2e',
     lineHeight: 19,
   },
 });
