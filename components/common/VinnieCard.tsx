@@ -13,12 +13,15 @@ const HAND_H = 40;
 
 // Position of the hand over the body — tune to align with the ghost arm
 // top/left are relative to the vinnieContainer
-const HAND_TOP = -2;
-const HAND_LEFT = 70;
+const HAND_TOP = -5;
+const HAND_LEFT = 80;
 
 // Rotation pivot = bottom-center of the hand image (the wrist)
 // Since the hand fills its frame, this is simply half the height
 const PIVOT_Y = HAND_H / 2;
+
+// Starting angle offset — positive = clockwise, moves hand away from face
+const HAND_ANGLE_OFFSET = 20;
 
 const VinnieCard = ({ trainedToday, streak }: VinnieCardProps) => {
   const now = new Date();
@@ -66,7 +69,10 @@ const VinnieCard = ({ trainedToday, streak }: VinnieCardProps) => {
 
   const rotate = waveAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['-20deg', '20deg'],
+    outputRange: [
+      `${HAND_ANGLE_OFFSET - 10}deg`,
+      `${HAND_ANGLE_OFFSET + 20}deg`,
+    ],
   });
 
   const { message } = useMemo(

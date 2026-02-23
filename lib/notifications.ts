@@ -12,6 +12,15 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Android 8+ requires a notification channel
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('reminders', {
+    name: 'Practice Reminders',
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: 'default',
+  });
+}
+
 const DAYS_BEFORE_FIRST_REMINDER = 2;
 const TOTAL_REMINDER_DAYS = 7;
 const REMINDER_HOUR = 15; // 3pm local time
@@ -81,7 +90,7 @@ export async function scheduleInactivityReminders(): Promise<void> {
     const { title, body } = getReminderMessage(dayOffset);
 
     await Notifications.scheduleNotificationAsync({
-      content: { title, body, sound: true },
+      content: { title, body, sound: true, ...(Platform.OS === 'android' && { channelId: 'reminders' }) },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate },
     });
   }
