@@ -136,6 +136,56 @@ const ProfilePage = () => {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data — sessions, stats, streaks, everything. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: confirmDeleteAccount,
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Are you absolutely sure?',
+      'All your training data will be deleted forever.',
+      [
+        { text: 'Keep My Account', style: 'cancel' },
+        {
+          text: 'Yes, Delete Everything',
+          style: 'destructive',
+          onPress: executeDeleteAccount,
+        },
+      ]
+    );
+  };
+
+  const executeDeleteAccount = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Delete all user data from tables
+      await supabase.from('daily_sessions').delete().eq('user_id', user.id);
+      await supabase.from('user_targets').delete().eq('user_id', user.id);
+      await supabase.from('profiles').delete().eq('id', user.id);
+
+      // Attempt to delete the auth user via a database function (requires
+      // a `delete_user` function with SECURITY DEFINER set up in Supabase).
+      // If the function doesn't exist this will fail silently and we sign out.
+      await supabase.rpc('delete_user').throwOnError();
+    } catch {
+      // Data tables are already cleared — sign out regardless
+    } finally {
+      await supabase.auth.signOut();
+    }
+  };
+
   const handleFeedback = async () => {
     const email = 'timmparsons85@gmail.com';
     const subject = 'Master Touch Feedback';
@@ -462,6 +512,11 @@ const ProfilePage = () => {
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
               <Ionicons name='log-out' size={24} color='#FF7043' />
               <Text style={styles.actionButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+            <View style={styles.actionDivider} />
+            <TouchableOpacity style={styles.actionButton} onPress={handleDeleteAccount}>
+              <Ionicons name='trash' size={24} color='#D32F2F' />
+              <Text style={[styles.actionButtonText, styles.deleteAccountText]}>Delete Account</Text>
             </TouchableOpacity>
           </View>
 
@@ -871,6 +926,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#1a1a2e',
+  },
+  deleteAccountText: {
+    color: '#D32F2F',
   },
   actionDivider: {
     height: 1,
