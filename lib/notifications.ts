@@ -67,7 +67,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function scheduleInactivityReminders(): Promise<void> {
+// lastSessionDate: the date the user last trained. Notifications are scheduled
+// relative to this date, not "now". Pass new Date() when logging a fresh session.
+export async function scheduleInactivityReminders(lastSessionDate: Date = new Date()): Promise<void> {
   if (Platform.OS === 'web') return;
 
   const { status } = await Notifications.getPermissionsAsync();
@@ -80,11 +82,11 @@ export async function scheduleInactivityReminders(): Promise<void> {
 
   for (let i = 0; i < TOTAL_REMINDER_DAYS; i++) {
     const dayOffset = DAYS_BEFORE_FIRST_REMINDER + i;
-    const triggerDate = new Date(now);
+    const triggerDate = new Date(lastSessionDate);
     triggerDate.setDate(triggerDate.getDate() + dayOffset);
     triggerDate.setHours(REMINDER_HOUR, 0, 0, 0);
 
-    // Skip if the trigger time is already in the past (e.g. same day after 3pm)
+    // Skip if the trigger time is already in the past
     if (triggerDate <= now) continue;
 
     const { title, body } = getReminderMessage(dayOffset);

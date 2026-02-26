@@ -109,7 +109,6 @@ const TrainPage = () => {
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickSoundRef = useRef<Audio.Sound | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
 
   const TIMER_OPTIONS = [
@@ -123,22 +122,11 @@ const TrainPage = () => {
 
   // Load timer sounds
   useEffect(() => {
-    const loadSounds = async () => {
-      const { sound: tick } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/whistle.mp3')
-      );
-      tickSoundRef.current = tick;
-
-      const { sound: whistle } = await Audio.Sound.createAsync(
-        require('@/assets/sounds/fulltime_whistle.mp3')
-      );
-      whistleSoundRef.current = whistle;
-    };
-
-    loadSounds();
+    Audio.Sound.createAsync(require('@/assets/sounds/fulltime_whistle.mp3')).then(
+      ({ sound }) => { whistleSoundRef.current = sound; }
+    );
 
     return () => {
-      tickSoundRef.current?.unloadAsync();
       whistleSoundRef.current?.unloadAsync();
     };
   }, []);
@@ -187,9 +175,6 @@ const TrainPage = () => {
             setShowTimerModal(false);
             setShowScoreModal(true);
             return 0;
-          }
-          if (prev <= 5) {
-            tickSoundRef.current?.replayAsync();
           }
           return prev - 1;
         });

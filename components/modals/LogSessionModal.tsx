@@ -113,8 +113,8 @@ const LogSessionModal = ({
 
       if (error) throw error;
 
-      // Reschedule inactivity reminders — reset the 2-day countdown
-      scheduleInactivityReminders();
+      // Reschedule inactivity reminders — reset the 2-day countdown from now
+      scheduleInactivityReminders(new Date());
 
       // Reset form
       setTouches('');

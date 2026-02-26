@@ -1,4 +1,4 @@
-import { requestNotificationPermission } from '@/lib/notifications';
+import { requestNotificationPermission, scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -170,7 +170,26 @@ export default function RootLayout() {
     // If onboarding_completed is explicitly true, go to tabs
     // Otherwise (false, null, undefined, or no profile) go to onboarding
     if (profile?.onboarding_completed === true) {
-      requestNotificationPermission();
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        // Recalibrate notifications against the actual last session date so that
+        // app updates / reinstalls don't leave stale OS-queued notifications firing
+        const { data: lastSession } = await supabase
+          .from('daily_sessions')
+          .select('date')
+          .eq('user_id', session.user.id)
+          .order('date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (lastSession?.date) {
+          const [year, month, day] = lastSession.date.split('-').map(Number);
+          // Construct as local midnight so trigger offsets are correct in the user's timezone
+          await scheduleInactivityReminders(new Date(year, month - 1, day));
+        }
+        // If no sessions yet, leave notifications unscheduled — LogSessionModal
+        // will schedule them after the user's first session.
+      }
       router.replace('/(tabs)');
     } else {
       router.replace('/(onboarding)');
