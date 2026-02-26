@@ -7,6 +7,7 @@ import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -91,7 +92,8 @@ const TrainPage = () => {
   const todaysTips = getTodaysTips();
 
   // Timer state
-  const [timerActive, setTimerActive] = useState(false);
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [timerRunning, setTimerRunning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
@@ -105,15 +107,41 @@ const TrainPage = () => {
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
+  const [customSeconds, setCustomSeconds] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickSoundRef = useRef<Audio.Sound | null>(null);
+  const whistleSoundRef = useRef<Audio.Sound | null>(null);
 
   const TIMER_OPTIONS = [
+    { label: '30 sec', seconds: 30 },
     { label: '1 min', seconds: 60 },
     { label: '2 min', seconds: 120 },
     { label: '3 min', seconds: 180 },
     { label: '5 min', seconds: 300 },
     { label: '10 min', seconds: 600 },
   ];
+
+  // Load timer sounds
+  useEffect(() => {
+    const loadSounds = async () => {
+      const { sound: tick } = await Audio.Sound.createAsync(
+        require('@/assets/sounds/whistle.mp3')
+      );
+      tickSoundRef.current = tick;
+
+      const { sound: whistle } = await Audio.Sound.createAsync(
+        require('@/assets/sounds/fulltime_whistle.mp3')
+      );
+      whistleSoundRef.current = whistle;
+    };
+
+    loadSounds();
+
+    return () => {
+      tickSoundRef.current?.unloadAsync();
+      whistleSoundRef.current?.unloadAsync();
+    };
+  }, []);
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: drills = [] } = useDrills();
@@ -127,7 +155,8 @@ const TrainPage = () => {
     setFreeTimerDuration(seconds);
     setTimeRemaining(seconds);
     setShowTimerPicker(false);
-    setTimerActive(true);
+    setShowTimerModal(true);
+    // Don't auto-start; user taps Start
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -135,19 +164,32 @@ const TrainPage = () => {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    setTimerActive(false);
+    setTimerRunning(false);
   }, []);
 
+  const pauseResumeTimer = useCallback(() => {
+    setTimerRunning((prev) => !prev);
+  }, []);
+
+  const resetTimer = useCallback(() => {
+    stopTimer();
+    setTimeRemaining(freeTimerDuration);
+  }, [stopTimer, freeTimerDuration]);
+
   useEffect(() => {
-    if (timerActive) {
+    if (timerRunning) {
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            // Timer finished
             stopTimer();
-            Vibration.vibrate([0, 500, 200, 500]); // Vibrate pattern
+            Vibration.vibrate([0, 500, 200, 500]);
+            whistleSoundRef.current?.replayAsync();
+            setShowTimerModal(false);
             setShowScoreModal(true);
             return 0;
+          }
+          if (prev <= 5) {
+            tickSoundRef.current?.replayAsync();
           }
           return prev - 1;
         });
@@ -157,9 +199,10 @@ const TrainPage = () => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [timerActive, stopTimer]);
+  }, [timerRunning, stopTimer]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -226,6 +269,7 @@ const TrainPage = () => {
           style: 'destructive',
           onPress: () => {
             stopTimer();
+            setShowTimerModal(false);
             setTimeRemaining(0);
           },
         },
@@ -392,7 +436,7 @@ const TrainPage = () => {
 
       {/* Timer Modal */}
       <Modal
-        visible={timerActive}
+        visible={showTimerModal}
         animationType='fade'
         transparent={false}
         onRequestClose={cancelTimer}
@@ -404,15 +448,24 @@ const TrainPage = () => {
 
             <View style={styles.timerCircle}>
               <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
-              <Text style={styles.timerSubtext}>remaining</Text>
+              <Text style={styles.timerSubtext}>{timerRunning ? 'remaining' : 'paused'}</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.cancelTimerButton}
-              onPress={cancelTimer}
-            >
-              <Text style={styles.cancelTimerText}>Cancel</Text>
-            </TouchableOpacity>
+            <View style={styles.timerControlButtons}>
+              <TouchableOpacity style={styles.timerSecondaryButton} onPress={resetTimer}>
+                <Ionicons name='refresh' size={20} color='rgba(255,255,255,0.8)' />
+                <Text style={styles.timerSecondaryText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.timerStartPauseButton} onPress={pauseResumeTimer}>
+                <Ionicons name={timerRunning ? 'pause' : 'play'} size={30} color='#2B9FFF' />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.timerSecondaryButton} onPress={cancelTimer}>
+                <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
+                <Text style={styles.timerSecondaryText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -509,29 +562,50 @@ const TrainPage = () => {
             <View style={styles.customTimerSection}>
               <Text style={styles.customTimerLabel}>Custom duration</Text>
               <View style={styles.customTimerRow}>
-                <TextInput
-                  style={styles.customTimerInput}
-                  placeholder='Minutes'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  value={customMinutes}
-                  onChangeText={setCustomMinutes}
-                />
+                <View style={styles.customTimerInputGroup}>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={customMinutes}
+                    onChangeText={setCustomMinutes}
+                  />
+                  <Text style={styles.customTimerUnit}>min</Text>
+                </View>
+                <Text style={styles.customTimerSeparator}>:</Text>
+                <View style={styles.customTimerInputGroup}>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={customSeconds}
+                    onChangeText={(v) => {
+                      const n = parseInt(v);
+                      if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
+                    }}
+                  />
+                  <Text style={styles.customTimerUnit}>sec</Text>
+                </View>
                 <TouchableOpacity
                   style={[
                     styles.customTimerButton,
-                    !customMinutes && styles.customTimerButtonDisabled,
+                    (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
                   ]}
                   onPress={() => {
-                    const mins = parseInt(customMinutes);
-                    if (mins > 0) {
-                      startFreeTimer(mins * 60);
+                    const mins = parseInt(customMinutes) || 0;
+                    const secs = parseInt(customSeconds) || 0;
+                    const total = mins * 60 + secs;
+                    if (total > 0) {
+                      startFreeTimer(total);
                       setCustomMinutes('');
+                      setCustomSeconds('');
                     }
                   }}
-                  disabled={!customMinutes}
+                  disabled={!customMinutes && !customSeconds}
                 >
-                  <Text style={styles.customTimerButtonText}>Start</Text>
+                  <Text style={styles.customTimerButtonText}>Go</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -541,6 +615,7 @@ const TrainPage = () => {
               onPress={() => {
                 setShowTimerPicker(false);
                 setCustomMinutes('');
+                setCustomSeconds('');
               }}
             >
               <Text style={styles.timerPickerCancelText}>Cancel</Text>
@@ -870,12 +945,32 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 8,
   },
-  cancelTimerButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+  timerControlButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
   },
-  cancelTimerText: {
-    fontSize: 16,
+  timerStartPauseButton: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  timerSecondaryButton: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  timerSecondaryText: {
+    fontSize: 12,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.7)',
   },
@@ -1083,18 +1178,36 @@ const styles = StyleSheet.create({
   },
   customTimerRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  customTimerInputGroup: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
   customTimerInput: {
-    flex: 1,
+    width: '100%',
     backgroundColor: '#F5F7FA',
     borderRadius: 12,
     padding: 14,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a2e',
     borderWidth: 2,
     borderColor: '#E5E7EB',
+    textAlign: 'center',
+  },
+  customTimerUnit: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  customTimerSeparator: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 18,
   },
   customTimerButton: {
     backgroundColor: '#4CAF50',

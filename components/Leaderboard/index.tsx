@@ -54,23 +54,23 @@ const Leaderboard = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
 
-  // Get today's date and week start date (using local time)
-  const today = getLocalDate();
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - 7);
-  const weekStartDate = getLocalDate(weekStart);
-
   // Fetch team members with their touch stats
   const {
     data: touchesLeaderboard = [],
     isLoading: touchesLoading,
     refetch: refetchTouches,
   } = useQuery({
-    queryKey: ['team-touches-leaderboard', profile?.team_id],
+    queryKey: ['team-touches-leaderboard', profile?.team_id, getLocalDate()],
     queryFn: async () => {
       if (!profile?.team_id) {
         return [];
       }
+
+      // Compute dates inside queryFn so they're always current when the query runs
+      const today = getLocalDate();
+      const weekStartObj = new Date();
+      weekStartObj.setDate(weekStartObj.getDate() - 7);
+      const weekStartDate = getLocalDate(weekStartObj);
 
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
@@ -167,7 +167,7 @@ const Leaderboard = () => {
             name: member.name || member.display_name || 'Unknown Player',
             avatar_url: member.avatar_url,
             high_score: bestSession?.juggle_count || 0,
-            date_achieved: bestSession?.date || today,
+            date_achieved: bestSession?.date || getLocalDate(),
           };
         })
       );
