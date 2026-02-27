@@ -42,7 +42,7 @@ export default function Auth() {
       setLoading(true);
 
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -70,7 +70,7 @@ export default function Auth() {
       setLoading(true);
 
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
@@ -93,14 +93,15 @@ export default function Auth() {
 
   // RESET PASSWORD
   const resetPassword = async () => {
-    if (!email) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       Alert.alert('Enter Email', 'Please enter your email address first');
       return;
     }
 
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: 'mastertouch://auth/reset-password',
       });
       if (error) throw error;

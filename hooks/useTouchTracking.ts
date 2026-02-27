@@ -300,24 +300,37 @@ export const useTodayChallenge = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return null;
 
-      // Get all available drills
-      const { data: drills } = await supabase.from('drills').select('*');
+      // Fetch drills and user's all-time total touches in parallel
+      const [{ data: drills }, { data: allSessions }] = await Promise.all([
+        supabase.from('drills').select('*'),
+        supabase.from('daily_sessions').select('touches_logged').eq('user_id', userId),
+      ]);
 
-      if (!drills || drills.length === 0) {
-        return null;
-      }
+      if (!drills || drills.length === 0) return null;
 
-      // Use the current date as a seed for "random" but consistent daily selection
+      // Determine difficulty tier from all-time total touches
+      // < 10,000  → beginner fundamentals
+      // 10k–50k   → intermediate challenges
+      // > 50,000  → random from any tier (fully unlocked)
+      const totalTouches = allSessions?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) ?? 0;
+      const tier =
+        totalTouches >= 50000 ? null :          // null = all tiers
+        totalTouches >= 10000 ? 'intermediate' :
+        'beginner';
+
+      // Filter pool to tier (null means all drills)
+      const pool = tier ? drills.filter((d) => d.difficulty_level === tier) : drills;
+      const selectedPool = pool.length > 0 ? pool : drills;
+
+      // Use the current date as a seed for consistent daily selection
       const today = getLocalDate();
       const seed = today
         .split('-')
         .reduce((acc, val) => acc + parseInt(val), 0);
 
-      // Pick a random drill based on the date seed
-      const drillIndex = seed % drills.length;
-      const selectedDrill = drills[drillIndex];
+      const drillIndex = seed % selectedPool.length;
+      const selectedDrill = selectedPool[drillIndex];
 
-      // Pick a random duration based on the date seed
       const durationIndex = (seed + drillIndex) % CHALLENGE_DURATIONS.length;
       const challengeDuration = CHALLENGE_DURATIONS[durationIndex];
 
