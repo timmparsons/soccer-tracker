@@ -67,9 +67,10 @@ const Leaderboard = () => {
       }
 
       // Compute dates inside queryFn so they're always current when the query runs
+      // - 6 gives exactly 7 days including today (today = day 1, 6 days ago = day 7)
       const today = getLocalDate();
       const weekStartObj = new Date();
-      weekStartObj.setDate(weekStartObj.getDate() - 7);
+      weekStartObj.setDate(weekStartObj.getDate() - 6);
       const weekStartDate = getLocalDate(weekStartObj);
 
       // Get all team members (excluding coaches)
