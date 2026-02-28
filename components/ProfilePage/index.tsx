@@ -12,8 +12,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -531,6 +533,10 @@ const ProfilePage = () => {
           transparent={true}
           onRequestClose={() => setShowTargetModal(false)}
         >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
@@ -615,6 +621,7 @@ const ProfilePage = () => {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
     </>

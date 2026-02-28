@@ -12,7 +12,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -462,6 +464,10 @@ const TrainPage = () => {
         transparent={true}
         onRequestClose={() => setShowScoreModal(false)}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
         <View style={styles.scoreModalOverlay}>
           <View style={styles.scoreModalContent}>
             <View style={styles.scoreModalHeader}>
@@ -513,6 +519,7 @@ const TrainPage = () => {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Timer Picker Modal */}
@@ -522,6 +529,10 @@ const TrainPage = () => {
         transparent={true}
         onRequestClose={() => setShowTimerPicker(false)}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
         <View style={styles.timerPickerOverlay}>
           <View style={styles.timerPickerContent}>
             <View style={styles.timerPickerHeader}>
@@ -607,6 +618,7 @@ const TrainPage = () => {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Vinnie Celebration */}

@@ -3,6 +3,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -37,7 +39,10 @@ export default function ResetPasswordModal() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <Text style={styles.title}>Reset Password</Text>
 
       <TextInput
@@ -57,7 +62,7 @@ export default function ResetPasswordModal() {
           {loading ? 'Updating...' : 'Reset Password'}
         </Text>
       </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

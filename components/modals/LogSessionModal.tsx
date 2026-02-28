@@ -151,12 +151,9 @@ const LogSessionModal = ({
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
+      <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Header */}
+          {/* Header - stays fixed; NOT inside KeyboardAvoidingView so it never scrolls off screen */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Log Practice Session</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -164,6 +161,11 @@ const LogSessionModal = ({
             </TouchableOpacity>
           </View>
 
+          {/* Only the body + submit button respond to the keyboard */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoidingBody}
+          >
           <ScrollView
             ref={scrollViewRef}
             style={styles.modalBody}
@@ -382,8 +384,9 @@ const LogSessionModal = ({
               )}
             </TouchableOpacity>
           </View>
+          </KeyboardAvoidingView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -422,6 +425,9 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  keyboardAvoidingBody: {
+    flex: 1,
   },
   modalBody: {
     flex: 1,
