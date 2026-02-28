@@ -78,9 +78,9 @@ export default function RootLayout() {
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
+        // Set flag; route guard handles the navigation once it runs
         setIsPasswordRecovery(true);
         setSession(session);
-        router.replace('/(auth)/reset-password');
         return;
       }
 
@@ -114,23 +114,33 @@ export default function RootLayout() {
     const inOnboardingGroup = rootSegment === '(onboarding)';
     const inMinigamesGroup = rootSegment === 'minigames';
 
-    // Logged in but outside allowed areas (skip if in password recovery)
+    // Password recovery takes priority over everything else — navigate to the
+    // reset screen if not already there. This handles the background-resume
+    // case where getInitialURL() returns null and the deep link arrives via
+    // addEventListener after the guard has already run once.
+    if (isPasswordRecovery) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/reset-password');
+      }
+      return;
+    }
+
+    // Logged in but outside allowed areas
     if (
       session &&
       !inTabsGroup &&
       !inModalsGroup &&
       !inOnboardingGroup &&
       !inMinigamesGroup &&
-      !hasCheckedOnboarding &&
-      !isPasswordRecovery
+      !hasCheckedOnboarding
     ) {
       checkOnboardingStatus();
       return;
     }
 
-    // Logged out but not in auth flow (skip if in password recovery)
-    if (!session && !inAuthGroup && !isPasswordRecovery) {
-      setHasCheckedOnboarding(false); // Reset when logged out
+    // Logged out but not in auth flow
+    if (!session && !inAuthGroup) {
+      setHasCheckedOnboarding(false);
       router.replace('/(auth)');
     }
   }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery]);
