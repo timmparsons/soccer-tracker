@@ -64,7 +64,7 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       // Get this week's touches (last 7 days)
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
       const weekStart = getLocalDate(sevenDaysAgo);
 
       const { data: weekSessions } = await supabase
