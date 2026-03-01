@@ -272,28 +272,6 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {/* Vinnie rank reaction */}
-        {touchesLeaderboard.length > 0 && (
-          <View style={styles.vinnieRow}>
-            <Image
-              source={require('@/assets/images/vinnie.png')}
-              style={styles.vinnieImage}
-              resizeMode='contain'
-            />
-            <View style={styles.vinnieBubbleRow}>
-              <View style={styles.vinnieTail} />
-              <View style={styles.vinnieBubble}>
-                <Text style={styles.vinnieMessage}>
-                  {getVinnieRankMessage(
-                    touchesLeaderboard.findIndex((p) => p.id === getCurrentUserId()) + 1,
-                    touchesLeaderboard.length,
-                  )} — Coach Vinnie
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {activeTab === 'touches' ? (
           <>
             {/* Weekly Touches View */}
@@ -382,6 +360,28 @@ const Leaderboard = () => {
                   </Text>
                   <View style={styles.podiumRank3}>
                     <Text style={styles.podiumRankText}>3rd</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Vinnie rank reaction */}
+            {touchesLeaderboard.length > 0 && (
+              <View style={styles.vinnieRow}>
+                <Image
+                  source={require('@/assets/images/vinnie.png')}
+                  style={styles.vinnieImage}
+                  resizeMode='contain'
+                />
+                <View style={styles.vinnieBubbleRow}>
+                  <View style={styles.vinnieTail} />
+                  <View style={styles.vinnieBubble}>
+                    <Text style={styles.vinnieMessage}>
+                      {getVinnieRankMessage(
+                        touchesLeaderboard.findIndex((p) => p.id === getCurrentUserId()) + 1,
+                        touchesLeaderboard.length,
+                      )} — Coach Vinnie
+                    </Text>
                   </View>
                 </View>
               </View>
