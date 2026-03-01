@@ -247,7 +247,7 @@ const Leaderboard = () => {
               activeTab === 'touches' && styles.tabTextActive,
             ]}
           >
-            📊 Weekly Touches
+            📊 Last 7 Days
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
