@@ -60,17 +60,18 @@ const Leaderboard = () => {
     isLoading: touchesLoading,
     refetch: refetchTouches,
   } = useQuery({
-    queryKey: ['team-touches-leaderboard', profile?.team_id, getLocalDate()],
+    queryKey: ['team-touches-leaderboard', profile?.team_id],
     queryFn: async () => {
       if (!profile?.team_id) {
         return [];
       }
 
       // Compute dates inside queryFn so they're always current when the query runs
-      // - 6 gives exactly 7 days including today (today = day 1, 6 days ago = day 7)
+      // Week runs Sunday–Saturday; resets every Sunday at midnight
       const today = getLocalDate();
+      const todayObj = new Date();
       const weekStartObj = new Date();
-      weekStartObj.setDate(weekStartObj.getDate() - 6);
+      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // back to Sunday
       const weekStartDate = getLocalDate(weekStartObj);
 
       // Get all team members (excluding coaches)
@@ -247,7 +248,7 @@ const Leaderboard = () => {
               activeTab === 'touches' && styles.tabTextActive,
             ]}
           >
-            📊 Last 7 Days
+            📊 This Week
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -298,7 +299,7 @@ const Leaderboard = () => {
             {/* Weekly Touches View */}
             <View style={styles.weekBadgeContainer}>
               <View style={styles.weekBadge}>
-                <Text style={styles.weekBadgeText}>Last 7 Days</Text>
+                <Text style={styles.weekBadgeText}>This Week · Resets Sunday</Text>
               </View>
             </View>
 
