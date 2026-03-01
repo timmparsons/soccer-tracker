@@ -8,3 +8,9 @@ Mark done items `[x]` or delete them.
 - [x] I tried testing out the forgot password link. I typed in an email address I know has an account, clicked the link and it said the email address was invalid. Can you look into that please?
 - [x] For the challenge of the day, let's try and keep the options to the beginner ones if the user has a low number of touches. Can we sync it with the level they are at?
 - [x] The text in the drill library can not be seen so users can't see the whole text which tells them how to do the drill. I think it should show the whole drill, even when the video is showing.
+
+---
+
+## Ideas (bigger / future work — do not action unless explicitly asked)
+
+- Push notifications when a teammate logs a practice session. Requires: storing push tokens in Supabase, a server-side trigger (Edge Function or DB webhook), and Expo's push service. Need to clarify team structure and notification frequency first.

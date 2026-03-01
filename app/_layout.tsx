@@ -1,11 +1,13 @@
 import { requestNotificationPermission, scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import SplashScreen from '@/components/SplashScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, View } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const queryClient = new QueryClient({
@@ -23,6 +25,7 @@ export default function RootLayout() {
   const [loading, setLoading] = useState(true);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [hasSeenIntro, setHasSeenIntro] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
@@ -68,6 +71,10 @@ export default function RootLayout() {
 
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
+
+      const seen = await AsyncStorage.getItem('hasSeenIntro');
+      setHasSeenIntro(seen === 'true');
+
       setLoading(false);
     };
 
@@ -141,9 +148,13 @@ export default function RootLayout() {
     // Logged out but not in auth flow
     if (!session && !inAuthGroup) {
       setHasCheckedOnboarding(false);
-      router.replace('/(auth)');
+      if (!hasSeenIntro) {
+        router.replace('/(auth)/intro');
+      } else {
+        router.replace('/(auth)');
+      }
     }
-  }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery]);
+  }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery, hasSeenIntro]);
 
   const checkOnboardingStatus = async () => {
     if (!session?.user?.id) return;
@@ -208,18 +219,7 @@ export default function RootLayout() {
 
   // ⏳ App boot loading state
   if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#F5F9FF',
-        }}
-      >
-        <ActivityIndicator size='large' color='#2B9FFF' />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return (

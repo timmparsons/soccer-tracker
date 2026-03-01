@@ -225,7 +225,7 @@ export default function Auth() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={mode === 'signin' ? ['#2B9FFF', '#7E57C2'] : ['#FF7043', '#FF5722']}
+                colors={mode === 'signin' ? ['#FF7043', '#FF5722'] : ['#FF7043', '#FF5722']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitButtonGradient}
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#2B9FFF',
+    shadowColor: '#FF7043',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
