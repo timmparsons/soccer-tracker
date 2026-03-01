@@ -106,6 +106,7 @@ const TrainPage = () => {
   const [challengeName, setChallengeName] = useState<string | undefined>();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState<string>('');
+  const [videoDescription, setVideoDescription] = useState<string>('');
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
@@ -372,7 +373,7 @@ const TrainPage = () => {
                       >
                         <Text style={styles.drillName}>{drill.name}</Text>
                         {drill.description && (
-                          <Text style={styles.drillDescription} numberOfLines={2}>
+                          <Text style={styles.drillDescription}>
                             {drill.description}
                           </Text>
                         )}
@@ -383,6 +384,7 @@ const TrainPage = () => {
                           onPress={() => {
                             setVideoUrl(drill.video_url!);
                             setVideoName(drill.name);
+                            setVideoDescription(drill.description ?? '');
                           }}
                         >
                           <Ionicons name='play-circle' size={13} color='#10B981' />
@@ -635,6 +637,7 @@ const TrainPage = () => {
           onClose={() => setVideoUrl(null)}
           videoUrl={videoUrl}
           drillName={videoName}
+          description={videoDescription}
         />
       )}
 

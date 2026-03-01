@@ -3,6 +3,7 @@ import { ResizeMode, Video } from 'expo-av';
 import React, { useRef } from 'react';
 import {
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,9 +16,10 @@ interface DrillVideoModalProps {
   onClose: () => void;
   videoUrl: string;
   drillName: string;
+  description?: string;
 }
 
-const DrillVideoModal = ({ visible, onClose, videoUrl, drillName }: DrillVideoModalProps) => {
+const DrillVideoModal = ({ visible, onClose, videoUrl, drillName, description }: DrillVideoModalProps) => {
   const videoRef = useRef<Video>(null);
 
   const handleClose = async () => {
@@ -55,7 +57,12 @@ const DrillVideoModal = ({ visible, onClose, videoUrl, drillName }: DrillVideoMo
           shouldPlay={visible}
         />
 
-        <Text style={styles.caption}>Drill Tutorial — Coach Vinnie</Text>
+        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          <Text style={styles.caption}>Drill Tutorial — Coach Vinnie</Text>
+          {description ? (
+            <Text style={styles.description}>{description}</Text>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -91,15 +98,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   video: {
-    flex: 1,
     width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   caption: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 16,
+  },
+  description: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
   },
 });

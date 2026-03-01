@@ -265,72 +265,80 @@ const LogSessionModal = ({
               </View>
             )}
 
-            {/* Touches / Score Input */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>
-                {isChallengeMode ? 'Score / Reps' : 'How many touches?'}
-              </Text>
-              {isChallengeMode && (
-                <Text style={styles.sectionHint}>
-                  Enter your score or rep count
-                </Text>
-              )}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder='Enter number of touches'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  value={touches}
-                  onChangeText={setTouches}
-                  onFocus={() => {
-                    if (Platform.OS === 'android') {
-                      setTimeout(() => {
-                        scrollViewRef.current?.scrollTo({
-                          y: 0,
-                          animated: true,
-                        });
-                      }, 100);
-                    }
-                  }}
-                />
-                <View style={styles.inputIconBg}>
-                  {isChallengeMode ? (
-                    <Ionicons name='trophy' size={20} color='#FF7043' />
-                  ) : (
-                    <Ionicons name='football' size={20} color='#2B9FFF' />
-                  )}
+            {/* Touches + Duration — side by side so both are always visible when keyboard is open */}
+            <View style={styles.inputPairSection}>
+              <View style={styles.inputPairRow}>
+                {/* Left: Touches / Score */}
+                <View style={styles.inputPairHalf}>
+                  <Text style={styles.sectionLabel}>
+                    {isChallengeMode ? 'Score / Reps' : 'Touches'}
+                  </Text>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={isChallengeMode ? 'Score' : '0'}
+                      placeholderTextColor='#B0BEC5'
+                      keyboardType='number-pad'
+                      returnKeyType='done'
+                      value={touches}
+                      onChangeText={setTouches}
+                      onFocus={() =>
+                        setTimeout(
+                          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+                          200,
+                        )
+                      }
+                    />
+                    <View style={styles.inputIconBg}>
+                      {isChallengeMode ? (
+                        <Ionicons name='trophy' size={20} color='#FF7043' />
+                      ) : (
+                        <Ionicons name='football' size={20} color='#2B9FFF' />
+                      )}
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
-            {/* Duration Input - Prominent for TPM tracking */}
-            <View style={styles.sectionHighlight}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionLabel}>
-                  How long did you practice?
-                </Text>
-                <View style={styles.tpmBadge}>
-                  <Ionicons name='flash' size={12} color='#FF9800' />
-                  <Text style={styles.tpmBadgeText}>Tracks tempo</Text>
+                {/* Right: Minutes */}
+                <View style={styles.inputPairHalf}>
+                  <View style={styles.minutesLabelRow}>
+                    <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Minutes</Text>
+                    <View style={styles.tpmBadge}>
+                      <Ionicons name='flash' size={12} color='#FF9800' />
+                      <Text style={styles.tpmBadgeText}>TPM</Text>
+                    </View>
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder='0'
+                      placeholderTextColor='#B0BEC5'
+                      keyboardType='number-pad'
+                      returnKeyType='done'
+                      value={duration}
+                      onChangeText={setDuration}
+                      onFocus={() =>
+                        setTimeout(
+                          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+                          200,
+                        )
+                      }
+                    />
+                    <View style={styles.inputIconBg}>
+                      <Ionicons name='time' size={20} color='#FF9800' />
+                    </View>
+                  </View>
                 </View>
               </View>
-              <Text style={styles.sectionHint}>
-                Add time to see your touches per minute - aim for game speed!
-              </Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder='Minutes'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  value={duration}
-                  onChangeText={setDuration}
-                />
-                <View style={styles.inputIconBg}>
-                  <Ionicons name='time' size={20} color='#FF9800' />
-                </View>
-              </View>
+
+              {/* Hint */}
+              {isChallengeMode ? (
+                <Text style={styles.sectionHint}>Enter your score or rep count</Text>
+              ) : !duration ? (
+                <Text style={styles.sectionHint}>Add minutes to track your touches per minute!</Text>
+              ) : null}
+
+              {/* TPM preview */}
               {!isChallengeMode &&
                 touches &&
                 duration &&
@@ -704,5 +712,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     lineHeight: 19,
+  },
+  inputPairSection: {
+    marginBottom: 24,
+  },
+  inputPairRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputPairHalf: {
+    flex: 1,
+  },
+  minutesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
 });
