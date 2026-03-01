@@ -250,6 +250,14 @@ const Leaderboard = () => {
           >
             📊 This Week
           </Text>
+          <Text
+            style={[
+              styles.tabSubtext,
+              activeTab === 'touches' && styles.tabTextActive,
+            ]}
+          >
+            Resets Sunday
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'juggling' && styles.tabActive]}
@@ -274,13 +282,6 @@ const Leaderboard = () => {
       >
         {activeTab === 'touches' ? (
           <>
-            {/* Weekly Touches View */}
-            <View style={styles.weekBadgeContainer}>
-              <View style={styles.weekBadge}>
-                <Text style={styles.weekBadgeText}>This Week · Resets Sunday</Text>
-              </View>
-            </View>
-
             {/* Empty state for touches */}
             {touchesLeaderboard.length === 0 && !touchesLoading && (
               <View style={styles.emptyState}>
@@ -459,10 +460,8 @@ const Leaderboard = () => {
         ) : (
           <>
             {/* Juggling Records View */}
-            <View style={styles.weekBadgeContainer}>
-              <View style={styles.jugglingBadge}>
-                <Text style={styles.weekBadgeText}>All-Time Records</Text>
-              </View>
+            <View style={styles.jugglingBadge}>
+              <Text style={styles.weekBadgeText}>All-Time Records</Text>
             </View>
 
             {/* Empty state for juggling */}
@@ -668,22 +667,20 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFF',
   },
+  tabSubtext: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
 
-  weekBadgeContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 20,
-  },
-  weekBadge: {
-    backgroundColor: '#1f89ee',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
   jugglingBadge: {
     backgroundColor: '#ffb724',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    alignSelf: 'flex-end',
+    marginBottom: 20,
   },
   weekBadgeText: {
     color: '#FFF',
