@@ -224,18 +224,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FA',
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
   },
 
   // STATS GRID (2x2)
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   statCard: {
     width: '48%',
-    padding: 20,
+    padding: 14,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -264,22 +264,22 @@ const styles = StyleSheet.create({
     borderTopColor: '#31af4d',
   },
   statIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#F5F7FA',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   statIcon: {
-    fontSize: 24,
+    fontSize: 18,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '900',
     color: '#1a1a2e',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabel: {
     fontSize: 13,

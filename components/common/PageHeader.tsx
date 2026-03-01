@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     backgroundColor: '#F5F7FA',
   },
   headerLeft: {
@@ -83,10 +83,10 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '900',
     color: '#1a1a2e',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 15,

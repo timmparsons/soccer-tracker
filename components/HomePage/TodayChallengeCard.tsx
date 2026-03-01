@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFF',
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#31af4d',
     shadowColor: '#000',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#31af4d',
     letterSpacing: 1.2,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   drillRow: {
     flexDirection: 'row',
@@ -130,12 +130,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#78909C',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   startButton: {
     backgroundColor: '#31af4d',
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 11,
     alignItems: 'center',
     shadowColor: '#31af4d',
     shadowOffset: { width: 0, height: 4 },
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   keepTrainingButton: {
     backgroundColor: '#1a1a2e',
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 11,
     alignItems: 'center',
   },
   keepTrainingText: {
@@ -179,6 +179,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#B0BEC5',
-    marginBottom: 14,
+    marginBottom: 8,
   },
 });
