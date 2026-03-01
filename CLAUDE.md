@@ -36,8 +36,8 @@
 - Platform guards (`Platform.OS === 'web'`) are required in any native-only utility.
 
 ## Design System
-- Primary colours: `#2B9FFF` (blue), `#FFA500` (orange), `#FF7043` (coral), `#1a1a2e` (dark).
-- Success/positive: `#10B981`. Muted text: `#78909C`.
+- Primary colours: `#1f89ee` (blue), `#ffb724` (orange), `#1a1a2e` (dark).
+- Success/positive: `#31af4d`. Muted text: `#78909C`.
 - Font weights used: `'600'` (body), `'700'` (labels), `'900'` (headings/buttons).
 - Border radius conventions: inputs `12`, cards `16–24`, buttons `14–16`.
 

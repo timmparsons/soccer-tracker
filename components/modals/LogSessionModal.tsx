@@ -291,9 +291,9 @@ const LogSessionModal = ({
                     />
                     <View style={styles.inputIconBg}>
                       {isChallengeMode ? (
-                        <Ionicons name='trophy' size={20} color='#FF7043' />
+                        <Ionicons name='trophy' size={20} color='#ffb724' />
                       ) : (
-                        <Ionicons name='football' size={20} color='#2B9FFF' />
+                        <Ionicons name='football' size={20} color='#1f89ee' />
                       )}
                     </View>
                   </View>
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: {
-    color: '#FF7043',
+    color: '#ffb724',
   },
   sectionHint: {
     fontSize: 13,
@@ -641,11 +641,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   submitButton: {
-    backgroundColor: '#FF7043',
+    backgroundColor: '#ffb724',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#FF7043',
+    shadowColor: '#ffb724',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#10B981',
+    borderLeftColor: '#31af4d',
   },
   challengeLabelText: {
     fontSize: 13,

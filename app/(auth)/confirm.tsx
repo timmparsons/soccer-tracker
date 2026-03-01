@@ -79,7 +79,7 @@ export default function ConfirmScreen() {
       <View style={styles.content}>
         {status === 'loading' && (
           <>
-            <ActivityIndicator size='large' color='#FFA500' />
+            <ActivityIndicator size='large' color='#ffb724' />
             <Text style={styles.loadingText}>Confirming your email...</Text>
           </>
         )}

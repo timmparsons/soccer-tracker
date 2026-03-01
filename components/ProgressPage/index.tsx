@@ -363,7 +363,7 @@ const ProgressPage = () => {
               propsForDots: {
                 r: '6',
                 strokeWidth: '2',
-                stroke: '#2B9FFF',
+                stroke: '#1f89ee',
               },
               propsForBackgroundLines: {
                 strokeDasharray: '',
@@ -423,7 +423,7 @@ const ProgressPage = () => {
           </View>
 
           {sessionsLoading ? (
-            <ActivityIndicator size="small" color="#2B9FFF" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="small" color="#1f89ee" style={{ marginVertical: 20 }} />
           ) : recentSessions && recentSessions.length > 0 ? (
             recentSessions.map((session) => (
               <View key={session.id} style={styles.sessionItem}>
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   filterButtonActive: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
   },
   filterButtonText: {
     fontSize: 14,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
   },
   legendText: {
     fontSize: 12,
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   sessionItem: {
     flexDirection: 'row',
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   sessionTouches: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#2B9FFF',
+    color: '#1f89ee',
     marginBottom: 2,
   },
   sessionTouchesLabel: {

@@ -176,7 +176,7 @@ export default function CreateTeam() {
           </TouchableOpacity>
 
           <View style={styles.iconContainer}>
-            <Ionicons name='people' size={64} color='#2B9FFF' />
+            <Ionicons name='people' size={64} color='#1f89ee' />
           </View>
 
           <Text style={styles.title}>Create Your Team</Text>
@@ -203,7 +203,7 @@ export default function CreateTeam() {
 
           {/* Info Cards */}
           <View style={styles.infoCard}>
-            <Ionicons name='information-circle' size={24} color='#2B9FFF' />
+            <Ionicons name='information-circle' size={24} color='#1f89ee' />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>What You&apos;ll Get</Text>
               <Text style={styles.infoText}>
@@ -214,7 +214,7 @@ export default function CreateTeam() {
           </View>
 
           <View style={styles.coachCard}>
-            <Ionicons name='star' size={20} color='#FFA500' />
+            <Ionicons name='star' size={20} color='#ffb724' />
             <Text style={styles.coachText}>
               You&apos;ll become the team coach and can manage your players
             </Text>
@@ -371,20 +371,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   coachLink: {
-    color: '#2B9FFF',
+    color: '#1f89ee',
     fontWeight: '800',
     textDecorationLine: 'underline',
   },
   button: {
     flexDirection: 'row',
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
     paddingVertical: 18,
     paddingHorizontal: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    shadowColor: '#FFA500',
+    shadowColor: '#ffb724',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -22,7 +22,7 @@ export const TEAM_UNLOCKABLES: TeamUnlockable[] = [
     name: 'Pitch Green',
     description: 'Classic grass field vibes',
     icon: '🏟️',
-    value: '#10B981',
+    value: '#31af4d',
   },
   {
     level: 3,

@@ -52,7 +52,7 @@ export default function XPCard({
       {/* XP Info */}
       <View style={styles.xpInfo}>
         <View style={styles.xpInfoRow}>
-          <Ionicons name='football' size={18} color='#2B9FFF' />
+          <Ionicons name='football' size={18} color='#1f89ee' />
           <Text style={styles.xpInfoText}>10 juggles = 1 XP</Text>
         </View>
         <View style={styles.xpInfoRow}>
@@ -88,13 +88,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   levelBadge: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
     minWidth: 100,
-    shadowColor: '#2B9FFF',
+    shadowColor: '#1f89ee',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
     borderRadius: 6,
   },
   progressText: {
@@ -171,10 +171,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: '#FFA500',
+    shadowColor: '#ffb724',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,

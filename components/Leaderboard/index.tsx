@@ -200,7 +200,7 @@ const Leaderboard = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#2B9FFF' />
+        <ActivityIndicator size='large' color='#1f89ee' />
       </View>
     );
   }
@@ -652,8 +652,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tabActive: {
-    backgroundColor: '#2B9FFF',
-    shadowColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
+    shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -673,13 +673,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   weekBadge: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   jugglingBadge: {
-    backgroundColor: '#FF7043',
+    backgroundColor: '#ffb724',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
   podiumTouches: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#2B9FFF',
+    color: '#1f89ee',
     marginBottom: 8,
   },
   podiumRank1: {
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
   },
   currentUserCard: {
     borderWidth: 2,
-    borderColor: '#2B9FFF',
+    borderColor: '#1f89ee',
     backgroundColor: '#F3F4FF',
   },
   playerLeft: {
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   youBadge: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   statsRow: {
     flexDirection: 'row',
@@ -873,13 +873,13 @@ const styles = StyleSheet.create({
   weeklyTouches: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#2B9FFF',
+    color: '#1f89ee',
     marginBottom: 2,
   },
   jugglingScore: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#FF7043',
+    color: '#ffb724',
     marginBottom: 2,
   },
   touchesLabel: {

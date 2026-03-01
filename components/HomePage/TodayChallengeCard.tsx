@@ -22,7 +22,7 @@ const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProp
   if (challengeLoading) {
     return (
       <View style={styles.card}>
-        <ActivityIndicator size='small' color='#10B981' />
+        <ActivityIndicator size='small' color='#31af4d' />
       </View>
     );
   }
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#10B981',
+    borderLeftColor: '#31af4d',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#10B981',
+    color: '#31af4d',
     letterSpacing: 1.2,
     marginBottom: 10,
   },
@@ -133,11 +133,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   startButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#31af4d',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    shadowColor: '#10B981',
+    shadowColor: '#31af4d',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   completedBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#31af4d',
   },
   keepTrainingButton: {
     backgroundColor: '#1a1a2e',

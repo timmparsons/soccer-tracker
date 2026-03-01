@@ -13,7 +13,7 @@ export default function Index() {
   if (userLoading || profileLoading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size='large' color='#2B9FFF' />
+        <ActivityIndicator size='large' color='#1f89ee' />
       </View>
     );
   }

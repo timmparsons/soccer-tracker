@@ -62,7 +62,7 @@ export function TeamLevelInfoModal({
         {/* Info Section */}
         <View style={styles.infoSection}>
           <View style={styles.infoCard}>
-            <Ionicons name='people' size={20} color='#2B9FFF' />
+            <Ionicons name='people' size={20} color='#1f89ee' />
             <Text style={styles.infoText}>
               {playerCount} {playerCount === 1 ? 'player' : 'players'} on your
               team
@@ -77,7 +77,7 @@ export function TeamLevelInfoModal({
         {/* XP Explanation Section */}
         <View style={styles.xpExplanation}>
           <View style={styles.xpExplanationHeader}>
-            <Ionicons name='help-circle' size={20} color='#2B9FFF' />
+            <Ionicons name='help-circle' size={20} color='#1f89ee' />
             <Text style={styles.xpExplanationTitle}>How to Earn XP</Text>
           </View>
           <View style={styles.xpRule}>
@@ -134,7 +134,7 @@ export function TeamLevelInfoModal({
                       <Ionicons
                         name='checkmark-circle'
                         size={20}
-                        color='#10B981'
+                        color='#31af4d'
                       />
                     )}
                   </View>
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   xpExplanationTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   xpRule: {
     flexDirection: 'row',
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   currentLevelCard: {
     borderWidth: 2,
-    borderColor: '#2B9FFF',
+    borderColor: '#1f89ee',
     backgroundColor: '#EFF6FF',
   },
   passedLevelCard: {
@@ -307,13 +307,13 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
   },
   currentLevelNumber: {
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   passedLevelNumber: {
-    color: '#10B981',
+    color: '#31af4d',
   },
   currentBadge: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 8,

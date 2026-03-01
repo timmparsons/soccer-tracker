@@ -133,7 +133,7 @@ export function TeamLevelCard() {
       case 'theme':
         return { color: '#3B82F6', label: 'Theme' };
       case 'celebration':
-        return { color: '#10B981', label: 'Celebration' };
+        return { color: '#31af4d', label: 'Celebration' };
       case 'title':
         return { color: '#8B5CF6', label: 'Team Title' };
       default:
@@ -185,7 +185,7 @@ export function TeamLevelCard() {
             activeOpacity={0.7}
           >
             <View style={styles.infoHeader}>
-              <Ionicons name='information-circle' size={20} color='#2B9FFF' />
+              <Ionicons name='information-circle' size={20} color='#1f89ee' />
               <Text style={styles.infoTitle}>
                 To Reach Level {teamData.team_level + 1}
               </Text>
@@ -200,7 +200,7 @@ export function TeamLevelCard() {
                   <Ionicons name='warning' size={20} color='#F59E0B' />
                 </TouchableOpacity>
               )}
-              <Ionicons name='chevron-forward' size={20} color='#2B9FFF' />
+              <Ionicons name='chevron-forward' size={20} color='#1f89ee' />
             </View>
             <View style={styles.infoContent}>
               <View style={styles.infoRow}>
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     color: '#8B5CF6',
   },
   levelBadge: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     borderRadius: 6,
   },
   xpText: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '800',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   infoContent: {
     gap: 8,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   },
   tapHint: {
     fontSize: 12,
-    color: '#2B9FFF',
+    color: '#1f89ee',
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 8,

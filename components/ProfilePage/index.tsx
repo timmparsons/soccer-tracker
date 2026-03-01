@@ -336,7 +336,7 @@ const ProfilePage = () => {
             {/* Daily Target Badge - only for players */}
             {!profile?.is_coach && (
               <View style={styles.targetBadge}>
-                <Ionicons name='flag' size={20} color='#2B9FFF' />
+                <Ionicons name='flag' size={20} color='#1f89ee' />
                 <Text style={styles.targetText}>
                   Daily Target: {dailyTarget.toLocaleString()} touches
                 </Text>
@@ -419,7 +419,7 @@ const ProfilePage = () => {
 
             <View style={styles.infoRow}>
               <View style={styles.infoIconBg}>
-                <Ionicons name='mail' size={20} color='#2B9FFF' />
+                <Ionicons name='mail' size={20} color='#1f89ee' />
               </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Email</Text>
@@ -431,7 +431,7 @@ const ProfilePage = () => {
 
             <View style={styles.infoRow}>
               <View style={styles.infoIconBg}>
-                <Ionicons name='people' size={20} color='#FF7043' />
+                <Ionicons name='people' size={20} color='#ffb724' />
               </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Team</Text>
@@ -474,7 +474,7 @@ const ProfilePage = () => {
                 style={styles.createTeamButton}
                 onPress={() => router.push('/(modals)/create-team')}
               >
-                <Ionicons name='add-circle' size={24} color='#2B9FFF' />
+                <Ionicons name='add-circle' size={24} color='#1f89ee' />
                 <Text style={styles.createTeamButtonText}>Create a Team</Text>
               </TouchableOpacity>
             </View>
@@ -490,7 +490,7 @@ const ProfilePage = () => {
               >
                 <View style={styles.settingsRowLeft}>
                   <View style={styles.settingsIconBg}>
-                    <Ionicons name='flag' size={20} color='#2B9FFF' />
+                    <Ionicons name='flag' size={20} color='#1f89ee' />
                   </View>
                   <View>
                     <Text style={styles.settingsLabel}>Daily Target</Text>
@@ -507,12 +507,12 @@ const ProfilePage = () => {
           {/* Action Buttons */}
           <View style={styles.actionsCard}>
             <TouchableOpacity style={styles.actionButton} onPress={handleFeedback}>
-              <Ionicons name='chatbubble-ellipses' size={24} color='#2B9FFF' />
+              <Ionicons name='chatbubble-ellipses' size={24} color='#1f89ee' />
               <Text style={styles.actionButtonText}>Send Feedback</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
-              <Ionicons name='log-out' size={24} color='#FF7043' />
+              <Ionicons name='log-out' size={24} color='#ffb724' />
               <Text style={styles.actionButtonText}>Sign Out</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
@@ -571,7 +571,7 @@ const ProfilePage = () => {
                       <Text style={styles.presetSubtitle}>{preset.subtitle}</Text>
                     </View>
                     {dailyTarget === preset.value && (
-                      <Ionicons name='checkmark-circle' size={24} color='#2B9FFF' />
+                      <Ionicons name='checkmark-circle' size={24} color='#1f89ee' />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
     right: -8,
     bottom: -8,
     borderRadius: 68,
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     opacity: 0.2,
   },
   avatar: {
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -704,16 +704,16 @@ const styles = StyleSheet.create({
   targetText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
 
   // LIFETIME STATS CARD
   lifetimeCard: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     padding: 24,
     borderRadius: 24,
     marginBottom: 16,
-    shadowColor: '#2B9FFF',
+    shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -875,13 +875,13 @@ const styles = StyleSheet.create({
   },
   joinTeamButton: {
     flexDirection: 'row',
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     padding: 20,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    shadowColor: '#2B9FFF',
+    shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -902,10 +902,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     borderWidth: 2,
-    borderColor: '#2B9FFF',
+    borderColor: '#1f89ee',
   },
   createTeamButtonText: {
-    color: '#2B9FFF',
+    color: '#1f89ee',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
   },
   presetCardActive: {
     backgroundColor: '#E8EAF6',
-    borderColor: '#2B9FFF',
+    borderColor: '#1f89ee',
   },
   presetEmoji: {
     fontSize: 28,
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
   presetValueActive: {
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   presetSubtitle: {
     fontSize: 13,
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   customButton: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 28,
     borderRadius: 12,
     justifyContent: 'center',

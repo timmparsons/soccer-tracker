@@ -81,7 +81,7 @@ export function TeamStreakCard() {
                   width: `${
                     (streakData.players_today / streakData.total_players) * 100
                   }%`,
-                  backgroundColor: allPracticed ? '#10B981' : '#FFA500',
+                  backgroundColor: allPracticed ? '#31af4d' : '#ffb724',
                 },
               ]}
             />
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   streakNumber: {
     fontSize: 48,
     fontWeight: '900',
-    color: '#FFA500',
+    color: '#ffb724',
     marginBottom: 24,
   },
   progressContainer: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   celebrationText: {
     fontSize: 16,
-    color: '#10B981',
+    color: '#31af4d',
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 12,

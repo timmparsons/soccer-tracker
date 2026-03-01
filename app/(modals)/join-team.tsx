@@ -137,7 +137,7 @@ export default function JoinTeam() {
           </TouchableOpacity>
 
           <View style={styles.iconContainer}>
-            <Ionicons name='enter' size={64} color='#2B9FFF' />
+            <Ionicons name='enter' size={64} color='#1f89ee' />
           </View>
 
           <Text style={styles.title}>Join a Team</Text>
@@ -165,7 +165,7 @@ export default function JoinTeam() {
 
           {/* Info Cards */}
           <View style={styles.infoCard}>
-            <Ionicons name='information-circle' size={24} color='#2B9FFF' />
+            <Ionicons name='information-circle' size={24} color='#1f89ee' />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>What Happens Next</Text>
               <Text style={styles.infoText}>
@@ -350,20 +350,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   helpLink: {
-    color: '#2B9FFF',
+    color: '#1f89ee',
     fontWeight: '800',
     textDecorationLine: 'underline',
   },
   button: {
     flexDirection: 'row',
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
     paddingVertical: 18,
     paddingHorizontal: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    shadowColor: '#FFA500',
+    shadowColor: '#ffb724',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

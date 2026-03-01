@@ -220,7 +220,7 @@ export function TeamDashboard() {
             <Ionicons
               name='information-circle-outline'
               size={20}
-              color='#2B9FFF'
+              color='#1f89ee'
             />
           </TouchableOpacity>
         </View>
@@ -486,12 +486,12 @@ const styles = StyleSheet.create({
     color: '#8B5CF6',
   },
   levelBadge: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#2B9FFF',
+    shadowColor: '#1f89ee',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     borderRadius: 8,
   },
   progressStats: {
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   todayProgressText: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   todayStatus: {
     fontSize: 13,
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   todayStatusComplete: {
-    color: '#10B981',
+    color: '#31af4d',
   },
 
   // UNLOCK CARD
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   unlockLevelText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
   unlockContent: {
     flexDirection: 'row',

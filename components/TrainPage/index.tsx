@@ -268,7 +268,7 @@ const TrainPage = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#2B9FFF' />
+        <ActivityIndicator size='large' color='#1f89ee' />
       </View>
     );
   }
@@ -387,7 +387,7 @@ const TrainPage = () => {
                             setVideoDescription(drill.description ?? '');
                           }}
                         >
-                          <Ionicons name='play-circle' size={13} color='#10B981' />
+                          <Ionicons name='play-circle' size={13} color='#31af4d' />
                           <Text style={styles.videoButtonText}>Watch tutorial</Text>
                         </TouchableOpacity>
                       ) : (
@@ -447,7 +447,7 @@ const TrainPage = () => {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.timerStartPauseButton} onPress={pauseResumeTimer}>
-                <Ionicons name={timerRunning ? 'pause' : 'play'} size={30} color='#2B9FFF' />
+                <Ionicons name={timerRunning ? 'pause' : 'play'} size={30} color='#1f89ee' />
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.timerSecondaryButton} onPress={cancelTimer}>
@@ -683,12 +683,12 @@ const styles = StyleSheet.create({
 
   // PROGRESS CARD
   progressCard: {
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     paddingVertical: 28,
     paddingHorizontal: 24,
     borderRadius: 24,
     marginBottom: 20,
-    shadowColor: '#2B9FFF',
+    shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -765,14 +765,14 @@ const styles = StyleSheet.create({
   },
   logButton: {
     flex: 1,
-    backgroundColor: '#FF7043',
+    backgroundColor: '#ffb724',
     borderRadius: 16,
     paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#FF7043',
+    shadowColor: '#ffb724',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -895,14 +895,14 @@ const styles = StyleSheet.create({
   },
   videoButtonText: {
     fontSize: 11,
-    color: '#10B981',
+    color: '#31af4d',
     fontWeight: '700',
   },
 
   // TIMER MODAL
   timerModal: {
     flex: 1,
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     justifyContent: 'center',
     alignItems: 'center',
   },

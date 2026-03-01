@@ -60,7 +60,7 @@ const HomeScreen = () => {
   if (statsLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#2B9FFF' />
+        <ActivityIndicator size='large' color='#1f89ee' />
       </View>
     );
   }
@@ -121,7 +121,7 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#DBEAFE' }]}>
               <Text style={styles.statIcon}>📊</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#2B9FFF' }]}>
+            <Text style={[styles.statValue, { color: '#1f89ee' }]}>
               {weekTouches.toLocaleString()}
             </Text>
             <Text style={styles.statLabel}>This Week</Text>
@@ -143,7 +143,7 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#FFE4DC' }]}>
               <Text style={styles.statIcon}>⚡</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#FF7043' }]}>
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>
               {weekTpm}
             </Text>
             <Text style={styles.statLabel}>Touches/Min</Text>
@@ -154,7 +154,7 @@ const HomeScreen = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#D1FAE5' }]}>
               <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>
+            <Text style={[styles.statValue, { color: '#31af4d' }]}>
               {challengeStreak}
             </Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   statWeek: {
     backgroundColor: '#F0F8FF',
     borderTopWidth: 4,
-    borderTopColor: '#2B9FFF',
+    borderTopColor: '#1f89ee',
   },
   statStreak: {
     backgroundColor: '#FFFBF0',
@@ -256,12 +256,12 @@ const styles = StyleSheet.create({
   statBest: {
     backgroundColor: '#FFF8F6',
     borderTopWidth: 4,
-    borderTopColor: '#FF7043',
+    borderTopColor: '#ffb724',
   },
   statAvg: {
     backgroundColor: '#F0FDF9',
     borderTopWidth: 4,
-    borderTopColor: '#10B981',
+    borderTopColor: '#31af4d',
   },
   statIconBg: {
     width: 48,

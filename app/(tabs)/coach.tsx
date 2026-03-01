@@ -205,7 +205,7 @@ export default function CoachDashboard() {
   if (isLoading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#FFA500" />
+        <ActivityIndicator size="large" color="#ffb724" />
       </View>
     );
   }
@@ -349,7 +349,7 @@ export default function CoachDashboard() {
     if (tpm < 30) return '#EF4444';
     if (tpm < 50) return '#F59E0B';
     if (tpm < 80) return '#22C55E';
-    return '#10B981';
+    return '#31af4d';
   };
 
   return (
@@ -363,7 +363,7 @@ export default function CoachDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <Ionicons name="clipboard" size={32} color="#FFA500" />
+            <Ionicons name="clipboard" size={32} color="#ffb724" />
           </View>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
@@ -376,17 +376,17 @@ export default function CoachDashboard() {
         {/* Team Code Card */}
         <View style={styles.codeCard}>
           <View style={styles.codeHeader}>
-            <Ionicons name="key" size={20} color="#2B9FFF" />
+            <Ionicons name="key" size={20} color="#1f89ee" />
             <Text style={styles.codeLabel}>Team Code</Text>
           </View>
           <Text style={styles.codeText}>{team?.code || '---'}</Text>
           <View style={styles.codeActions}>
             <TouchableOpacity style={styles.codeButton} onPress={handleCopyCode}>
-              <Ionicons name="copy-outline" size={18} color="#2B9FFF" />
+              <Ionicons name="copy-outline" size={18} color="#1f89ee" />
               <Text style={styles.codeButtonText}>Copy</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.codeButton} onPress={handleShareCode}>
-              <Ionicons name="share-outline" size={18} color="#2B9FFF" />
+              <Ionicons name="share-outline" size={18} color="#1f89ee" />
               <Text style={styles.codeButtonText}>Share</Text>
             </TouchableOpacity>
           </View>
@@ -561,7 +561,7 @@ export default function CoachDashboard() {
                           styles.targetProgressFill,
                           {
                             width: `${targetProgress}%`,
-                            backgroundColor: targetProgress >= 100 ? '#22C55E' : '#2B9FFF',
+                            backgroundColor: targetProgress >= 100 ? '#22C55E' : '#1f89ee',
                           },
                         ]}
                       />
@@ -593,7 +593,7 @@ export default function CoachDashboard() {
                   </View>
 
                   <View style={styles.addTouchesHint}>
-                    <Ionicons name="add-circle-outline" size={16} color="#2B9FFF" />
+                    <Ionicons name="add-circle-outline" size={16} color="#1f89ee" />
                     <Text style={styles.addTouchesText}>Tap to log touches</Text>
                   </View>
                 </TouchableOpacity>
@@ -634,7 +634,7 @@ export default function CoachDashboard() {
             >
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Ionicons name="football" size={32} color="#2B9FFF" />
+                  <Ionicons name="football" size={32} color="#1f89ee" />
                   <Text style={styles.modalTitle}>
                     Log Touches for {selectedPlayer?.display_name || selectedPlayer?.name}
                   </Text>
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
   codeButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
 
   // Overview Card
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#22C55E',
   },
   statusWarning: {
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
   },
   statusInactive: {
     backgroundColor: '#D1D5DB',
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
   playerStatValue: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#2B9FFF',
+    color: '#1f89ee',
     marginBottom: 2,
   },
   playerStatLabel: {
@@ -1144,7 +1144,7 @@ const styles = StyleSheet.create({
   addTouchesText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
 
   // Empty State
@@ -1225,14 +1225,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   saveButton: {
-    backgroundColor: '#FFA500',
+    backgroundColor: '#ffb724',
     borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 24,
     width: '100%',
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#FFA500',
+    shadowColor: '#ffb724',
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,

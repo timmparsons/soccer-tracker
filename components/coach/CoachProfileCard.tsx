@@ -59,7 +59,7 @@ export const TeamOverviewCard = memo(({ teamId }: { teamId?: string }) => {
 
       <View style={styles.highlights}>
         <View style={styles.highlightRow}>
-          <Ionicons name='star' size={16} color='#FFA500' />
+          <Ionicons name='star' size={16} color='#ffb724' />
           <Text style={styles.highlightText}>
             Top Performer:{' '}
             <Text style={styles.highlightName}>
@@ -85,7 +85,7 @@ export const TeamOverviewCard = memo(({ teamId }: { teamId?: string }) => {
         onPress={() => router.push('/coach')}
       >
         <Text style={styles.viewTeamText}>View Full Team</Text>
-        <Ionicons name='chevron-forward' size={18} color='#2B9FFF' />
+        <Ionicons name='chevron-forward' size={18} color='#1f89ee' />
       </TouchableOpacity>
     </View>
   );
@@ -148,7 +148,7 @@ export const WeeklyProgressCard = memo(({ teamId }: { teamId?: string }) => {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.iconBadge}>
-          <Ionicons name='bar-chart' size={24} color='#2B9FFF' />
+          <Ionicons name='bar-chart' size={24} color='#1f89ee' />
         </View>
         <Text style={styles.cardTitle}>This Week&apos;s Progress</Text>
       </View>
@@ -165,14 +165,14 @@ export const WeeklyProgressCard = memo(({ teamId }: { teamId?: string }) => {
             {isGoodWeek ? (
               <Ionicons name='checkmark-circle' size={32} color='#22c55e' />
             ) : (
-              <Ionicons name='alert-circle' size={32} color='#FFA500' />
+              <Ionicons name='alert-circle' size={32} color='#ffb724' />
             )}
           </View>
         </View>
 
         <View style={styles.weeklyMetrics}>
           <View style={styles.metric}>
-            <Ionicons name='fitness' size={20} color='#2B9FFF' />
+            <Ionicons name='fitness' size={20} color='#1f89ee' />
             <Text style={styles.metricValue}>{weekSessions}</Text>
             <Text style={styles.metricLabel}>Total Sessions</Text>
           </View>
@@ -199,7 +199,7 @@ export const WeeklyProgressCard = memo(({ teamId }: { teamId?: string }) => {
         <Ionicons
           name='information-circle'
           size={16}
-          color={isGoodWeek ? '#22c55e' : '#FFA500'}
+          color={isGoodWeek ? '#22c55e' : '#ffb724'}
         />
         <Text style={styles.weeklyNoteText}>
           {isGoodWeek
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   viewTeamText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#2B9FFF',
+    color: '#1f89ee',
   },
 
   // Weekly Progress

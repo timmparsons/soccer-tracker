@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     right: -4,
     bottom: -4,
     borderRadius: 35,
-    backgroundColor: '#2B9FFF',
+    backgroundColor: '#1f89ee',
     opacity: 0.3,
   },
   avatar: {
