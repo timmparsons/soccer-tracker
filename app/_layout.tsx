@@ -26,6 +26,7 @@ export default function RootLayout() {
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
+  const [initialNavComplete, setInitialNavComplete] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
@@ -129,10 +130,12 @@ export default function RootLayout() {
       if (!inAuthGroup) {
         router.replace('/(auth)/reset-password');
       }
+      setInitialNavComplete(true);
       return;
     }
 
-    // Logged in but outside allowed areas
+    // Logged in but outside allowed areas — checkOnboardingStatus will
+    // call setInitialNavComplete(true) once it navigates.
     if (
       session &&
       !inTabsGroup &&
@@ -154,6 +157,9 @@ export default function RootLayout() {
         router.replace('/(auth)');
       }
     }
+
+    // Already on the correct screen — nothing to navigate
+    setInitialNavComplete(true);
   }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery, hasSeenIntro]);
 
   const checkOnboardingStatus = async () => {
@@ -215,10 +221,12 @@ export default function RootLayout() {
     } else {
       router.replace('/(onboarding)');
     }
+    setInitialNavComplete(true);
   };
 
-  // ⏳ App boot loading state
-  if (loading) {
+  // ⏳ Keep splash up until session is checked AND first navigation is initiated,
+  // so the Stack never renders on the wrong screen before routing completes.
+  if (loading || !initialNavComplete) {
     return <SplashScreen />;
   }
 
