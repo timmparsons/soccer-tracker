@@ -1,8 +1,8 @@
 import HomeScreen from '@/components/HomePage';
+import SplashScreen from '@/components/SplashScreen';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import CoachDashboard from './coach';
 
 export default function Index() {
@@ -11,11 +11,7 @@ export default function Index() {
 
   // Show loading while checking user role
   if (userLoading || profileLoading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size='large' color='#1f89ee' />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   // Show coach dashboard if user is a coach
@@ -26,12 +22,3 @@ export default function Index() {
   // Show regular homepage for players
   return <HomeScreen />;
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F9FF',
-  },
-});
