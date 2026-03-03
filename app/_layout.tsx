@@ -1,12 +1,15 @@
-import { requestNotificationPermission, scheduleInactivityReminders } from '@/lib/notifications';
-import { supabase } from '@/lib/supabase';
 import SplashScreen from '@/components/SplashScreen';
+import {
+  requestNotificationPermission,
+  scheduleInactivityReminders,
+} from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -23,21 +26,30 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [minTimeDone, setMinTimeDone] = useState(false);
+  const [targetRoute, setTargetRoute] = useState<string>('/(auth)');
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
-  const [initialNavComplete, setInitialNavComplete] = useState(false);
+  const recoveryRef = useRef(false);
+
   const segments = useSegments();
   const router = useRouter();
 
-  // 🔐 Load initial session + subscribe to auth changes
+  // Minimum splash display time — 1.5 s so the logo is visible
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeDone(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // 🔐 Load session, fetch profile, determine target route
   useEffect(() => {
     const handleRecoveryUrl = async (url: string) => {
-      if (!url.includes('reset-password') && !url.includes('type=recovery')) return;
+      if (!url.includes('reset-password') && !url.includes('type=recovery'))
+        return;
 
+      recoveryRef.current = true;
       setIsPasswordRecovery(true);
 
-      // PKCE flow: exchange the code for a session (triggers PASSWORD_RECOVERY event)
       const queryPart = url.split('?')[1]?.split('#')[0] ?? '';
       const params = new URLSearchParams(queryPart);
       const code = params.get('code');
@@ -50,14 +62,16 @@ export default function RootLayout() {
         return;
       }
 
-      // Implicit flow fallback: extract tokens from URL hash
       const fragment = url.split('#')[1] ?? '';
       const hashParams = new URLSearchParams(fragment);
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
       if (accessToken && refreshToken) {
         try {
-          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
         } catch (e) {
           console.error('Error setting recovery session:', e);
         }
@@ -65,38 +79,94 @@ export default function RootLayout() {
     };
 
     const init = async () => {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        await handleRecoveryUrl(initialUrl);
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) await handleRecoveryUrl(initialUrl);
+
+        const [sessionResult, seen] = await Promise.all([
+          supabase.auth.getSession(),
+          AsyncStorage.getItem('hasSeenIntro'),
+        ]);
+
+        const sess = sessionResult.data.session;
+        const seenIntro = seen === 'true';
+
+        setSession(sess);
+        setHasSeenIntro(seenIntro);
+
+        if (!sess) {
+          setTargetRoute(seenIntro ? '/(auth)' : '/(auth)/intro');
+          return;
+        }
+
+        // Fetch profile to determine whether onboarding is done
+        try {
+          const timeout = new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 5000),
+          );
+          const query = supabase
+            .from('profiles')
+            .select('onboarding_completed, name, display_name')
+            .eq('id', sess.user.id)
+            .single();
+          const { data: profile } = await Promise.race([query, timeout]);
+
+          // Sync name from user metadata if display_name looks like email prefix
+          if (profile) {
+            const metadata = sess.user.user_metadata;
+            const metaFirstName = metadata?.first_name;
+            const metaLastName = metadata?.last_name;
+            const emailPrefix = sess.user.email?.split('@')[0];
+
+            if (metaFirstName && profile.display_name === emailPrefix) {
+              const fullName = [metaFirstName, metaLastName]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
+              await supabase
+                .from('profiles')
+                .update({ name: fullName, display_name: metaFirstName })
+                .eq('id', sess.user.id);
+              queryClient.invalidateQueries({
+                queryKey: ['profile', sess.user.id],
+              });
+            }
+          }
+
+          setTargetRoute(
+            profile?.onboarding_completed === true
+              ? '/(tabs)'
+              : '/(onboarding)',
+          );
+          setupNotifications(sess.user.id);
+        } catch {
+          setTargetRoute('/(tabs)');
+        }
+      } catch (e) {
+        console.error('Init error:', e);
+        setTargetRoute('/(auth)');
+      } finally {
+        setLoading(false);
       }
-
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-
-      const seen = await AsyncStorage.getItem('hasSeenIntro');
-      setHasSeenIntro(seen === 'true');
-
-      setLoading(false);
     };
 
     init();
 
-    // Handle deep link when app is already open
-    const urlSub = Linking.addEventListener('url', ({ url }) => handleRecoveryUrl(url));
+    const urlSub = Linking.addEventListener('url', ({ url }) =>
+      handleRecoveryUrl(url),
+    );
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // Set flag; route guard handles the navigation once it runs
+        recoveryRef.current = true;
         setIsPasswordRecovery(true);
         setSession(session);
         return;
       }
 
       if (event === 'USER_UPDATED') {
-        // Password was successfully reset — clear recovery mode so route guard
-        // can route the user to tabs/onboarding normally
+        recoveryRef.current = false;
         setIsPasswordRecovery(false);
-        setHasCheckedOnboarding(false);
         setSession(session);
         return;
       }
@@ -110,124 +180,62 @@ export default function RootLayout() {
     };
   }, []);
 
-  // 🧭 Route guarding
+  // Navigate to the computed target route once both loading and the minimum
+  // splash time have finished. The Stack is only mounted at this point so
+  // there is no auth screen rendered underneath while we wait.
   useEffect(() => {
-    if (loading) return;
+    if (!loading && minTimeDone) {
+      router.replace(targetRoute as any);
+    }
+  }, [loading, minTimeDone]);
+
+  // 🧭 Runtime route guard — handles sign-out and auth changes after startup
+  useEffect(() => {
+    if (loading || !minTimeDone) return;
 
     const rootSegment = segments[0];
-
     const inAuthGroup = rootSegment === '(auth)';
-    const inTabsGroup = rootSegment === '(tabs)';
-    const inModalsGroup = rootSegment === '(modals)';
-    const inOnboardingGroup = rootSegment === '(onboarding)';
-    const inMinigamesGroup = rootSegment === 'minigames';
 
-    // Password recovery takes priority over everything else — navigate to the
-    // reset screen if not already there. This handles the background-resume
-    // case where getInitialURL() returns null and the deep link arrives via
-    // addEventListener after the guard has already run once.
     if (isPasswordRecovery) {
-      if (!inAuthGroup) {
+      if (rootSegment !== '(auth)') {
         router.replace('/(auth)/reset-password');
       }
-      setInitialNavComplete(true);
       return;
     }
 
-    // Logged in but outside allowed areas — checkOnboardingStatus will
-    // call setInitialNavComplete(true) once it navigates.
-    if (
-      session &&
-      !inTabsGroup &&
-      !inModalsGroup &&
-      !inOnboardingGroup &&
-      !inMinigamesGroup &&
-      !hasCheckedOnboarding
-    ) {
-      checkOnboardingStatus();
-      return;
-    }
-
-    // Logged out but not in auth flow
     if (!session && !inAuthGroup) {
-      setHasCheckedOnboarding(false);
-      if (!hasSeenIntro) {
-        router.replace('/(auth)/intro');
-      } else {
-        router.replace('/(auth)');
-      }
+      router.replace(hasSeenIntro ? '/(auth)' : '/(auth)/intro');
     }
+  }, [session, segments, loading, minTimeDone, isPasswordRecovery, hasSeenIntro]);
 
-    // Already on the correct screen — nothing to navigate
-    setInitialNavComplete(true);
-  }, [session, segments, loading, hasCheckedOnboarding, isPasswordRecovery, hasSeenIntro]);
+  // Fire-and-forget: request notification permission and schedule reminders.
+  const setupNotifications = async (userId: string) => {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
 
-  const checkOnboardingStatus = async () => {
-    if (!session?.user?.id) return;
-
-    setHasCheckedOnboarding(true);
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_completed, name, display_name')
-      .eq('id', session.user.id)
+    const { data: lastSession } = await supabase
+      .from('daily_sessions')
+      .select('date')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(1)
       .single();
 
-    // Sync name from user metadata if display_name looks like email prefix
-    const metadata = session.user.user_metadata;
-    const metaFirstName = metadata?.first_name;
-    const metaLastName = metadata?.last_name;
-    const emailPrefix = session.user.email?.split('@')[0];
-
-    // If metadata has first_name and display_name is still the email prefix, update it
-    if (metaFirstName && profile?.display_name === emailPrefix) {
-      const fullName = [metaFirstName, metaLastName].filter(Boolean).join(' ').trim();
-      await supabase
-        .from('profiles')
-        .update({
-          name: fullName,
-          display_name: metaFirstName,
-        })
-        .eq('id', session.user.id);
-
-      // Invalidate the profile cache so the UI updates
-      queryClient.invalidateQueries({ queryKey: ['profile', session.user.id] });
+    if (lastSession?.date) {
+      const [year, month, day] = lastSession.date.split('-').map(Number);
+      await scheduleInactivityReminders(new Date(year, month - 1, day));
     }
-
-    // If onboarding_completed is explicitly true, go to tabs
-    // Otherwise (false, null, undefined, or no profile) go to onboarding
-    if (profile?.onboarding_completed === true) {
-      const granted = await requestNotificationPermission();
-      if (granted) {
-        // Recalibrate notifications against the actual last session date so that
-        // app updates / reinstalls don't leave stale OS-queued notifications firing
-        const { data: lastSession } = await supabase
-          .from('daily_sessions')
-          .select('date')
-          .eq('user_id', session.user.id)
-          .order('date', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (lastSession?.date) {
-          const [year, month, day] = lastSession.date.split('-').map(Number);
-          // Construct as local midnight so trigger offsets are correct in the user's timezone
-          await scheduleInactivityReminders(new Date(year, month - 1, day));
-        }
-        // If no sessions yet, leave notifications unscheduled — LogSessionModal
-        // will schedule them after the user's first session.
-      }
-      router.replace('/(tabs)');
-    } else {
-      router.replace('/(onboarding)');
-    }
-    setInitialNavComplete(true);
   };
 
-  // ⏳ Keep splash up until session is checked AND first navigation is initiated,
-  // so the Stack never renders on the wrong screen before routing completes.
-  if (loading || !initialNavComplete) {
-    return <SplashScreen />;
+  // While loading or splash minimum time hasn't elapsed: show the splash
+  // screen directly — the Stack is NOT mounted, so no auth screen can flash.
+  if (loading || !minTimeDone) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle='dark-content' />
+        <SplashScreen />
+      </SafeAreaProvider>
+    );
   }
 
   return (

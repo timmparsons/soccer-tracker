@@ -101,9 +101,12 @@ export default function Auth() {
 
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: 'mastertouch://auth/reset-password',
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        trimmedEmail,
+        {
+          redirectTo: 'mastertouch://auth/reset-password',
+        },
+      );
       if (error) throw error;
       Alert.alert('Check Your Email', 'Password reset link has been sent.');
     } catch (err: any) {
@@ -112,7 +115,7 @@ export default function Auth() {
       setLoading(false);
     }
   };
-
+  console.log('Rendering Auth component');
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -122,7 +125,7 @@ export default function Auth() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps='handled'
         >
           {/* HEADER */}
           <View style={styles.header}>
@@ -152,15 +155,15 @@ export default function Auth() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={20} color="#78909C" />
+                <Ionicons name='mail-outline' size={20} color='#78909C' />
                 <TextInput
-                  placeholder="Enter your email"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
+                  placeholder='Enter your email'
+                  autoCapitalize='none'
+                  keyboardType='email-address'
                   value={email}
                   onChangeText={setEmail}
                   style={styles.input}
-                  placeholderTextColor="#B0BEC5"
+                  placeholderTextColor='#B0BEC5'
                 />
               </View>
             </View>
@@ -169,15 +172,19 @@ export default function Auth() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#78909C" />
+                <Ionicons
+                  name='lock-closed-outline'
+                  size={20}
+                  color='#78909C'
+                />
                 <TextInput
-                  placeholder="Enter your password"
+                  placeholder='Enter your password'
                   secureTextEntry
-                  autoCapitalize="none"
+                  autoCapitalize='none'
                   value={password}
                   onChangeText={setPassword}
                   style={styles.input}
-                  placeholderTextColor="#B0BEC5"
+                  placeholderTextColor='#B0BEC5'
                 />
               </View>
             </View>
@@ -188,14 +195,14 @@ export default function Auth() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>First Name</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#78909C" />
+                    <Ionicons name='person-outline' size={20} color='#78909C' />
                     <TextInput
-                      placeholder="Enter your first name"
-                      autoCapitalize="words"
+                      placeholder='Enter your first name'
+                      autoCapitalize='words'
                       value={firstName}
                       onChangeText={setFirstName}
                       style={styles.input}
-                      placeholderTextColor="#B0BEC5"
+                      placeholderTextColor='#B0BEC5'
                     />
                   </View>
                 </View>
@@ -203,14 +210,14 @@ export default function Auth() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Last Name (Optional)</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#78909C" />
+                    <Ionicons name='person-outline' size={20} color='#78909C' />
                     <TextInput
-                      placeholder="Enter your last name"
-                      autoCapitalize="words"
+                      placeholder='Enter your last name'
+                      autoCapitalize='words'
                       value={lastName}
                       onChangeText={setLastName}
                       style={styles.input}
-                      placeholderTextColor="#B0BEC5"
+                      placeholderTextColor='#B0BEC5'
                     />
                   </View>
                 </View>
@@ -231,7 +238,7 @@ export default function Auth() {
                 style={styles.submitButtonGradient}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color='#FFF' />
                 ) : (
                   <Text style={styles.submitButtonText}>
                     {mode === 'signin' ? 'Sign In' : 'Create Account'}

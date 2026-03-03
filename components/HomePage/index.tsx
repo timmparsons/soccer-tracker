@@ -125,7 +125,7 @@ const HomeScreen = () => {
               {weekTouches.toLocaleString()}
             </Text>
             <Text style={styles.statLabel}>This Week</Text>
-            <Text style={styles.statSubtext}>Last 7 days</Text>
+            <Text style={styles.statSubtext}>Resets Sunday</Text>
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>

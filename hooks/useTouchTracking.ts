@@ -62,10 +62,11 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       const dailyTarget = targetData?.daily_target_touches || 1000;
 
-      // Get this week's touches (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-      const weekStart = getLocalDate(sevenDaysAgo);
+      // Get this week's touches (Sunday–Saturday, same window as leaderboard)
+      const todayObj = new Date();
+      const weekStartObj = new Date(todayObj);
+      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // back to Sunday
+      const weekStart = getLocalDate(weekStartObj);
 
       const { data: weekSessions } = await supabase
         .from('daily_sessions')

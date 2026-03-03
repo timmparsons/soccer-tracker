@@ -1,12 +1,13 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 
 export default function SplashScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.appName}>MasterTouch</Text>
-      <Text style={styles.ball}>⚽</Text>
-      {/* TODO: replace ActivityIndicator with animated soccer ball */}
-      <ActivityIndicator size='large' color='#FFF' style={styles.indicator} />
+      <Image
+        source={require('../assets/images/app-logo-transparent.png')}
+        style={styles.logo}
+      />
+      <ActivityIndicator size='large' color='#1a1a2e' style={styles.indicator} />
     </View>
   );
 }
@@ -16,20 +17,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#FFF',
   },
-  appName: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#FFF',
-    marginBottom: 16,
-    letterSpacing: -1,
-  },
-  ball: {
-    fontSize: 48,
-    marginBottom: 32,
+  logo: {
+    width: 120,
+    height: 120,
   },
   indicator: {
-    marginTop: 8,
+    marginTop: 32,
   },
 });
