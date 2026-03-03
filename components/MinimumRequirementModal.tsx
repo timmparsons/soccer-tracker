@@ -1,6 +1,5 @@
 // components/MinimumRequirementModal.tsx
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
 import {
   Modal,
   ScrollView,
@@ -77,32 +76,28 @@ export function MinimumRequirementModal({
             reached the minimum:
           </Text>
 
-          {/* ADD CONTAINER WRAPPER */}
           <ScrollView
             style={styles.playersList}
             showsVerticalScrollIndicator={true}
-            contentContainerStyle={{ paddingBottom: 8 }} // ADD THIS
+            contentContainerStyle={{ paddingBottom: 8 }}
             nestedScrollEnabled={true}
           >
-            {playersNeedingMinimum.map((player) => {
-              console.log('Rendering player row:', player.display_name); // ADD THIS
-              return (
-                <View key={player.id} style={styles.playerRow}>
-                  <View style={styles.playerInfo}>
-                    <Ionicons name='person' size={20} color='#F59E0B' />
-                    <Text style={styles.playerName}>{player.display_name}</Text>
-                  </View>
-                  <View style={styles.playerProgress}>
-                    <Text style={styles.progressText}>
-                      {player.xpThisLevel} / {player.minimumNeeded} XP
-                    </Text>
-                    <Text style={styles.remainingText}>
-                      {player.remaining} needed
-                    </Text>
-                  </View>
+            {playersNeedingMinimum.map((player) => (
+              <View key={player.id} style={styles.playerRow}>
+                <View style={styles.playerInfo}>
+                  <Ionicons name='person' size={20} color='#F59E0B' />
+                  <Text style={styles.playerName}>{player.display_name}</Text>
                 </View>
-              );
-            })}
+                <View style={styles.playerProgress}>
+                  <Text style={styles.progressText}>
+                    {player.xpThisLevel} / {player.minimumNeeded} XP
+                  </Text>
+                  <Text style={styles.remainingText}>
+                    {player.remaining} needed
+                  </Text>
+                </View>
+              </View>
+            ))}
           </ScrollView>
 
           <TouchableOpacity style={styles.closeButtonBottom} onPress={onClose}>
@@ -178,12 +173,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#92400E',
-    marginBottom: 12, // Reduced from 16
+    marginBottom: 12,
   },
   playersList: {
-    flexGrow: 0, // ADD THIS
-    flexShrink: 1, // ADD THIS
-    marginBottom: 16, // Reduced from 20
+    flexGrow: 0,
+    flexShrink: 1,
+    marginBottom: 16,
   },
   playerRow: {
     flexDirection: 'row',

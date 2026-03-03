@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
 
 interface DailyStats {
@@ -22,13 +23,6 @@ interface SessionLog {
   created_at: string;
 }
 
-// Helper to get local date in YYYY-MM-DD format
-const getLocalDate = (date: Date = new Date()): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export const useTouchTracking = (userId: string | undefined) => {
   return useQuery({
@@ -157,7 +151,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      return (data || []).map((s: any) => ({
+      return (data || []).map((s: { id: string; date: string; touches_logged: number; duration_minutes: number | null; created_at: string; drills: { name: string } | null }) => ({
         id: s.id,
         date: s.date,
         drill_name: s.drills?.name || null,

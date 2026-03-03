@@ -2,9 +2,10 @@ import PageHeader from '@/components/common/PageHeader';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -40,14 +41,6 @@ interface JugglingRecord {
   high_score: number;
   date_achieved: string;
 }
-
-// Helper to get local date in YYYY-MM-DD format
-const getLocalDate = (date: Date = new Date()): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const Leaderboard = () => {
   const { data: user } = useUser();

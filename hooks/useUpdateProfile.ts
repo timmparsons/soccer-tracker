@@ -40,8 +40,8 @@ export function useUpdateProfile(userId?: string) {
 
       const previousProfile = queryClient.getQueryData(['profile', userId]);
 
-      queryClient.setQueryData(['profile', userId], (old: any) => ({
-        ...(old ?? {}), // 🔥 NEW-USER SAFE
+      queryClient.setQueryData(['profile', userId], (old: Record<string, unknown> | undefined) => ({
+        ...(old ?? {}),
         ...updates,
       }));
 
@@ -49,7 +49,7 @@ export function useUpdateProfile(userId?: string) {
     },
 
     // 🔁 Roll back on error
-    onError: (_err, _updates, context: any) => {
+    onError: (_err, _updates, context: { previousProfile: unknown } | undefined) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile', userId], context.previousProfile);
       }

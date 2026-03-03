@@ -9,7 +9,7 @@ import {
 } from '@/lib/teamUnlockables';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -146,26 +146,15 @@ export function TeamDashboard() {
       ?.map((p) => {
         const xpThisLevel = Math.max(0, p.total_xp - currentLevelXp);
 
-        // Debug log
-        console.log('Player:', p.display_name, {
-          total_xp: p.total_xp,
-          currentLevelXp,
-          xpThisLevel,
-          minimumNeeded: minimumXpPerPlayer,
-          remaining: Math.max(0, minimumXpPerPlayer - xpThisLevel),
-        });
-
         return {
           id: p.id,
-          display_name: p.display_name || 'Unknown Player', // Fallback for missing name
+          display_name: p.display_name || 'Unknown Player',
           xpThisLevel,
           minimumNeeded: minimumXpPerPlayer,
           remaining: Math.max(0, minimumXpPerPlayer - xpThisLevel),
         };
       })
-      .filter((p) => p.remaining > 0) || []; // Changed from xpThisLevel < minimumXpPerPlayer
-
-  console.log('Players needing minimum:', playersNeedingMinimum);
+      .filter((p) => p.remaining > 0) || [];
 
   const unlockedItems = getUnlockedItems(teamData.team_level);
   const nextUnlock = getNextUnlock(teamData.team_level);

@@ -1,8 +1,9 @@
 import { useJugglingRecord } from '@/hooks/useTouchTracking';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -71,15 +72,6 @@ const LogSessionModal = ({
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: currentRecord } = useJugglingRecord(userId);
-
-  // Helper to get local date in YYYY-MM-DD format
-  const getLocalDate = (): string => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const isChallengeMode = !!challengeDrillId;
 

@@ -115,7 +115,6 @@ export default function Auth() {
       setLoading(false);
     }
   };
-  console.log('Rendering Auth component');
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
