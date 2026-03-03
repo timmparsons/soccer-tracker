@@ -3,13 +3,12 @@ import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Image,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -69,8 +68,6 @@ const LogSessionModal = ({
       );
     }
   }, [visible, challengeDurationMinutes]);
-  const scrollViewRef = useRef<ScrollView>(null);
-
   const { data: currentRecord } = useJugglingRecord(userId);
 
   const isChallengeMode = !!challengeDrillId;
@@ -143,9 +140,9 @@ const LogSessionModal = ({
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header - stays fixed; NOT inside KeyboardAvoidingView so it never scrolls off screen */}
+      <View style={styles.kavContainer}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Log Practice Session</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -153,17 +150,12 @@ const LogSessionModal = ({
             </TouchableOpacity>
           </View>
 
-          {/* Only the body + submit button respond to the keyboard */}
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.keyboardAvoidingBody}
-          >
           <ScrollView
-            ref={scrollViewRef}
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps='handled'
             contentContainerStyle={styles.scrollContent}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Challenge label */}
             {challengeName && (
@@ -274,13 +266,7 @@ const LogSessionModal = ({
                       returnKeyType='done'
                       value={touches}
                       onChangeText={setTouches}
-                      onFocus={() =>
-                        setTimeout(
-                          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-                          200,
-                        )
-                      }
-                    />
+                      />
                     <View style={styles.inputIconBg}>
                       {isChallengeMode ? (
                         <Ionicons name='trophy' size={20} color='#ffb724' />
@@ -309,12 +295,6 @@ const LogSessionModal = ({
                       returnKeyType='done'
                       value={duration}
                       onChangeText={setDuration}
-                      onFocus={() =>
-                        setTimeout(
-                          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-                          200,
-                        )
-                      }
                     />
                     <View style={styles.inputIconBg}>
                       <Ionicons name='time' size={20} color='#FF9800' />
@@ -384,7 +364,7 @@ const LogSessionModal = ({
               )}
             </TouchableOpacity>
           </View>
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -394,6 +374,9 @@ const LogSessionModal = ({
 export default LogSessionModal;
 
 const styles = StyleSheet.create({
+  kavContainer: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -403,8 +386,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: screenHeight * 0.75,
-    maxHeight: screenHeight * 0.9,
+    height: screenHeight * 0.85,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -425,9 +407,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
-  },
-  keyboardAvoidingBody: {
-    flex: 1,
   },
   modalBody: {
     flex: 1,

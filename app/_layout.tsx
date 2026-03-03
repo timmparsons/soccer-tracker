@@ -31,6 +31,7 @@ export default function RootLayout() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
   const recoveryRef = useRef(false);
+  const navigatingRef = useRef(false);
 
   const segments = useSegments();
   const router = useRouter();
@@ -189,7 +190,31 @@ export default function RootLayout() {
     }
   }, [loading, minTimeDone]);
 
-  // 🧭 Runtime route guard — handles sign-out and auth changes after startup
+  // Called by the route guard when a user signs in at runtime
+  const handleSignIn = async (sess: Session) => {
+    try {
+      const timeout = new Promise<{ data: null }>((resolve) =>
+        setTimeout(() => resolve({ data: null }), 5000),
+      );
+      const query = supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', sess.user.id)
+        .single();
+      const { data: profile } = await Promise.race([query, timeout]);
+
+      router.replace(
+        profile?.onboarding_completed === true ? '/(tabs)' : '/(onboarding)',
+      );
+      setupNotifications(sess.user.id);
+    } catch {
+      router.replace('/(tabs)');
+    } finally {
+      navigatingRef.current = false;
+    }
+  };
+
+  // 🧭 Runtime route guard — handles sign-in, sign-out, and auth changes after startup
   useEffect(() => {
     if (loading || !minTimeDone) return;
 
@@ -203,6 +228,14 @@ export default function RootLayout() {
       return;
     }
 
+    // User just signed in — navigate away from auth screens
+    if (session && inAuthGroup && !navigatingRef.current) {
+      navigatingRef.current = true;
+      handleSignIn(session);
+      return;
+    }
+
+    // User signed out — send back to auth
     if (!session && !inAuthGroup) {
       router.replace(hasSeenIntro ? '/(auth)' : '/(auth)/intro');
     }
