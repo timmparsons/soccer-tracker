@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
   },
   customTimerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
   },
   customTimerInputGroup: {
@@ -1199,12 +1199,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     color: '#1a1a2e',
+    marginTop: 14,
     marginBottom: 18,
   },
   customTimerButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1212,7 +1214,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0BEC5',
   },
   customTimerButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFF',
   },
