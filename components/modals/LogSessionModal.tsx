@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  Keyboard,
   Modal,
   Platform,
   ScrollView,
@@ -60,6 +61,21 @@ const LogSessionModal = ({
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -103,7 +119,7 @@ const LogSessionModal = ({
       if (error) throw error;
 
       // Reschedule inactivity reminders — reset the 2-day countdown from now
-      scheduleInactivityReminders(new Date());
+      scheduleInactivityReminders(new Date()).catch(() => {});
 
       // Reset form
       setTouches('');
@@ -142,7 +158,12 @@ const LogSessionModal = ({
     >
       <View style={styles.kavContainer}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View
+            style={[
+              styles.modalContent,
+              keyboardHeight > 0 && { height: screenHeight * 0.85 - keyboardHeight },
+            ]}
+          >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Log Practice Session</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>

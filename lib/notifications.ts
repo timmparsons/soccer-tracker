@@ -2,15 +2,17 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 // Must be set at module load time so iOS knows how to display notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch {}
 
 // Android 8+ requires a notification channel
 if (Platform.OS === 'android') {
@@ -18,7 +20,7 @@ if (Platform.OS === 'android') {
     name: 'Practice Reminders',
     importance: Notifications.AndroidImportance.HIGH,
     sound: 'default',
-  });
+  }).catch(() => {});
 }
 
 const DAYS_BEFORE_FIRST_REMINDER = 2;
