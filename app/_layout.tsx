@@ -89,7 +89,11 @@ export default function RootLayout() {
           AsyncStorage.getItem('hasSeenIntro'),
         ]);
 
-        const sess = sessionResult.data.session;
+        if (sessionResult.error) {
+          await supabase.auth.signOut();
+        }
+
+        const sess = sessionResult.error ? null : sessionResult.data.session;
         const seenIntro = seen === 'true';
 
         setSession(sess);
