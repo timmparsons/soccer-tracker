@@ -544,7 +544,7 @@ const ProfilePage = () => {
           </View>
 
           {/* Version */}
-          <Text style={styles.version}>Version 2.0.5</Text>
+          <Text style={styles.version}>Version 2.0.6</Text>
         </ScrollView>
 
         {/* Daily Target Modal */}
