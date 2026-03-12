@@ -52,10 +52,14 @@ const ProfilePage = () => {
     useCallback(() => {
       if (user?.id) {
         refetchProfile();
-        queryClient.invalidateQueries({ queryKey: ['lifetime-stats', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['touch-tracking', user.id] });
+        queryClient.invalidateQueries({
+          queryKey: ['lifetime-stats', user.id],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['touch-tracking', user.id],
+        });
       }
-    }, [user?.id, refetchProfile, queryClient])
+    }, [user?.id, refetchProfile, queryClient]),
   );
 
   const handlePickImage = async () => {
@@ -65,7 +69,7 @@ const ProfilePage = () => {
     if (!permissionResult.granted) {
       Alert.alert(
         'Permission Required',
-        'Please allow access to your photo library to change your avatar.'
+        'Please allow access to your photo library to change your avatar.',
       );
       return;
     }
@@ -149,7 +153,7 @@ const ProfilePage = () => {
           style: 'destructive',
           onPress: confirmDeleteAccount,
         },
-      ]
+      ],
     );
   };
 
@@ -164,7 +168,7 @@ const ProfilePage = () => {
           style: 'destructive',
           onPress: executeDeleteAccount,
         },
-      ]
+      ],
     );
   };
 
@@ -198,11 +202,7 @@ const ProfilePage = () => {
     if (canOpen) {
       Linking.openURL(url);
     } else {
-      Alert.alert(
-        'Send Feedback',
-        `Email us at:\n${email}`,
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Send Feedback', `Email us at:\n${email}`, [{ text: 'OK' }]);
     }
   };
 
@@ -219,7 +219,7 @@ const ProfilePage = () => {
         .from('user_targets')
         .upsert(
           { user_id: user.id, daily_target_touches: newTarget },
-          { onConflict: 'user_id' }
+          { onConflict: 'user_id' },
         );
 
       if (error) throw error;
@@ -229,7 +229,10 @@ const ProfilePage = () => {
 
       setShowTargetModal(false);
       setCustomTarget('');
-      Alert.alert('Success', `Daily target set to ${newTarget.toLocaleString()} touches!`);
+      Alert.alert(
+        'Success',
+        `Daily target set to ${newTarget.toLocaleString()} touches!`,
+      );
     } catch (error) {
       console.error('Error saving target:', error);
       Alert.alert('Error', 'Failed to save target. Please try again.');
@@ -261,19 +264,25 @@ const ProfilePage = () => {
         };
       }
 
-      const lifetimeTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
-      const uniqueDays = new Set(sessions.map(s => s.date)).size;
-      const avgDaily = uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
+      const lifetimeTouches = sessions.reduce(
+        (sum, s) => sum + s.touches_logged,
+        0,
+      );
+      const uniqueDays = new Set(sessions.map((s) => s.date)).size;
+      const avgDaily =
+        uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
 
       // Calculate longest streak
-      const dates = [...new Set(sessions.map(s => s.date))].sort();
+      const dates = [...new Set(sessions.map((s) => s.date))].sort();
       let longestStreak = 0;
       let currentStreak = 1;
 
       for (let i = 1; i < dates.length; i++) {
         const prev = new Date(dates[i - 1]);
         const curr = new Date(dates[i]);
-        const diffDays = Math.floor((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor(
+          (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24),
+        );
 
         if (diffDays === 1) {
           currentStreak++;
@@ -294,7 +303,10 @@ const ProfilePage = () => {
     },
   });
 
-  const displayName = profile?.name || profile?.display_name || (profile?.is_coach ? 'Coach' : 'Player');
+  const displayName =
+    profile?.name ||
+    profile?.display_name ||
+    (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
 
@@ -389,9 +401,7 @@ const ProfilePage = () => {
                     <Text style={styles.streakEmoji}>🔥</Text>
                   </View>
                   <View style={styles.streakInfo}>
-                    <Text style={styles.streakValue}>
-                      {currentStreak}
-                    </Text>
+                    <Text style={styles.streakValue}>{currentStreak}</Text>
                     <Text style={styles.streakLabel}>Current Streak</Text>
                   </View>
                 </View>
@@ -506,24 +516,35 @@ const ProfilePage = () => {
 
           {/* Action Buttons */}
           <View style={styles.actionsCard}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleFeedback}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleFeedback}
+            >
               <Ionicons name='chatbubble-ellipses' size={24} color='#1f89ee' />
               <Text style={styles.actionButtonText}>Send Feedback</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleSignOut}
+            >
               <Ionicons name='log-out' size={24} color='#ffb724' />
               <Text style={styles.actionButtonText}>Sign Out</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.actionButton} onPress={handleDeleteAccount}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleDeleteAccount}
+            >
               <Ionicons name='trash' size={24} color='#D32F2F' />
-              <Text style={[styles.actionButtonText, styles.deleteAccountText]}>Delete Account</Text>
+              <Text style={[styles.actionButtonText, styles.deleteAccountText]}>
+                Delete Account
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Version */}
-          <Text style={styles.version}>Version 2.0.0</Text>
+          <Text style={styles.version}>Version 2.0.5</Text>
         </ScrollView>
 
         {/* Daily Target Modal */}
@@ -537,90 +558,100 @@ const ProfilePage = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalEmoji}>🎯</Text>
-                <Text style={styles.modalTitle}>Set Daily Target</Text>
-                <Text style={styles.modalSubtitle}>
-                  How many touches do you want to hit each day?
-                </Text>
-              </View>
-
-              <View style={styles.presetsList}>
-                {TARGET_PRESETS.map((preset) => (
-                  <TouchableOpacity
-                    key={preset.value}
-                    style={[
-                      styles.presetCard,
-                      dailyTarget === preset.value && styles.presetCardActive,
-                    ]}
-                    onPress={() => handleSaveTarget(preset.value)}
-                    disabled={savingTarget}
-                  >
-                    <Text style={styles.presetEmoji}>{preset.emoji}</Text>
-                    <View style={styles.presetTextContainer}>
-                      <Text
-                        style={[
-                          styles.presetValue,
-                          dailyTarget === preset.value && styles.presetValueActive,
-                        ]}
-                      >
-                        {preset.label}
-                      </Text>
-                      <Text style={styles.presetSubtitle}>{preset.subtitle}</Text>
-                    </View>
-                    {dailyTarget === preset.value && (
-                      <Ionicons name='checkmark-circle' size={24} color='#1f89ee' />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.customSection}>
-                <Text style={styles.customLabel}>Or enter a custom target</Text>
-                <View style={styles.customRow}>
-                  <TextInput
-                    style={styles.customInput}
-                    placeholder='e.g. 1500'
-                    placeholderTextColor='#B0BEC5'
-                    keyboardType='number-pad'
-                    value={customTarget}
-                    onChangeText={setCustomTarget}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.customButton,
-                      (!customTarget || savingTarget) && styles.customButtonDisabled,
-                    ]}
-                    onPress={() => {
-                      const target = parseInt(customTarget);
-                      if (target > 0) {
-                        handleSaveTarget(target);
-                      }
-                    }}
-                    disabled={!customTarget || savingTarget}
-                  >
-                    {savingTarget ? (
-                      <ActivityIndicator size='small' color='#FFF' />
-                    ) : (
-                      <Text style={styles.customButtonText}>Save</Text>
-                    )}
-                  </TouchableOpacity>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalEmoji}>🎯</Text>
+                  <Text style={styles.modalTitle}>Set Daily Target</Text>
+                  <Text style={styles.modalSubtitle}>
+                    How many touches do you want to hit each day?
+                  </Text>
                 </View>
-              </View>
 
-              <TouchableOpacity
-                style={styles.modalCancel}
-                onPress={() => {
-                  setShowTargetModal(false);
-                  setCustomTarget('');
-                }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
+                <View style={styles.presetsList}>
+                  {TARGET_PRESETS.map((preset) => (
+                    <TouchableOpacity
+                      key={preset.value}
+                      style={[
+                        styles.presetCard,
+                        dailyTarget === preset.value && styles.presetCardActive,
+                      ]}
+                      onPress={() => handleSaveTarget(preset.value)}
+                      disabled={savingTarget}
+                    >
+                      <Text style={styles.presetEmoji}>{preset.emoji}</Text>
+                      <View style={styles.presetTextContainer}>
+                        <Text
+                          style={[
+                            styles.presetValue,
+                            dailyTarget === preset.value &&
+                              styles.presetValueActive,
+                          ]}
+                        >
+                          {preset.label}
+                        </Text>
+                        <Text style={styles.presetSubtitle}>
+                          {preset.subtitle}
+                        </Text>
+                      </View>
+                      {dailyTarget === preset.value && (
+                        <Ionicons
+                          name='checkmark-circle'
+                          size={24}
+                          color='#1f89ee'
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.customSection}>
+                  <Text style={styles.customLabel}>
+                    Or enter a custom target
+                  </Text>
+                  <View style={styles.customRow}>
+                    <TextInput
+                      style={styles.customInput}
+                      placeholder='e.g. 1500'
+                      placeholderTextColor='#B0BEC5'
+                      keyboardType='number-pad'
+                      value={customTarget}
+                      onChangeText={setCustomTarget}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.customButton,
+                        (!customTarget || savingTarget) &&
+                          styles.customButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        const target = parseInt(customTarget);
+                        if (target > 0) {
+                          handleSaveTarget(target);
+                        }
+                      }}
+                      disabled={!customTarget || savingTarget}
+                    >
+                      {savingTarget ? (
+                        <ActivityIndicator size='small' color='#FFF' />
+                      ) : (
+                        <Text style={styles.customButtonText}>Save</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => {
+                    setShowTargetModal(false);
+                    setCustomTarget('');
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
