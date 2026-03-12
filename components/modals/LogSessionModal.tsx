@@ -1,4 +1,3 @@
-import { useJugglingRecord } from '@/hooks/useTouchTracking';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -84,7 +83,6 @@ const LogSessionModal = ({
       );
     }
   }, [visible, challengeDurationMinutes]);
-  const { data: currentRecord } = useJugglingRecord(userId);
 
   const isChallengeMode = !!challengeDrillId;
 
@@ -208,68 +206,6 @@ const LogSessionModal = ({
                 </View>
               )}
 
-            {/* Juggling Record - Regular mode only */}
-            {!isChallengeMode && (
-              <View style={styles.jugglingSection}>
-                <View style={styles.jugglingSectionHeader}>
-                  <Text style={styles.jugglingEmoji}>🏆</Text>
-                  <View style={styles.jugglingTitleContainer}>
-                    <Text style={styles.jugglingTitle}>Juggling Record</Text>
-                    {currentRecord !== undefined && currentRecord > 0 && (
-                      <Text style={styles.jugglingCurrentRecord}>
-                        Current PR: {currentRecord}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <Text style={styles.jugglingHint}>
-                  {currentRecord !== undefined && currentRecord > 0
-                    ? `Beat your record of ${currentRecord}!`
-                    : 'How many consecutive juggles can you do?'}
-                </Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.jugglingInput}
-                    placeholder='Enter your best juggles'
-                    placeholderTextColor='#B8860B'
-                    keyboardType='number-pad'
-                    value={juggles}
-                    onChangeText={setJuggles}
-                  />
-                  <View style={styles.inputIconBgGold}>
-                    <Ionicons name='trophy' size={20} color='#FFD700' />
-                  </View>
-                </View>
-                {juggles &&
-                  parseInt(juggles) > 0 &&
-                  currentRecord !== undefined && (
-                    <View
-                      style={[
-                        styles.jugglePreview,
-                        parseInt(juggles) > (currentRecord || 0) &&
-                          styles.jugglePreviewRecord,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.jugglePreviewText,
-                          parseInt(juggles) > (currentRecord || 0) &&
-                            styles.jugglePreviewTextRecord,
-                        ]}
-                      >
-                        {parseInt(juggles) > (currentRecord || 0)
-                          ? '🎉 NEW PERSONAL BEST! +' +
-                            (parseInt(juggles) - (currentRecord || 0)) +
-                            ' from your record!'
-                          : (currentRecord || 0) -
-                            parseInt(juggles) +
-                            ' away from your PR'}
-                      </Text>
-                    </View>
-                  )}
-              </View>
-            )}
-
             {/* Touches + Duration — side by side so both are always visible when keyboard is open */}
             <View style={styles.inputPairSection}>
               <View style={styles.inputPairRow}>
@@ -349,6 +285,30 @@ const LogSessionModal = ({
                   </View>
                 )}
             </View>
+
+            {/* Best Juggles — simple optional field, regular mode only */}
+            {!isChallengeMode && (
+              <View style={styles.jugglingInputSection}>
+                <Text style={styles.sectionLabel}>
+                  Best Juggles{' '}
+                  <Text style={styles.optionalLabel}>(optional)</Text>
+                </Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    returnKeyType='done'
+                    value={juggles}
+                    onChangeText={setJuggles}
+                  />
+                  <View style={styles.inputIconBg}>
+                    <Ionicons name='trophy' size={20} color='#FFD700' />
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* Bottom padding for scrolling */}
             <View style={{ height: 20 }} />
@@ -437,58 +397,13 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
-  jugglingSection: {
+  jugglingInputSection: {
     marginBottom: 24,
-    backgroundColor: '#FFF8DC',
-    padding: 20,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#FFD700',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
   },
-  jugglingSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 12,
-  },
-  jugglingEmoji: {
-    fontSize: 36,
-  },
-  jugglingTitleContainer: {
-    flex: 1,
-  },
-  jugglingTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#B8860B',
-  },
-  jugglingCurrentRecord: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#DAA520',
-    marginTop: 2,
-  },
-  jugglingHint: {
-    fontSize: 14,
+  optionalLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#B8860B',
-    marginBottom: 14,
-  },
-  jugglingInput: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 16,
-    paddingRight: 50,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    borderWidth: 2,
-    borderColor: '#FFD700',
+    color: '#78909C',
   },
   sectionHighlight: {
     marginBottom: 24,
@@ -534,27 +449,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#F9A825',
   },
-  jugglePreview: {
-    marginTop: 12,
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  jugglePreviewRecord: {
-    backgroundColor: '#FFF8E1',
-    borderWidth: 1,
-    borderColor: '#FFD700',
-  },
-  jugglePreviewText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  jugglePreviewTextRecord: {
-    color: '#F9A825',
-    fontWeight: '800',
-  },
   tpmPreview: {
     marginTop: 12,
     backgroundColor: '#FFF',
@@ -586,7 +480,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   input: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F0F2F5',
     borderRadius: 12,
     padding: 16,
     paddingRight: 50,
@@ -594,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a2e',
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#DDE1E7',
   },
   inputIconBg: {
     position: 'absolute',
@@ -605,18 +499,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputIconBgGold: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    transform: [{ translateY: -16 }],
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFF9E6',
     justifyContent: 'center',
     alignItems: 'center',
   },

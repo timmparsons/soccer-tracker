@@ -46,6 +46,8 @@ const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week'>('week');
+  const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
 
   // Fetch team members with their touch stats
   const {
@@ -129,9 +131,15 @@ const Leaderboard = () => {
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
   } = useQuery({
-    queryKey: ['team-juggling-leaderboard', profile?.team_id],
+    queryKey: ['team-juggling-leaderboard', profile?.team_id, jugglingPeriod],
     queryFn: async () => {
       if (!profile?.team_id) return [];
+
+      const today = getLocalDate();
+      const todayObj = new Date();
+      const weekStartObj = new Date();
+      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
+      const weekStartDate = getLocalDate(weekStartObj);
 
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
@@ -146,16 +154,21 @@ const Leaderboard = () => {
       // Get high scores for each member (only from sessions with juggle_count)
       const memberRecords: JugglingRecord[] = await Promise.all(
         teamMembers.map(async (member) => {
-          // Get their best juggling session
-          const { data: bestSession } = await supabase
+          // Get their best juggling session for the active period
+          let query = supabase
             .from('daily_sessions')
             .select('juggle_count, date')
             .eq('user_id', member.id)
             .not('juggle_count', 'is', null)
             .gt('juggle_count', 0)
             .order('juggle_count', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
+
+          if (jugglingPeriod === 'week') {
+            query = query.gte('date', weekStartDate).lte('date', today);
+          }
+
+          const { data: bestSession } = await query.single();
 
           return {
             id: member.id,
@@ -199,6 +212,15 @@ const Leaderboard = () => {
     );
   }
 
+  const sortedTouches = [...touchesLeaderboard].sort((a, b) =>
+    touchesPeriod === 'today'
+      ? b.today_touches - a.today_touches
+      : b.weekly_touches - a.weekly_touches
+  );
+
+  const getTouchScore = (player: TeamMemberStats) =>
+    touchesPeriod === 'today' ? player.today_touches : player.weekly_touches;
+
   const getMedalEmoji = (index: number) => {
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
@@ -241,15 +263,7 @@ const Leaderboard = () => {
               activeTab === 'touches' && styles.tabTextActive,
             ]}
           >
-            📊 This Week
-          </Text>
-          <Text
-            style={[
-              styles.tabSubtext,
-              activeTab === 'touches' && styles.tabTextActive,
-            ]}
-          >
-            Resets Sunday
+            Touches
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -262,7 +276,7 @@ const Leaderboard = () => {
               activeTab === 'juggling' && styles.tabTextActive,
             ]}
           >
-            ⚽ Juggling Records
+            Juggling
           </Text>
         </TouchableOpacity>
       </View>
@@ -275,8 +289,27 @@ const Leaderboard = () => {
       >
         {activeTab === 'touches' ? (
           <>
+            {/* Period pills */}
+            <View style={styles.periodPillRow}>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'today' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('today')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'today' && styles.periodPillTextActive]}>Today</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'week' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('week')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
+              </TouchableOpacity>
+              {touchesPeriod === 'week' && (
+                <Text style={styles.resetNote}>Resets Sunday</Text>
+              )}
+            </View>
+
             {/* Empty state for touches */}
-            {touchesLeaderboard.length === 0 && !touchesLoading && (
+            {sortedTouches.length === 0 && !touchesLoading && (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateTitle}>No Data Yet</Text>
                 <Text style={styles.emptyStateText}>
@@ -286,24 +319,24 @@ const Leaderboard = () => {
             )}
 
             {/* Top 3 Podium for Touches */}
-            {touchesLeaderboard.length >= 3 && (
+            {sortedTouches.length >= 3 && (
               <View style={styles.podium}>
                 {/* 2nd Place */}
                 <View style={styles.podiumSpot}>
                   <Image
                     source={{
                       uri:
-                        touchesLeaderboard[1].avatar_url ||
+                        sortedTouches[1].avatar_url ||
                         'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
                     }}
                     style={styles.podiumAvatar2}
                   />
                   <Text style={styles.podiumMedal}>🥈</Text>
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {touchesLeaderboard[1].name}
+                    {sortedTouches[1].name}
                   </Text>
                   <Text style={styles.podiumTouches}>
-                    {touchesLeaderboard[1].weekly_touches.toLocaleString()}
+                    {getTouchScore(sortedTouches[1]).toLocaleString()}
                   </Text>
                   <View style={styles.podiumRank2}>
                     <Text style={styles.podiumRankText}>2nd</Text>
@@ -318,17 +351,17 @@ const Leaderboard = () => {
                   <Image
                     source={{
                       uri:
-                        touchesLeaderboard[0].avatar_url ||
+                        sortedTouches[0].avatar_url ||
                         'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
                     }}
                     style={styles.podiumAvatar1}
                   />
                   <Text style={styles.podiumMedal}>🥇</Text>
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {touchesLeaderboard[0].name}
+                    {sortedTouches[0].name}
                   </Text>
                   <Text style={styles.podiumTouches}>
-                    {touchesLeaderboard[0].weekly_touches.toLocaleString()}
+                    {getTouchScore(sortedTouches[0]).toLocaleString()}
                   </Text>
                   <View style={styles.podiumRank1}>
                     <Text style={styles.podiumRankText}>1st</Text>
@@ -340,17 +373,17 @@ const Leaderboard = () => {
                   <Image
                     source={{
                       uri:
-                        touchesLeaderboard[2].avatar_url ||
+                        sortedTouches[2].avatar_url ||
                         'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
                     }}
                     style={styles.podiumAvatar3}
                   />
                   <Text style={styles.podiumMedal}>🥉</Text>
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {touchesLeaderboard[2].name}
+                    {sortedTouches[2].name}
                   </Text>
                   <Text style={styles.podiumTouches}>
-                    {touchesLeaderboard[2].weekly_touches.toLocaleString()}
+                    {getTouchScore(sortedTouches[2]).toLocaleString()}
                   </Text>
                   <View style={styles.podiumRank3}>
                     <Text style={styles.podiumRankText}>3rd</Text>
@@ -360,7 +393,7 @@ const Leaderboard = () => {
             )}
 
             {/* Vinnie rank reaction */}
-            {touchesLeaderboard.length > 0 && (
+            {sortedTouches.length > 0 && (
               <View style={styles.vinnieRow}>
                 <Image
                   source={require('@/assets/images/vinnie.png')}
@@ -372,8 +405,8 @@ const Leaderboard = () => {
                   <View style={styles.vinnieBubble}>
                     <Text style={styles.vinnieMessage}>
                       {getVinnieRankMessage(
-                        touchesLeaderboard.findIndex((p) => p.id === getCurrentUserId()) + 1,
-                        touchesLeaderboard.length,
+                        sortedTouches.findIndex((p) => p.id === getCurrentUserId()) + 1,
+                        sortedTouches.length,
                       )} — Coach Vinnie
                     </Text>
                   </View>
@@ -383,7 +416,7 @@ const Leaderboard = () => {
 
             {/* Rest of Touches List */}
             <View style={styles.listContainer}>
-              {touchesLeaderboard.map((player, index) => {
+              {sortedTouches.map((player, index) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const hitTarget = player.today_touches >= player.daily_target;
 
@@ -441,7 +474,7 @@ const Leaderboard = () => {
 
                     <View style={styles.playerRight}>
                       <Text style={styles.weeklyTouches}>
-                        {player.weekly_touches.toLocaleString()}
+                        {getTouchScore(player).toLocaleString()}
                       </Text>
                       <Text style={styles.touchesLabel}>touches</Text>
                     </View>
@@ -452,9 +485,20 @@ const Leaderboard = () => {
           </>
         ) : (
           <>
-            {/* Juggling Records View */}
-            <View style={styles.jugglingBadge}>
-              <Text style={styles.weekBadgeText}>All-Time Records</Text>
+            {/* Period pills */}
+            <View style={styles.periodPillRow}>
+              <TouchableOpacity
+                style={[styles.periodPill, jugglingPeriod === 'week' && styles.periodPillActive]}
+                onPress={() => setJugglingPeriod('week')}
+              >
+                <Text style={[styles.periodPillText, jugglingPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, jugglingPeriod === 'alltime' && styles.periodPillActive]}
+                onPress={() => setJugglingPeriod('alltime')}
+              >
+                <Text style={[styles.periodPillText, jugglingPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Empty state for juggling */}
@@ -660,25 +704,41 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFF',
   },
-  tabSubtext: {
-    fontSize: 10,
+  resetNote: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
-    marginTop: 2,
+    alignSelf: 'center',
+    marginLeft: 'auto',
   },
 
-  jugglingBadge: {
-    backgroundColor: '#ffb724',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'flex-end',
-    marginBottom: 20,
+  // PERIOD PILLS
+  periodPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
   },
-  weekBadgeText: {
-    color: '#FFF',
+  periodPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  periodPillActive: {
+    backgroundColor: '#1f89ee',
+  },
+  periodPillText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  periodPillTextActive: {
+    color: '#FFF',
   },
 
   // PODIUM
