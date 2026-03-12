@@ -4,7 +4,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <Image
-        source={require('../assets/images/app-logo-transparent.png')}
+        source={require('../assets/images/app-logo.png')}
         style={styles.logo}
       />
     </View>
@@ -16,10 +16,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#F5F7FA',
   },
   logo: {
-    width: 120,
-    height: 120,
+    width: 150,
+    height: 150,
+    borderRadius: 30,
   },
 });
