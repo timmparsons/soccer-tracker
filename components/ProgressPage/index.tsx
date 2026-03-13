@@ -5,6 +5,7 @@ import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/
 import { useUser } from '@/hooks/useUser';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -83,7 +84,7 @@ const ProgressPage = () => {
         .from('daily_sessions')
         .select('touches_logged, date')
         .eq('user_id', user!.id)
-        .gte('date', startDate.toISOString().split('T')[0])
+        .gte('date', getLocalDate(startDate))
         .order('date', { ascending: true });
 
       // Group by date
@@ -100,7 +101,7 @@ const ProgressPage = () => {
         for (let i = 0; i < 7; i++) {
           const d = new Date(startDate);
           d.setDate(d.getDate() + i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = getLocalDate(d);
           labels.push(dayNames[d.getDay()]);
           data.push(byDate[dateStr] || 0);
         }
@@ -113,7 +114,7 @@ const ProgressPage = () => {
         for (let i = 0; i < 28; i++) {
           const d = new Date(startDate);
           d.setDate(d.getDate() + i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = getLocalDate(d);
           const weekIndex = Math.floor(i / 7);
           data[weekIndex] += byDate[dateStr] || 0;
         }
@@ -134,7 +135,7 @@ const ProgressPage = () => {
         .from('daily_sessions')
         .select('touches_logged, duration_minutes, date')
         .eq('user_id', user!.id)
-        .gte('date', sevenDaysAgo.toISOString().split('T')[0]);
+        .gte('date', getLocalDate(sevenDaysAgo));
 
       if (!sessions || sessions.length === 0) {
         return { bestDay: 0, dailyAvg: 0, daysHitTarget: 0, avgTpm: 0 };

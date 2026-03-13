@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -114,6 +115,9 @@ const TrainPage = () => {
   const [customSeconds, setCustomSeconds] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
+  const endTimeRef = useRef<number>(0);
+  const pausedRemainingRef = useRef<number>(0);
+  const timerNotificationIdRef = useRef<string | null>(null);
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
@@ -124,11 +128,19 @@ const TrainPage = () => {
     { label: '10 min', seconds: 600 },
   ];
 
-  // Load timer sounds
+  // Load timer sounds + set up Android notification channel
   useEffect(() => {
     Audio.Sound.createAsync(require('@/assets/sounds/fulltime_whistle.mp3')).then(
       ({ sound }) => { whistleSoundRef.current = sound; }
     );
+
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('timer', {
+        name: 'Training Timer',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'fulltime_whistle.wav',
+      }).catch(() => {});
+    }
 
     return () => {
       whistleSoundRef.current?.unloadAsync();
@@ -146,6 +158,7 @@ const TrainPage = () => {
   const startFreeTimer = useCallback((seconds: number) => {
     setFreeTimerDuration(seconds);
     setTimeRemaining(seconds);
+    pausedRemainingRef.current = seconds;
     setShowTimerPicker(false);
     setShowTimerModal(true);
     // Don't auto-start; user taps Start
@@ -165,30 +178,62 @@ const TrainPage = () => {
 
   const resetTimer = useCallback(() => {
     stopTimer();
+    pausedRemainingRef.current = freeTimerDuration;
     setTimeRemaining(freeTimerDuration);
   }, [stopTimer, freeTimerDuration]);
 
   useEffect(() => {
     if (timerRunning) {
+      // Compute absolute end time from current remaining — survives phone sleep
+      endTimeRef.current = Date.now() + pausedRemainingRef.current * 1000;
+
+      // Schedule an OS-level notification so the alarm fires even if phone sleeps
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Time's up! ⚽",
+          body: 'Your training session is complete. Log your touches!',
+          sound: 'fulltime_whistle.wav',
+          ...(Platform.OS === 'android' && { channelId: 'timer' }),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(endTimeRef.current),
+        },
+      })
+        .then(id => { timerNotificationIdRef.current = id; })
+        .catch(() => {});
+
       timerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            stopTimer();
-            Vibration.vibrate([0, 500, 200, 500]);
-            whistleSoundRef.current?.replayAsync();
-            setShowTimerModal(false);
-            setShowScoreModal(true);
-            return 0;
+        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
+        if (remaining <= 0) {
+          // Phone was awake — cancel the notification before it fires
+          if (timerNotificationIdRef.current) {
+            Notifications.cancelScheduledNotificationAsync(timerNotificationIdRef.current).catch(() => {});
+            timerNotificationIdRef.current = null;
           }
-          return prev - 1;
-        });
-      }, 1000);
+          pausedRemainingRef.current = 0;
+          setTimeRemaining(0);
+          stopTimer();
+          Vibration.vibrate([0, 500, 200, 500]);
+          whistleSoundRef.current?.replayAsync();
+          setShowTimerModal(false);
+          setShowScoreModal(true);
+        } else {
+          pausedRemainingRef.current = remaining;
+          setTimeRemaining(remaining);
+        }
+      }, 500);
     }
 
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      // Cancel the scheduled notification when paused or stopped
+      if (timerNotificationIdRef.current) {
+        Notifications.cancelScheduledNotificationAsync(timerNotificationIdRef.current).catch(() => {});
+        timerNotificationIdRef.current = null;
       }
     };
   }, [timerRunning, stopTimer]);
