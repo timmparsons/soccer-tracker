@@ -113,6 +113,7 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
+  const [drillFilter, setDrillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -320,6 +321,10 @@ const TrainPage = () => {
     advanced: drills.filter((d) => d.difficulty_level === 'advanced'),
   };
 
+  const visibleLevels = drillFilter === 'all'
+    ? (['beginner', 'intermediate', 'advanced'] as const)
+    : [drillFilter] as const;
+
   return (
     <View style={styles.container}>
       <PageHeader
@@ -385,7 +390,32 @@ const TrainPage = () => {
             <Text style={styles.librarySubtitle}>Tap a drill to log a session</Text>
           </View>
 
-          {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
+          {/* Level filter pills */}
+          <View style={styles.drillFilterRow}>
+            {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((level) => (
+              <TouchableOpacity
+                key={level}
+                style={[
+                  styles.drillFilterPill,
+                  drillFilter === level && styles.drillFilterPillActive,
+                  drillFilter === level && level !== 'all' && { backgroundColor: DIFFICULTY_COLORS[level].bg },
+                ]}
+                onPress={() => setDrillFilter(level)}
+              >
+                <Text
+                  style={[
+                    styles.drillFilterPillText,
+                    drillFilter === level && styles.drillFilterPillTextActive,
+                    drillFilter === level && level !== 'all' && { color: DIFFICULTY_COLORS[level].text },
+                  ]}
+                >
+                  {level === 'all' ? 'All' : level.charAt(0).toUpperCase() + level.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {visibleLevels.map((level) => {
             const levelDrills = drillsByDifficulty[level];
             if (levelDrills.length === 0) return null;
             const color = DIFFICULTY_COLORS[level];
@@ -856,7 +886,30 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   libraryHeader: {
+    marginBottom: 12,
+  },
+  drillFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
+  },
+  drillFilterPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#F0F2F5',
+  },
+  drillFilterPillActive: {
+    backgroundColor: '#1f89ee',
+  },
+  drillFilterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  drillFilterPillTextActive: {
+    color: '#FFF',
   },
   libraryTitle: {
     fontSize: 20,
