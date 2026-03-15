@@ -1,7 +1,7 @@
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs } from 'expo-router';
 import {
   ChartSpline,
@@ -57,15 +57,14 @@ export default function TabLayout() {
           tabBarActiveTintColor: '#ffb724',
           tabBarInactiveTintColor: '#95A5A6',
           tabBarLabelStyle: {
-            fontSize: 12,
-            marginBottom: 4,
+            fontSize: 10,
             fontWeight: '600',
           },
           tabBarStyle: {
             borderTopColor: '#E5E7EB',
             paddingTop: 8,
             paddingBottom: insets.bottom + 8,
-            height: 60 + insets.bottom,
+            height: 65 + insets.bottom,
           },
         }}
       >
