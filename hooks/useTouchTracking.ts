@@ -89,7 +89,7 @@ export const useTouchTracking = (userId: string | undefined) => {
         let checkDate = new Date();
 
         for (const dateStr of uniqueDates) {
-          const sessionDate = new Date(dateStr);
+          const sessionDate = new Date(dateStr + 'T00:00:00');
           const daysDiff = Math.floor(
             (checkDate.getTime() - sessionDate.getTime()) /
               (1000 * 60 * 60 * 24),
@@ -247,7 +247,7 @@ export const useChallengeStats = (
         let checkDate = new Date();
 
         for (const dateStr of uniqueDates) {
-          const sessionDate = new Date(dateStr);
+          const sessionDate = new Date(dateStr + 'T00:00:00');
           const daysDiff = Math.floor(
             (checkDate.getTime() - sessionDate.getTime()) /
               (1000 * 60 * 60 * 24),

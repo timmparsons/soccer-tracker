@@ -123,7 +123,7 @@ export default function RootLayout() {
             const metaLastName = metadata?.last_name;
             const emailPrefix = sess.user.email?.split('@')[0];
 
-            if (metaFirstName && profile.display_name === emailPrefix) {
+            if (metaFirstName && (!profile.display_name || profile.display_name === emailPrefix)) {
               const fullName = [metaFirstName, metaLastName]
                 .filter(Boolean)
                 .join(' ')
@@ -202,10 +202,31 @@ export default function RootLayout() {
       );
       const query = supabase
         .from('profiles')
-        .select('onboarding_completed')
+        .select('onboarding_completed, display_name, name')
         .eq('id', sess.user.id)
         .single();
       const { data: profile } = await Promise.race([query, timeout]);
+
+      // Sync name from auth metadata if the profile still has the email prefix
+      // (happens on first sign-in after email confirmation)
+      if (profile) {
+        const metadata = sess.user.user_metadata;
+        const metaFirstName = metadata?.first_name;
+        const metaLastName = metadata?.last_name;
+        const emailPrefix = sess.user.email?.split('@')[0];
+
+        if (metaFirstName && (!profile.display_name || profile.display_name === emailPrefix)) {
+          const fullName = [metaFirstName, metaLastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          await supabase
+            .from('profiles')
+            .update({ name: fullName, display_name: metaFirstName })
+            .eq('id', sess.user.id);
+          queryClient.invalidateQueries({ queryKey: ['profile', sess.user.id] });
+        }
+      }
 
       router.replace(
         profile?.onboarding_completed === true ? '/(tabs)' : '/(onboarding)',

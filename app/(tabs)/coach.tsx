@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
+import { ViewModeContext } from './_layout';
 import {
   ActivityIndicator,
   Alert,
@@ -40,11 +41,13 @@ interface PlayerStats {
   week_minutes: number;
   week_tpm: number;
   days_active_this_week: number;
+  best_juggle: number;
 }
 
 export default function CoachDashboard() {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { setViewMode } = useContext(ViewModeContext);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
@@ -77,6 +80,7 @@ export default function CoachDashboard() {
   } = useQuery({
     queryKey: ['coach-team-players', profile?.team_id],
     enabled: !!profile?.team_id,
+    refetchInterval: 30_000,
     queryFn: async () => {
       // Get all players on the team (excluding coaches)
       const { data: players, error: playersError } = await supabase
@@ -86,84 +90,96 @@ export default function CoachDashboard() {
         .eq('is_coach', false);
 
       if (playersError) throw playersError;
-      if (!players) return [];
+      if (!players || players.length === 0) return [];
 
       const today = getLocalDate();
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const weekStart = getLocalDate(sevenDaysAgo);
 
-      // Get stats for each player
-      const playersWithStats: PlayerStats[] = await Promise.all(
-        players.map(async (player) => {
-          // Get all sessions for this player
-          const { data: sessions } = await supabase
-            .from('daily_sessions')
-            .select('touches_logged, duration_minutes, date, created_at')
-            .eq('user_id', player.id)
-            .order('created_at', { ascending: false });
+      const playerIds = players.map((p) => p.id);
 
-          // Get player's daily target
-          const { data: targetData } = await supabase
-            .from('user_targets')
-            .select('daily_target_touches')
-            .eq('user_id', player.id)
-            .single();
+      // Batch fetch all sessions and targets in 2 queries instead of 2N
+      const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
+        supabase
+          .from('daily_sessions')
+          .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
+          .in('user_id', playerIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_targets')
+          .select('user_id, daily_target_touches')
+          .in('user_id', playerIds),
+      ]);
 
-          const allSessions = sessions || [];
-          const weekSessions = allSessions.filter((s) => s.date >= weekStart);
+      // Build lookup maps
+      type SessionRow = NonNullable<typeof allSessionsRaw>[number];
+      const sessionsByPlayer: Record<string, SessionRow[]> = {};
+      for (const s of allSessionsRaw || []) {
+        if (!sessionsByPlayer[s.user_id]) sessionsByPlayer[s.user_id] = [];
+        sessionsByPlayer[s.user_id].push(s);
+      }
+      const targetByPlayer: Record<string, number> = {};
+      for (const t of allTargetsRaw || []) {
+        targetByPlayer[t.user_id] = t.daily_target_touches;
+      }
 
-          // Calculate stats
-          const todayTouches = allSessions
-            .filter((s) => s.date === today)
-            .reduce((sum, s) => sum + s.touches_logged, 0);
+      const playersWithStats: PlayerStats[] = players.map((player) => {
+        const allSessions = sessionsByPlayer[player.id] || [];
+        const weekSessions = allSessions.filter((s) => s.date >= weekStart);
 
-          const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
-          const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-          const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
+        const todayTouches = allSessions
+          .filter((s) => s.date === today)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
 
-          const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+        const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+        const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
+        const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+        const uniqueWeekDays = new Set(weekSessions.map((s) => s.date)).size;
 
-          // Days active this week
-          const uniqueWeekDays = new Set(weekSessions.map((s) => s.date)).size;
+        const bestJuggle = allSessions.reduce((max, s) => {
+          const jc = s.juggle_count ?? 0;
+          return jc > max ? jc : max;
+        }, 0);
 
-          // Calculate streak
-          const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
-          let streak = 0;
-          const checkDate = new Date();
+        // Calculate streak (fixed: use local midnight to avoid UTC offset issues)
+        const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
+        let streak = 0;
+        let checkDate = new Date();
 
-          for (const dateStr of uniqueDates) {
-            const sessionDate = new Date(dateStr);
-            const diffDays = Math.floor(
-              (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
-            );
+        for (const dateStr of uniqueDates) {
+          const sessionDate = new Date(dateStr + 'T00:00:00');
+          const diffDays = Math.floor(
+            (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
 
-            if (diffDays <= 1) {
-              streak++;
-              checkDate.setTime(sessionDate.getTime());
-            } else {
-              break;
-            }
+          if (diffDays <= 1) {
+            streak++;
+            checkDate = sessionDate;
+          } else {
+            break;
           }
+        }
 
-          return {
-            id: player.id,
-            name: player.name,
-            display_name: player.display_name,
-            avatar_url: player.avatar_url,
-            today_touches: todayTouches,
-            week_touches: weekTouches,
-            total_touches: totalTouches,
-            total_sessions: allSessions.length,
-            last_session_date: allSessions[0]?.created_at || null,
-            current_streak: streak,
-            daily_target: targetData?.daily_target_touches || 1000,
-            week_minutes: weekMinutes,
-            week_tpm: weekTpm,
-            days_active_this_week: uniqueWeekDays,
-          };
-        })
-      );
+        return {
+          id: player.id,
+          name: player.name,
+          display_name: player.display_name,
+          avatar_url: player.avatar_url,
+          today_touches: todayTouches,
+          week_touches: weekTouches,
+          total_touches: totalTouches,
+          total_sessions: allSessions.length,
+          last_session_date: allSessions[0]?.created_at || null,
+          current_streak: streak,
+          daily_target: targetByPlayer[player.id] || 1000,
+          week_minutes: weekMinutes,
+          week_tpm: weekTpm,
+          days_active_this_week: uniqueWeekDays,
+          best_juggle: bestJuggle,
+        };
+      });
 
       // Sort by week touches (most active first)
       return playersWithStats.sort((a, b) => b.week_touches - a.week_touches);
@@ -364,6 +380,10 @@ export default function CoachDashboard() {
               {totalPlayers} {totalPlayers === 1 ? 'player' : 'players'} • {activePlayers} active
             </Text>
           </View>
+          <TouchableOpacity style={styles.viewTogglePill} onPress={() => setViewMode('player')}>
+            <Ionicons name="person-outline" size={14} color="#1f89ee" />
+            <Text style={styles.viewToggleText}>Player View</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Team Code Card */}
@@ -583,6 +603,15 @@ export default function CoachDashboard() {
                       <Text style={styles.playerStatValue}>{player.total_sessions}</Text>
                       <Text style={styles.playerStatLabel}>Sessions</Text>
                     </View>
+                    {player.best_juggle > 0 && (
+                      <>
+                        <View style={styles.playerStatDivider} />
+                        <View style={styles.playerStat}>
+                          <Text style={[styles.playerStatValue, { color: '#ffb724' }]}>{player.best_juggle}</Text>
+                          <Text style={styles.playerStatLabel}>Juggles</Text>
+                        </View>
+                      </>
+                    )}
                   </View>
 
                   <View style={styles.addTouchesHint}>
@@ -723,8 +752,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
     marginBottom: 20,
+  },
+  viewTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  viewToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   headerIcon: {
     width: 64,

@@ -26,6 +26,29 @@ import {
   View,
 } from 'react-native';
 
+const BESWICK_QUOTES = [
+  'Champions train when nobody is watching.',
+  'You either train to dominate or you train to lose.',
+  'The difference between winners and losers is attitude, not ability.',
+  'Turn up, train to win, or train to dominate — the choice defines you.',
+  'Be a fighter. Never a victim.',
+  'How much do you want it? That\'s the only question that matters.',
+  'Elite players don\'t wait to be motivated. They create it.',
+  'Consistency over intensity. Show up every day.',
+  'Your habits today are your results tomorrow.',
+  'Suffering in training means winning in competition.',
+  'Identity drives behaviour. Decide who you are, then act accordingly.',
+  'The mental game is won in training, not on match day.',
+];
+
+const getDailyBeswickQuote = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor(
+    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return BESWICK_QUOTES[dayOfYear % BESWICK_QUOTES.length];
+};
+
 // Pro tips - mix of quotes and practical training advice
 const PRO_TIPS = [
   // Inspirational quotes
@@ -381,6 +404,13 @@ const TrainPage = () => {
             <Ionicons name='timer' size={24} color='#FFF' />
             <Text style={styles.timerButtonText}>START TIMER</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Beswick Mindset Quote */}
+        <View style={styles.mindsetCard}>
+          <Text style={styles.mindsetLabel}>MINDSET</Text>
+          <Text style={styles.mindsetQuote}>&quot;{getDailyBeswickQuote()}&quot;</Text>
+          <Text style={styles.mindsetAuthor}>— Bill Beswick, Sports Psychologist</Text>
         </View>
 
         {/* Drill Library */}
@@ -871,6 +901,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+
+  // MINDSET CARD
+  mindsetCard: {
+    backgroundColor: '#1a1a2e',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
+  mindsetLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#ffb724',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  mindsetQuote: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+    lineHeight: 24,
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  mindsetAuthor: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
   },
 
   // DRILL LIBRARY

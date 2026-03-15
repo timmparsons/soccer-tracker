@@ -72,7 +72,7 @@ const ProgressPage = () => {
 
   // Get chart data
   const { data: chartStats } = useQuery({
-    queryKey: ['chart-stats', user?.id, timeFilter],
+    queryKey: ['chart-stats', user?.id, timeFilter, getLocalDate()],
     enabled: !!user?.id,
     queryFn: async () => {
       const today = new Date();

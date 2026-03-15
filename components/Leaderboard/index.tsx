@@ -46,7 +46,7 @@ const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week'>('week');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
 
   // Fetch team members with their touch stats

@@ -1,3 +1,4 @@
+import { useViewMode } from '@/app/(tabs)/_layout';
 import { useProfile } from '@/hooks/useProfile';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
@@ -39,6 +40,9 @@ const ProfilePage = () => {
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [customTarget, setCustomTarget] = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -210,6 +214,23 @@ const ProfilePage = () => {
     router.push('/(modals)/join-team');
   };
 
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+
+    setSavingName(true);
+    try {
+      await updateProfile({ display_name: trimmed });
+      await refetchProfile();
+      setShowNameModal(false);
+      setNameInput('');
+    } catch {
+      Alert.alert('Error', 'Failed to update name. Please try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const handleSaveTarget = async (newTarget: number) => {
     if (!user?.id || newTarget <= 0) return;
 
@@ -303,6 +324,8 @@ const ProfilePage = () => {
     },
   });
 
+  const { viewMode, setViewMode } = useViewMode();
+
   const displayName =
     profile?.name ||
     profile?.display_name ||
@@ -340,7 +363,20 @@ const ProfilePage = () => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.name}>{displayName}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{displayName}</Text>
+              {!profile?.is_coach && (
+                <TouchableOpacity
+                  style={styles.editNameButton}
+                  onPress={() => {
+                    setNameInput(displayName);
+                    setShowNameModal(true);
+                  }}
+                >
+                  <Ionicons name='pencil' size={14} color='#78909C' />
+                </TouchableOpacity>
+              )}
+            </View>
             <Text style={styles.role}>
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
@@ -514,6 +550,32 @@ const ProfilePage = () => {
             </View>
           )}
 
+          {/* View Mode Toggle - only for coaches */}
+          {profile?.is_coach && (
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsTitle}>View</Text>
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => setViewMode(viewMode === 'coach' ? 'player' : 'coach')}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={styles.settingsIconBg}>
+                    <Ionicons name={viewMode === 'coach' ? 'clipboard' : 'person'} size={20} color='#1f89ee' />
+                  </View>
+                  <View>
+                    <Text style={styles.settingsLabel}>Current View</Text>
+                    <Text style={styles.settingsValue}>
+                      {viewMode === 'coach' ? 'Coach Dashboard' : 'Player View'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.switchViewText}>
+                  Switch to {viewMode === 'coach' ? 'Player' : 'Coach'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.actionsCard}>
             <TouchableOpacity
@@ -654,6 +716,63 @@ const ProfilePage = () => {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+
+        {/* Edit Name Modal */}
+        <Modal
+          visible={showNameModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowNameModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalEmoji}>✏️</Text>
+                  <Text style={styles.modalTitle}>Edit Name</Text>
+                  <Text style={styles.modalSubtitle}>
+                    This is the name your teammates see
+                  </Text>
+                </View>
+
+                <TextInput
+                  style={styles.nameInput}
+                  placeholder='Your name'
+                  placeholderTextColor='#9CA3AF'
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  maxLength={40}
+                  autoFocus
+                />
+
+                <TouchableOpacity
+                  style={[styles.nameSaveButton, (!nameInput.trim() || savingName) && styles.nameSaveButtonDisabled]}
+                  onPress={handleSaveName}
+                  disabled={!nameInput.trim() || savingName}
+                >
+                  {savingName ? (
+                    <ActivityIndicator color='#FFF' />
+                  ) : (
+                    <Text style={styles.nameSaveButtonText}>Save Name</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => {
+                    setShowNameModal(false);
+                    setNameInput('');
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -711,11 +830,24 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFF',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  editNameButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   name: {
     fontSize: 28,
     fontWeight: '900',
     color: '#1a1a2e',
-    marginBottom: 4,
   },
   role: {
     fontSize: 16,
@@ -1030,6 +1162,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1a1a2e',
   },
+  switchViewText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
 
   // MODAL
   modalOverlay: {
@@ -1154,5 +1291,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
+  },
+  nameInput: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  nameSaveButton: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  nameSaveButtonDisabled: {
+    opacity: 0.4,
+  },
+  nameSaveButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
 });
