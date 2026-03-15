@@ -556,11 +556,17 @@ const ProfilePage = () => {
               <Text style={styles.settingsTitle}>View</Text>
               <TouchableOpacity
                 style={styles.settingsRow}
-                onPress={() => setViewMode(viewMode === 'coach' ? 'player' : 'coach')}
+                onPress={() =>
+                  setViewMode(viewMode === 'coach' ? 'player' : 'coach')
+                }
               >
                 <View style={styles.settingsRowLeft}>
                   <View style={styles.settingsIconBg}>
-                    <Ionicons name={viewMode === 'coach' ? 'clipboard' : 'person'} size={20} color='#1f89ee' />
+                    <Ionicons
+                      name={viewMode === 'coach' ? 'clipboard' : 'person'}
+                      size={20}
+                      color='#1f89ee'
+                    />
                   </View>
                   <View>
                     <Text style={styles.settingsLabel}>Current View</Text>
@@ -749,7 +755,11 @@ const ProfilePage = () => {
                 />
 
                 <TouchableOpacity
-                  style={[styles.nameSaveButton, (!nameInput.trim() || savingName) && styles.nameSaveButtonDisabled]}
+                  style={[
+                    styles.nameSaveButton,
+                    (!nameInput.trim() || savingName) &&
+                      styles.nameSaveButtonDisabled,
+                  ]}
                   onPress={handleSaveName}
                   disabled={!nameInput.trim() || savingName}
                 >

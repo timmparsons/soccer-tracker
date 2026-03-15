@@ -31,6 +31,8 @@ interface TeamMemberStats {
   avatar_url: string | null;
   weekly_touches: number;
   today_touches: number;
+  last_week_touches: number;
+  alltime_best_week: number;
   daily_target: number;
 }
 
@@ -46,7 +48,7 @@ const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week'>('today');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
 
   // Fetch team members with their touch stats
@@ -57,17 +59,23 @@ const Leaderboard = () => {
   } = useQuery({
     queryKey: ['team-touches-leaderboard', profile?.team_id],
     queryFn: async () => {
-      if (!profile?.team_id) {
-        return [];
-      }
+      if (!profile?.team_id) return [];
 
-      // Compute dates inside queryFn so they're always current when the query runs
-      // Week runs Sunday–Saturday; resets every Sunday at midnight
       const today = getLocalDate();
       const todayObj = new Date();
-      const weekStartObj = new Date();
-      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // back to Sunday
+
+      // This week: Sunday–Saturday
+      const weekStartObj = new Date(todayObj);
+      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
       const weekStartDate = getLocalDate(weekStartObj);
+
+      // Last week: the Sunday–Saturday before this one
+      const lastWeekEndObj = new Date(weekStartObj);
+      lastWeekEndObj.setDate(weekStartObj.getDate() - 1);
+      const lastWeekStartObj = new Date(lastWeekEndObj);
+      lastWeekStartObj.setDate(lastWeekEndObj.getDate() - 6);
+      const lastWeekStart = getLocalDate(lastWeekStartObj);
+      const lastWeekEnd = getLocalDate(lastWeekEndObj);
 
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
@@ -79,47 +87,68 @@ const Leaderboard = () => {
       if (membersError) throw membersError;
       if (!teamMembers || teamMembers.length === 0) return [];
 
-      // Get touch stats for each member
-      const memberStats: TeamMemberStats[] = await Promise.all(
-        teamMembers.map(async (member) => {
-          // Get weekly touches
-          const { data: weeklyData } = await supabase
-            .from('daily_sessions')
-            .select('touches_logged')
-            .eq('user_id', member.id)
-            .gte('date', weekStartDate)
-            .lte('date', today);
+      const memberIds = teamMembers.map((m) => m.id);
 
-          const weekly_touches = weeklyData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
+      // Batch: all sessions + all targets in 2 queries
+      const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
+        supabase
+          .from('daily_sessions')
+          .select('user_id, touches_logged, date')
+          .in('user_id', memberIds),
+        supabase
+          .from('user_targets')
+          .select('user_id, daily_target_touches')
+          .in('user_id', memberIds),
+      ]);
 
-          // Get today's touches
-          const { data: todayData } = await supabase
-            .from('daily_sessions')
-            .select('touches_logged')
-            .eq('user_id', member.id)
-            .eq('date', today);
+      const targetByMember: Record<string, number> = {};
+      for (const t of allTargetsRaw || []) {
+        targetByMember[t.user_id] = t.daily_target_touches;
+      }
 
-          const today_touches = todayData?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) || 0;
+      const sessionsByMember: Record<string, { touches_logged: number; date: string }[]> = {};
+      for (const s of allSessionsRaw || []) {
+        if (!sessionsByMember[s.user_id]) sessionsByMember[s.user_id] = [];
+        sessionsByMember[s.user_id].push(s);
+      }
 
-          // Get user's daily target
-          const { data: targetData } = await supabase
-            .from('user_targets')
-            .select('daily_target_touches')
-            .eq('user_id', member.id)
-            .single();
+      const memberStats: TeamMemberStats[] = teamMembers.map((member) => {
+        const sessions = sessionsByMember[member.id] || [];
 
-          return {
-            id: member.id,
-            name: member.name || member.display_name || 'Unknown Player',
-            avatar_url: member.avatar_url,
-            weekly_touches,
-            today_touches,
-            daily_target: targetData?.daily_target_touches || 1000,
-          };
-        })
-      );
+        const today_touches = sessions
+          .filter((s) => s.date === today)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
 
-      // Sort by weekly touches descending
+        const weekly_touches = sessions
+          .filter((s) => s.date >= weekStartDate && s.date <= today)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
+
+        const last_week_touches = sessions
+          .filter((s) => s.date >= lastWeekStart && s.date <= lastWeekEnd)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
+
+        // Best single week ever: group all sessions by their week start (Sunday)
+        const weekTotals: Record<string, number> = {};
+        for (const s of sessions) {
+          const d = new Date(s.date + 'T00:00:00');
+          d.setDate(d.getDate() - d.getDay()); // back to Sunday
+          const wk = getLocalDate(d);
+          weekTotals[wk] = (weekTotals[wk] || 0) + s.touches_logged;
+        }
+        const alltime_best_week = Object.values(weekTotals).reduce((max, v) => v > max ? v : max, 0);
+
+        return {
+          id: member.id,
+          name: member.name || member.display_name || 'Unknown Player',
+          avatar_url: member.avatar_url,
+          today_touches,
+          weekly_touches,
+          last_week_touches,
+          alltime_best_week,
+          daily_target: targetByMember[member.id] || 1000,
+        };
+      });
+
       return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
     },
     enabled: !!profile?.team_id,
@@ -212,14 +241,19 @@ const Leaderboard = () => {
     );
   }
 
-  const sortedTouches = [...touchesLeaderboard].sort((a, b) =>
-    touchesPeriod === 'today'
-      ? b.today_touches - a.today_touches
-      : b.weekly_touches - a.weekly_touches
-  );
+  const sortedTouches = [...touchesLeaderboard].sort((a, b) => {
+    if (touchesPeriod === 'today') return b.today_touches - a.today_touches;
+    if (touchesPeriod === 'week') return b.weekly_touches - a.weekly_touches;
+    if (touchesPeriod === 'last_week') return b.last_week_touches - a.last_week_touches;
+    return b.alltime_best_week - a.alltime_best_week;
+  });
 
-  const getTouchScore = (player: TeamMemberStats) =>
-    touchesPeriod === 'today' ? player.today_touches : player.weekly_touches;
+  const getTouchScore = (player: TeamMemberStats) => {
+    if (touchesPeriod === 'today') return player.today_touches;
+    if (touchesPeriod === 'week') return player.weekly_touches;
+    if (touchesPeriod === 'last_week') return player.last_week_touches;
+    return player.alltime_best_week;
+  };
 
   const getMedalEmoji = (index: number) => {
     if (index === 0) return '🥇';
@@ -303,10 +337,25 @@ const Leaderboard = () => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
               </TouchableOpacity>
-              {touchesPeriod === 'week' && (
-                <Text style={styles.resetNote}>Resets Sunday</Text>
-              )}
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'last_week' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('last_week')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('alltime')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
+              </TouchableOpacity>
             </View>
+            {touchesPeriod === 'week' && (
+              <Text style={styles.resetNote}>Resets Sunday</Text>
+            )}
+            {touchesPeriod === 'alltime' && (
+              <Text style={styles.resetNote}>Best single week ever</Text>
+            )}
 
             {/* Empty state for touches */}
             {sortedTouches.length === 0 && !touchesLoading && (
@@ -459,7 +508,10 @@ const Leaderboard = () => {
                         </View>
                         <View style={styles.statsRow}>
                           <Text style={styles.todayTouches}>
-                            {player.today_touches.toLocaleString()} today
+                            {touchesPeriod === 'today' && `${player.today_touches.toLocaleString()} today`}
+                            {touchesPeriod === 'week' && `${player.today_touches.toLocaleString()} today`}
+                            {touchesPeriod === 'last_week' && `${player.weekly_touches.toLocaleString()} this week`}
+                            {touchesPeriod === 'alltime' && `${player.weekly_touches.toLocaleString()} this week`}
                           </Text>
                           {hitTarget && (
                             <View style={styles.targetHitBadge}>
@@ -708,8 +760,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
-    alignSelf: 'center',
-    marginLeft: 'auto',
+    marginTop: 6,
+    marginBottom: -4,
   },
 
   // PERIOD PILLS
