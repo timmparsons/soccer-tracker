@@ -1,4 +1,25 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Claude Code Guidelines — Soccer Tracker
+
+The app is published as **Master Touch** (bundle ID `com.timmparsons.mastertouch`), though the repo is named `soccer-tracker`.
+
+## Dev Commands
+
+```bash
+npm start                          # Start Expo dev server
+npm run ios                        # Run on iOS simulator
+npm run android                    # Run on Android emulator
+npm run web                        # Run web version
+npm run lint                       # Lint with expo lint
+npx expo install <package>         # Install Expo-compatible package (not npm install)
+eas build --platform ios           # Build for App Store (uses eas.json profiles)
+eas build --platform android       # Build for Play Store
+```
+
+No test framework is configured — there are no tests to run.
 
 ## Commits
 - **Always provide a commit message** after completing a task, but wait for explicit approval before running `git commit`. Stage only the files changed for that task.
@@ -28,12 +49,18 @@
 - Business logic goes in **`lib/`**. Pure helper functions go in **`utils/`**.
 - React Query query keys follow the pattern `['resource', id]` (e.g. `['profile', userId]`).
 - Auth state is managed in `app/_layout.tsx` via `supabase.auth.onAuthStateChange` — don't duplicate this elsewhere.
+- Supabase client is in `lib/supabase.ts` (uses AsyncStorage for session persistence).
+- XP/level logic lives in `lib/xp.ts` and `lib/awardXp.ts`. 1 XP per 10 juggles; teams level up at 500 XP.
+- Vinnie (AI coach) responses come from Supabase Edge Functions — see `lib/vinnie.ts`.
+- i18n uses i18next; strings live in `locales/en-US.json`, initialised in `utils/i18n.ts`.
+- Route groups: `(auth)`, `(tabs)`, `(onboarding)`, `(modals)`, `minigames`.
+- Shared UI primitives (Tile, WideTile, GradientTile, ProgressBar, PageHeader, etc.) live in `components/common/`.
 
 ## Expo / React Native
-- This project uses **Expo Router** (file-based routing) with SDK 54, New Architecture, and React Compiler enabled.
-- Route groups: `(auth)`, `(tabs)`, `(onboarding)`, `minigames`.
+- Expo Router SDK 54, New Architecture, React Compiler, and Typed Routes are all enabled.
 - Use `expo-notifications` for local notifications (no server push needed).
 - Platform guards (`Platform.OS === 'web'`) are required in any native-only utility.
+- EAS build profiles: `development` (internal), `preview` (internal), `production` (store + auto-increment version).
 
 ## Design System
 - Primary colours: `#1f89ee` (blue), `#ffb724` (orange), `#1a1a2e` (dark).
