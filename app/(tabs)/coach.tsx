@@ -65,6 +65,13 @@ export default function CoachDashboard() {
   const [editCount, setEditCount] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Add player state
+  const [addPlayerVisible, setAddPlayerVisible] = useState(false);
+  const [addPlayerName, setAddPlayerName] = useState('');
+  const [addPlayerEmail, setAddPlayerEmail] = useState('');
+  const [addPlayerPassword, setAddPlayerPassword] = useState('');
+  const [addPlayerSaving, setAddPlayerSaving] = useState(false);
+
   // Get team info
   const { data: team } = useQuery({
     queryKey: ['coach-team', profile?.team_id],
@@ -385,6 +392,48 @@ export default function CoachDashboard() {
     Alert.alert('Copied!', 'Team code copied to clipboard');
   };
 
+  // Add managed player
+  const handleAddPlayer = async () => {
+    if (!addPlayerName.trim() || !addPlayerEmail.trim() || !addPlayerPassword.trim()) {
+      Alert.alert('Required', 'Please fill in all fields.');
+      return;
+    }
+    setAddPlayerSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-managed-player`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session!.access_token}`,
+          },
+          body: JSON.stringify({
+            name: addPlayerName.trim(),
+            email: addPlayerEmail.trim(),
+            password: addPlayerPassword,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.error === 'email_taken') throw new Error('That email is already registered.');
+        throw new Error('Failed to add player. Please try again.');
+      }
+      Alert.alert('Player Added!', `${addPlayerName.trim()} is now on your team.`);
+      setAddPlayerVisible(false);
+      setAddPlayerName('');
+      setAddPlayerEmail('');
+      setAddPlayerPassword('');
+      await refetch();
+    } catch (e: unknown) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setAddPlayerSaving(false);
+    }
+  };
+
   // Format last active time
   const formatLastActive = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
@@ -460,6 +509,10 @@ export default function CoachDashboard() {
             <TouchableOpacity style={styles.codeButton} onPress={handleShareCode}>
               <Ionicons name="share-outline" size={18} color="#1f89ee" />
               <Text style={styles.codeButtonText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.codeButton} onPress={() => setAddPlayerVisible(true)}>
+              <Ionicons name="person-add-outline" size={18} color="#1f89ee" />
+              <Text style={styles.codeButtonText}>Add Player</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -833,6 +886,93 @@ export default function CoachDashboard() {
                 )}
 
                 <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ADD PLAYER MODAL */}
+      <Modal transparent visible={addPlayerVisible} animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={styles.modalWrapper}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Ionicons name="person-add" size={32} color="#1f89ee" />
+                  <Text style={styles.modalTitle}>Add Player</Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Player's full name"
+                    placeholderTextColor="#9CA3AF"
+                    value={addPlayerName}
+                    onChangeText={setAddPlayerName}
+                    autoFocus
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Their login email"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={addPlayerEmail}
+                    onChangeText={setAddPlayerEmail}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Temporary Password *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="They can change this later"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry
+                    value={addPlayerPassword}
+                    onChangeText={setAddPlayerPassword}
+                  />
+                  <Text style={styles.inputHint}>
+                    Share this password with the player so they can sign in
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.saveButton, addPlayerSaving && styles.saveButtonDisabled]}
+                  onPress={handleAddPlayer}
+                  disabled={addPlayerSaving}
+                >
+                  {addPlayerSaving ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Add to Team</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setAddPlayerVisible(false)}
+                  disabled={addPlayerSaving}
+                >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
