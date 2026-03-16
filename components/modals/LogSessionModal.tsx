@@ -37,14 +37,6 @@ interface LogSessionModalProps {
   challengeDifficulty?: string;
 }
 
-type MindsetMode = 'turn-up' | 'train-to-win' | 'dominate' | null;
-
-const MINDSET_MODES: { key: NonNullable<MindsetMode>; icon: string; label: string; target: number; tagline: string }[] = [
-  { key: 'turn-up', icon: '🙂', label: 'Turn Up', target: 200, tagline: 'Showing up is step one' },
-  { key: 'train-to-win', icon: '💪', label: 'Train to Win', target: 500, tagline: 'Focused and improving' },
-  { key: 'dominate', icon: '🔥', label: 'Dominate', target: 1000, tagline: 'Going all in' },
-];
-
 const DRILL_TIPS: Record<string, string> = {
   beginner:
     'Focus on clean touches, not speed. Get comfortable with the ball first! ⚽',
@@ -69,7 +61,6 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [mindsetMode, setMindsetMode] = useState<MindsetMode>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -132,7 +123,6 @@ const LogSessionModal = ({
       setTouches('');
       setDuration('');
       setJuggles('');
-      setMindsetMode(null);
 
       onSuccess();
       onClose();
@@ -215,47 +205,6 @@ const LogSessionModal = ({
                   </View>
                 </View>
               )}
-
-            {/* Mindset Mode Selector — regular mode only */}
-            {!isChallengeMode && (
-              <View style={styles.mindsetSection}>
-                <View style={styles.mindsetCards}>
-                  {MINDSET_MODES.map((mode) => {
-                    const isSelected = mindsetMode === mode.key;
-                    return (
-                      <TouchableOpacity
-                        key={mode.key}
-                        style={[styles.mindsetCard, isSelected && styles.mindsetCardSelected]}
-                        onPress={() => setMindsetMode(isSelected ? null : mode.key)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.mindsetCardIcon}>{mode.icon}</Text>
-                        <Text style={[styles.mindsetCardLabel, isSelected && styles.mindsetCardLabelSelected]}>
-                          {mode.label}
-                        </Text>
-                        <Text style={[styles.mindsetCardTagline, isSelected && styles.mindsetCardTaglineSelected]}>
-                          {mode.tagline}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {mindsetMode && (() => {
-                  const mode = MINDSET_MODES.find(m => m.key === mindsetMode)!;
-                  const diff = mode.target - touchCount;
-                  const goalText = touchCount <= 0
-                    ? `Session goal: ${mode.target.toLocaleString()} touches`
-                    : diff <= 0
-                      ? '✅ Goal smashed!'
-                      : `${diff.toLocaleString()} short of your goal`;
-                  return (
-                    <Text style={[styles.mindsetGoalText, diff <= 0 && touchCount > 0 && styles.mindsetGoalSmashed]}>
-                      {goalText}
-                    </Text>
-                  );
-                })()}
-              </View>
-            )}
 
             {/* Touches + Duration — side by side so both are always visible when keyboard is open */}
             <View style={styles.inputPairSection}>
@@ -381,9 +330,7 @@ const LogSessionModal = ({
                 <Text style={styles.submitButtonText}>
                   {isChallengeMode
                     ? 'LOG CHALLENGE'
-                    : mindsetMode === 'dominate' && touchCount > 0
-                      ? 'DOMINATE! LOG ' + touchCount.toLocaleString() + ' TOUCHES 🔥'
-                      : touchCount > 0 && juggleCount > 0
+                    : touchCount > 0 && juggleCount > 0
                         ? 'LOG ' +
                           touchCount.toLocaleString() +
                           ' TOUCHES + ' +
@@ -657,59 +604,4 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // MINDSET MODE
-  mindsetSection: {
-    marginBottom: 20,
-  },
-  mindsetCards: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  mindsetCard: {
-    flex: 1,
-    backgroundColor: '#F0F2F5',
-    borderRadius: 14,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  mindsetCardSelected: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#ffb724',
-  },
-  mindsetCardIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  mindsetCardLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  mindsetCardLabelSelected: {
-    color: '#ffb724',
-  },
-  mindsetCardTagline: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#78909C',
-    textAlign: 'center',
-    lineHeight: 13,
-  },
-  mindsetCardTaglineSelected: {
-    color: 'rgba(255,255,255,0.6)',
-  },
-  mindsetGoalText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78909C',
-    textAlign: 'center',
-  },
-  mindsetGoalSmashed: {
-    color: '#31af4d',
-  },
 });

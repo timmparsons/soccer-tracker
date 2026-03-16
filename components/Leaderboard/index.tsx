@@ -17,12 +17,10 @@ import {
   View,
 } from 'react-native';
 
-const getVinnieRankMessage = (rank: number, total: number): string => {
-  if (rank === 0) return "No sessions this week yet? Show the team what you've got! ⚽";
-  if (rank === 1) return "YOU'RE LEADING THE TEAM! Don't let anyone catch you! 🥇🔥";
-  if (rank <= 3) return `#${rank} on the board! Top 3! Keep grinding — first place is within reach! 💪`;
-  if (total > 0 && rank <= Math.ceil(total / 2)) return `#${rank} out of ${total}. Solid. Keep stacking touches to climb higher!`;
-  return `#${rank} out of ${total}. Time to put in the work. More sessions = more spots gained!`;
+const getBeswickLevel = (score: number): { label: string; icon: string; color: string; bg: string } => {
+  if (score >= 2500) return { label: 'Dominating', icon: '🔥', color: '#D84315', bg: '#FBE9E7' };
+  if (score >= 1000) return { label: 'Winning', icon: '💪', color: '#1565C0', bg: '#E3F2FD' };
+  return { label: 'Training', icon: '🙂', color: '#78909C', bg: '#F0F2F5' };
 };
 
 interface TeamMemberStats {
@@ -373,105 +371,110 @@ const Leaderboard = () => {
             {sortedTouches.length >= 3 && (
               <View style={styles.podium}>
                 {/* 2nd Place */}
-                <View style={styles.podiumSpot}>
-                  <Image
-                    source={{
-                      uri:
-                        sortedTouches[1].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar2}
-                  />
-                  <Text style={styles.podiumMedal}>🥈</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {sortedTouches[1].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {getTouchScore(sortedTouches[1]).toLocaleString()}
-                  </Text>
-                  <View style={styles.podiumRank2}>
-                    <Text style={styles.podiumRankText}>2nd</Text>
-                  </View>
-                </View>
+                {(() => {
+                  const p = sortedTouches[1];
+                  const score = getTouchScore(p);
+                  const level = score > 0 ? getBeswickLevel(score) : null;
+                  return (
+                    <View style={styles.podiumSpot}>
+                      <View style={styles.podiumAvatarContainer}>
+                        <Image
+                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.podiumAvatar2}
+                        />
+                        {p.today_touches >= p.daily_target && (
+                          <Text style={styles.podiumTargetIcon}>🎯</Text>
+                        )}
+                      </View>
+                      <Text style={styles.podiumMedal}>🥈</Text>
+                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
+                      <View style={styles.podiumRank2}>
+                        <Text style={styles.podiumRankText}>2nd</Text>
+                      </View>
+                      {level && (
+                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
+                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
 
                 {/* 1st Place */}
-                <View style={[styles.podiumSpot, styles.podiumFirst]}>
-                  <View style={styles.crownContainer}>
-                    <Text style={styles.crown}>👑</Text>
-                  </View>
-                  <Image
-                    source={{
-                      uri:
-                        sortedTouches[0].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar1}
-                  />
-                  <Text style={styles.podiumMedal}>🥇</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {sortedTouches[0].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {getTouchScore(sortedTouches[0]).toLocaleString()}
-                  </Text>
-                  <View style={styles.podiumRank1}>
-                    <Text style={styles.podiumRankText}>1st</Text>
-                  </View>
-                </View>
+                {(() => {
+                  const p = sortedTouches[0];
+                  const score = getTouchScore(p);
+                  const level = score > 0 ? getBeswickLevel(score) : null;
+                  return (
+                    <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                      <View style={styles.crownContainer}>
+                        <Text style={styles.crown}>👑</Text>
+                      </View>
+                      <View style={styles.podiumAvatarContainer}>
+                        <Image
+                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.podiumAvatar1}
+                        />
+                        {p.today_touches >= p.daily_target && (
+                          <Text style={styles.podiumTargetIcon}>🎯</Text>
+                        )}
+                      </View>
+                      <Text style={styles.podiumMedal}>🥇</Text>
+                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
+                      <View style={styles.podiumRank1}>
+                        <Text style={styles.podiumRankText}>1st</Text>
+                      </View>
+                      {level && (
+                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
+                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
 
                 {/* 3rd Place */}
-                <View style={styles.podiumSpot}>
-                  <Image
-                    source={{
-                      uri:
-                        sortedTouches[2].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar3}
-                  />
-                  <Text style={styles.podiumMedal}>🥉</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {sortedTouches[2].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {getTouchScore(sortedTouches[2]).toLocaleString()}
-                  </Text>
-                  <View style={styles.podiumRank3}>
-                    <Text style={styles.podiumRankText}>3rd</Text>
-                  </View>
-                </View>
+                {(() => {
+                  const p = sortedTouches[2];
+                  const score = getTouchScore(p);
+                  const level = score > 0 ? getBeswickLevel(score) : null;
+                  return (
+                    <View style={styles.podiumSpot}>
+                      <View style={styles.podiumAvatarContainer}>
+                        <Image
+                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.podiumAvatar3}
+                        />
+                        {p.today_touches >= p.daily_target && (
+                          <Text style={styles.podiumTargetIcon}>🎯</Text>
+                        )}
+                      </View>
+                      <Text style={styles.podiumMedal}>🥉</Text>
+                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
+                      <View style={styles.podiumRank3}>
+                        <Text style={styles.podiumRankText}>3rd</Text>
+                      </View>
+                      {level && (
+                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
+                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
               </View>
             )}
 
-            {/* Vinnie rank reaction */}
-            {sortedTouches.length > 0 && (
-              <View style={styles.vinnieRow}>
-                <Image
-                  source={require('@/assets/images/vinnie.png')}
-                  style={styles.vinnieImage}
-                  resizeMode='contain'
-                />
-                <View style={styles.vinnieBubbleRow}>
-                  <View style={styles.vinnieTail} />
-                  <View style={styles.vinnieBubble}>
-                    <Text style={styles.vinnieMessage}>
-                      {getVinnieRankMessage(
-                        sortedTouches.findIndex((p) => p.id === getCurrentUserId()) + 1,
-                        sortedTouches.length,
-                      )} — Coach Vinnie
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Rest of Touches List */}
+            {/* Leaderboard list — starts at #4 when podium is visible */}
             <View style={styles.listContainer}>
-              {sortedTouches.map((player) => {
+              {(sortedTouches.length >= 3 ? sortedTouches.slice(3) : sortedTouches).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
-                const hitTarget = player.today_touches >= player.daily_target;
                 const score = getTouchScore(player);
                 const rank = sortedTouches.filter(p => getTouchScore(p) > score).length + 1;
+                const level = score > 0 ? getBeswickLevel(score) : null;
 
                 return (
                   <View
@@ -483,13 +486,7 @@ const Leaderboard = () => {
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
-                        {rank <= 3 ? (
-                          <Text style={styles.medalEmoji}>
-                            {getMedalEmoji(rank)}
-                          </Text>
-                        ) : (
-                          <Text style={styles.rankNumber}>{rank}</Text>
-                        )}
+                        <Text style={styles.rankNumber}>{rank}</Text>
                       </View>
 
                       <Image
@@ -517,20 +514,20 @@ const Leaderboard = () => {
                             {touchesPeriod === 'last_week' && `${player.weekly_touches.toLocaleString()} this week`}
                             {touchesPeriod === 'alltime' && `${player.weekly_touches.toLocaleString()} this week`}
                           </Text>
-                          {hitTarget && (
-                            <View style={styles.targetHitBadge}>
-                              <Text style={styles.targetHitText}>
-                                🎯 Target Hit
-                              </Text>
-                            </View>
-                          )}
                         </View>
+                        {level && (
+                          <View style={[styles.beswickBadge, { backgroundColor: level.bg, alignSelf: 'flex-start' }]}>
+                            <Text style={[styles.beswickBadgeText, { color: level.color }]}>
+                              {level.label}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
                     <View style={styles.playerRight}>
                       <Text style={styles.weeklyTouches}>
-                        {getTouchScore(player).toLocaleString()}
+                        {score.toLocaleString()}
                       </Text>
                       <Text style={styles.touchesLabel}>touches</Text>
                     </View>
@@ -964,16 +961,26 @@ const styles = StyleSheet.create({
     color: '#78909C',
     fontWeight: '600',
   },
-  targetHitBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  podiumAvatarContainer: {
+    position: 'relative',
   },
-  targetHitText: {
-    fontSize: 10,
+  podiumTargetIcon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    fontSize: 16,
+  },
+  beswickBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'center',
+  },
+  beswickBadgeText: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#388E3C',
+    textAlign: 'center',
   },
   playerRight: {
     alignItems: 'flex-end',
@@ -998,45 +1005,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // VINNIE RANK REACTION
-  vinnieRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  vinnieImage: {
-    width: 100,
-    height: 65,
-    flexShrink: 0,
-  },
-  vinnieBubbleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  vinnieTail: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 8,
-    borderBottomWidth: 8,
-    borderRightWidth: 12,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderRightColor: '#E8E8E8',
-  },
-  vinnieBubble: {
-    flex: 1,
-    backgroundColor: '#E8E8E8',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  vinnieMessage: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    lineHeight: 20,
-  },
 
   // EMPTY STATE
   emptyState: {
