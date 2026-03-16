@@ -52,10 +52,18 @@ export default function CoachDashboard() {
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalTab, setModalTab] = useState<'log' | 'edit'>('log');
   const [touchCount, setTouchCount] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Edit session state
+  const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
+  const [loadingEditSessions, setLoadingEditSessions] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editCount, setEditCount] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   // Get team info
   const { data: team } = useQuery({
@@ -260,7 +268,58 @@ export default function CoachDashboard() {
     setSelectedPlayer(player);
     setTouchCount('');
     setDurationMinutes('');
+    setModalTab('log');
+    setEditSessions([]);
+    setEditingSessionId(null);
+    setEditCount('');
     setModalVisible(true);
+  };
+
+  const handleSwitchToEdit = async (playerId: string) => {
+    setModalTab('edit');
+    setLoadingEditSessions(true);
+    try {
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('id, date, touches_logged')
+        .eq('user_id', playerId)
+        .order('date', { ascending: false })
+        .limit(10);
+      setEditSessions(data || []);
+    } finally {
+      setLoadingEditSessions(false);
+    }
+  };
+
+  const handleUpdateSession = async () => {
+    const count = parseInt(editCount, 10);
+    if (!count || count <= 0 || isNaN(count) || !editingSessionId) return;
+
+    setEditSaving(true);
+    try {
+      const { error } = await supabase
+        .from('daily_sessions')
+        .update({ touches_logged: count })
+        .eq('id', editingSessionId);
+      if (error) throw error;
+      Alert.alert('Updated!', 'Session score updated.');
+      await refetch();
+      setModalVisible(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update session.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setTouchCount('');
+    setDurationMinutes('');
+    setSelectedPlayer(null);
+    setEditSessions([]);
+    setEditingSessionId(null);
+    setEditCount('');
   };
 
   // Handle saving touches for a player
@@ -642,12 +701,7 @@ export default function CoachDashboard() {
           <TouchableOpacity
             activeOpacity={1}
             style={styles.modalOverlay}
-            onPress={() => {
-              setModalVisible(false);
-              setTouchCount('');
-              setDurationMinutes('');
-              setSelectedPlayer(null);
-            }}
+            onPress={closeModal}
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -658,59 +712,127 @@ export default function CoachDashboard() {
                 <View style={styles.modalHeader}>
                   <Ionicons name="football" size={32} color="#1f89ee" />
                   <Text style={styles.modalTitle}>
-                    Log Touches for {selectedPlayer?.display_name || selectedPlayer?.name}
+                    {selectedPlayer?.display_name || selectedPlayer?.name}
                   </Text>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Touch Count *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter touch count"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="number-pad"
-                    value={touchCount}
-                    onChangeText={setTouchCount}
-                    autoFocus
-                  />
+                {/* Tab switcher */}
+                <View style={styles.modalTabs}>
+                  <TouchableOpacity
+                    style={[styles.modalTab, modalTab === 'log' && styles.modalTabActive]}
+                    onPress={() => setModalTab('log')}
+                  >
+                    <Text style={[styles.modalTabText, modalTab === 'log' && styles.modalTabTextActive]}>
+                      Log Touches
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalTab, modalTab === 'edit' && styles.modalTabActive]}
+                    onPress={() => selectedPlayer && handleSwitchToEdit(selectedPlayer.id)}
+                  >
+                    <Text style={[styles.modalTabText, modalTab === 'edit' && styles.modalTabTextActive]}>
+                      Edit Session
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Duration (minutes)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Optional - for tempo tracking"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="number-pad"
-                    value={durationMinutes}
-                    onChangeText={setDurationMinutes}
-                  />
-                  <Text style={styles.inputHint}>
-                    Adding duration helps track training intensity
-                  </Text>
-                </View>
+                {modalTab === 'log' ? (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Touch Count *</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter touch count"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="number-pad"
+                        value={touchCount}
+                        onChangeText={setTouchCount}
+                        autoFocus
+                      />
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                  onPress={handleSaveTouches}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Log Touches</Text>
-                  )}
-                </TouchableOpacity>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Duration (minutes)</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Optional - for tempo tracking"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="number-pad"
+                        value={durationMinutes}
+                        onChangeText={setDurationMinutes}
+                      />
+                      <Text style={styles.inputHint}>
+                        Adding duration helps track training intensity
+                      </Text>
+                    </View>
 
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setModalVisible(false);
-                    setTouchCount('');
-                    setDurationMinutes('');
-                    setSelectedPlayer(null);
-                  }}
-                >
+                    <TouchableOpacity
+                      style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                      onPress={handleSaveTouches}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.saveButtonText}>Log Touches</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {loadingEditSessions ? (
+                      <ActivityIndicator color="#1f89ee" style={{ marginVertical: 24 }} />
+                    ) : editingSessionId ? (
+                      <>
+                        <Text style={styles.inputLabel}>New Touch Count</Text>
+                        <TextInput
+                          style={[styles.input, { marginBottom: 16 }]}
+                          keyboardType="number-pad"
+                          value={editCount}
+                          onChangeText={setEditCount}
+                          autoFocus
+                        />
+                        <TouchableOpacity
+                          style={[styles.saveButton, editSaving && styles.saveButtonDisabled]}
+                          onPress={handleUpdateSession}
+                          disabled={editSaving}
+                        >
+                          {editSaving ? (
+                            <ActivityIndicator color="#FFF" />
+                          ) : (
+                            <Text style={styles.saveButtonText}>Save Changes</Text>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={() => { setEditingSessionId(null); setEditCount(''); }}
+                        >
+                          <Text style={styles.cancelButtonText}>← Back to sessions</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : editSessions.length === 0 ? (
+                      <Text style={[styles.inputHint, { textAlign: 'center', marginVertical: 24 }]}>
+                        No sessions found for this player.
+                      </Text>
+                    ) : (
+                      <View style={styles.editSessionList}>
+                        {editSessions.map((s) => (
+                          <TouchableOpacity
+                            key={s.id}
+                            style={styles.editSessionRow}
+                            onPress={() => { setEditingSessionId(s.id); setEditCount(String(s.touches_logged)); }}
+                          >
+                            <Text style={styles.editSessionDate}>{s.date}</Text>
+                            <Text style={styles.editSessionScore}>{s.touches_logged.toLocaleString()} touches</Text>
+                            <Ionicons name="pencil" size={16} color="#1f89ee" />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
+
+                <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
@@ -1292,5 +1414,56 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 15,
     fontWeight: '700',
+  },
+  modalTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  modalTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalTabActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+  modalTabTextActive: {
+    color: '#1a1a2e',
+  },
+  editSessionList: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  editSessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  editSessionDate: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  editSessionScore: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
   },
 });
