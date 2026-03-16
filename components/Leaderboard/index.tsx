@@ -212,7 +212,7 @@ const Leaderboard = () => {
       // Filter out those with no high score and sort descending
       return memberRecords
         .filter((r) => r.high_score > 0)
-        .sort((a, b) => b.high_score - a.high_score);
+        .sort((a, b) => b.high_score - a.high_score || a.name.localeCompare(b.name));
     },
     enabled: !!profile?.team_id,
   });
@@ -242,10 +242,12 @@ const Leaderboard = () => {
   }
 
   const sortedTouches = [...touchesLeaderboard].sort((a, b) => {
-    if (touchesPeriod === 'today') return b.today_touches - a.today_touches;
-    if (touchesPeriod === 'week') return b.weekly_touches - a.weekly_touches;
-    if (touchesPeriod === 'last_week') return b.last_week_touches - a.last_week_touches;
-    return b.alltime_best_week - a.alltime_best_week;
+    let diff = 0;
+    if (touchesPeriod === 'today') diff = b.today_touches - a.today_touches;
+    else if (touchesPeriod === 'week') diff = b.weekly_touches - a.weekly_touches;
+    else if (touchesPeriod === 'last_week') diff = b.last_week_touches - a.last_week_touches;
+    else diff = b.alltime_best_week - a.alltime_best_week;
+    return diff !== 0 ? diff : a.name.localeCompare(b.name);
   });
 
   const getTouchScore = (player: TeamMemberStats) => {
@@ -255,17 +257,17 @@ const Leaderboard = () => {
     return player.alltime_best_week;
   };
 
-  const getMedalEmoji = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
+  const getMedalEmoji = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
     return '';
   };
 
   const getCurrentUserId = () => user?.id;
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString + 'T00:00:00');
     const today = new Date();
     const diffDays = Math.floor(
       (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
@@ -465,9 +467,11 @@ const Leaderboard = () => {
 
             {/* Rest of Touches List */}
             <View style={styles.listContainer}>
-              {sortedTouches.map((player, index) => {
+              {sortedTouches.map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const hitTarget = player.today_touches >= player.daily_target;
+                const score = getTouchScore(player);
+                const rank = sortedTouches.filter(p => getTouchScore(p) > score).length + 1;
 
                 return (
                   <View
@@ -479,12 +483,12 @@ const Leaderboard = () => {
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
-                        {index < 3 ? (
+                        {rank <= 3 ? (
                           <Text style={styles.medalEmoji}>
-                            {getMedalEmoji(index)}
+                            {getMedalEmoji(rank)}
                           </Text>
                         ) : (
-                          <Text style={styles.rankNumber}>{index + 1}</Text>
+                          <Text style={styles.rankNumber}>{rank}</Text>
                         )}
                       </View>
 
@@ -639,8 +643,9 @@ const Leaderboard = () => {
 
             {/* Rest of Juggling List */}
             <View style={styles.listContainer}>
-              {jugglingLeaderboard.map((player, index) => {
+              {jugglingLeaderboard.map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
+                const rank = jugglingLeaderboard.filter(p => p.high_score > player.high_score).length + 1;
 
                 return (
                   <View
@@ -652,12 +657,12 @@ const Leaderboard = () => {
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
-                        {index < 3 ? (
+                        {rank <= 3 ? (
                           <Text style={styles.medalEmoji}>
-                            {getMedalEmoji(index)}
+                            {getMedalEmoji(rank)}
                           </Text>
                         ) : (
-                          <Text style={styles.rankNumber}>{index + 1}</Text>
+                          <Text style={styles.rankNumber}>{rank}</Text>
                         )}
                       </View>
 
