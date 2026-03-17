@@ -1,7 +1,7 @@
 import PageHeader from '@/components/common/PageHeader';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
-import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
+import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -32,8 +32,8 @@ const BESWICK_QUOTES = [
   'The difference between winners and losers is attitude, not ability.',
   'Turn up, train to win, or train to dominate — the choice defines you.',
   'Be a fighter. Never a victim.',
-  'How much do you want it? That\'s the only question that matters.',
-  'Elite players don\'t wait to be motivated. They create it.',
+  "How much do you want it? That's the only question that matters.",
+  "Elite players don't wait to be motivated. They create it.",
   'Consistency over intensity. Show up every day.',
   'Your habits today are your results tomorrow.',
   'Suffering in training means winning in competition.',
@@ -44,7 +44,8 @@ const BESWICK_QUOTES = [
 const getDailyBeswickQuote = () => {
   const today = new Date();
   const dayOfYear = Math.floor(
-    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) /
+      (1000 * 60 * 60 * 24),
   );
   return BESWICK_QUOTES[dayOfYear % BESWICK_QUOTES.length];
 };
@@ -52,43 +53,124 @@ const getDailyBeswickQuote = () => {
 // Pro tips - mix of quotes and practical training advice
 const PRO_TIPS = [
   // Inspirational quotes
-  { text: "The ball is like a magnet. If you can control it, you can do anything.", author: "Ronaldinho" },
-  { text: "I always tell young players to work on your technique. That's the foundation.", author: "Xavi Hernández" },
-  { text: "You have to fight to reach your dream. Sacrifice and work hard for it.", author: "Lionel Messi" },
-  { text: "Every training session is an opportunity to improve. Never waste one.", author: "Pep Guardiola" },
-  { text: "Ball control is everything. The best players touch the ball 10,000 times a day.", author: "Wiel Coerver" },
-  { text: "Work on your weaknesses until they become your strengths.", author: "Johan Cruyff" },
-  { text: "The secret is to believe in your dreams. They can come true.", author: "Cristiano Ronaldo" },
+  {
+    text: 'The ball is like a magnet. If you can control it, you can do anything.',
+    author: 'Ronaldinho',
+  },
+  {
+    text: "I always tell young players to work on your technique. That's the foundation.",
+    author: 'Xavi Hernández',
+  },
+  {
+    text: 'You have to fight to reach your dream. Sacrifice and work hard for it.',
+    author: 'Lionel Messi',
+  },
+  {
+    text: 'Every training session is an opportunity to improve. Never waste one.',
+    author: 'Pep Guardiola',
+  },
+  {
+    text: 'Ball control is everything. The best players touch the ball 10,000 times a day.',
+    author: 'Wiel Coerver',
+  },
+  {
+    text: 'Work on your weaknesses until they become your strengths.',
+    author: 'Johan Cruyff',
+  },
+  {
+    text: 'The secret is to believe in your dreams. They can come true.',
+    author: 'Cristiano Ronaldo',
+  },
 
   // Practical tips - Ball Control
-  { text: "Keep the ball close to your feet. The tighter your control, the harder you are to dispossess.", author: "Training Tip" },
-  { text: "Use all surfaces of your foot - inside, outside, sole, and laces. Versatility is key.", author: "Training Tip" },
-  { text: "Practice with your weaker foot as much as your strong foot. Two-footed players are unstoppable.", author: "Training Tip" },
-  { text: "Keep your knees slightly bent and stay on your toes. Good balance means better control.", author: "Training Tip" },
+  {
+    text: 'Keep the ball close to your feet. The tighter your control, the harder you are to dispossess.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Use all surfaces of your foot - inside, outside, sole, and laces. Versatility is key.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Practice with your weaker foot as much as your strong foot. Two-footed players are unstoppable.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Keep your knees slightly bent and stay on your toes. Good balance means better control.',
+    author: 'Training Tip',
+  },
 
   // Practical tips - First Touch
-  { text: "Cushion the ball on your first touch. A soft touch keeps the ball close and ready.", author: "Training Tip" },
-  { text: "Always know where you want to go before the ball arrives. Look up, then receive.", author: "Training Tip" },
-  { text: "Practice receiving the ball while turning. It saves time and beats defenders.", author: "Training Tip" },
+  {
+    text: 'Cushion the ball on your first touch. A soft touch keeps the ball close and ready.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Always know where you want to go before the ball arrives. Look up, then receive.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Practice receiving the ball while turning. It saves time and beats defenders.',
+    author: 'Training Tip',
+  },
 
   // Practical tips - Dribbling
-  { text: "Keep your head up while dribbling. The ball should be felt, not watched.", author: "Training Tip" },
-  { text: "Change pace and direction suddenly. Unpredictability is your greatest weapon.", author: "Training Tip" },
-  { text: "Use your body to shield the ball. Get between the defender and the ball.", author: "Training Tip" },
+  {
+    text: 'Keep your head up while dribbling. The ball should be felt, not watched.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Change pace and direction suddenly. Unpredictability is your greatest weapon.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Use your body to shield the ball. Get between the defender and the ball.',
+    author: 'Training Tip',
+  },
 
   // Practical tips - Training Habits
-  { text: "Quality over quantity. 100 focused touches beat 500 sloppy ones.", author: "Training Tip" },
-  { text: "Train in short bursts throughout the day. Consistency beats intensity.", author: "Training Tip" },
-  { text: "Practice under pressure. Add time limits or challenges to simulate game situations.", author: "Training Tip" },
-  { text: "Record yourself training. Watching your technique helps you spot mistakes.", author: "Training Tip" },
+  {
+    text: 'Quality over quantity. 100 focused touches beat 500 sloppy ones.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Train in short bursts throughout the day. Consistency beats intensity.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Practice under pressure. Add time limits or challenges to simulate game situations.',
+    author: 'Training Tip',
+  },
+  {
+    text: 'Record yourself training. Watching your technique helps you spot mistakes.',
+    author: 'Training Tip',
+  },
 
   // Game Speed Training
-  { text: "Train faster than you play. If you can do it fast in training, it'll be easy in a game.", author: "Training Tip" },
-  { text: "Perfect practice at slow speed is useless. The game is fast - your training should be too.", author: "Training Tip" },
-  { text: "Mistakes at speed are better than perfection at a snail's pace. Learn from errors, keep pushing.", author: "Training Tip" },
-  { text: "Aim for 50+ touches per minute. That's game speed. Anything less is warm-up.", author: "Training Tip" },
-  { text: "Speed is a skill. The more you practice fast, the more comfortable you'll be under pressure.", author: "Training Tip" },
-  { text: "In a game, you have 1-2 seconds on the ball. Train like you have even less.", author: "Training Tip" },
+  {
+    text: "Train faster than you play. If you can do it fast in training, it'll be easy in a game.",
+    author: 'Training Tip',
+  },
+  {
+    text: 'Perfect practice at slow speed is useless. The game is fast - your training should be too.',
+    author: 'Training Tip',
+  },
+  {
+    text: "Mistakes at speed are better than perfection at a snail's pace. Learn from errors, keep pushing.",
+    author: 'Training Tip',
+  },
+  {
+    text: "Aim for 50+ touches per minute. That's game speed. Anything less is warm-up.",
+    author: 'Training Tip',
+  },
+  {
+    text: "Speed is a skill. The more you practice fast, the more comfortable you'll be under pressure.",
+    author: 'Training Tip',
+  },
+  {
+    text: 'In a game, you have 1-2 seconds on the ball. Train like you have even less.',
+    author: 'Training Tip',
+  },
 ];
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -101,7 +183,8 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
 const getTodaysTips = () => {
   const today = new Date();
   const dayOfYear = Math.floor(
-    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
+    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) /
+      (1000 * 60 * 60 * 24),
   );
   const startIndex = (dayOfYear * 3) % PRO_TIPS.length;
   return [
@@ -127,7 +210,9 @@ const TrainPage = () => {
   const [submittingScore, setSubmittingScore] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
-  const [challengeDrillId, setChallengeDrillId] = useState<string | undefined>();
+  const [challengeDrillId, setChallengeDrillId] = useState<
+    string | undefined
+  >();
   const [challengeName, setChallengeName] = useState<string | undefined>();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState<string>('');
@@ -136,7 +221,9 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
-  const [drillFilter, setDrillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+  const [drillFilter, setDrillFilter] = useState<
+    'all' | 'beginner' | 'intermediate' | 'advanced'
+  >('all');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -154,9 +241,11 @@ const TrainPage = () => {
 
   // Load timer sounds + set up Android notification channel
   useEffect(() => {
-    Audio.Sound.createAsync(require('@/assets/sounds/fulltime_whistle.mp3')).then(
-      ({ sound }) => { whistleSoundRef.current = sound; }
-    );
+    Audio.Sound.createAsync(
+      require('@/assets/sounds/fulltime_whistle.mp3'),
+    ).then(({ sound }) => {
+      whistleSoundRef.current = sound;
+    });
 
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync('timer', {
@@ -224,7 +313,9 @@ const TrainPage = () => {
           date: new Date(endTimeRef.current),
         },
       })
-        .then(id => { timerNotificationIdRef.current = id; })
+        .then((id) => {
+          timerNotificationIdRef.current = id;
+        })
         .catch(() => {});
 
       timerRef.current = setInterval(() => {
@@ -232,7 +323,9 @@ const TrainPage = () => {
         if (remaining <= 0) {
           // Phone was awake — cancel the notification before it fires
           if (timerNotificationIdRef.current) {
-            Notifications.cancelScheduledNotificationAsync(timerNotificationIdRef.current).catch(() => {});
+            Notifications.cancelScheduledNotificationAsync(
+              timerNotificationIdRef.current,
+            ).catch(() => {});
             timerNotificationIdRef.current = null;
           }
           pausedRemainingRef.current = 0;
@@ -256,7 +349,9 @@ const TrainPage = () => {
       }
       // Cancel the scheduled notification when paused or stopped
       if (timerNotificationIdRef.current) {
-        Notifications.cancelScheduledNotificationAsync(timerNotificationIdRef.current).catch(() => {});
+        Notifications.cancelScheduledNotificationAsync(
+          timerNotificationIdRef.current,
+        ).catch(() => {});
         timerNotificationIdRef.current = null;
       }
     };
@@ -308,22 +403,18 @@ const TrainPage = () => {
   };
 
   const cancelTimer = () => {
-    Alert.alert(
-      'Stop Timer?',
-      'Are you sure you want to stop the timer?',
-      [
-        { text: 'Keep Going', style: 'cancel' },
-        {
-          text: 'Stop',
-          style: 'destructive',
-          onPress: () => {
-            stopTimer();
-            setShowTimerModal(false);
-            setTimeRemaining(0);
-          },
+    Alert.alert('Stop Timer?', 'Are you sure you want to stop the timer?', [
+      { text: 'Keep Going', style: 'cancel' },
+      {
+        text: 'Stop',
+        style: 'destructive',
+        onPress: () => {
+          stopTimer();
+          setShowTimerModal(false);
+          setTimeRemaining(0);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (isLoading) {
@@ -344,9 +435,10 @@ const TrainPage = () => {
     advanced: drills.filter((d) => d.difficulty_level === 'advanced'),
   };
 
-  const visibleLevels = drillFilter === 'all'
-    ? (['beginner', 'intermediate', 'advanced'] as const)
-    : [drillFilter] as const;
+  const visibleLevels =
+    drillFilter === 'all'
+      ? (['beginner', 'intermediate', 'advanced'] as const)
+      : ([drillFilter] as const);
 
   return (
     <View style={styles.container}>
@@ -409,40 +501,56 @@ const TrainPage = () => {
         {/* Beswick Mindset Quote */}
         <View style={styles.mindsetCard}>
           <Text style={styles.mindsetLabel}>MINDSET</Text>
-          <Text style={styles.mindsetQuote}>&quot;{getDailyBeswickQuote()}&quot;</Text>
-          <Text style={styles.mindsetAuthor}>— Bill Beswick, Sports Psychologist</Text>
+          <Text style={styles.mindsetQuote}>
+            &quot;{getDailyBeswickQuote()}&quot;
+          </Text>
+          <Text style={styles.mindsetAuthor}>
+            — Bill Beswick, Sports Psychologist
+          </Text>
         </View>
 
         {/* Drill Library */}
         <View style={styles.libraryCard}>
           <View style={styles.libraryHeader}>
             <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Tap a drill to log a session</Text>
+            <Text style={styles.librarySubtitle}>
+              Tap a drill to log a session
+            </Text>
           </View>
 
           {/* Level filter pills */}
           <View style={styles.drillFilterRow}>
-            {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((level) => (
-              <TouchableOpacity
-                key={level}
-                style={[
-                  styles.drillFilterPill,
-                  drillFilter === level && styles.drillFilterPillActive,
-                  drillFilter === level && level !== 'all' && { backgroundColor: DIFFICULTY_COLORS[level].bg },
-                ]}
-                onPress={() => setDrillFilter(level)}
-              >
-                <Text
+            {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(
+              (level) => (
+                <TouchableOpacity
+                  key={level}
                   style={[
-                    styles.drillFilterPillText,
-                    drillFilter === level && styles.drillFilterPillTextActive,
-                    drillFilter === level && level !== 'all' && { color: DIFFICULTY_COLORS[level].text },
+                    styles.drillFilterPill,
+                    drillFilter === level && styles.drillFilterPillActive,
+                    drillFilter === level &&
+                      level !== 'all' && {
+                        backgroundColor: DIFFICULTY_COLORS[level].bg,
+                      },
                   ]}
+                  onPress={() => setDrillFilter(level)}
                 >
-                  {level === 'all' ? 'All' : level.charAt(0).toUpperCase() + level.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.drillFilterPillText,
+                      drillFilter === level && styles.drillFilterPillTextActive,
+                      drillFilter === level &&
+                        level !== 'all' && {
+                          color: DIFFICULTY_COLORS[level].text,
+                        },
+                    ]}
+                  >
+                    {level === 'all'
+                      ? 'All'
+                      : level.charAt(0).toUpperCase() + level.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
           </View>
 
           {visibleLevels.map((level) => {
@@ -451,7 +559,12 @@ const TrainPage = () => {
             const color = DIFFICULTY_COLORS[level];
             return (
               <View key={level} style={styles.difficultySection}>
-                <View style={[styles.difficultyHeader, { backgroundColor: color.bg }]}>
+                <View
+                  style={[
+                    styles.difficultyHeader,
+                    { backgroundColor: color.bg },
+                  ]}
+                >
                   <Text style={[styles.difficultyLabel, { color: color.text }]}>
                     {level.toUpperCase()}
                   </Text>
@@ -484,13 +597,25 @@ const TrainPage = () => {
                             setVideoDescription(drill.description ?? '');
                           }}
                         >
-                          <Ionicons name='play-circle' size={13} color='#31af4d' />
-                          <Text style={styles.videoButtonText}>Watch tutorial</Text>
+                          <Ionicons
+                            name='play-circle'
+                            size={13}
+                            color='#31af4d'
+                          />
+                          <Text style={styles.videoButtonText}>
+                            Watch video
+                          </Text>
                         </TouchableOpacity>
                       ) : (
                         <View style={styles.comingSoonBadge}>
-                          <Ionicons name='videocam-outline' size={11} color='#78909C' />
-                          <Text style={styles.comingSoonText}>Video coming soon</Text>
+                          <Ionicons
+                            name='videocam-outline'
+                            size={11}
+                            color='#78909C'
+                          />
+                          <Text style={styles.comingSoonText}>
+                            Video coming soon
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -530,24 +655,45 @@ const TrainPage = () => {
         <View style={styles.timerModal}>
           <View style={styles.timerContent}>
             <Text style={styles.timerChallengeName}>Free Practice</Text>
-            <Text style={styles.timerInstructions}>Get as many touches as you can!</Text>
+            <Text style={styles.timerInstructions}>
+              Get as many touches as you can!
+            </Text>
 
             <View style={styles.timerCircle}>
               <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
-              <Text style={styles.timerSubtext}>{timerRunning ? 'remaining' : 'paused'}</Text>
+              <Text style={styles.timerSubtext}>
+                {timerRunning ? 'remaining' : 'paused'}
+              </Text>
             </View>
 
             <View style={styles.timerControlButtons}>
-              <TouchableOpacity style={styles.timerSecondaryButton} onPress={resetTimer}>
-                <Ionicons name='refresh' size={20} color='rgba(255,255,255,0.8)' />
+              <TouchableOpacity
+                style={styles.timerSecondaryButton}
+                onPress={resetTimer}
+              >
+                <Ionicons
+                  name='refresh'
+                  size={20}
+                  color='rgba(255,255,255,0.8)'
+                />
                 <Text style={styles.timerSecondaryText}>Reset</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.timerStartPauseButton} onPress={pauseResumeTimer}>
-                <Ionicons name={timerRunning ? 'pause' : 'play'} size={30} color='#1f89ee' />
+              <TouchableOpacity
+                style={styles.timerStartPauseButton}
+                onPress={pauseResumeTimer}
+              >
+                <Ionicons
+                  name={timerRunning ? 'pause' : 'play'}
+                  size={30}
+                  color='#1f89ee'
+                />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.timerSecondaryButton} onPress={cancelTimer}>
+              <TouchableOpacity
+                style={styles.timerSecondaryButton}
+                onPress={cancelTimer}
+              >
                 <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
                 <Text style={styles.timerSecondaryText}>Stop</Text>
               </TouchableOpacity>
@@ -567,57 +713,57 @@ const TrainPage = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-        <View style={styles.scoreModalOverlay}>
-          <View style={styles.scoreModalContent}>
-            <View style={styles.scoreModalHeader}>
-              <Text style={styles.scoreModalEmoji}>🎉</Text>
-              <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
-              <Text style={styles.scoreModalSubtitle}>
-                How many touches did you get?
-              </Text>
-            </View>
+          <View style={styles.scoreModalOverlay}>
+            <View style={styles.scoreModalContent}>
+              <View style={styles.scoreModalHeader}>
+                <Text style={styles.scoreModalEmoji}>🎉</Text>
+                <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
+                <Text style={styles.scoreModalSubtitle}>
+                  How many touches did you get?
+                </Text>
+              </View>
 
-            <View style={styles.scoreInputContainer}>
-              <TextInput
-                style={styles.scoreInput}
-                placeholder='Enter your score'
-                placeholderTextColor='#B0BEC5'
-                keyboardType='number-pad'
-                value={scoreInput}
-                onChangeText={setScoreInput}
-                autoFocus={true}
-              />
-            </View>
+              <View style={styles.scoreInputContainer}>
+                <TextInput
+                  style={styles.scoreInput}
+                  placeholder='Enter your score'
+                  placeholderTextColor='#B0BEC5'
+                  keyboardType='number-pad'
+                  value={scoreInput}
+                  onChangeText={setScoreInput}
+                  autoFocus={true}
+                />
+              </View>
 
-            <View style={styles.scoreModalButtons}>
-              <TouchableOpacity
-                style={styles.skipButton}
-                onPress={() => {
-                  setShowScoreModal(false);
-                  setScoreInput('');
-                }}
-              >
-                <Text style={styles.skipButtonText}>Skip</Text>
-              </TouchableOpacity>
+              <View style={styles.scoreModalButtons}>
+                <TouchableOpacity
+                  style={styles.skipButton}
+                  onPress={() => {
+                    setShowScoreModal(false);
+                    setScoreInput('');
+                  }}
+                >
+                  <Text style={styles.skipButtonText}>Skip</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.saveScoreButton,
-                  (!scoreInput || submittingScore) &&
-                    styles.saveScoreButtonDisabled,
-                ]}
-                onPress={handleSubmitScore}
-                disabled={!scoreInput || submittingScore}
-              >
-                {submittingScore ? (
-                  <ActivityIndicator size='small' color='#FFF' />
-                ) : (
-                  <Text style={styles.saveScoreButtonText}>Save Score</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.saveScoreButton,
+                    (!scoreInput || submittingScore) &&
+                      styles.saveScoreButtonDisabled,
+                  ]}
+                  onPress={handleSubmitScore}
+                  disabled={!scoreInput || submittingScore}
+                >
+                  {submittingScore ? (
+                    <ActivityIndicator size='small' color='#FFF' />
+                  ) : (
+                    <Text style={styles.saveScoreButtonText}>Save Score</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -632,91 +778,95 @@ const TrainPage = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-        <View style={styles.timerPickerOverlay}>
-          <View style={styles.timerPickerContent}>
-            <View style={styles.timerPickerHeader}>
-              <Text style={styles.timerPickerEmoji}>⏱️</Text>
-              <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
-              <Text style={styles.timerPickerSubtitle}>
-                Choose a duration for your session
-              </Text>
-            </View>
-
-            <View style={styles.timerOptionsGrid}>
-              {TIMER_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.seconds}
-                  style={styles.timerOption}
-                  onPress={() => startFreeTimer(option.seconds)}
-                >
-                  <Text style={styles.timerOptionText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.customTimerSection}>
-              <Text style={styles.customTimerLabel}>Custom duration</Text>
-              <View style={styles.customTimerRow}>
-                <View style={styles.customTimerInputGroup}>
-                  <TextInput
-                    style={styles.customTimerInput}
-                    placeholder='0'
-                    placeholderTextColor='#B0BEC5'
-                    keyboardType='number-pad'
-                    value={customMinutes}
-                    onChangeText={setCustomMinutes}
-                  />
-                  <Text style={styles.customTimerUnit}>min</Text>
-                </View>
-                <Text style={styles.customTimerSeparator}>:</Text>
-                <View style={styles.customTimerInputGroup}>
-                  <TextInput
-                    style={styles.customTimerInput}
-                    placeholder='0'
-                    placeholderTextColor='#B0BEC5'
-                    keyboardType='number-pad'
-                    value={customSeconds}
-                    onChangeText={(v) => {
-                      const n = parseInt(v);
-                      if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
-                    }}
-                  />
-                  <Text style={styles.customTimerUnit}>sec</Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.customTimerButton,
-                    (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
-                  ]}
-                  onPress={() => {
-                    const mins = parseInt(customMinutes) || 0;
-                    const secs = parseInt(customSeconds) || 0;
-                    const total = mins * 60 + secs;
-                    if (total > 0) {
-                      startFreeTimer(total);
-                      setCustomMinutes('');
-                      setCustomSeconds('');
-                    }
-                  }}
-                  disabled={!customMinutes && !customSeconds}
-                >
-                  <Text style={styles.customTimerButtonText}>Go</Text>
-                </TouchableOpacity>
+          <View style={styles.timerPickerOverlay}>
+            <View style={styles.timerPickerContent}>
+              <View style={styles.timerPickerHeader}>
+                <Text style={styles.timerPickerEmoji}>⏱️</Text>
+                <Text style={styles.timerPickerTitle}>
+                  Start Practice Timer
+                </Text>
+                <Text style={styles.timerPickerSubtitle}>
+                  Choose a duration for your session
+                </Text>
               </View>
-            </View>
 
-            <TouchableOpacity
-              style={styles.timerPickerCancel}
-              onPress={() => {
-                setShowTimerPicker(false);
-                setCustomMinutes('');
-                setCustomSeconds('');
-              }}
-            >
-              <Text style={styles.timerPickerCancelText}>Cancel</Text>
-            </TouchableOpacity>
+              <View style={styles.timerOptionsGrid}>
+                {TIMER_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.seconds}
+                    style={styles.timerOption}
+                    onPress={() => startFreeTimer(option.seconds)}
+                  >
+                    <Text style={styles.timerOptionText}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.customTimerSection}>
+                <Text style={styles.customTimerLabel}>Custom duration</Text>
+                <View style={styles.customTimerRow}>
+                  <View style={styles.customTimerInputGroup}>
+                    <TextInput
+                      style={styles.customTimerInput}
+                      placeholder='0'
+                      placeholderTextColor='#B0BEC5'
+                      keyboardType='number-pad'
+                      value={customMinutes}
+                      onChangeText={setCustomMinutes}
+                    />
+                    <Text style={styles.customTimerUnit}>min</Text>
+                  </View>
+                  <Text style={styles.customTimerSeparator}>:</Text>
+                  <View style={styles.customTimerInputGroup}>
+                    <TextInput
+                      style={styles.customTimerInput}
+                      placeholder='0'
+                      placeholderTextColor='#B0BEC5'
+                      keyboardType='number-pad'
+                      value={customSeconds}
+                      onChangeText={(v) => {
+                        const n = parseInt(v);
+                        if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
+                      }}
+                    />
+                    <Text style={styles.customTimerUnit}>sec</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.customTimerButton,
+                      !customMinutes &&
+                        !customSeconds &&
+                        styles.customTimerButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      const mins = parseInt(customMinutes) || 0;
+                      const secs = parseInt(customSeconds) || 0;
+                      const total = mins * 60 + secs;
+                      if (total > 0) {
+                        startFreeTimer(total);
+                        setCustomMinutes('');
+                        setCustomSeconds('');
+                      }
+                    }}
+                    disabled={!customMinutes && !customSeconds}
+                  >
+                    <Text style={styles.customTimerButtonText}>Go</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.timerPickerCancel}
+                onPress={() => {
+                  setShowTimerPicker(false);
+                  setCustomMinutes('');
+                  setCustomSeconds('');
+                }}
+              >
+                <Text style={styles.timerPickerCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1203,7 +1353,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFF',
   },
-
 
   // TIPS CARD
   tipsCard: {
