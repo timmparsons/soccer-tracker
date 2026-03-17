@@ -463,17 +463,23 @@ const ProfilePage = () => {
           <View style={styles.levelsCard}>
             <Text style={styles.levelsTitle}>Training Levels</Text>
             <Text style={styles.levelsSubtitle}>
-              Bill Beswick's performance philosophy. Your badge on the leaderboard shows which level your touches put you at.
+              Bill Beswick's performance philosophy. Your badge on the
+              leaderboard shows which level your touches put you at.
             </Text>
 
             <View style={styles.levelRow}>
               <View style={[styles.levelDot, { backgroundColor: '#D84315' }]} />
               <View style={styles.levelInfo}>
                 <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#D84315' }]}>Train to Dominate</Text>
+                  <Text style={[styles.levelName, { color: '#D84315' }]}>
+                    Train to Dominate
+                  </Text>
                   <Text style={styles.levelThreshold}>2,500+ touches</Text>
                 </View>
-                <Text style={styles.levelDescription}>Exceptional athletes whose training ensures winning is inevitable.</Text>
+                <Text style={styles.levelDescription}>
+                  Exceptional athletes whose training ensures winning is
+                  inevitable.
+                </Text>
               </View>
             </View>
 
@@ -481,10 +487,16 @@ const ProfilePage = () => {
               <View style={[styles.levelDot, { backgroundColor: '#1565C0' }]} />
               <View style={styles.levelInfo}>
                 <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#1565C0' }]}>Train to Win</Text>
-                  <Text style={styles.levelThreshold}>1,000 – 2,499 touches</Text>
+                  <Text style={[styles.levelName, { color: '#1565C0' }]}>
+                    Train to Win
+                  </Text>
+                  <Text style={styles.levelThreshold}>
+                    1,000 – 2,499 touches
+                  </Text>
                 </View>
-                <Text style={styles.levelDescription}>Athletes committed to winning on match day.</Text>
+                <Text style={styles.levelDescription}>
+                  Athletes committed to winning on match day.
+                </Text>
               </View>
             </View>
 
@@ -492,10 +504,14 @@ const ProfilePage = () => {
               <View style={[styles.levelDot, { backgroundColor: '#78909C' }]} />
               <View style={styles.levelInfo}>
                 <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#78909C' }]}>Turn Up</Text>
+                  <Text style={[styles.levelName, { color: '#78909C' }]}>
+                    Turn Up
+                  </Text>
                   <Text style={styles.levelThreshold}>Under 1,000 touches</Text>
                 </View>
-                <Text style={styles.levelDescription}>Athletes who show up and do the required work.</Text>
+                <Text style={styles.levelDescription}>
+                  Athletes who show up and do the required work.
+                </Text>
               </View>
             </View>
           </View>
@@ -653,7 +669,7 @@ const ProfilePage = () => {
           </View>
 
           {/* Version */}
-          <Text style={styles.version}>Version 2.1.0</Text>
+          <Text style={styles.version}>Version 2.1.1</Text>
         </ScrollView>
 
         {/* Daily Target Modal */}
