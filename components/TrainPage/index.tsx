@@ -14,9 +14,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -261,7 +263,15 @@ const TrainPage = () => {
   }, []);
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
-  const { data: drills = [] } = useDrills();
+  const { data: drills = [], refetch: refetchDrills } = useDrills();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetch(), refetchDrills()]);
+    setRefreshing(false);
+  }, [refetch, refetchDrills]);
 
   const handleSessionLogged = () => {
     refetch();
@@ -448,7 +458,12 @@ const TrainPage = () => {
         avatarUrl={profile?.avatar_url}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
+        }
+      >
         {/* Today's Progress */}
         <View style={styles.progressCard}>
           <View style={styles.progressSparkle}>
@@ -577,6 +592,34 @@ const TrainPage = () => {
                 <View style={styles.drillGrid}>
                   {levelDrills.map((drill) => (
                     <View key={drill.id} style={styles.drillCard}>
+                      {drill.video_url ? (
+                        <TouchableOpacity
+                          style={styles.drillThumbnailContainer}
+                          onPress={() => {
+                            setVideoUrl(drill.video_url!);
+                            setVideoName(drill.name);
+                            setVideoDescription(drill.description ?? '');
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          {drill.thumbnail_url ? (
+                            <Image
+                              source={{ uri: drill.thumbnail_url }}
+                              style={styles.drillThumbnail}
+                              resizeMode='cover'
+                            />
+                          ) : (
+                            <View style={styles.drillThumbnailPlaceholder} />
+                          )}
+                          <View style={styles.drillPlayOverlay}>
+                            <View style={styles.drillPlayButton}>
+                              <Ionicons name='play' size={14} color='#FFF' />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.drillThumbnailPlaceholderNoVideo} />
+                      )}
                       <TouchableOpacity
                         style={styles.drillTapArea}
                         onPress={() => {
@@ -592,35 +635,13 @@ const TrainPage = () => {
                             {drill.description}
                           </Text>
                         )}
+                        {!drill.video_url && (
+                          <View style={styles.comingSoonBadge}>
+                            <Ionicons name='videocam-outline' size={11} color='#78909C' />
+                            <Text style={styles.comingSoonText}>Video coming soon</Text>
+                          </View>
+                        )}
                       </TouchableOpacity>
-                      {drill.video_url ? (
-                        <TouchableOpacity
-                          style={styles.videoButton}
-                          onPress={() => {
-                            setVideoUrl(drill.video_url!);
-                            setVideoName(drill.name);
-                            setVideoDescription(drill.description ?? '');
-                          }}
-                        >
-                          <Ionicons
-                            name='play-circle'
-                            size={13}
-                            color='#31af4d'
-                          />
-                          <Text style={styles.videoButtonText}>▶ Watch</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={styles.comingSoonBadge}>
-                          <Ionicons
-                            name='videocam-outline'
-                            size={11}
-                            color='#78909C'
-                          />
-                          <Text style={styles.comingSoonText}>
-                            Video coming soon
-                          </Text>
-                        </View>
-                      )}
                     </View>
                   ))}
                 </View>
@@ -1167,7 +1188,46 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: '#F5F7FA',
     borderRadius: 14,
-    padding: 14,
+    overflow: 'hidden',
+  },
+  drillThumbnailContainer: {
+    height: 90,
+    width: '100%',
+  },
+  drillThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  drillThumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E8F5E9',
+  },
+  drillThumbnailPlaceholderNoVideo: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  drillPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drillPlayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#31af4d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  drillTapArea: {
+    padding: 10,
   },
   drillName: {
     fontSize: 14,
@@ -1180,9 +1240,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     lineHeight: 17,
-    marginBottom: 8,
-  },
-  drillTapArea: {
     marginBottom: 4,
   },
   comingSoonBadge: {
@@ -1196,18 +1253,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#78909C',
     fontWeight: '600',
-  },
-  videoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  videoButtonText: {
-    fontSize: 11,
-    color: '#31af4d',
-    fontWeight: '700',
   },
 
   // TIMER MODAL
