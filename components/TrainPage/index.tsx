@@ -223,7 +223,7 @@ const TrainPage = () => {
   const [customSeconds, setCustomSeconds] = useState('');
   const [drillFilter, setDrillFilter] = useState<
     'all' | 'beginner' | 'intermediate' | 'advanced'
-  >('all');
+  >('beginner');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -520,7 +520,7 @@ const TrainPage = () => {
 
           {/* Level filter pills */}
           <View style={styles.drillFilterRow}>
-            {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(
+            {(['beginner', 'intermediate', 'advanced', 'all'] as const).map(
               (level) => (
                 <TouchableOpacity
                   key={level}
@@ -552,6 +552,10 @@ const TrainPage = () => {
               ),
             )}
           </View>
+
+          <Text style={styles.drillHint}>
+            Tap a drill to log a session · Tap <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
+          </Text>
 
           {visibleLevels.map((level) => {
             const levelDrills = drillsByDifficulty[level];
@@ -1100,7 +1104,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 12,
+  },
+  drillHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
     marginBottom: 16,
+  },
+  drillHintPlay: {
+    color: '#31af4d',
+    fontWeight: '700',
   },
   drillFilterPill: {
     paddingVertical: 6,
