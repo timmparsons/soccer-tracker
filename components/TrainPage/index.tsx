@@ -554,7 +554,8 @@ const TrainPage = () => {
           </View>
 
           <Text style={styles.drillHint}>
-            Tap a drill to log a session · Tap <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
+            Tap a drill to log a session · Tap{' '}
+            <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
           </Text>
 
           {visibleLevels.map((level) => {
@@ -606,9 +607,7 @@ const TrainPage = () => {
                             size={13}
                             color='#31af4d'
                           />
-                          <Text style={styles.videoButtonText}>
-                            Watch video
-                          </Text>
+                          <Text style={styles.videoButtonText}>▶ Watch</Text>
                         </TouchableOpacity>
                       ) : (
                         <View style={styles.comingSoonBadge}>
