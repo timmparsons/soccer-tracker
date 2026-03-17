@@ -17,10 +17,10 @@ import {
   View,
 } from 'react-native';
 
-const getBeswickLevel = (score: number): { label: string; icon: string; color: string; bg: string } => {
-  if (score >= 2500) return { label: 'Dominating', icon: '🔥', color: '#D84315', bg: '#FBE9E7' };
-  if (score >= 1000) return { label: 'Winning', icon: '💪', color: '#1565C0', bg: '#E3F2FD' };
-  return { label: 'Training', icon: '🙂', color: '#78909C', bg: '#F0F2F5' };
+const getBeswickLevel = (score: number): { label: string; color: string; bg: string } => {
+  if (score >= 2500) return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
+  if (score >= 1000) return { label: 'Win', color: '#1565C0', bg: '#E3F2FD' };
+  return { label: 'Turn Up', color: '#78909C', bg: '#F0F2F5' };
 };
 
 interface TeamMemberStats {

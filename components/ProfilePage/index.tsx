@@ -459,6 +459,47 @@ const ProfilePage = () => {
             </View>
           )}
 
+          {/* Training Levels Card */}
+          <View style={styles.levelsCard}>
+            <Text style={styles.levelsTitle}>Training Levels</Text>
+            <Text style={styles.levelsSubtitle}>
+              Bill Beswick's performance philosophy. Your badge on the leaderboard shows which level your touches put you at.
+            </Text>
+
+            <View style={styles.levelRow}>
+              <View style={[styles.levelDot, { backgroundColor: '#D84315' }]} />
+              <View style={styles.levelInfo}>
+                <View style={styles.levelNameRow}>
+                  <Text style={[styles.levelName, { color: '#D84315' }]}>Train to Dominate</Text>
+                  <Text style={styles.levelThreshold}>2,500+ touches</Text>
+                </View>
+                <Text style={styles.levelDescription}>Exceptional athletes whose training ensures winning is inevitable.</Text>
+              </View>
+            </View>
+
+            <View style={styles.levelRow}>
+              <View style={[styles.levelDot, { backgroundColor: '#1565C0' }]} />
+              <View style={styles.levelInfo}>
+                <View style={styles.levelNameRow}>
+                  <Text style={[styles.levelName, { color: '#1565C0' }]}>Train to Win</Text>
+                  <Text style={styles.levelThreshold}>1,000 – 2,499 touches</Text>
+                </View>
+                <Text style={styles.levelDescription}>Athletes committed to winning on match day.</Text>
+              </View>
+            </View>
+
+            <View style={[styles.levelRow, { marginBottom: 0 }]}>
+              <View style={[styles.levelDot, { backgroundColor: '#78909C' }]} />
+              <View style={styles.levelInfo}>
+                <View style={styles.levelNameRow}>
+                  <Text style={[styles.levelName, { color: '#78909C' }]}>Turn Up</Text>
+                  <Text style={styles.levelThreshold}>Under 1,000 touches</Text>
+                </View>
+                <Text style={styles.levelDescription}>Athletes who show up and do the required work.</Text>
+              </View>
+            </View>
+          </View>
+
           {/* Account Info Card */}
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Account Info</Text>
@@ -1135,6 +1176,68 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  levelsCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  levelsTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 6,
+  },
+  levelsSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  levelDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 4,
+    flexShrink: 0,
+  },
+  levelInfo: {
+    flex: 1,
+  },
+  levelNameRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 3,
+    flexWrap: 'wrap',
+  },
+  levelName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  levelThreshold: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  levelDescription: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#78909C',
+    lineHeight: 18,
   },
   settingsTitle: {
     fontSize: 20,
