@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +39,7 @@ const HomeScreen = () => {
   const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
   const [vinnieDrillName, setVinnieDrillName] = useState<string | undefined>();
 
+  const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -48,6 +50,13 @@ const HomeScreen = () => {
 
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchProfile(), refetchStats(), refetchChallengeStats()]);
+    queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
+    setRefreshing(false);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,7 +98,12 @@ const HomeScreen = () => {
         avatarUrl={profile?.avatar_url}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
+        }
+      >
         {/* VINNIE */}
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}

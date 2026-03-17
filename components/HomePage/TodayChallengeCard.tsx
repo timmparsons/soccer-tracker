@@ -1,11 +1,25 @@
+import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { useChallengeStats, useTodayChallenge } from '@/hooks/useTouchTracking';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 interface TodayChallengeCardProps {
   userId: string;
-  onStartChallenge: (drillId: string, durationMinutes: number, drillName: string, difficulty: string) => void;
+  onStartChallenge: (
+    drillId: string,
+    durationMinutes: number,
+    drillName: string,
+    difficulty: string,
+  ) => void;
 }
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -14,10 +28,15 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   advanced: { bg: '#FFEBEE', text: '#D32F2F' },
 };
 
-const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProps) => {
+const TodayChallengeCard = ({
+  userId,
+  onStartChallenge,
+}: TodayChallengeCardProps) => {
   const router = useRouter();
-  const { data: challenge, isLoading: challengeLoading } = useTodayChallenge(userId);
+  const { data: challenge, isLoading: challengeLoading } =
+    useTodayChallenge(userId);
   const { data: stats } = useChallengeStats(userId, challenge?.id);
+  const [videoVisible, setVideoVisible] = useState(false);
 
   if (challengeLoading) {
     return (
@@ -31,52 +50,98 @@ const TodayChallengeCard = ({ userId, onStartChallenge }: TodayChallengeCardProp
 
   const durationMinutes = Math.round(challenge.challenge_duration_seconds / 60);
   const difficulty = challenge.difficulty_level as string;
-  const difficultyStyle = DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS['beginner'];
+  const difficultyStyle =
+    DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS['beginner'];
   const completedToday = stats?.completedToday ?? false;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
+    <>
+      <View style={styles.card}>
+        <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
 
-      {/* Video coming soon */}
-      <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
-
-      <View style={styles.drillRow}>
-        <Text style={styles.drillName}>{challenge.name}</Text>
-        <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg }]}>
-          <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>
-            {difficulty}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.goalLine}>
-        Get as many touches as you can in {durationMinutes} min
-      </Text>
-
-      {completedToday ? (
-        <>
-          <View style={styles.completedBadge}>
-            <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
+        <View style={styles.drillRow}>
+          <Text style={styles.drillName}>{challenge.name}</Text>
+          <View
+            style={[
+              styles.difficultyChip,
+              { backgroundColor: difficultyStyle.bg },
+            ]}
+          >
+            <Text
+              style={[styles.difficultyText, { color: difficultyStyle.text }]}
+            >
+              {difficulty}
+            </Text>
           </View>
+        </View>
+
+        <Text style={styles.goalLine}>
+          Get as many touches as you can in {durationMinutes} min
+        </Text>
+
+        {challenge.video_url ? (
           <TouchableOpacity
-            style={styles.keepTrainingButton}
-            onPress={() => router.push('/(tabs)/train')}
+            style={styles.thumbnailContainer}
+            onPress={() => setVideoVisible(true)}
+            activeOpacity={0.85}
+          >
+            {challenge.thumbnail_url ? (
+              <Image
+                source={{ uri: challenge.thumbnail_url }}
+                style={styles.thumbnail}
+                resizeMode='cover'
+              />
+            ) : (
+              <View style={styles.thumbnailPlaceholder} />
+            )}
+            <View style={styles.playOverlay}>
+              <View style={styles.playButton}>
+                <Ionicons name='play' size={22} color='#FFF' />
+              </View>
+              <Text style={styles.watchLabel}>Watch Video</Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
+        )}
+
+        {completedToday ? (
+          <>
+            <View style={styles.completedBadge}>
+              <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.keepTrainingButton}
+              onPress={() => router.push('/(tabs)/train')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.keepTrainingText}>Keep Training →</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() =>
+              onStartChallenge(
+                challenge.id,
+                durationMinutes,
+                challenge.name,
+                difficulty,
+              )
+            }
             activeOpacity={0.8}
           >
-            <Text style={styles.keepTrainingText}>Keep Training →</Text>
+            <Text style={styles.startButtonText}>Start Challenge</Text>
           </TouchableOpacity>
-        </>
-      ) : (
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.startButtonText}>Start Challenge</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+        )}
+      </View>
+      <DrillVideoModal
+        visible={videoVisible}
+        onClose={() => setVideoVisible(false)}
+        videoUrl={challenge.video_url ?? ''}
+        drillName={challenge.name}
+      />
+    </>
   );
 };
 
@@ -131,6 +196,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     marginBottom: 12,
+  },
+  thumbnailContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    height: 160,
+    backgroundColor: '#E8F5E9',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E8F5E9',
+  },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  playButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#31af4d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  watchLabel: {
+    color: '#1a1a2e',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   startButton: {
     backgroundColor: '#31af4d',
