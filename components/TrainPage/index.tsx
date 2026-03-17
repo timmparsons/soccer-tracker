@@ -674,6 +674,8 @@ const TrainPage = () => {
         visible={showTimerModal}
         animationType='fade'
         transparent={false}
+        statusBarTranslucent={Platform.OS === 'android'}
+        hardwareAccelerated
         onRequestClose={cancelTimer}
       >
         <View style={styles.timerModal}>
@@ -731,6 +733,8 @@ const TrainPage = () => {
         visible={showScoreModal}
         animationType='slide'
         transparent={true}
+        statusBarTranslucent={Platform.OS === 'android'}
+        hardwareAccelerated
         onRequestClose={() => setShowScoreModal(false)}
       >
         <KeyboardAvoidingView
@@ -796,6 +800,8 @@ const TrainPage = () => {
         visible={showTimerPicker}
         animationType='slide'
         transparent={true}
+        statusBarTranslucent={Platform.OS === 'android'}
+        hardwareAccelerated
         onRequestClose={() => setShowTimerPicker(false)}
       >
         <KeyboardAvoidingView

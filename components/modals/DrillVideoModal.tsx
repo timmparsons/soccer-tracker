@@ -3,6 +3,7 @@ import { ResizeMode, Video } from 'expo-av';
 import React, { useRef } from 'react';
 import {
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,7 +32,9 @@ const DrillVideoModal = ({ visible, onClose, videoUrl, drillName, description }:
     <Modal
       visible={visible}
       animationType='slide'
-      presentationStyle='pageSheet'
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      statusBarTranslucent={Platform.OS === 'android'}
+      hardwareAccelerated
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container} edges={['top']}>

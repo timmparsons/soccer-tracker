@@ -746,7 +746,7 @@ export default function CoachDashboard() {
       </ScrollView>
 
       {/* ADD TOUCHES MODAL */}
-      <Modal transparent visible={modalVisible} animationType="slide">
+      <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
@@ -895,7 +895,7 @@ export default function CoachDashboard() {
       </Modal>
 
       {/* ADD PLAYER MODAL */}
-      <Modal transparent visible={addPlayerVisible} animationType="slide">
+      <Modal transparent visible={addPlayerVisible} animationType="slide" onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)} statusBarTranslucent={Platform.OS === 'android'}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}

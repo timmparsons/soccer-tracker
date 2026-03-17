@@ -153,6 +153,7 @@ const LogSessionModal = ({
       transparent={true}
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
+      hardwareAccelerated
     >
       <View style={styles.kavContainer}>
         <View style={styles.modalOverlay}>
