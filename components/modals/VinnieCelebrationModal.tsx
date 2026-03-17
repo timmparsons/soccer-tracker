@@ -4,7 +4,6 @@ import {
   Animated,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -61,7 +60,6 @@ const VinnieCelebrationModal = ({
       visible={visible}
       animationType='fade'
       transparent={true}
-      statusBarTranslucent={Platform.OS === 'android'}
       hardwareAccelerated
       onRequestClose={onClose}
     >
