@@ -255,6 +255,8 @@ const Leaderboard = () => {
     return player.alltime_best_week;
   };
 
+  const showTouchesPodium = sortedTouches.filter(p => getTouchScore(p) > 0).length >= 3;
+
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
@@ -368,7 +370,7 @@ const Leaderboard = () => {
             )}
 
             {/* Top 3 Podium for Touches */}
-            {sortedTouches.length >= 3 && (
+            {showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 2nd Place */}
                 {(() => {
@@ -470,7 +472,7 @@ const Leaderboard = () => {
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
             <View style={styles.listContainer}>
-              {(sortedTouches.length >= 3 ? sortedTouches.slice(3) : sortedTouches).map((player) => {
+              {(showTouchesPodium ? sortedTouches.slice(3) : sortedTouches).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
                 const rank = sortedTouches.filter(p => getTouchScore(p) > score).length + 1;
