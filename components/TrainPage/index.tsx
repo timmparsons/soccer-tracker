@@ -231,6 +231,7 @@ const TrainPage = () => {
   const endTimeRef = useRef<number>(0);
   const pausedRemainingRef = useRef<number>(0);
   const timerNotificationIdRef = useRef<string | null>(null);
+  const whistlePlayedRef = useRef<boolean>(false);
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
@@ -309,13 +310,15 @@ const TrainPage = () => {
     if (timerRunning) {
       // Compute absolute end time from current remaining — survives phone sleep
       endTimeRef.current = Date.now() + pausedRemainingRef.current * 1000;
+      whistlePlayedRef.current = false;
 
       // Schedule an OS-level notification so the alarm fires even if phone sleeps
       Notifications.scheduleNotificationAsync({
         content: {
           title: "Time's up! ⚽",
           body: 'Your training session is complete. Log your touches!',
-          sound: 'fulltime_whistle.wav',
+          // No sound here — in-app replayAsync() handles it when the app is foregrounded.
+          // The notification only fires if the phone sleeps mid-session (no in-app sound needed then).
           ...(Platform.OS === 'android' && { channelId: 'timer' }),
         },
         trigger: {
@@ -341,8 +344,11 @@ const TrainPage = () => {
           pausedRemainingRef.current = 0;
           setTimeRemaining(0);
           stopTimer();
-          Vibration.vibrate([0, 500, 200, 500]);
-          whistleSoundRef.current?.replayAsync();
+          if (!whistlePlayedRef.current) {
+            whistlePlayedRef.current = true;
+            Vibration.vibrate([0, 500, 200, 500]);
+            whistleSoundRef.current?.replayAsync();
+          }
           setShowTimerModal(false);
           setShowScoreModal(true);
         } else {
