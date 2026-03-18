@@ -461,7 +461,11 @@ const TrainPage = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor='#1f89ee'
+          />
         }
       >
         {/* Today's Progress */}
@@ -513,24 +517,11 @@ const TrainPage = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Beswick Mindset Quote */}
-        <View style={styles.mindsetCard}>
-          <Text style={styles.mindsetLabel}>MINDSET</Text>
-          <Text style={styles.mindsetQuote}>
-            &quot;{getDailyBeswickQuote()}&quot;
-          </Text>
-          <Text style={styles.mindsetAuthor}>
-            — Bill Beswick, Sports Psychologist
-          </Text>
-        </View>
 
         {/* Drill Library */}
         <View style={styles.libraryCard}>
           <View style={styles.libraryHeader}>
             <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>
-              Tap a drill to log a session
-            </Text>
           </View>
 
           {/* Level filter pills */}
@@ -576,19 +567,8 @@ const TrainPage = () => {
           {visibleLevels.map((level) => {
             const levelDrills = drillsByDifficulty[level];
             if (levelDrills.length === 0) return null;
-            const color = DIFFICULTY_COLORS[level];
             return (
               <View key={level} style={styles.difficultySection}>
-                <View
-                  style={[
-                    styles.difficultyHeader,
-                    { backgroundColor: color.bg },
-                  ]}
-                >
-                  <Text style={[styles.difficultyLabel, { color: color.text }]}>
-                    {level.toUpperCase()}
-                  </Text>
-                </View>
                 <View style={styles.drillGrid}>
                   {levelDrills.map((drill) => (
                     <View key={drill.id} style={styles.drillCard}>
@@ -637,8 +617,14 @@ const TrainPage = () => {
                         )}
                         {!drill.video_url && (
                           <View style={styles.comingSoonBadge}>
-                            <Ionicons name='videocam-outline' size={11} color='#78909C' />
-                            <Text style={styles.comingSoonText}>Video coming soon</Text>
+                            <Ionicons
+                              name='videocam-outline'
+                              size={11}
+                              color='#78909C'
+                            />
+                            <Text style={styles.comingSoonText}>
+                              Video coming soon
+                            </Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -650,13 +636,19 @@ const TrainPage = () => {
           })}
         </View>
 
-        {/* Quick Tips */}
+        {/* Coach's Tips */}
         <View style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
             <Text style={styles.tipsIcon}>💡</Text>
-            <Text style={styles.tipsTitle}>Today&apos;s Tips</Text>
+            <Text style={styles.tipsTitle}>Coach&apos;s Tips</Text>
           </View>
           <View style={styles.tipsList}>
+            <View style={styles.tipItem}>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipText}>&quot;{getDailyBeswickQuote()}&quot;</Text>
+                <Text style={styles.tipAuthor}>— Bill Beswick, Sports Psychologist</Text>
+              </View>
+            </View>
             {todaysTips.map((tip, index) => (
               <View key={index} style={styles.tipItem}>
                 <View style={styles.tipContent}>
@@ -1081,34 +1073,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.5,
-  },
-
-  // MINDSET CARD
-  mindsetCard: {
-    backgroundColor: '#1a1a2e',
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  mindsetLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#ffb724',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  mindsetQuote: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    lineHeight: 24,
-    fontStyle: 'italic',
-    marginBottom: 10,
-  },
-  mindsetAuthor: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
   },
 
   // DRILL LIBRARY

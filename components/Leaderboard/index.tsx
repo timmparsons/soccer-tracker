@@ -255,7 +255,9 @@ const Leaderboard = () => {
     return player.alltime_best_week;
   };
 
-  const showTouchesPodium = sortedTouches.filter(p => getTouchScore(p) > 0).length >= 3;
+  const scoredPlayers = sortedTouches.filter(p => getTouchScore(p) > 0);
+  const showTouchesPodium = scoredPlayers.length >= 1;
+  const podiumCount = Math.min(scoredPlayers.length, 2);
 
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -360,7 +362,7 @@ const Leaderboard = () => {
             )}
 
             {/* Empty state for touches */}
-            {sortedTouches.length === 0 && !touchesLoading && (
+            {scoredPlayers.length === 0 && !touchesLoading && (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateTitle}>No Data Yet</Text>
                 <Text style={styles.emptyStateText}>
@@ -369,45 +371,14 @@ const Leaderboard = () => {
               </View>
             )}
 
-            {/* Top 3 Podium for Touches */}
+            {/* Podium — 1st left, 2nd right. List starts at 3rd. */}
             {showTouchesPodium && (
               <View style={styles.podium}>
-                {/* 2nd Place */}
+                {/* 1st Place — left */}
                 {(() => {
-                  const p = sortedTouches[1];
+                  const p = scoredPlayers[0];
                   const score = getTouchScore(p);
-                  const level = score > 0 ? getBeswickLevel(score) : null;
-                  return (
-                    <View style={styles.podiumSpot}>
-                      <View style={styles.podiumAvatarContainer}>
-                        <Image
-                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                          style={styles.podiumAvatar2}
-                        />
-                        {p.today_touches >= p.daily_target && (
-                          <Text style={styles.podiumTargetIcon}>🎯</Text>
-                        )}
-                      </View>
-                      <Text style={styles.podiumMedal}>🥈</Text>
-                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
-                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank2}>
-                        <Text style={styles.podiumRankText}>2nd</Text>
-                      </View>
-                      {level && (
-                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
-                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })()}
-
-                {/* 1st Place */}
-                {(() => {
-                  const p = sortedTouches[0];
-                  const score = getTouchScore(p);
-                  const level = score > 0 ? getBeswickLevel(score) : null;
+                  const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <View style={[styles.podiumSpot, styles.podiumFirst]}>
                       <View style={styles.crownContainer}>
@@ -437,27 +408,27 @@ const Leaderboard = () => {
                   );
                 })()}
 
-                {/* 3rd Place */}
-                {(() => {
-                  const p = sortedTouches[2];
+                {/* 2nd Place — right, only if 2+ have scored */}
+                {podiumCount >= 2 && (() => {
+                  const p = scoredPlayers[1];
                   const score = getTouchScore(p);
-                  const level = score > 0 ? getBeswickLevel(score) : null;
+                  const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <View style={styles.podiumSpot}>
                       <View style={styles.podiumAvatarContainer}>
                         <Image
                           source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                          style={styles.podiumAvatar3}
+                          style={styles.podiumAvatar2}
                         />
                         {p.today_touches >= p.daily_target && (
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥉</Text>
+                      <Text style={styles.podiumMedal}>🥈</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank3}>
-                        <Text style={styles.podiumRankText}>3rd</Text>
+                      <View style={styles.podiumRank2}>
+                        <Text style={styles.podiumRankText}>2nd</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
@@ -472,11 +443,11 @@ const Leaderboard = () => {
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
             <View style={styles.listContainer}>
-              {(showTouchesPodium ? sortedTouches.slice(3) : sortedTouches).map((player) => {
+              {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
                 const rank = sortedTouches.filter(p => getTouchScore(p) > score).length + 1;
-                const level = score > 0 ? getBeswickLevel(score) : null;
+                const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
 
                 return (
                   <View
@@ -803,7 +774,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
     marginBottom: 32,
-    gap: 8,
+    gap: 16,
   },
   podiumSpot: {
     alignItems: 'center',

@@ -465,71 +465,67 @@ const ProgressPage = () => {
           )}
         </View>
 
-        {/* Achievements */}
-        <View style={styles.achievementsCard}>
-          <View style={styles.achievementsHeader}>
-            <Text style={styles.sectionTitle}>Achievements</Text>
-            <View style={styles.achievementsBadge}>
-              <Text style={styles.achievementsBadgeText}>{unlockedCount}/{achievements.length} Unlocked</Text>
+        {/* Trophy Cabinet */}
+        <View style={styles.cabinetCard}>
+          <View style={styles.cabinetHeader}>
+            <View>
+              <Text style={styles.cabinetLabel}>TROPHY CABINET</Text>
+              <Text style={styles.cabinetTitle}>
+                {unlockedCount === 0
+                  ? 'Start earning trophies'
+                  : unlockedCount === achievements.length
+                  ? 'Full collection! 🎉'
+                  : `${unlockedCount} of ${achievements.length} earned`}
+              </Text>
+            </View>
+            <View style={styles.cabinetBadge}>
+              <Text style={styles.cabinetBadgeText}>{unlockedCount}/{achievements.length}</Text>
             </View>
           </View>
 
-          {achievements.map((achievement) => (
-            <View
-              key={achievement.id}
-              style={[
-                styles.achievementItem,
-                !achievement.unlocked && styles.achievementLocked,
-              ]}
-            >
-              <View style={styles.achievementIconBg}>
-                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-              </View>
-              <View style={styles.achievementInfo}>
-                <Text
-                  style={[
-                    styles.achievementTitle,
-                    !achievement.unlocked && styles.achievementTitleLocked,
-                  ]}
-                >
-                  {achievement.title}
-                </Text>
-                <Text style={styles.achievementDescription}>
-                  {achievement.description}
-                </Text>
-                {achievement.unlocked ? (
-                  <View style={styles.achievementUnlockedBadge}>
-                    <Ionicons
-                      name='checkmark-circle'
-                      size={14}
-                      color='#388E3C'
-                    />
-                    <Text style={styles.achievementUnlockedText}>
-                      Unlocked!
-                    </Text>
+          <View style={styles.trophyGrid}>
+            {achievements.map((achievement) =>
+              achievement.unlocked ? (
+                <View key={achievement.id} style={styles.trophyUnlocked}>
+                  <View style={styles.trophyIconRingUnlocked}>
+                    <Text style={styles.trophyEmoji}>{achievement.icon}</Text>
                   </View>
-                ) : (
-                  <View style={styles.achievementProgress}>
-                    <View style={styles.achievementProgressBar}>
-                      <View
-                        style={[
-                          styles.achievementProgressFill,
-                          {
-                            width: `${
-                              (achievement.progress / achievement.total) * 100
-                            }%`,
-                          },
-                        ]}
-                      />
+                  <Text style={styles.trophyNameUnlocked} numberOfLines={2}>
+                    {achievement.title}
+                  </Text>
+                  <View style={styles.earnedBadge}>
+                    <Ionicons name='checkmark' size={10} color='#065F46' />
+                    <Text style={styles.earnedText}>EARNED</Text>
+                  </View>
+                </View>
+              ) : (
+                <View key={achievement.id} style={styles.trophyLocked}>
+                  <View style={styles.trophyIconRingLocked}>
+                    <Text style={[styles.trophyEmoji, { opacity: 0.12 }]}>
+                      {achievement.icon}
+                    </Text>
+                    <View style={styles.lockOverlay}>
+                      <Ionicons name='lock-closed' size={22} color='rgba(255,255,255,0.45)' />
                     </View>
-                    <Text style={styles.achievementProgressText}>
-                      {achievement.progress.toLocaleString()}/{achievement.total.toLocaleString()}
-                    </Text>
                   </View>
-                )}
-              </View>
-            </View>
-          ))}
+                  <Text style={styles.trophyNameLocked} numberOfLines={2}>
+                    {achievement.title}
+                  </Text>
+                  <View style={styles.lockedProgressBar}>
+                    <View
+                      style={[
+                        styles.lockedProgressFill,
+                        { width: `${Math.min((achievement.progress / achievement.total) * 100, 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.lockedProgressText}>
+                    {achievement.progress.toLocaleString()}/{achievement.total.toLocaleString()}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -786,103 +782,158 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // ACHIEVEMENTS
-  achievementsCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
+  // TROPHY CABINET
+  cabinetCard: {
+    backgroundColor: '#1E1A3A',
     borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    overflow: 'hidden',
+    shadowColor: '#1E1A3A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  achievementsHeader: {
+  cabinetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 20,
+    paddingBottom: 16,
   },
-  achievementsBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  achievementsBadgeText: {
-    fontSize: 12,
+  cabinetLabel: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#388E3C',
-  },
-  achievementItem: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F7FA',
-  },
-  achievementLocked: {
-    opacity: 0.5,
-  },
-  achievementIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FFF3E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  achievementIcon: {
-    fontSize: 28,
-  },
-  achievementInfo: {
-    flex: 1,
-  },
-  achievementTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#A78BFA',
+    letterSpacing: 2,
     marginBottom: 4,
   },
-  achievementTitleLocked: {
-    color: '#78909C',
+  cabinetTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFF',
   },
-  achievementDescription: {
-    fontSize: 13,
-    color: '#78909C',
-    fontWeight: '600',
-    marginBottom: 8,
+  cabinetBadge: {
+    backgroundColor: '#312E81',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#4338CA',
   },
-  achievementUnlockedBadge: {
+  cabinetBadgeText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#C7D2FE',
+  },
+  trophyGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
-  achievementUnlockedText: {
+  trophyUnlocked: {
+    width: '47.5%',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  trophyLocked: {
+    width: '47.5%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  trophyIconRingUnlocked: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  trophyIconRingLocked: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  trophyEmoji: {
+    fontSize: 30,
+  },
+  lockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 26, 58, 0.65)',
+    borderRadius: 32,
+  },
+  trophyNameUnlocked: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#78350F',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  trophyNameLocked: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#388E3C',
+    color: 'rgba(255,255,255,0.28)',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 8,
   },
-  achievementProgress: {
+  earnedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 3,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  achievementProgressBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
+  earnedText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#065F46',
+    letterSpacing: 0.8,
+  },
+  lockedProgressBar: {
+    width: '100%',
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 2,
     overflow: 'hidden',
+    marginBottom: 5,
   },
-  achievementProgressFill: {
+  lockedProgressFill: {
     height: '100%',
-    backgroundColor: '#FFB74D',
-    borderRadius: 3,
+    backgroundColor: 'rgba(167,139,250,0.6)',
+    borderRadius: 2,
   },
-  achievementProgressText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#78909C',
+  lockedProgressText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.22)',
   },
 });

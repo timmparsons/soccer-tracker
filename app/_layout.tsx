@@ -84,6 +84,11 @@ export default function RootLayout() {
         const initialUrl = await Linking.getInitialURL();
         if (initialUrl) await handleRecoveryUrl(initialUrl);
 
+        if (recoveryRef.current) {
+          setTargetRoute('/(auth)/reset-password');
+          return;
+        }
+
         const [sessionResult, seen] = await Promise.all([
           supabase.auth.getSession(),
           AsyncStorage.getItem('hasSeenIntro'),
