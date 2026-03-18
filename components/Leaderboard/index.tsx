@@ -257,7 +257,7 @@ const Leaderboard = () => {
 
   const scoredPlayers = sortedTouches.filter(p => getTouchScore(p) > 0);
   const showTouchesPodium = scoredPlayers.length >= 1;
-  const podiumCount = Math.min(scoredPlayers.length, 2);
+  const podiumCount = Math.min(scoredPlayers.length, 3);
 
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -361,20 +361,42 @@ const Leaderboard = () => {
               <Text style={styles.resetNote}>Best single week ever</Text>
             )}
 
-            {/* Empty state for touches */}
-            {scoredPlayers.length === 0 && !touchesLoading && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No Data Yet</Text>
-                <Text style={styles.emptyStateText}>
-                  Team members will appear here once they start logging touches.
-                </Text>
-              </View>
-            )}
 
-            {/* Podium — 1st left, 2nd right. List starts at 3rd. */}
+            {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
             {showTouchesPodium && (
               <View style={styles.podium}>
-                {/* 1st Place — left */}
+                {/* 2nd Place — left, only if 2+ have scored */}
+                {podiumCount >= 2 && (() => {
+                  const p = scoredPlayers[1];
+                  const score = getTouchScore(p);
+                  const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
+                  return (
+                    <View style={styles.podiumSpot}>
+                      <View style={styles.podiumAvatarContainer}>
+                        <Image
+                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.podiumAvatar2}
+                        />
+                        {p.today_touches >= p.daily_target && (
+                          <Text style={styles.podiumTargetIcon}>🎯</Text>
+                        )}
+                      </View>
+                      <Text style={styles.podiumMedal}>🥈</Text>
+                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
+                      <View style={styles.podiumRank2}>
+                        <Text style={styles.podiumRankText}>2nd</Text>
+                      </View>
+                      {level && (
+                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
+                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* 1st Place — centre */}
                 {(() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
@@ -408,9 +430,9 @@ const Leaderboard = () => {
                   );
                 })()}
 
-                {/* 2nd Place — right, only if 2+ have scored */}
-                {podiumCount >= 2 && (() => {
-                  const p = scoredPlayers[1];
+                {/* 3rd Place — only if 3+ have scored */}
+                {podiumCount >= 3 && (() => {
+                  const p = scoredPlayers[2];
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
@@ -418,17 +440,17 @@ const Leaderboard = () => {
                       <View style={styles.podiumAvatarContainer}>
                         <Image
                           source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                          style={styles.podiumAvatar2}
+                          style={styles.podiumAvatar3}
                         />
                         {p.today_touches >= p.daily_target && (
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥈</Text>
+                      <Text style={styles.podiumMedal}>🥉</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank2}>
-                        <Text style={styles.podiumRankText}>2nd</Text>
+                      <View style={styles.podiumRank3}>
+                        <Text style={styles.podiumRankText}>3rd</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
