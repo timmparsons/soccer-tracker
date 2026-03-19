@@ -365,7 +365,41 @@ const Leaderboard = () => {
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
             {showTouchesPodium && (
               <View style={styles.podium}>
-                {/* 2nd Place — left, only if 2+ have scored */}
+                {/* 1st Place — left when only 2 on podium, centre when 3 */}
+                {podiumCount === 1 || podiumCount === 2 ? (() => {
+                  const p = scoredPlayers[0];
+                  const score = getTouchScore(p);
+                  const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
+                  return (
+                    <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                      <View style={styles.crownContainer}>
+                        <Text style={styles.crown}>👑</Text>
+                      </View>
+                      <View style={styles.podiumAvatarContainer}>
+                        <Image
+                          source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.podiumAvatar1}
+                        />
+                        {p.today_touches >= p.daily_target && (
+                          <Text style={styles.podiumTargetIcon}>🎯</Text>
+                        )}
+                      </View>
+                      <Text style={styles.podiumMedal}>🥇</Text>
+                      <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
+                      <View style={styles.podiumRank1}>
+                        <Text style={styles.podiumRankText}>1st</Text>
+                      </View>
+                      {level && (
+                        <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
+                          <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })() : null}
+
+                {/* 2nd Place — right when 2, left when 3 */}
                 {podiumCount >= 2 && (() => {
                   const p = scoredPlayers[1];
                   const score = getTouchScore(p);
@@ -396,8 +430,8 @@ const Leaderboard = () => {
                   );
                 })()}
 
-                {/* 1st Place — centre */}
-                {(() => {
+                {/* 1st Place — centre, only when 3 on podium */}
+                {podiumCount === 3 && (() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
