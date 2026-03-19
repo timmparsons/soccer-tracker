@@ -463,7 +463,7 @@ const ProfilePage = () => {
           <View style={styles.levelsCard}>
             <Text style={styles.levelsTitle}>Training Levels</Text>
             <Text style={styles.levelsSubtitle}>
-              Bill Beswick's performance philosophy. Your badge on the
+              Bill Beswick&apos;s performance philosophy. Your badge on the
               leaderboard shows which level your touches put you at.
             </Text>
 
