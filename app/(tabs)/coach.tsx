@@ -1,11 +1,12 @@
 import { useProfile } from '@/hooks/useProfile';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useContext, useState } from 'react';
 import { ViewModeContext } from './_layout';
 import {
@@ -47,7 +48,15 @@ interface PlayerStats {
 export default function CoachDashboard() {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { isCoach, isLoading: subLoading } = useSubscription();
+  const router = useRouter();
   const { setViewMode } = useContext(ViewModeContext);
+
+  // Gate: redirect non-coach-subscribers to the paywall
+  if (!subLoading && !isCoach) {
+    router.replace({ pathname: '/(modals)/paywall', params: { tab: 'coach' } });
+    return null;
+  }
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);

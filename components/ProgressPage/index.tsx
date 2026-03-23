@@ -1,6 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
-import { usePremium } from '@/hooks/usePremium';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
@@ -33,8 +33,8 @@ const shownMilestones = new Set<number>();
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const { isPremium } = usePremium();
-  console.log('qqq', isPremium);
+  const { isPremium } = useSubscription();
+
   const router = useRouter();
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
   const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);

@@ -4,7 +4,7 @@ import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { usePremium } from '@/hooks/usePremium';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -205,7 +205,7 @@ const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
 const TrainPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const { isPremium } = usePremium();
+  const { isPremium } = useSubscription();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
 

@@ -1,4 +1,4 @@
-import { usePremium } from '@/hooks/usePremium';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +23,7 @@ export default function CreateTeam() {
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { isPremium, isLoading: premiumLoading } = usePremium();
+  const { isPremium, isLoading: premiumLoading } = useSubscription();
 
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(false);
