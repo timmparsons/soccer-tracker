@@ -129,7 +129,7 @@ export default function Paywall() {
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
         {/* Header */}
         <LinearGradient colors={['#1f89ee', '#1a1a2e']} style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
             <Ionicons name='close' size={22} color='rgba(255,255,255,0.8)' />
           </TouchableOpacity>
           <Text style={styles.crown}>👑</Text>

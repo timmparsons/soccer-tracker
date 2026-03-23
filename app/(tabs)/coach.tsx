@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { ViewModeContext } from './_layout';
 import {
   ActivityIndicator,
@@ -53,10 +53,11 @@ export default function CoachDashboard() {
   const { setViewMode } = useContext(ViewModeContext);
 
   // Gate: redirect non-coach-subscribers to the paywall
-  if (!subLoading && !isCoach) {
-    router.replace({ pathname: '/(modals)/paywall', params: { tab: 'coach' } });
-    return null;
-  }
+  useEffect(() => {
+    if (!subLoading && !isCoach) {
+      router.replace({ pathname: '/(modals)/paywall', params: { tab: 'coach' } });
+    }
+  }, [subLoading, isCoach]);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
