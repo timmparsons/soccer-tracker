@@ -1,9 +1,10 @@
+import { usePremium } from '@/hooks/usePremium';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,9 +23,17 @@ export default function CreateTeam() {
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Gate: non-premium users go to paywall
+  useEffect(() => {
+    if (!premiumLoading && !isPremium) {
+      router.replace('/(modals)/paywall');
+    }
+  }, [isPremium, premiumLoading]);
 
   // If already on a team, redirect
   if (profile?.team_id) {

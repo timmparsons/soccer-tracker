@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.timmparsons.mastertouch",
       "buildNumber": "4",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "MasterTouch uses the camera to automatically count your ball touches during practice."
       }
     },
     "android": {
@@ -49,7 +50,14 @@
           "microphonePermission": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "MasterTouch uses the camera to automatically count your ball touches during practice.",
+          "enableMicrophonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

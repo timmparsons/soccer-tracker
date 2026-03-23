@@ -10,7 +10,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StatusBar } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const queryClient = new QueryClient({
@@ -101,6 +102,16 @@ export default function RootLayout() {
         const sess = sessionResult.error ? null : sessionResult.data.session;
         const seenIntro = seen === 'true';
 
+        // Configure RevenueCat (skip if API key isn't set yet)
+        const rcKey = process.env.EXPO_PUBLIC_RC_IOS_KEY;
+        if (Platform.OS !== 'web' && rcKey) {
+          Purchases.setLogLevel(LOG_LEVEL.ERROR);
+          Purchases.configure({ apiKey: rcKey });
+          if (sess?.user.id) {
+            await Purchases.logIn(sess.user.id);
+          }
+        }
+
         setSession(sess);
         setHasSeenIntro(seenIntro);
 
@@ -181,6 +192,9 @@ export default function RootLayout() {
         return;
       }
 
+      if (!session && Platform.OS !== 'web') {
+        Purchases.logOut().catch(() => {});
+      }
       setSession(session);
     });
 
@@ -233,6 +247,9 @@ export default function RootLayout() {
         }
       }
 
+      if (Platform.OS !== 'web') {
+        await Purchases.logIn(sess.user.id);
+      }
       router.replace(
         profile?.onboarding_completed === true ? '/(tabs)' : '/(onboarding)',
       );
@@ -296,7 +313,7 @@ export default function RootLayout() {
     return (
       <SafeAreaProvider>
         <StatusBar barStyle='dark-content' />
-        <SplashScreen />
+        <SplashScreen fullScreen />
       </SafeAreaProvider>
     );
   }
@@ -310,6 +327,10 @@ export default function RootLayout() {
           <Stack.Screen name='(onboarding)' />
           <Stack.Screen name='(tabs)' />
           <Stack.Screen name='minigames' />
+          <Stack.Screen
+            name='(modals)/paywall'
+            options={{ presentation: 'modal' }}
+          />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>

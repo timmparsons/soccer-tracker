@@ -1,15 +1,19 @@
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import { usePremium } from '@/hooks/usePremium';
 import { useProfile } from '@/hooks/useProfile';
-import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import {
+  useChallengeStats,
+  useRecentSessions,
+  useTouchTracking,
+} from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
-import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -29,6 +33,9 @@ const shownMilestones = new Set<number>();
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
+  const { isPremium } = usePremium();
+  console.log('qqq', isPremium);
+  const router = useRouter();
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
   const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);
   const [milestoneMessage, setMilestoneMessage] = useState('');
@@ -39,16 +46,21 @@ const ProgressPage = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ['recent-sessions', user.id] });
+        queryClient.invalidateQueries({
+          queryKey: ['recent-sessions', user.id],
+        });
         queryClient.invalidateQueries({ queryKey: ['chart-stats', user.id] });
         queryClient.invalidateQueries({ queryKey: ['quick-stats', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['lifetime-achievements', user.id] });
+        queryClient.invalidateQueries({
+          queryKey: ['lifetime-achievements', user.id],
+        });
       }
-    }, [user?.id, queryClient])
+    }, [user?.id, queryClient]),
   );
 
   // Get recent sessions
-  const { data: recentSessions, isLoading: sessionsLoading } = useRecentSessions(user?.id, 10);
+  const { data: recentSessions, isLoading: sessionsLoading } =
+    useRecentSessions(user?.id, 10);
 
   // Get challenge stats for badges
   const { data: challengeStats } = useChallengeStats(user?.id, null);
@@ -89,7 +101,7 @@ const ProgressPage = () => {
 
       // Group by date
       const byDate: Record<string, number> = {};
-      sessions?.forEach(s => {
+      sessions?.forEach((s) => {
         byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
       });
 
@@ -143,19 +155,26 @@ const ProgressPage = () => {
 
       // Group by date
       const byDate: Record<string, number> = {};
-      sessions.forEach(s => {
+      sessions.forEach((s) => {
         byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
       });
 
       const dailyTotals = Object.values(byDate);
       const bestDay = Math.max(...dailyTotals, 0);
       const dailyAvg = Math.round(dailyTotals.reduce((a, b) => a + b, 0) / 7);
-      const daysHitTarget = dailyTotals.filter(t => t >= 1000).length;
+      const daysHitTarget = dailyTotals.filter((t) => t >= 1000).length;
 
       // Calculate average TPM
-      const totalTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
-      const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-      const avgTpm = totalMinutes > 0 ? Math.round(totalTouches / totalMinutes) : 0;
+      const totalTouches = sessions.reduce(
+        (sum, s) => sum + s.touches_logged,
+        0,
+      );
+      const totalMinutes = sessions.reduce(
+        (sum, s) => sum + (s.duration_minutes || 0),
+        0,
+      );
+      const avgTpm =
+        totalMinutes > 0 ? Math.round(totalTouches / totalMinutes) : 0;
 
       return { bestDay, dailyAvg, daysHitTarget, avgTpm };
     },
@@ -171,15 +190,24 @@ const ProgressPage = () => {
         .select('touches_logged, date')
         .eq('user_id', user!.id);
 
-      if (!sessions) return { totalTouches: 0, totalSessions: 0, bestDayEver: 0, longestStreak: 0 };
+      if (!sessions)
+        return {
+          totalTouches: 0,
+          totalSessions: 0,
+          bestDayEver: 0,
+          longestStreak: 0,
+        };
 
       const byDate: Record<string, number> = {};
-      sessions.forEach(s => {
+      sessions.forEach((s) => {
         byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
       });
 
       const dailyTotals = Object.values(byDate);
-      const totalTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
+      const totalTouches = sessions.reduce(
+        (sum, s) => sum + s.touches_logged,
+        0,
+      );
       const bestDayEver = Math.max(...dailyTotals, 0);
 
       // Calculate longest streak
@@ -190,7 +218,9 @@ const ProgressPage = () => {
       for (let i = 1; i < dates.length; i++) {
         const prev = new Date(dates[i - 1]);
         const curr = new Date(dates[i]);
-        const diffDays = Math.floor((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor(
+          (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24),
+        );
         if (diffDays === 1) {
           currentStreak++;
           longestStreak = Math.max(longestStreak, currentStreak);
@@ -199,7 +229,12 @@ const ProgressPage = () => {
         }
       }
 
-      return { totalTouches, totalSessions: sessions.length, bestDayEver, longestStreak };
+      return {
+        totalTouches,
+        totalSessions: sessions.length,
+        bestDayEver,
+        longestStreak,
+      };
     },
   });
 
@@ -271,16 +306,21 @@ const ProgressPage = () => {
       icon: '🔍',
       unlocked:
         (challengeStats?.totalDrillsAvailable || 0) > 0 &&
-        (challengeStats?.uniqueDrillsCompleted || 0) >= (challengeStats?.totalDrillsAvailable || 1),
+        (challengeStats?.uniqueDrillsCompleted || 0) >=
+          (challengeStats?.totalDrillsAvailable || 1),
       progress: challengeStats?.uniqueDrillsCompleted || 0,
       total: challengeStats?.totalDrillsAvailable || 1,
     },
   ];
 
-  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   const chartData = {
-    labels: chartStats?.labels || (timeFilter === 'week' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Week 1', 'Week 2', 'Week 3', 'Week 4']),
+    labels:
+      chartStats?.labels ||
+      (timeFilter === 'week'
+        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        : ['Week 1', 'Week 2', 'Week 3', 'Week 4']),
     datasets: [
       {
         data: chartStats?.data?.length ? chartStats.data : [0],
@@ -319,7 +359,13 @@ const ProgressPage = () => {
                 styles.filterButton,
                 timeFilter === 'month' && styles.filterButtonActive,
               ]}
-              onPress={() => setTimeFilter('month')}
+              onPress={() => {
+                if (!isPremium) {
+                  router.push('/(modals)/paywall');
+                  return;
+                }
+                setTimeFilter('month');
+              }}
             >
               <Text
                 style={[
@@ -327,7 +373,7 @@ const ProgressPage = () => {
                   timeFilter === 'month' && styles.filterButtonTextActive,
                 ]}
               >
-                Month
+                Month{!isPremium ? ' 🔒' : ''}
               </Text>
             </TouchableOpacity>
           </View>
@@ -388,12 +434,16 @@ const ProgressPage = () => {
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
               <Text style={styles.statEmoji}>📈</Text>
-              <Text style={styles.statValue}>{(quickStats?.bestDay || 0).toLocaleString()}</Text>
+              <Text style={styles.statValue}>
+                {(quickStats?.bestDay || 0).toLocaleString()}
+              </Text>
               <Text style={styles.statLabel}>Best Day</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statEmoji}>📊</Text>
-              <Text style={styles.statValue}>{(quickStats?.dailyAvg || 0).toLocaleString()}</Text>
+              <Text style={styles.statValue}>
+                {(quickStats?.dailyAvg || 0).toLocaleString()}
+              </Text>
               <Text style={styles.statLabel}>Daily Avg</Text>
             </View>
             <View style={styles.statBox}>
@@ -408,10 +458,10 @@ const ProgressPage = () => {
                 {(quickStats?.avgTpm || 0) < 30
                   ? '💡 Try practicing faster - aim for game speed!'
                   : (quickStats?.avgTpm || 0) < 50
-                  ? '👍 Good pace! Push for 50+ touches/min'
-                  : (quickStats?.avgTpm || 0) < 80
-                  ? '🔥 Great tempo! You\'re training at game speed'
-                  : '⚡ Elite intensity! Keep it up!'}
+                    ? '👍 Good pace! Push for 50+ touches/min'
+                    : (quickStats?.avgTpm || 0) < 80
+                      ? "🔥 Great tempo! You're training at game speed"
+                      : '⚡ Elite intensity! Keep it up!'}
               </Text>
             </View>
           )}
@@ -421,46 +471,72 @@ const ProgressPage = () => {
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
             <Text style={styles.sectionTitle}>Recent Sessions</Text>
+            {!isPremium && (
+              <TouchableOpacity
+                onPress={() => router.push('/(modals)/paywall')}
+              >
+                <Text style={styles.viewAllText}>See all · Pro 🔒</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {sessionsLoading ? (
-            <ActivityIndicator size="small" color="#1f89ee" style={{ marginVertical: 20 }} />
+            <ActivityIndicator
+              size='small'
+              color='#1f89ee'
+              style={{ marginVertical: 20 }}
+            />
           ) : recentSessions && recentSessions.length > 0 ? (
-            recentSessions.map((session) => (
-              <View key={session.id} style={styles.sessionItem}>
-                <View style={styles.sessionLeft}>
-                  <View style={styles.sessionIconBg}>
-                    <Text style={styles.sessionEmoji}>⚽</Text>
-                  </View>
-                  <View style={styles.sessionInfo}>
-                    <Text style={styles.sessionName}>{session.drill_name || 'Free Practice'}</Text>
-                    <View style={styles.sessionMeta}>
-                      <Text style={styles.sessionTime}>{formatTimeAgo(session.created_at)}</Text>
-                      {session.duration_minutes && (
-                        <>
-                          <Text style={styles.sessionDot}>•</Text>
-                          <Text style={styles.sessionDuration}>
-                            {session.duration_minutes} min
-                          </Text>
-                        </>
-                      )}
+            (isPremium ? recentSessions : recentSessions.slice(0, 3)).map(
+              (session) => (
+                <View key={session.id} style={styles.sessionItem}>
+                  <View style={styles.sessionLeft}>
+                    <View style={styles.sessionIconBg}>
+                      <Text style={styles.sessionEmoji}>⚽</Text>
+                    </View>
+                    <View style={styles.sessionInfo}>
+                      <Text style={styles.sessionName}>
+                        {session.drill_name || 'Free Practice'}
+                      </Text>
+                      <View style={styles.sessionMeta}>
+                        <Text style={styles.sessionTime}>
+                          {formatTimeAgo(session.created_at)}
+                        </Text>
+                        {session.duration_minutes && (
+                          <>
+                            <Text style={styles.sessionDot}>•</Text>
+                            <Text style={styles.sessionDuration}>
+                              {session.duration_minutes} min
+                            </Text>
+                          </>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
-                <View style={styles.sessionRight}>
-                  <Text style={styles.sessionTouches}>{session.touches_logged.toLocaleString()}</Text>
-                  <Text style={styles.sessionTouchesLabel}>touches</Text>
-                  {session.duration_minutes && session.duration_minutes > 0 && (
-                    <Text style={styles.sessionTpm}>
-                      ⚡ {Math.round(session.touches_logged / session.duration_minutes)}/min
+                  <View style={styles.sessionRight}>
+                    <Text style={styles.sessionTouches}>
+                      {session.touches_logged.toLocaleString()}
                     </Text>
-                  )}
+                    <Text style={styles.sessionTouchesLabel}>touches</Text>
+                    {session.duration_minutes &&
+                      session.duration_minutes > 0 && (
+                        <Text style={styles.sessionTpm}>
+                          ⚡{' '}
+                          {Math.round(
+                            session.touches_logged / session.duration_minutes,
+                          )}
+                          /min
+                        </Text>
+                      )}
+                  </View>
                 </View>
-              </View>
-            ))
+              ),
+            )
           ) : (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: '#78909C', fontWeight: '600' }}>No sessions yet. Start training!</Text>
+              <Text style={{ color: '#78909C', fontWeight: '600' }}>
+                No sessions yet. Start training!
+              </Text>
             </View>
           )}
         </View>
@@ -484,8 +560,35 @@ const ProgressPage = () => {
           </View>
 
           <View style={styles.trophyGrid}>
-            {achievements.map((achievement) =>
-              achievement.unlocked ? (
+            {achievements.map((achievement, index) => {
+              const isGated = !isPremium && index >= 3;
+              if (isGated) {
+                return (
+                  <TouchableOpacity
+                    key={achievement.id}
+                    style={styles.trophyLocked}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/(modals)/paywall')}
+                  >
+                    <View style={styles.trophyIconRingLocked}>
+                      <Text style={[styles.trophyEmoji, { opacity: 0.12 }]}>
+                        {achievement.icon}
+                      </Text>
+                      <View style={styles.lockOverlay}>
+                        <Ionicons name='lock-closed' size={22} color='rgba(255,255,255,0.45)' />
+                      </View>
+                    </View>
+                    <Text style={styles.trophyNameLocked} numberOfLines={2}>
+                      {achievement.title}
+                    </Text>
+                    <View style={[styles.lockedProgressBar, { backgroundColor: '#1f89ee33' }]}>
+                      <View style={[styles.lockedProgressFill, { width: '0%', backgroundColor: '#1f89ee' }]} />
+                    </View>
+                    <Text style={[styles.lockedProgressText, { color: '#1f89ee' }]}>Pro only</Text>
+                  </TouchableOpacity>
+                );
+              }
+              return achievement.unlocked ? (
                 <View key={achievement.id} style={styles.trophyUnlocked}>
                   <View style={styles.trophyIconRingUnlocked}>
                     <Text style={styles.trophyEmoji}>{achievement.icon}</Text>
@@ -523,8 +626,8 @@ const ProgressPage = () => {
                     {achievement.progress.toLocaleString()}/{achievement.total.toLocaleString()}
                   </Text>
                 </View>
-              )
-            )}
+              );
+            })}
           </View>
         </View>
       </ScrollView>

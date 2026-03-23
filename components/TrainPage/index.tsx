@@ -1,8 +1,10 @@
+import CameraTimerScreen from '@/components/TrainPage/CameraTimerScreen';
 import PageHeader from '@/components/common/PageHeader';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
+import { usePremium } from '@/hooks/usePremium';
 import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +12,7 @@ import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +24,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -196,9 +200,13 @@ const getTodaysTips = () => {
   ];
 };
 
+const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
+
 const TrainPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
+  const { isPremium } = usePremium();
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
 
   const todaysTips = getTodaysTips();
@@ -226,6 +234,8 @@ const TrainPage = () => {
   const [drillFilter, setDrillFilter] = useState<
     'all' | 'beginner' | 'intermediate' | 'advanced'
   >('beginner');
+  const [cameraMode, setCameraMode] = useState(false);
+  const [showCameraTimer, setShowCameraTimer] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -279,14 +289,20 @@ const TrainPage = () => {
   };
 
   // Timer logic
-  const startFreeTimer = useCallback((seconds: number) => {
-    setFreeTimerDuration(seconds);
-    setTimeRemaining(seconds);
-    pausedRemainingRef.current = seconds;
-    setShowTimerPicker(false);
-    setShowTimerModal(true);
-    // Don't auto-start; user taps Start
-  }, []);
+  const startFreeTimer = useCallback(
+    (seconds: number) => {
+      setFreeTimerDuration(seconds);
+      setTimeRemaining(seconds);
+      pausedRemainingRef.current = seconds;
+      setShowTimerPicker(false);
+      if (cameraMode && Platform.OS !== 'web') {
+        setShowCameraTimer(true);
+      } else {
+        setShowTimerModal(true);
+      }
+    },
+    [cameraMode],
+  );
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -416,6 +432,17 @@ const TrainPage = () => {
     } finally {
       setSubmittingScore(false);
     }
+  };
+
+  const handleCameraTimerComplete = (count: number) => {
+    setShowCameraTimer(false);
+    setScoreInput(count > 0 ? String(count) : '');
+    setShowScoreModal(true);
+  };
+
+  const handleCameraTimerCancel = () => {
+    setShowCameraTimer(false);
+    setTimeRemaining(0);
   };
 
   const cancelTimer = () => {
@@ -573,12 +600,24 @@ const TrainPage = () => {
           {visibleLevels.map((level) => {
             const levelDrills = drillsByDifficulty[level];
             if (levelDrills.length === 0) return null;
+            const color = DIFFICULTY_COLORS[level];
+            const levelLocked = !isPremium && level !== 'beginner';
             return (
               <View key={level} style={styles.difficultySection}>
+                <View style={[styles.difficultyHeader, { backgroundColor: color.bg }]}>
+                  <Text style={[styles.difficultyLabel, { color: color.text }]}>
+                    {level.toUpperCase()}
+                  </Text>
+                  {levelLocked && (
+                    <Ionicons name='lock-closed' size={12} color={color.text} style={{ marginLeft: 6 }} />
+                  )}
+                </View>
                 <View style={styles.drillGrid}>
                   {levelDrills.map((drill) => (
-                    <View key={drill.id} style={styles.drillCard}>
-                      {drill.video_url ? (
+                    <View key={drill.id} style={[styles.drillCard, levelLocked && styles.drillCardLocked]}>
+                      {levelLocked ? (
+                        <View style={styles.drillThumbnailPlaceholderNoVideo} />
+                      ) : drill.video_url ? (
                         <TouchableOpacity
                           style={styles.drillThumbnailContainer}
                           onPress={() => {
@@ -609,6 +648,10 @@ const TrainPage = () => {
                       <TouchableOpacity
                         style={styles.drillTapArea}
                         onPress={() => {
+                          if (levelLocked) {
+                            router.push('/(modals)/paywall');
+                            return;
+                          }
                           setChallengeDrillId(drill.id);
                           setChallengeName(drill.name);
                           setModalVisible(true);
@@ -621,19 +664,18 @@ const TrainPage = () => {
                             {drill.description}
                           </Text>
                         )}
-                        {!drill.video_url && (
-                          <View style={styles.comingSoonBadge}>
-                            <Ionicons
-                              name='videocam-outline'
-                              size={11}
-                              color='#78909C'
-                            />
-                            <Text style={styles.comingSoonText}>
-                              Video coming soon
-                            </Text>
-                          </View>
-                        )}
                       </TouchableOpacity>
+                      {levelLocked ? (
+                        <View style={styles.drillLockedBadge}>
+                          <Ionicons name='lock-closed' size={11} color='#78909C' />
+                          <Text style={styles.drillLockedText}>Pro only</Text>
+                        </View>
+                      ) : !drill.video_url ? (
+                        <View style={styles.comingSoonBadge}>
+                          <Ionicons name='videocam-outline' size={11} color='#78909C' />
+                          <Text style={styles.comingSoonText}>Video coming soon</Text>
+                        </View>
+                      ) : null}
                     </View>
                   ))}
                 </View>
@@ -666,6 +708,21 @@ const TrainPage = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Camera Timer Modal */}
+      <Modal
+        visible={showCameraTimer}
+        animationType='fade'
+        transparent={false}
+        onRequestClose={handleCameraTimerCancel}
+      >
+        <CameraTimerScreen
+          duration={freeTimerDuration}
+          onComplete={handleCameraTimerComplete}
+          onCancel={handleCameraTimerCancel}
+          whistleSound={whistleSoundRef.current}
+        />
+      </Modal>
 
       {/* Timer Modal */}
       <Modal
@@ -810,28 +867,64 @@ const TrainPage = () => {
             <View style={styles.timerPickerContent}>
               <View style={styles.timerPickerHeader}>
                 <Text style={styles.timerPickerEmoji}>⏱️</Text>
-                <Text style={styles.timerPickerTitle}>
-                  Start Practice Timer
-                </Text>
+                <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
                 <Text style={styles.timerPickerSubtitle}>
                   Choose a duration for your session
                 </Text>
               </View>
 
               <View style={styles.timerOptionsGrid}>
-                {TIMER_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.seconds}
-                    style={styles.timerOption}
-                    onPress={() => startFreeTimer(option.seconds)}
-                  >
-                    <Text style={styles.timerOptionText}>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                {TIMER_OPTIONS.map((option) => {
+                  const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
+                  return (
+                    <TouchableOpacity
+                      key={option.seconds}
+                      style={[styles.timerOption, locked && styles.timerOptionLocked]}
+                      onPress={() => {
+                        if (locked) {
+                          router.push('/(modals)/paywall');
+                          return;
+                        }
+                        startFreeTimer(option.seconds);
+                      }}
+                    >
+                      {locked && (
+                        <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.7)' style={{ marginBottom: 2 }} />
+                      )}
+                      <Text style={styles.timerOptionText}>{option.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              <View style={styles.customTimerSection}>
-                <Text style={styles.customTimerLabel}>Custom duration</Text>
+              {/* AI Camera Mode toggle — Pro only, native only */}
+              {isPremium && Platform.OS !== 'web' && (
+                <View style={styles.cameraModeRow}>
+                  <View style={styles.cameraModeInfo}>
+                    <Text style={styles.cameraModeTitle}>🤖 AI Count</Text>
+                    <Text style={styles.cameraModeSubtitle}>
+                      Camera auto-counts your touches
+                    </Text>
+                  </View>
+                  <Switch
+                    value={cameraMode}
+                    onValueChange={setCameraMode}
+                    trackColor={{ false: '#E5E7EB', true: '#1f89ee' }}
+                    thumbColor='#FFF'
+                  />
+                </View>
+              )}
+
+              <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
+                <View style={styles.customTimerLabelRow}>
+                  <Text style={styles.customTimerLabel}>Custom duration</Text>
+                  {!isPremium && (
+                    <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
+                      <Ionicons name='lock-closed' size={12} color='#78909C' />
+                      <Text style={styles.proLockText}>Pro</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <View style={styles.customTimerRow}>
                   <View style={styles.customTimerInputGroup}>
                     <TextInput
@@ -841,6 +934,7 @@ const TrainPage = () => {
                       keyboardType='number-pad'
                       value={customMinutes}
                       onChangeText={setCustomMinutes}
+                      editable={isPremium}
                     />
                     <Text style={styles.customTimerUnit}>min</Text>
                   </View>
@@ -856,17 +950,21 @@ const TrainPage = () => {
                         const n = parseInt(v);
                         if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
                       }}
+                      editable={isPremium}
                     />
                     <Text style={styles.customTimerUnit}>sec</Text>
                   </View>
                   <TouchableOpacity
                     style={[
                       styles.customTimerButton,
-                      !customMinutes &&
-                        !customSeconds &&
-                        styles.customTimerButtonDisabled,
+                      (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
+                      !isPremium && styles.customTimerButtonDisabled,
                     ]}
                     onPress={() => {
+                      if (!isPremium) {
+                        router.push('/(modals)/paywall');
+                        return;
+                      }
                       const mins = parseInt(customMinutes) || 0;
                       const secs = parseInt(customSeconds) || 0;
                       const total = mins * 60 + secs;
@@ -876,7 +974,7 @@ const TrainPage = () => {
                         setCustomSeconds('');
                       }
                     }}
-                    disabled={!customMinutes && !customSeconds}
+                    disabled={!isPremium && !customMinutes && !customSeconds}
                   >
                     <Text style={styles.customTimerButtonText}>Go</Text>
                   </TouchableOpacity>
@@ -1205,6 +1303,21 @@ const styles = StyleSheet.create({
   drillTapArea: {
     padding: 10,
   },
+  drillCardLocked: {
+    opacity: 0.5,
+  },
+  drillLockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  drillLockedText: {
+    fontSize: 11,
+    color: '#78909C',
+    fontWeight: '700',
+  },
   drillName: {
     fontSize: 14,
     fontWeight: '800',
@@ -1501,11 +1614,37 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     marginBottom: 16,
   },
+  timerOptionLocked: {
+    backgroundColor: '#B0BEC5',
+    shadowColor: '#B0BEC5',
+  },
+  customTimerSectionLocked: {
+    opacity: 0.6,
+  },
+  customTimerLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  proLockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F7FA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  proLockText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#78909C',
+  },
   customTimerLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: '#78909C',
-    marginBottom: 12,
   },
   customTimerRow: {
     flexDirection: 'row',
@@ -1564,6 +1703,34 @@ const styles = StyleSheet.create({
   timerPickerCancelText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#78909C',
+  },
+
+  // CAMERA MODE TOGGLE
+  cameraModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F7FF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BDDEFF',
+  },
+  cameraModeInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cameraModeTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  cameraModeSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#78909C',
   },
 });
