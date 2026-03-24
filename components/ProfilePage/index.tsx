@@ -7,7 +7,7 @@ import {
   useUserBadges,
 } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { useTouchTracking } from '@/hooks/useTouchTracking';
+import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
@@ -278,6 +278,7 @@ const ProfilePage = () => {
 
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
   const { data: allBadges = [] } = useAllBadges();
@@ -294,15 +295,21 @@ const ProfilePage = () => {
       totalSessions: touchStats.total_sessions ?? 0,
       totalTouches: touchStats.total_touches ?? 0,
       currentStreak: touchStats.current_streak ?? 0,
-      jugglesThisSession: null,
-      previousJugglePB: 0,
+      // If the user already has a juggle PB, treat it as a beaten record so the badge backfills
+      jugglesThisSession: jugglePB > 0 ? jugglePB : null,
+      previousJugglePB: jugglePB > 0 ? jugglePB - 1 : 0,
       durationMinutes: null,
       sessionsThisWeek: touchStats.this_week_sessions ?? 0,
       teamId: profile?.team_id ?? null,
     }).then((newIds) => {
       if (newIds.length > 0) refetchBadges();
     });
-  }, [user?.id, touchStats?.total_touches, touchStats?.current_streak]);
+  }, [
+    user?.id,
+    touchStats?.total_touches,
+    touchStats?.current_streak,
+    jugglePB,
+  ]);
 
   // Badge counts for stackable milestones
   const totalTouches = touchStats?.total_touches ?? 0;
@@ -470,6 +477,16 @@ const ProfilePage = () => {
                 {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
               </Text>
             </View>
+
+            {/* View Roadmap button */}
+            <TouchableOpacity
+              style={styles.roadmapButton}
+              onPress={() => router.push(`/(modals)/roadmap?level=${level}`)}
+            >
+              <Ionicons name='map-outline' size={16} color='#ffb724' />
+              <Text style={styles.roadmapButtonText}>View Level Roadmap</Text>
+              <Ionicons name='chevron-forward' size={16} color='#ffb724' />
+            </TouchableOpacity>
 
             {/* Daily Target Badge - only for players */}
             {!profile?.is_coach && (
@@ -822,7 +839,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.1.3</Text>
+                <Text style={styles.version}>Version 2.1.4</Text>
               </ScrollView>
             </View>
           </View>
@@ -1449,6 +1466,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
+  },
+  roadmapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+  },
+  roadmapButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffb724',
   },
   settingsGearButton: {
     position: 'absolute',
