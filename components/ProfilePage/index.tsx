@@ -1,4 +1,6 @@
 import { useViewMode } from '@/app/(tabs)/_layout';
+import BadgeGrid from '@/components/common/BadgeGrid';
+import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
@@ -265,6 +267,11 @@ const ProfilePage = () => {
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
 
+  // Badges
+  const { data: allBadges = [] } = useAllBadges();
+  const { data: userBadges = [] } = useUserBadges(user?.id);
+  const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+
   // Get lifetime stats from daily_sessions
   const { data: lifetimeStats } = useQuery({
     queryKey: ['lifetime-stats', user?.id],
@@ -514,6 +521,17 @@ const ProfilePage = () => {
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* Badges Card */}
+          <View style={styles.badgesCard}>
+            <View style={styles.badgesHeader}>
+              <Text style={styles.badgesTitle}>Badges</Text>
+              <Text style={styles.badgesCount}>
+                {earnedBadgeIds.size}/{allBadges.length} earned
+              </Text>
+            </View>
+            <BadgeGrid allBadges={allBadges} earnedIds={earnedBadgeIds} />
           </View>
 
           {/* Account Info Card */}
@@ -1203,6 +1221,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  badgesCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  badgesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  badgesTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  badgesCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
   },
   levelsTitle: {
     fontSize: 18,
