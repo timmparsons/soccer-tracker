@@ -373,7 +373,7 @@ const Leaderboard = () => {
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
-                    <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                    <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                       <View style={styles.crownContainer}>
                         <Text style={styles.crown}>👑</Text>
                       </View>
@@ -397,7 +397,7 @@ const Leaderboard = () => {
                           <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })() : null}
 
@@ -407,7 +407,7 @@ const Leaderboard = () => {
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
-                    <View style={styles.podiumSpot}>
+                    <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                       <View style={styles.podiumAvatarContainer}>
                         <Image
                           source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
@@ -428,7 +428,7 @@ const Leaderboard = () => {
                           <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })()}
 
@@ -438,7 +438,7 @@ const Leaderboard = () => {
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
-                    <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                    <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                       <View style={styles.crownContainer}>
                         <Text style={styles.crown}>👑</Text>
                       </View>
@@ -462,7 +462,7 @@ const Leaderboard = () => {
                           <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })()}
 
@@ -472,7 +472,7 @@ const Leaderboard = () => {
                   const score = getTouchScore(p);
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
-                    <View style={styles.podiumSpot}>
+                    <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                       <View style={styles.podiumAvatarContainer}>
                         <Image
                           source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
@@ -493,7 +493,7 @@ const Leaderboard = () => {
                           <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })()}
               </View>
