@@ -2,11 +2,12 @@ import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -50,6 +51,16 @@ const Leaderboard = () => {
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+
+  // Last week's Sunday (start of last week)
+  const lastWeekStart = useMemo(() => {
+    const now = new Date();
+    const thisSunday = new Date(now);
+    thisSunday.setDate(now.getDate() - now.getDay());
+    const lastSunday = new Date(thisSunday);
+    lastSunday.setDate(thisSunday.getDate() - 7);
+    return getLocalDate(lastSunday);
+  }, []);
 
   // Fetch team members with their touch stats
   const {
@@ -218,6 +229,15 @@ const Leaderboard = () => {
   });
 
   const isLoading = touchesLoading || jugglingLoading;
+
+  // Record last week's winner (idempotent — safe to run every load)
+  useEffect(() => {
+    if (!touchesLeaderboard.length || !user?.id) return;
+    const lastWeekWinner = [...touchesLeaderboard].sort((a, b) => b.last_week_touches - a.last_week_touches)[0];
+    if (lastWeekWinner.last_week_touches > 0) {
+      recordWeeklyWin(lastWeekStart, lastWeekWinner.id, user.id);
+    }
+  }, [touchesLeaderboard, user?.id, lastWeekStart]);
 
   const handleRefresh = () => {
     refetchTouches();

@@ -7,14 +7,25 @@ interface BadgeGridProps {
   earnedIds: Set<string>;
   compact?: boolean;
   dark?: boolean;
+  badgeCounts?: Record<string, number>;
   onBadgePress?: (badge: Badge, isEarned: boolean) => void;
 }
 
-export default function BadgeGrid({ allBadges, earnedIds, compact = false, dark = false, onBadgePress }: BadgeGridProps) {
+export default function BadgeGrid({
+  allBadges,
+  earnedIds,
+  compact = false,
+  dark = false,
+  badgeCounts,
+  onBadgePress,
+}: BadgeGridProps) {
   return (
     <View style={[styles.grid, compact && styles.gridCompact]}>
       {allBadges.map((badge) => {
         const isEarned = earnedIds.has(badge.id);
+        const count = badgeCounts?.[badge.id] ?? 1;
+        const showCount = isEarned && count > 1;
+
         return (
           <TouchableOpacity
             key={badge.id}
@@ -38,8 +49,13 @@ export default function BadgeGrid({ allBadges, earnedIds, compact = false, dark 
                 color={isEarned ? badge.color : dark ? '#4B5563' : '#C4C4C4'}
               />
               {!isEarned && (
-                <View style={[styles.lockOverlay, dark && styles.lockOverlayDark]}>
+                <View style={[styles.cornerBadge, dark && styles.lockOverlayDark]}>
                   <Ionicons name='lock-closed' size={9} color={dark ? '#6B7280' : '#9CA3AF'} />
+                </View>
+              )}
+              {showCount && (
+                <View style={[styles.cornerBadge, { backgroundColor: badge.color }]}>
+                  <Text style={styles.countText}>×{count}</Text>
                 </View>
               )}
             </View>
@@ -91,16 +107,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  lockOverlay: {
+  cornerBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
     backgroundColor: '#FFF',
     borderRadius: 8,
-    padding: 1,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
   },
   lockOverlayDark: {
     backgroundColor: '#1E1A3A',
+  },
+  countText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#FFF',
   },
   badgeName: {
     fontSize: 10,

@@ -1,18 +1,19 @@
 import { useViewMode } from '@/app/(tabs)/_layout';
 import BadgeGrid from '@/components/common/BadgeGrid';
-import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
+import { useAllBadges, useLeaderboardWinCount, useUserBadges } from '@/hooks/useBadges';
 import type { Badge } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
+import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -273,8 +274,40 @@ const ProfilePage = () => {
 
   // Badges
   const { data: allBadges = [] } = useAllBadges();
-  const { data: userBadges = [] } = useUserBadges(user?.id);
+  const { data: userBadges = [], refetch: refetchBadges } = useUserBadges(user?.id);
+  const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+
+  // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
+  useEffect(() => {
+    if (!user?.id || !touchStats) return;
+    checkAndAwardBadges(user.id, {
+      totalSessions: touchStats.total_sessions ?? 0,
+      totalTouches: touchStats.total_touches ?? 0,
+      currentStreak: touchStats.current_streak ?? 0,
+      jugglesThisSession: null,
+      previousJugglePB: 0,
+      durationMinutes: null,
+      sessionsThisWeek: touchStats.this_week_sessions ?? 0,
+      teamId: profile?.team_id ?? null,
+    }).then((newIds) => {
+      if (newIds.length > 0) refetchBadges();
+    });
+  }, [user?.id, touchStats?.total_touches, touchStats?.current_streak]);
+
+  // Badge counts for stackable milestones
+  const totalTouches = touchStats?.total_touches ?? 0;
+  const totalSessions = touchStats?.total_sessions ?? 0;
+  const badgeCounts: Record<string, number> = {
+    volume_1k: Math.max(1, Math.floor(totalTouches / 1_000)),
+    volume_10k: Math.max(1, Math.floor(totalTouches / 10_000)),
+    volume_50k: Math.max(1, Math.floor(totalTouches / 50_000)),
+    volume_100k: Math.max(1, Math.floor(totalTouches / 100_000)),
+    sessions_10: Math.max(1, Math.floor(totalSessions / 10)),
+    sessions_50: Math.max(1, Math.floor(totalSessions / 50)),
+    sessions_100: Math.max(1, Math.floor(totalSessions / 100)),
+    social_no1: Math.max(1, leaderboardWins),
+  };
 
   // Get lifetime stats from daily_sessions
   const { data: lifetimeStats } = useQuery({
@@ -563,6 +596,7 @@ const ProfilePage = () => {
             <BadgeGrid
               allBadges={allBadges}
               earnedIds={earnedBadgeIds}
+              badgeCounts={badgeCounts}
               dark
               onBadgePress={(badge, isEarned) => setSelectedBadge({ badge, isEarned })}
             />
@@ -918,6 +952,11 @@ const ProfilePage = () => {
               {selectedBadge?.badge.name}
             </Text>
             <Text style={styles.badgeModalDesc}>{selectedBadge?.badge.description}</Text>
+            {selectedBadge?.isEarned && selectedBadge.badge.id && (badgeCounts[selectedBadge.badge.id] ?? 1) > 1 && (
+              <Text style={[styles.badgeModalCount, { color: selectedBadge.badge.color }]}>
+                ×{badgeCounts[selectedBadge.badge.id]} earned
+              </Text>
+            )}
             <View style={[styles.badgeModalStatus, selectedBadge?.isEarned ? styles.badgeModalStatusEarned : styles.badgeModalStatusLocked]}>
               <Ionicons
                 name={selectedBadge?.isEarned ? 'checkmark-circle' : 'lock-closed'}
@@ -1441,6 +1480,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1a1a2e',
     textAlign: 'center',
+  },
+  badgeModalCount: {
+    fontSize: 15,
+    fontWeight: '900',
   },
   badgeModalDesc: {
     fontSize: 14,

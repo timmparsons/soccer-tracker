@@ -32,6 +32,21 @@ export function useAllBadges() {
   });
 }
 
+export function useLeaderboardWinCount(userId: string | undefined) {
+  return useQuery<number>({
+    queryKey: ['leaderboard-wins', userId],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('leaderboard_wins')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId!);
+      return count ?? 0;
+    },
+  });
+}
+
 export function useUserBadges(userId: string | undefined) {
   return useQuery<UserBadge[]>({
     queryKey: ['user-badges', userId],

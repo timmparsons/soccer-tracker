@@ -79,20 +79,23 @@ export async function checkAndAwardBadges(
   return toAward;
 }
 
-// Called from the leaderboard when we know the current user is rank 1
-export async function checkLeaderboardBadge(userId: string): Promise<boolean> {
-  const { data: existing } = await supabase
-    .from('user_badges')
-    .select('badge_id')
-    .eq('user_id', userId)
-    .eq('badge_id', 'social_no1')
-    .maybeSingle();
+// Called from the leaderboard after data loads to record last week's winner.
+// Idempotent — week_start is the PK so duplicate calls are safe.
+// Awards social_no1 badge to the winner if they don't already have it.
+export async function recordWeeklyWin(
+  weekStart: string,
+  winnerId: string,
+  currentUserId: string,
+): Promise<void> {
+  // Record the winner (ignore if already recorded for this week)
+  await supabase
+    .from('leaderboard_wins')
+    .upsert({ week_start: weekStart, user_id: winnerId }, { onConflict: 'week_start', ignoreDuplicates: true });
 
-  if (existing) return false;
-
-  const { error } = await supabase
-    .from('user_badges')
-    .insert({ user_id: userId, badge_id: 'social_no1' });
-
-  return !error;
+  // Award badge to the winner if they're the current user and don't have it yet
+  if (winnerId === currentUserId) {
+    await supabase
+      .from('user_badges')
+      .upsert({ user_id: currentUserId, badge_id: 'social_no1' }, { onConflict: 'user_id,badge_id', ignoreDuplicates: true });
+  }
 }
