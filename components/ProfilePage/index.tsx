@@ -2,6 +2,7 @@ import { useViewMode } from '@/app/(tabs)/_layout';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
+import { getLevelFromXp, getRankName } from '@/lib/xp';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
@@ -340,6 +341,8 @@ const ProfilePage = () => {
     (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
+  const { level } = getLevelFromXp(profile?.total_xp ?? 0);
+  const rankName = getRankName(level);
 
   return (
     <>
@@ -394,6 +397,11 @@ const ProfilePage = () => {
             <Text style={styles.role}>
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
+            <View style={styles.xpPill}>
+              <Text style={styles.xpPillText}>
+                Level {level} · {rankName} · {(profile?.total_xp ?? 0).toLocaleString()} XP
+              </Text>
+            </View>
 
             {/* Daily Target Badge - only for players */}
             {!profile?.is_coach && (
@@ -940,7 +948,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   targetBadge: {
     flexDirection: 'row',
@@ -1193,6 +1201,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
 
+  xpPill: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginBottom: 16,
+  },
+  xpPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
   settingsGearButton: {
     position: 'absolute',
     top: 0,
