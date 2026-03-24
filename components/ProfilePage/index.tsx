@@ -45,6 +45,7 @@ const ProfilePage = () => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -347,6 +348,12 @@ const ProfilePage = () => {
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header */}
           <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.settingsGearButton}
+              onPress={() => setShowSettingsModal(true)}
+            >
+              <Ionicons name='settings-outline' size={22} color='#78909C' />
+            </TouchableOpacity>
             <View style={styles.avatarContainer}>
               <View style={styles.avatarGlow} />
               <Image
@@ -534,161 +541,156 @@ const ProfilePage = () => {
             <BadgeGrid allBadges={allBadges} earnedIds={earnedBadgeIds} />
           </View>
 
-          {/* Account Info Card */}
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Account Info</Text>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <Ionicons name='mail' size={20} color='#1f89ee' />
-              </View>
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>
-                  {user?.email || 'No email'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <Ionicons name='people' size={20} color='#ffb724' />
-              </View>
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Team</Text>
-                <Text style={styles.infoValue}>
-                  {profile?.teams?.name || 'No team'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <Ionicons name='calendar' size={20} color='#42A5F5' />
-              </View>
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Member Since</Text>
-                <Text style={styles.infoValue}>
-                  {profile?.created_at
-                    ? new Date(profile.created_at).toLocaleDateString('en-US', {
-                        month: 'long',
-                        year: 'numeric',
-                      })
-                    : 'Unknown'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Team Buttons (if no team) */}
-          {!profile?.team_id && (
-            <View style={styles.teamButtonsContainer}>
-              <TouchableOpacity
-                style={styles.joinTeamButton}
-                onPress={handleJoinTeam}
-              >
-                <Ionicons name='people' size={24} color='#FFF' />
-                <Text style={styles.joinTeamButtonText}>Join a Team</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.createTeamButton}
-                onPress={() => router.push('/(modals)/create-team')}
-              >
-                <Ionicons name='add-circle' size={24} color='#1f89ee' />
-                <Text style={styles.createTeamButtonText}>Create a Team</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Settings Card - only for players */}
-          {!profile?.is_coach && (
-            <View style={styles.settingsCard}>
-              <Text style={styles.settingsTitle}>Settings</Text>
-              <TouchableOpacity
-                style={styles.settingsRow}
-                onPress={() => setShowTargetModal(true)}
-              >
-                <View style={styles.settingsRowLeft}>
-                  <View style={styles.settingsIconBg}>
-                    <Ionicons name='flag' size={20} color='#1f89ee' />
-                  </View>
-                  <View>
-                    <Text style={styles.settingsLabel}>Daily Target</Text>
-                    <Text style={styles.settingsValue}>
-                      {dailyTarget.toLocaleString()} touches
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* View Mode Toggle - only for coaches */}
-          {profile?.is_coach && (
-            <View style={styles.settingsCard}>
-              <Text style={styles.settingsTitle}>View</Text>
-              <TouchableOpacity
-                style={styles.settingsRow}
-                onPress={() =>
-                  setViewMode(viewMode === 'coach' ? 'player' : 'coach')
-                }
-              >
-                <View style={styles.settingsRowLeft}>
-                  <View style={styles.settingsIconBg}>
-                    <Ionicons
-                      name={viewMode === 'coach' ? 'clipboard' : 'person'}
-                      size={20}
-                      color='#1f89ee'
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.settingsLabel}>Current View</Text>
-                    <Text style={styles.settingsValue}>
-                      {viewMode === 'coach' ? 'Coach Dashboard' : 'Player View'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.switchViewText}>
-                  Switch to {viewMode === 'coach' ? 'Player' : 'Coach'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Action Buttons */}
-          <View style={styles.actionsCard}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleFeedback}
-            >
-              <Ionicons name='chatbubble-ellipses' size={24} color='#1f89ee' />
-              <Text style={styles.actionButtonText}>Send Feedback</Text>
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleSignOut}
-            >
-              <Ionicons name='log-out' size={24} color='#ffb724' />
-              <Text style={styles.actionButtonText}>Sign Out</Text>
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleDeleteAccount}
-            >
-              <Ionicons name='trash' size={24} color='#D32F2F' />
-              <Text style={[styles.actionButtonText, styles.deleteAccountText]}>
-                Delete Account
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Version */}
-          <Text style={styles.version}>Version 2.1.1</Text>
         </ScrollView>
+
+        {/* Settings Modal */}
+        <Modal
+          visible={showSettingsModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowSettingsModal(false)}
+        >
+          <View style={styles.settingsOverlay}>
+            <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.settingsSheetHandle} />
+              <TouchableOpacity
+                style={styles.settingsSheetClose}
+                onPress={() => setShowSettingsModal(false)}
+              >
+                <Ionicons name='close' size={20} color='#6B7280' />
+              </TouchableOpacity>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.settingsSheetTitle}>Settings</Text>
+
+                {/* Account Info */}
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoTitle}>Account Info</Text>
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconBg}>
+                      <Ionicons name='mail' size={20} color='#1f89ee' />
+                    </View>
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Email</Text>
+                      <Text style={styles.infoValue}>{user?.email || 'No email'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconBg}>
+                      <Ionicons name='people' size={20} color='#ffb724' />
+                    </View>
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Team</Text>
+                      <Text style={styles.infoValue}>{profile?.teams?.name || 'No team'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconBg}>
+                      <Ionicons name='calendar' size={20} color='#42A5F5' />
+                    </View>
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Member Since</Text>
+                      <Text style={styles.infoValue}>
+                        {profile?.created_at
+                          ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                          : 'Unknown'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Team Buttons (if no team) */}
+                {!profile?.team_id && (
+                  <View style={styles.teamButtonsContainer}>
+                    <TouchableOpacity style={styles.joinTeamButton} onPress={handleJoinTeam}>
+                      <Ionicons name='people' size={24} color='#FFF' />
+                      <Text style={styles.joinTeamButtonText}>Join a Team</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.createTeamButton}
+                      onPress={() => { setShowSettingsModal(false); router.push('/(modals)/create-team'); }}
+                    >
+                      <Ionicons name='add-circle' size={24} color='#1f89ee' />
+                      <Text style={styles.createTeamButtonText}>Create a Team</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Settings - players */}
+                {!profile?.is_coach && (
+                  <View style={styles.settingsCard}>
+                    <Text style={styles.settingsTitle}>Preferences</Text>
+                    <TouchableOpacity
+                      style={styles.settingsRow}
+                      onPress={() => { setShowSettingsModal(false); setShowTargetModal(true); }}
+                    >
+                      <View style={styles.settingsRowLeft}>
+                        <View style={styles.settingsIconBg}>
+                          <Ionicons name='flag' size={20} color='#1f89ee' />
+                        </View>
+                        <View>
+                          <Text style={styles.settingsLabel}>Daily Target</Text>
+                          <Text style={styles.settingsValue}>{dailyTarget.toLocaleString()} touches</Text>
+                        </View>
+                      </View>
+                      <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* View Mode Toggle - coaches */}
+                {profile?.is_coach && (
+                  <View style={styles.settingsCard}>
+                    <Text style={styles.settingsTitle}>View</Text>
+                    <TouchableOpacity
+                      style={styles.settingsRow}
+                      onPress={() => setViewMode(viewMode === 'coach' ? 'player' : 'coach')}
+                    >
+                      <View style={styles.settingsRowLeft}>
+                        <View style={styles.settingsIconBg}>
+                          <Ionicons
+                            name={viewMode === 'coach' ? 'clipboard' : 'person'}
+                            size={20}
+                            color='#1f89ee'
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.settingsLabel}>Current View</Text>
+                          <Text style={styles.settingsValue}>
+                            {viewMode === 'coach' ? 'Coach Dashboard' : 'Player View'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.switchViewText}>
+                        Switch to {viewMode === 'coach' ? 'Player' : 'Coach'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Actions */}
+                <View style={styles.actionsCard}>
+                  <TouchableOpacity style={styles.actionButton} onPress={handleFeedback}>
+                    <Ionicons name='chatbubble-ellipses' size={24} color='#1f89ee' />
+                    <Text style={styles.actionButtonText}>Send Feedback</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+                    <Ionicons name='log-out' size={24} color='#ffb724' />
+                    <Text style={styles.actionButtonText}>Sign Out</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity style={styles.actionButton} onPress={handleDeleteAccount}>
+                    <Ionicons name='trash' size={24} color='#D32F2F' />
+                    <Text style={[styles.actionButtonText, styles.deleteAccountText]}>Delete Account</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.version}>Version 2.1.1</Text>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Daily Target Modal */}
         <Modal
@@ -1189,6 +1191,62 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F5F7FA',
     marginHorizontal: 20,
+  },
+
+  settingsGearButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  settingsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  settingsSheet: {
+    backgroundColor: '#F5F7FA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '90%',
+  },
+  settingsSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  settingsSheetClose: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsSheetTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 16,
+    marginTop: 4,
   },
 
   // VERSION
