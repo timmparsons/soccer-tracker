@@ -1,7 +1,9 @@
 import PageHeader from '@/components/common/PageHeader';
+import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -221,6 +223,9 @@ const TrainPage = () => {
   const [videoDescription, setVideoDescription] = useState<string>('');
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
+  const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
   const [drillFilter, setDrillFilter] = useState<
@@ -903,7 +908,20 @@ const TrainPage = () => {
       <VinnieCelebrationModal
         visible={showVinnieCelebration}
         touchCount={celebrationTouches}
-        onClose={() => setShowVinnieCelebration(false)}
+        onClose={() => {
+          setShowVinnieCelebration(false);
+          if (earnedBadges.length) setShowBadgeModal(true);
+        }}
+      />
+
+      {/* Badge Earned */}
+      <BadgeEarnedModal
+        visible={showBadgeModal}
+        badges={allBadges.filter((b) => earnedBadges.includes(b.id))}
+        onClose={() => {
+          setShowBadgeModal(false);
+          setEarnedBadges([]);
+        }}
       />
 
       {/* Drill Video */}
@@ -941,6 +959,7 @@ const TrainPage = () => {
           onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
             setCelebrationTouches(tc);
             setShowVinnieCelebration(true);
+            if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
           }}
         />
       )}
