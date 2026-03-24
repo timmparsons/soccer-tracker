@@ -1,4 +1,5 @@
 import PageHeader from '@/components/common/PageHeader';
+import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -48,6 +49,7 @@ const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   // Fetch team members with their touch stats
   const {
@@ -506,12 +508,14 @@ const Leaderboard = () => {
                 const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
 
                 return (
-                  <View
+                  <TouchableOpacity
                     key={player.id}
                     style={[
                       styles.playerCard,
                       isCurrentUser && styles.currentUserCard,
                     ]}
+                    onPress={() => setSelectedPlayerId(player.id)}
+                    activeOpacity={0.7}
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
@@ -560,7 +564,7 @@ const Leaderboard = () => {
                       </Text>
                       <Text style={styles.touchesLabel}>touches</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -674,12 +678,14 @@ const Leaderboard = () => {
                 const rank = jugglingLeaderboard.filter(p => p.high_score > player.high_score).length + 1;
 
                 return (
-                  <View
+                  <TouchableOpacity
                     key={player.id}
                     style={[
                       styles.playerCard,
                       isCurrentUser && styles.currentUserCard,
                     ]}
+                    onPress={() => setSelectedPlayerId(player.id)}
+                    activeOpacity={0.7}
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
@@ -722,13 +728,19 @@ const Leaderboard = () => {
                       </Text>
                       <Text style={styles.touchesLabel}>juggles</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           </>
         )}
       </ScrollView>
+
+      <PlayerProfileModal
+        playerId={selectedPlayerId}
+        visible={!!selectedPlayerId}
+        onClose={() => setSelectedPlayerId(null)}
+      />
     </View>
   );
 };
