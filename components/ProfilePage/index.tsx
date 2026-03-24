@@ -1,14 +1,18 @@
 import { useViewMode } from '@/app/(tabs)/_layout';
 import BadgeGrid from '@/components/common/BadgeGrid';
-import { useAllBadges, useLeaderboardWinCount, useUserBadges } from '@/hooks/useBadges';
 import type { Badge } from '@/hooks/useBadges';
+import {
+  useAllBadges,
+  useLeaderboardWinCount,
+  useUserBadges,
+} from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
+import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
@@ -49,7 +53,10 @@ const ProfilePage = () => {
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState<{ badge: Badge; isEarned: boolean } | null>(null);
+  const [selectedBadge, setSelectedBadge] = useState<{
+    badge: Badge;
+    isEarned: boolean;
+  } | null>(null);
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -274,7 +281,9 @@ const ProfilePage = () => {
 
   // Badges
   const { data: allBadges = [] } = useAllBadges();
-  const { data: userBadges = [], refetch: refetchBadges } = useUserBadges(user?.id);
+  const { data: userBadges = [], refetch: refetchBadges } = useUserBadges(
+    user?.id,
+  );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
 
@@ -376,7 +385,9 @@ const ProfilePage = () => {
     (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
-  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(profile?.total_xp ?? 0);
+  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
+    profile?.total_xp ?? 0,
+  );
   const rankName = getRankName(level);
   const rankBadge = getRankBadge(rankName);
   const xpProgress = xpForNextLevel > 0 ? xpIntoLevel / xpForNextLevel : 1;
@@ -436,17 +447,27 @@ const ProfilePage = () => {
             </Text>
             <View style={styles.xpPill}>
               <Text style={styles.xpPillText}>
-                Level {level} · {rankName} · {(profile?.total_xp ?? 0).toLocaleString()} XP
+                Level {level} · {rankName} ·{' '}
+                {(profile?.total_xp ?? 0).toLocaleString()} XP
               </Text>
             </View>
 
             {/* XP Progress Bar */}
             <View style={styles.xpProgressContainer}>
               <View style={styles.xpProgressTrack}>
-                <View style={[styles.xpProgressFill, { width: `${Math.round(xpProgress * 100)}%`, backgroundColor: rankBadge.color }]} />
+                <View
+                  style={[
+                    styles.xpProgressFill,
+                    {
+                      width: `${Math.round(xpProgress * 100)}%`,
+                      backgroundColor: rankBadge.color,
+                    },
+                  ]}
+                />
               </View>
               <Text style={styles.xpProgressLabel}>
-                {xpIntoLevel.toLocaleString()} / {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
+                {xpIntoLevel.toLocaleString()} /{' '}
+                {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
               </Text>
             </View>
 
@@ -598,10 +619,11 @@ const ProfilePage = () => {
               earnedIds={earnedBadgeIds}
               badgeCounts={badgeCounts}
               dark
-              onBadgePress={(badge, isEarned) => setSelectedBadge({ badge, isEarned })}
+              onBadgePress={(badge, isEarned) =>
+                setSelectedBadge({ badge, isEarned })
+              }
             />
           </View>
-
         </ScrollView>
 
         {/* Settings Modal */}
@@ -612,7 +634,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowSettingsModal(false)}
         >
           <View style={styles.settingsOverlay}>
-            <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View
+              style={[
+                styles.settingsSheet,
+                { paddingBottom: insets.bottom + 16 },
+              ]}
+            >
               <View style={styles.settingsSheetHandle} />
               <TouchableOpacity
                 style={styles.settingsSheetClose}
@@ -633,7 +660,9 @@ const ProfilePage = () => {
                     </View>
                     <View style={styles.infoTextContainer}>
                       <Text style={styles.infoLabel}>Email</Text>
-                      <Text style={styles.infoValue}>{user?.email || 'No email'}</Text>
+                      <Text style={styles.infoValue}>
+                        {user?.email || 'No email'}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.infoRow}>
@@ -642,7 +671,9 @@ const ProfilePage = () => {
                     </View>
                     <View style={styles.infoTextContainer}>
                       <Text style={styles.infoLabel}>Team</Text>
-                      <Text style={styles.infoValue}>{profile?.teams?.name || 'No team'}</Text>
+                      <Text style={styles.infoValue}>
+                        {profile?.teams?.name || 'No team'}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.infoRow}>
@@ -653,7 +684,10 @@ const ProfilePage = () => {
                       <Text style={styles.infoLabel}>Member Since</Text>
                       <Text style={styles.infoValue}>
                         {profile?.created_at
-                          ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                          ? new Date(profile.created_at).toLocaleDateString(
+                              'en-US',
+                              { month: 'long', year: 'numeric' },
+                            )
                           : 'Unknown'}
                       </Text>
                     </View>
@@ -663,16 +697,24 @@ const ProfilePage = () => {
                 {/* Team Buttons (if no team) */}
                 {!profile?.team_id && (
                   <View style={styles.teamButtonsContainer}>
-                    <TouchableOpacity style={styles.joinTeamButton} onPress={handleJoinTeam}>
+                    <TouchableOpacity
+                      style={styles.joinTeamButton}
+                      onPress={handleJoinTeam}
+                    >
                       <Ionicons name='people' size={24} color='#FFF' />
                       <Text style={styles.joinTeamButtonText}>Join a Team</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.createTeamButton}
-                      onPress={() => { setShowSettingsModal(false); router.push('/(modals)/create-team'); }}
+                      onPress={() => {
+                        setShowSettingsModal(false);
+                        router.push('/(modals)/create-team');
+                      }}
                     >
                       <Ionicons name='add-circle' size={24} color='#1f89ee' />
-                      <Text style={styles.createTeamButtonText}>Create a Team</Text>
+                      <Text style={styles.createTeamButtonText}>
+                        Create a Team
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -683,7 +725,10 @@ const ProfilePage = () => {
                     <Text style={styles.settingsTitle}>Preferences</Text>
                     <TouchableOpacity
                       style={styles.settingsRow}
-                      onPress={() => { setShowSettingsModal(false); setShowTargetModal(true); }}
+                      onPress={() => {
+                        setShowSettingsModal(false);
+                        setShowTargetModal(true);
+                      }}
                     >
                       <View style={styles.settingsRowLeft}>
                         <View style={styles.settingsIconBg}>
@@ -691,10 +736,16 @@ const ProfilePage = () => {
                         </View>
                         <View>
                           <Text style={styles.settingsLabel}>Daily Target</Text>
-                          <Text style={styles.settingsValue}>{dailyTarget.toLocaleString()} touches</Text>
+                          <Text style={styles.settingsValue}>
+                            {dailyTarget.toLocaleString()} touches
+                          </Text>
                         </View>
                       </View>
-                      <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
+                      <Ionicons
+                        name='chevron-forward'
+                        size={20}
+                        color='#B0BEC5'
+                      />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -705,7 +756,9 @@ const ProfilePage = () => {
                     <Text style={styles.settingsTitle}>View</Text>
                     <TouchableOpacity
                       style={styles.settingsRow}
-                      onPress={() => setViewMode(viewMode === 'coach' ? 'player' : 'coach')}
+                      onPress={() =>
+                        setViewMode(viewMode === 'coach' ? 'player' : 'coach')
+                      }
                     >
                       <View style={styles.settingsRowLeft}>
                         <View style={styles.settingsIconBg}>
@@ -718,7 +771,9 @@ const ProfilePage = () => {
                         <View>
                           <Text style={styles.settingsLabel}>Current View</Text>
                           <Text style={styles.settingsValue}>
-                            {viewMode === 'coach' ? 'Coach Dashboard' : 'Player View'}
+                            {viewMode === 'coach'
+                              ? 'Coach Dashboard'
+                              : 'Player View'}
                           </Text>
                         </View>
                       </View>
@@ -731,23 +786,43 @@ const ProfilePage = () => {
 
                 {/* Actions */}
                 <View style={styles.actionsCard}>
-                  <TouchableOpacity style={styles.actionButton} onPress={handleFeedback}>
-                    <Ionicons name='chatbubble-ellipses' size={24} color='#1f89ee' />
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleFeedback}
+                  >
+                    <Ionicons
+                      name='chatbubble-ellipses'
+                      size={24}
+                      color='#1f89ee'
+                    />
                     <Text style={styles.actionButtonText}>Send Feedback</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
-                  <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleSignOut}
+                  >
                     <Ionicons name='log-out' size={24} color='#ffb724' />
                     <Text style={styles.actionButtonText}>Sign Out</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
-                  <TouchableOpacity style={styles.actionButton} onPress={handleDeleteAccount}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleDeleteAccount}
+                  >
                     <Ionicons name='trash' size={24} color='#D32F2F' />
-                    <Text style={[styles.actionButtonText, styles.deleteAccountText]}>Delete Account</Text>
+                    <Text
+                      style={[
+                        styles.actionButtonText,
+                        styles.deleteAccountText,
+                      ]}
+                    >
+                      Delete Account
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.1.1</Text>
+                <Text style={styles.version}>Version 2.1.3</Text>
               </ScrollView>
             </View>
           </View>
@@ -936,34 +1011,73 @@ const ProfilePage = () => {
           onPress={() => setSelectedBadge(null)}
         >
           <View style={styles.badgeModalCard}>
-            <View style={[
-              styles.badgeModalIconRing,
-              selectedBadge?.isEarned
-                ? { backgroundColor: (selectedBadge.badge.color) + '22', borderColor: selectedBadge.badge.color }
-                : { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
-            ]}>
+            <View
+              style={[
+                styles.badgeModalIconRing,
+                selectedBadge?.isEarned
+                  ? {
+                      backgroundColor: selectedBadge.badge.color + '22',
+                      borderColor: selectedBadge.badge.color,
+                    }
+                  : { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+              ]}
+            >
               <Ionicons
                 name={selectedBadge?.badge.icon as any}
                 size={32}
-                color={selectedBadge?.isEarned ? selectedBadge.badge.color : '#C4C4C4'}
+                color={
+                  selectedBadge?.isEarned
+                    ? selectedBadge.badge.color
+                    : '#C4C4C4'
+                }
               />
             </View>
-            <Text style={[styles.badgeModalName, selectedBadge?.isEarned && { color: selectedBadge.badge.color }]}>
+            <Text
+              style={[
+                styles.badgeModalName,
+                selectedBadge?.isEarned && { color: selectedBadge.badge.color },
+              ]}
+            >
               {selectedBadge?.badge.name}
             </Text>
-            <Text style={styles.badgeModalDesc}>{selectedBadge?.badge.description}</Text>
-            {selectedBadge?.isEarned && selectedBadge.badge.id && (badgeCounts[selectedBadge.badge.id] ?? 1) > 1 && (
-              <Text style={[styles.badgeModalCount, { color: selectedBadge.badge.color }]}>
-                ×{badgeCounts[selectedBadge.badge.id]} earned
-              </Text>
-            )}
-            <View style={[styles.badgeModalStatus, selectedBadge?.isEarned ? styles.badgeModalStatusEarned : styles.badgeModalStatusLocked]}>
+            <Text style={styles.badgeModalDesc}>
+              {selectedBadge?.badge.description}
+            </Text>
+            {selectedBadge?.isEarned &&
+              selectedBadge.badge.id &&
+              (badgeCounts[selectedBadge.badge.id] ?? 1) > 1 && (
+                <Text
+                  style={[
+                    styles.badgeModalCount,
+                    { color: selectedBadge.badge.color },
+                  ]}
+                >
+                  ×{badgeCounts[selectedBadge.badge.id]} earned
+                </Text>
+              )}
+            <View
+              style={[
+                styles.badgeModalStatus,
+                selectedBadge?.isEarned
+                  ? styles.badgeModalStatusEarned
+                  : styles.badgeModalStatusLocked,
+              ]}
+            >
               <Ionicons
-                name={selectedBadge?.isEarned ? 'checkmark-circle' : 'lock-closed'}
+                name={
+                  selectedBadge?.isEarned ? 'checkmark-circle' : 'lock-closed'
+                }
                 size={14}
                 color={selectedBadge?.isEarned ? '#065F46' : '#6B7280'}
               />
-              <Text style={[styles.badgeModalStatusText, selectedBadge?.isEarned ? styles.badgeModalStatusTextEarned : styles.badgeModalStatusTextLocked]}>
+              <Text
+                style={[
+                  styles.badgeModalStatusText,
+                  selectedBadge?.isEarned
+                    ? styles.badgeModalStatusTextEarned
+                    : styles.badgeModalStatusTextLocked,
+                ]}
+              >
                 {selectedBadge?.isEarned ? 'EARNED' : 'LOCKED'}
               </Text>
             </View>
