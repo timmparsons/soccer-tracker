@@ -1,3 +1,4 @@
+import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -30,11 +31,13 @@ interface LogSessionModalProps {
     touchCount: number,
     isChallenge: boolean,
     drillName?: string,
+    earnedBadgeIds?: string[],
   ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
   challengeName?: string;
   challengeDifficulty?: string;
+  badgeContext?: Omit<BadgeCheckContext, 'jugglesThisSession' | 'durationMinutes'>;
 }
 
 const DRILL_TIPS: Record<string, string> = {
@@ -55,6 +58,7 @@ const LogSessionModal = ({
   challengeDurationMinutes,
   challengeName,
   challengeDifficulty,
+  badgeContext,
 }: LogSessionModalProps) => {
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
@@ -119,6 +123,17 @@ const LogSessionModal = ({
       // Reschedule inactivity reminders — reset the 2-day countdown from now
       scheduleInactivityReminders(new Date()).catch(() => {});
 
+      // Check for newly earned badges (fire-and-forget, non-blocking)
+      let earnedBadgeIds: string[] = [];
+      if (badgeContext) {
+        const durationMinutes = duration ? parseInt(duration) : null;
+        earnedBadgeIds = await checkAndAwardBadges(userId, {
+          ...badgeContext,
+          jugglesThisSession: juggleCount > 0 ? juggleCount : null,
+          durationMinutes,
+        });
+      }
+
       // Reset form
       setTouches('');
       setDuration('');
@@ -130,6 +145,7 @@ const LogSessionModal = ({
         touchCount || juggleCount,
         isChallengeMode,
         challengeName,
+        earnedBadgeIds,
       );
     } catch (error) {
       console.error('Error logging session:', error);

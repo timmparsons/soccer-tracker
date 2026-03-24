@@ -3,7 +3,7 @@ import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -264,6 +264,7 @@ const TrainPage = () => {
   }, []);
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
+  const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
   const { data: drills = [], refetch: refetchDrills } = useDrills();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -929,7 +930,15 @@ const TrainPage = () => {
           onSuccess={handleSessionLogged}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
-          onSessionLogged={(tc) => {
+          badgeContext={{
+            totalSessions: touchStats?.total_sessions ?? 0,
+            totalTouches: touchStats?.total_touches ?? 0,
+            currentStreak: touchStats?.current_streak ?? 0,
+            previousJugglePB: jugglePB,
+            sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
+            teamId: profile?.team_id ?? null,
+          }}
+          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
             setCelebrationTouches(tc);
             setShowVinnieCelebration(true);
           }}

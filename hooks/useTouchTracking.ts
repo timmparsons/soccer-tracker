@@ -10,7 +10,10 @@ interface DailyStats {
   this_week_touches: number;
   this_week_minutes: number;
   this_week_tpm: number;
+  this_week_sessions: number;
   current_streak: number;
+  total_touches: number;
+  total_sessions: number;
   last_session_time: string | null;
 }
 
@@ -76,12 +79,16 @@ export const useTouchTracking = (userId: string | undefined) => {
       const weekTpm =
         weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
 
-      // Calculate streak (consecutive days with at least 1 session)
+      // Calculate streak + totals (consecutive days with at least 1 session)
       const { data: allSessions } = await supabase
         .from('daily_sessions')
-        .select('date')
+        .select('date, touches_logged')
         .eq('user_id', userId)
         .order('date', { ascending: false });
+
+      const totalTouches = allSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
+      const totalSessions = allSessions?.length || 0;
+      const sessionsThisWeek = weekSessions?.length || 0;
 
       let streak = 0;
       if (allSessions && allSessions.length > 0) {
@@ -121,7 +128,10 @@ export const useTouchTracking = (userId: string | undefined) => {
         this_week_touches: weekTouches,
         this_week_minutes: weekMinutes,
         this_week_tpm: weekTpm,
+        this_week_sessions: sessionsThisWeek,
         current_streak: streak,
+        total_touches: totalTouches,
+        total_sessions: totalSessions,
         last_session_time: lastSession?.created_at || null,
       };
     },
