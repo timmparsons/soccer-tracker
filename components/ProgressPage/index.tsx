@@ -1,12 +1,11 @@
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
-import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -49,9 +48,6 @@ const ProgressPage = () => {
 
   // Get recent sessions
   const { data: recentSessions, isLoading: sessionsLoading } = useRecentSessions(user?.id, 10);
-
-  // Get challenge stats for badges
-  const { data: challengeStats } = useChallengeStats(user?.id, null);
 
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
@@ -216,68 +212,6 @@ const ProgressPage = () => {
     if (diffDays === 1) return 'Yesterday';
     return `${diffDays} days ago`;
   };
-
-  // Build achievements based on real data
-  const achievements = [
-    {
-      id: '1',
-      title: '1,000 Touch Day',
-      description: 'Hit 1,000 touches in a single day',
-      icon: '🏆',
-      unlocked: (lifetimeStats?.bestDayEver || 0) >= 1000,
-      progress: Math.min(lifetimeStats?.bestDayEver || 0, 1000),
-      total: 1000,
-    },
-    {
-      id: '2',
-      title: 'Week Warrior',
-      description: 'Practice every day for 7 days straight',
-      icon: '⚔️',
-      unlocked: (lifetimeStats?.longestStreak || 0) >= 7,
-      progress: Math.min(lifetimeStats?.longestStreak || 0, 7),
-      total: 7,
-    },
-    {
-      id: '3',
-      title: 'Century Master',
-      description: 'Complete 100 training sessions',
-      icon: '💯',
-      unlocked: (lifetimeStats?.totalSessions || 0) >= 100,
-      progress: Math.min(lifetimeStats?.totalSessions || 0, 100),
-      total: 100,
-    },
-    {
-      id: '4',
-      title: 'Marathon Player',
-      description: 'Log 100,000 lifetime touches',
-      icon: '🎖️',
-      unlocked: (lifetimeStats?.totalTouches || 0) >= 100000,
-      progress: Math.min(lifetimeStats?.totalTouches || 0, 100000),
-      total: 100000,
-    },
-    {
-      id: '5',
-      title: 'Challenge Streak',
-      description: 'Complete challenges 7 days in a row',
-      icon: '🗓️',
-      unlocked: (challengeStats?.challengeStreak || 0) >= 7,
-      progress: Math.min(challengeStats?.challengeStreak || 0, 7),
-      total: 7,
-    },
-    {
-      id: '6',
-      title: 'Drill Explorer',
-      description: 'Complete every type of drill at least once',
-      icon: '🔍',
-      unlocked:
-        (challengeStats?.totalDrillsAvailable || 0) > 0 &&
-        (challengeStats?.uniqueDrillsCompleted || 0) >= (challengeStats?.totalDrillsAvailable || 1),
-      progress: challengeStats?.uniqueDrillsCompleted || 0,
-      total: challengeStats?.totalDrillsAvailable || 1,
-    },
-  ];
-
-  const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   const chartData = {
     labels: chartStats?.labels || (timeFilter === 'week' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Week 1', 'Week 2', 'Week 3', 'Week 4']),
@@ -465,68 +399,6 @@ const ProgressPage = () => {
           )}
         </View>
 
-        {/* Trophy Cabinet */}
-        <View style={styles.cabinetCard}>
-          <View style={styles.cabinetHeader}>
-            <View>
-              <Text style={styles.cabinetLabel}>TROPHY CABINET</Text>
-              <Text style={styles.cabinetTitle}>
-                {unlockedCount === 0
-                  ? 'Start earning trophies'
-                  : unlockedCount === achievements.length
-                  ? 'Full collection! 🎉'
-                  : `${unlockedCount} of ${achievements.length} earned`}
-              </Text>
-            </View>
-            <View style={styles.cabinetBadge}>
-              <Text style={styles.cabinetBadgeText}>{unlockedCount}/{achievements.length}</Text>
-            </View>
-          </View>
-
-          <View style={styles.trophyGrid}>
-            {achievements.map((achievement) =>
-              achievement.unlocked ? (
-                <View key={achievement.id} style={styles.trophyUnlocked}>
-                  <View style={styles.trophyIconRingUnlocked}>
-                    <Text style={styles.trophyEmoji}>{achievement.icon}</Text>
-                  </View>
-                  <Text style={styles.trophyNameUnlocked} numberOfLines={2}>
-                    {achievement.title}
-                  </Text>
-                  <View style={styles.earnedBadge}>
-                    <Ionicons name='checkmark' size={10} color='#065F46' />
-                    <Text style={styles.earnedText}>EARNED</Text>
-                  </View>
-                </View>
-              ) : (
-                <View key={achievement.id} style={styles.trophyLocked}>
-                  <View style={styles.trophyIconRingLocked}>
-                    <Text style={[styles.trophyEmoji, { opacity: 0.12 }]}>
-                      {achievement.icon}
-                    </Text>
-                    <View style={styles.lockOverlay}>
-                      <Ionicons name='lock-closed' size={22} color='rgba(255,255,255,0.45)' />
-                    </View>
-                  </View>
-                  <Text style={styles.trophyNameLocked} numberOfLines={2}>
-                    {achievement.title}
-                  </Text>
-                  <View style={styles.lockedProgressBar}>
-                    <View
-                      style={[
-                        styles.lockedProgressFill,
-                        { width: `${Math.min((achievement.progress / achievement.total) * 100, 100)}%` },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.lockedProgressText}>
-                    {achievement.progress.toLocaleString()}/{achievement.total.toLocaleString()}
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-        </View>
       </ScrollView>
 
       {/* Vinnie streak milestone celebration */}
@@ -782,158 +654,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // TROPHY CABINET
-  cabinetCard: {
-    backgroundColor: '#1E1A3A',
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: '#1E1A3A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cabinetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 16,
-  },
-  cabinetLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#A78BFA',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  cabinetTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  cabinetBadge: {
-    backgroundColor: '#312E81',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#4338CA',
-  },
-  cabinetBadgeText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#C7D2FE',
-  },
-  trophyGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  trophyUnlocked: {
-    width: '47.5%',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#F59E0B',
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  trophyLocked: {
-    width: '47.5%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  trophyIconRingUnlocked: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  trophyIconRingLocked: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  trophyEmoji: {
-    fontSize: 30,
-  },
-  lockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30, 26, 58, 0.65)',
-    borderRadius: 32,
-  },
-  trophyNameUnlocked: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#78350F',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 10,
-  },
-  trophyNameLocked: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.28)',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  earnedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  earnedText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#065F46',
-    letterSpacing: 0.8,
-  },
-  lockedProgressBar: {
-    width: '100%',
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 5,
-  },
-  lockedProgressFill: {
-    height: '100%',
-    backgroundColor: 'rgba(167,139,250,0.6)',
-    borderRadius: 2,
-  },
-  lockedProgressText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.22)',
-  },
 });

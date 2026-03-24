@@ -1,8 +1,9 @@
 import { useViewMode } from '@/app/(tabs)/_layout';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
+import type { Badge } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { getLevelFromXp, getRankName } from '@/lib/xp';
+import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
@@ -47,6 +48,7 @@ const ProfilePage = () => {
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState<{ badge: Badge; isEarned: boolean } | null>(null);
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -341,8 +343,10 @@ const ProfilePage = () => {
     (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
-  const { level } = getLevelFromXp(profile?.total_xp ?? 0);
+  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(profile?.total_xp ?? 0);
   const rankName = getRankName(level);
+  const rankBadge = getRankBadge(rankName);
+  const xpProgress = xpForNextLevel > 0 ? xpIntoLevel / xpForNextLevel : 1;
 
   return (
     <>
@@ -400,6 +404,16 @@ const ProfilePage = () => {
             <View style={styles.xpPill}>
               <Text style={styles.xpPillText}>
                 Level {level} · {rankName} · {(profile?.total_xp ?? 0).toLocaleString()} XP
+              </Text>
+            </View>
+
+            {/* XP Progress Bar */}
+            <View style={styles.xpProgressContainer}>
+              <View style={styles.xpProgressTrack}>
+                <View style={[styles.xpProgressFill, { width: `${Math.round(xpProgress * 100)}%`, backgroundColor: rankBadge.color }]} />
+              </View>
+              <Text style={styles.xpProgressLabel}>
+                {xpIntoLevel.toLocaleString()} / {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
               </Text>
             </View>
 
@@ -546,7 +560,12 @@ const ProfilePage = () => {
                 {earnedBadgeIds.size}/{allBadges.length} earned
               </Text>
             </View>
-            <BadgeGrid allBadges={allBadges} earnedIds={earnedBadgeIds} />
+            <BadgeGrid
+              allBadges={allBadges}
+              earnedIds={earnedBadgeIds}
+              dark
+              onBadgePress={(badge, isEarned) => setSelectedBadge({ badge, isEarned })}
+            />
           </View>
 
         </ScrollView>
@@ -869,6 +888,49 @@ const ProfilePage = () => {
           </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
+
+      {/* Badge Detail Modal */}
+      <Modal
+        visible={!!selectedBadge}
+        animationType='fade'
+        transparent={true}
+        onRequestClose={() => setSelectedBadge(null)}
+      >
+        <TouchableOpacity
+          style={styles.badgeModalOverlay}
+          activeOpacity={1}
+          onPress={() => setSelectedBadge(null)}
+        >
+          <View style={styles.badgeModalCard}>
+            <View style={[
+              styles.badgeModalIconRing,
+              selectedBadge?.isEarned
+                ? { backgroundColor: (selectedBadge.badge.color) + '22', borderColor: selectedBadge.badge.color }
+                : { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+            ]}>
+              <Ionicons
+                name={selectedBadge?.badge.icon as any}
+                size={32}
+                color={selectedBadge?.isEarned ? selectedBadge.badge.color : '#C4C4C4'}
+              />
+            </View>
+            <Text style={[styles.badgeModalName, selectedBadge?.isEarned && { color: selectedBadge.badge.color }]}>
+              {selectedBadge?.badge.name}
+            </Text>
+            <Text style={styles.badgeModalDesc}>{selectedBadge?.badge.description}</Text>
+            <View style={[styles.badgeModalStatus, selectedBadge?.isEarned ? styles.badgeModalStatusEarned : styles.badgeModalStatusLocked]}>
+              <Ionicons
+                name={selectedBadge?.isEarned ? 'checkmark-circle' : 'lock-closed'}
+                size={14}
+                color={selectedBadge?.isEarned ? '#065F46' : '#6B7280'}
+              />
+              <Text style={[styles.badgeModalStatusText, selectedBadge?.isEarned ? styles.badgeModalStatusTextEarned : styles.badgeModalStatusTextLocked]}>
+                {selectedBadge?.isEarned ? 'EARNED' : 'LOCKED'}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 };
@@ -1206,12 +1268,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 5,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   xpPillText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  xpProgressContainer: {
+    width: '100%',
+    paddingHorizontal: 4,
+    marginBottom: 16,
+    gap: 5,
+  },
+  xpProgressTrack: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  xpProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  xpProgressLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
   },
   settingsGearButton: {
     position: 'absolute',
@@ -1301,15 +1385,15 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgesCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#1E1A3A',
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#1E1A3A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   badgesHeader: {
     flexDirection: 'row',
@@ -1320,12 +1404,76 @@ const styles = StyleSheet.create({
   badgesTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
   },
   badgesCount: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#78909C',
+    color: '#A78BFA',
+  },
+  badgeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  badgeModalCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    gap: 10,
+  },
+  badgeModalIconRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  badgeModalName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    textAlign: 'center',
+  },
+  badgeModalDesc: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  badgeModalStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  badgeModalStatusEarned: {
+    backgroundColor: '#D1FAE5',
+  },
+  badgeModalStatusLocked: {
+    backgroundColor: '#F3F4F6',
+  },
+  badgeModalStatusText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  badgeModalStatusTextEarned: {
+    color: '#065F46',
+  },
+  badgeModalStatusTextLocked: {
+    color: '#6B7280',
   },
   levelsTitle: {
     fontSize: 18,
