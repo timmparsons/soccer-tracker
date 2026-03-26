@@ -1,4 +1,5 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
+import { checkAndAwardCards, EarnedCard } from '@/lib/checkCards';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -10,6 +11,7 @@ import {
   Dimensions,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -32,6 +34,7 @@ interface LogSessionModalProps {
     isChallenge: boolean,
     drillName?: string,
     earnedBadgeIds?: string[],
+    earnedCards?: EarnedCard[],
   ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
@@ -123,7 +126,7 @@ const LogSessionModal = ({
       // Reschedule inactivity reminders — reset the 2-day countdown from now
       scheduleInactivityReminders(new Date()).catch(() => {});
 
-      // Check for newly earned badges (fire-and-forget, non-blocking)
+      // Check for newly earned badges
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
@@ -133,6 +136,12 @@ const LogSessionModal = ({
           durationMinutes,
         });
       }
+
+      // Check for newly earned trading cards
+      const earnedCards = await checkAndAwardCards(userId, {
+        totalTouches: (badgeContext?.totalTouches ?? 0) + touchCount,
+        sessionTouches: touchCount,
+      });
 
       // Reset form
       setTouches('');
@@ -146,6 +155,7 @@ const LogSessionModal = ({
         isChallengeMode,
         challengeName,
         earnedBadgeIds,
+        earnedCards,
       );
     } catch (error) {
       console.error('Error logging session:', error);
@@ -171,12 +181,15 @@ const LogSessionModal = ({
       statusBarTranslucent={Platform.OS === 'android'}
       hardwareAccelerated
     >
-      <View style={styles.kavContainer}>
+      <KeyboardAvoidingView
+        style={styles.kavContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.modalOverlay}>
           <View
             style={[
               styles.modalContent,
-              keyboardHeight > 0 && { height: screenHeight * 0.85 - keyboardHeight },
+              keyboardHeight > 0 && Platform.OS === 'android' && { maxHeight: screenHeight * 0.85 - keyboardHeight },
             ]}
           >
           <View style={styles.modalHeader}>
@@ -191,7 +204,6 @@ const LogSessionModal = ({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps='handled'
             contentContainerStyle={styles.scrollContent}
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Challenge label */}
             {challengeName && (
@@ -364,7 +376,7 @@ const LogSessionModal = ({
           </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -384,7 +396,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: screenHeight * 0.85,
+    maxHeight: screenHeight * 0.85,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -440,8 +452,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
     borderRadius: 8,
     gap: 4,
   },

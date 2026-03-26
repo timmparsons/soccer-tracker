@@ -9,6 +9,7 @@ import {
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
+import { useAllCards, useUserCards } from '@/hooks/useUserCards';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
@@ -279,6 +280,11 @@ const ProfilePage = () => {
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
+
+  // Trading cards
+  const { data: allCards = [] } = useAllCards();
+  const { data: userCards = [] } = useUserCards(user?.id);
+  const ownedCardCount = new Set(userCards.map((c) => c.card_id)).size;
 
   // Badges
   const { data: allBadges = [] } = useAllBadges();
@@ -641,6 +647,19 @@ const ProfilePage = () => {
               }
             />
           </View>
+
+          {/* My Card Collection button */}
+          <TouchableOpacity
+            style={styles.cardsButton}
+            onPress={() => router.push('/(modals)/card-collection')}
+          >
+            <Ionicons name='albums-outline' size={18} color='#8b5cf6' />
+            <Text style={styles.cardsButtonText}>My Card Collection</Text>
+            <View style={styles.cardsCountPill}>
+              <Text style={styles.cardsCountText}>{ownedCardCount}/{allCards.length}</Text>
+            </View>
+            <Ionicons name='chevron-forward' size={18} color='#8b5cf6' />
+          </TouchableOpacity>
         </ScrollView>
 
         {/* Settings Modal */}
@@ -1473,7 +1492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     marginTop: 10,
-    marginBottom: 10,
+    marginBottom: 6,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -1484,6 +1503,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffb724',
+  },
+  cardsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: '#8b5cf611',
+    borderWidth: 1.5,
+    borderColor: '#8b5cf6',
+  },
+  cardsButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#8b5cf6',
+    flex: 1,
+  },
+  cardsCountPill: {
+    backgroundColor: '#8b5cf622',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  cardsCountText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#8b5cf6',
   },
   settingsGearButton: {
     position: 'absolute',

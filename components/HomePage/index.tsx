@@ -1,11 +1,13 @@
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
+import CardRevealModal from '@/components/CardRevealModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import type { EarnedCard } from '@/lib/checkCards';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
@@ -38,6 +40,8 @@ const HomeScreen = () => {
   const [vinnieTouches, setVinnieTouches] = useState(0);
   const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
   const [vinnieDrillName, setVinnieDrillName] = useState<string | undefined>();
+  const [earnedCards, setEarnedCards] = useState<EarnedCard[]>([]);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
@@ -202,11 +206,15 @@ const HomeScreen = () => {
             refetchChallengeStats();
             queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
           }}
-          onSessionLogged={(tc, isChallenge, drillName) => {
+          onSessionLogged={(tc, isChallenge, drillName, _badgeIds, newCards) => {
             setVinnieTouches(tc);
             setVinnieIsChallenge(isChallenge);
             setVinnieDrillName(drillName);
             setVinnieVisible(true);
+            if (newCards?.length) {
+              setEarnedCards(newCards);
+              queryClient.invalidateQueries({ queryKey: ['user-cards'] });
+            }
           }}
         />
       )}
@@ -218,7 +226,19 @@ const HomeScreen = () => {
         drillName={vinnieDrillName}
         streak={streak}
         challengeStreak={challengeStreak}
-        onClose={() => setVinnieVisible(false)}
+        onClose={() => {
+          setVinnieVisible(false);
+          if (earnedCards.length) setShowCardModal(true);
+        }}
+      />
+
+      <CardRevealModal
+        visible={showCardModal}
+        cards={earnedCards}
+        onClose={() => {
+          setShowCardModal(false);
+          setEarnedCards([]);
+        }}
       />
     </View>
   );

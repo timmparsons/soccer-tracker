@@ -3,11 +3,14 @@ import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import CardRevealModal from '@/components/CardRevealModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import type { EarnedCard } from '@/lib/checkCards';
+import { useQueryClient } from '@tanstack/react-query';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -225,6 +228,9 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [earnedCards, setEarnedCards] = useState<EarnedCard[]>([]);
+  const [showCardModal, setShowCardModal] = useState(false);
+  const queryClient = useQueryClient();
   const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
@@ -911,6 +917,7 @@ const TrainPage = () => {
         onClose={() => {
           setShowVinnieCelebration(false);
           if (earnedBadges.length) setShowBadgeModal(true);
+          else if (earnedCards.length) setShowCardModal(true);
         }}
       />
 
@@ -921,6 +928,17 @@ const TrainPage = () => {
         onClose={() => {
           setShowBadgeModal(false);
           setEarnedBadges([]);
+          if (earnedCards.length) setShowCardModal(true);
+        }}
+      />
+
+      {/* Card Earned */}
+      <CardRevealModal
+        visible={showCardModal}
+        cards={earnedCards}
+        onClose={() => {
+          setShowCardModal(false);
+          setEarnedCards([]);
         }}
       />
 
@@ -956,10 +974,14 @@ const TrainPage = () => {
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,
           }}
-          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
+          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds, newCards) => {
             setCelebrationTouches(tc);
             setShowVinnieCelebration(true);
             if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
+            if (newCards?.length) {
+              setEarnedCards(newCards);
+              queryClient.invalidateQueries({ queryKey: ['user-cards'] });
+            }
           }}
         />
       )}
