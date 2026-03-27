@@ -25,9 +25,9 @@ const POSITION_COLORS: Record<TradingCard['position'], string> = {
 };
 
 const SIZES = {
-  sm:  { width: 90,  height: 126, fontSize: 7,  subSize: 6,  iconSize: 46, pillH: 14, pillFontSize: 5 },
-  md:  { width: 160, height: 224, fontSize: 13, subSize: 10, iconSize: 82, pillH: 20, pillFontSize: 9 },
-  lg:  { width: 240, height: 336, fontSize: 18, subSize: 14, iconSize: 120, pillH: 26, pillFontSize: 11 },
+  sm:  { width: 90,  height: 126, fontSize: 7,  subSize: 6,  iconSize: 46,  pillH: 14, pillFontSize: 5  },
+  md:  { width: 160, height: 224, fontSize: 13, subSize: 10, iconSize: 82,  pillH: 20, pillFontSize: 9  },
+  lg:  { width: 240, height: 380, fontSize: 18, subSize: 14, iconSize: 110, pillH: 26, pillFontSize: 11 },
 };
 
 interface TradingCardProps {
@@ -35,6 +35,15 @@ interface TradingCardProps {
   owned?: boolean;
   size?: 'sm' | 'md' | 'lg';
   onPress?: () => void;
+}
+
+function StatRow({ label, value, owned }: { label: string; value: number; owned: boolean }) {
+  return (
+    <View style={styles.statRow}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color: owned ? '#ffffff' : '#555' }]}>{value}</Text>
+    </View>
+  );
 }
 
 export default function TradingCardView({
@@ -107,7 +116,7 @@ export default function TradingCardView({
       </View>
 
       {/* Info strip */}
-      <View style={[styles.infoStrip, { paddingHorizontal: dim.width * 0.06, paddingVertical: dim.height * 0.025 }]}>
+      <View style={[styles.infoStrip, { paddingHorizontal: dim.width * 0.06, paddingVertical: dim.height * 0.02 }]}>
         <Text style={[styles.playerName, { fontSize: dim.fontSize, color: owned ? '#fff' : '#666' }]} numberOfLines={1}>
           {card.player_name}
         </Text>
@@ -118,6 +127,29 @@ export default function TradingCardView({
           </View>
         </View>
       </View>
+
+      {/* Stats strip — lg only */}
+      {size === 'lg' && (
+        <View style={[styles.statsStrip, { borderTopColor: owned ? color + '44' : '#222' }]}>
+          <View style={styles.ovrBlock}>
+            <Text style={[styles.ovrNumber, { color: owned ? color : '#555' }]}>{card.overall}</Text>
+            <Text style={[styles.ovrLabel, { color: owned ? color + 'aa' : '#444' }]}>OVR</Text>
+          </View>
+          <View style={styles.statsDivider} />
+          <View style={styles.statsGrid}>
+            <View style={styles.statsCol}>
+              <StatRow label='PAC' value={card.pace}      owned={owned} />
+              <StatRow label='SHO' value={card.shooting}  owned={owned} />
+              <StatRow label='PAS' value={card.passing}   owned={owned} />
+            </View>
+            <View style={styles.statsCol}>
+              <StatRow label='DRI' value={card.dribbling} owned={owned} />
+              <StatRow label='DEF' value={card.defending} owned={owned} />
+              <StatRow label='PHY' value={card.physical}  owned={owned} />
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Unowned lock overlay */}
       {!owned && (
@@ -211,5 +243,57 @@ const styles = StyleSheet.create({
   lockIcon: {
     fontSize: 16,
     opacity: 0.6,
+  },
+  statsStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    gap: 10,
+  },
+  ovrBlock: {
+    alignItems: 'center',
+    minWidth: 38,
+  },
+  ovrNumber: {
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  ovrLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  statsDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  statsGrid: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statsCol: {
+    flex: 1,
+    gap: 3,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    color: '#9CA3AF',
+  },
+  statValue: {
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

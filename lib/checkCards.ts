@@ -9,6 +9,13 @@ export interface TradingCard {
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   sort_order: number;
   milestone_touches: number | null;
+  overall: number;
+  pace: number;
+  shooting: number;
+  passing: number;
+  dribbling: number;
+  defending: number;
+  physical: number;
 }
 
 export interface CardCheckContext {

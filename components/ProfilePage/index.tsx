@@ -473,7 +473,7 @@ const ProfilePage = () => {
                     styles.xpProgressFill,
                     {
                       width: `${Math.round(xpProgress * 100)}%`,
-                      backgroundColor: rankBadge.color,
+                      backgroundColor: '#1f89ee',
                     },
                   ]}
                 />
