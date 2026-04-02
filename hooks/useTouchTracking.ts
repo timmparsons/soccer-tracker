@@ -282,26 +282,36 @@ export const useChallengeStats = (
       }
 
       // Count distinct drill_ids ever logged
-      const { data: drillSessions } = await supabase
-        .from('daily_sessions')
-        .select('drill_id')
-        .eq('user_id', userId)
-        .not('drill_id', 'is', null);
+      const [{ data: drillSessions }, { data: allDrills, count: totalDrillsAvailable }] =
+        await Promise.all([
+          supabase
+            .from('daily_sessions')
+            .select('drill_id')
+            .eq('user_id', userId)
+            .not('drill_id', 'is', null),
+          supabase
+            .from('drills')
+            .select('id, difficulty_level', { count: 'exact' }),
+        ]);
 
-      const uniqueDrillsCompleted = new Set(
+      const completedDrillIds = new Set(
         drillSessions?.map((s) => s.drill_id) || [],
-      ).size;
+      );
+      const uniqueDrillsCompleted = completedDrillIds.size;
 
-      // Total drills available
-      const { count: totalDrillsAvailable } = await supabase
-        .from('drills')
-        .select('*', { count: 'exact', head: true });
+      const beginnerDrillIds = (allDrills || [])
+        .filter((d) => d.difficulty_level === 'beginner')
+        .map((d) => d.id);
+      const completedAllBeginnerDrills =
+        beginnerDrillIds.length > 0 &&
+        beginnerDrillIds.every((id) => completedDrillIds.has(id));
 
       return {
         completedToday,
         challengeStreak,
         uniqueDrillsCompleted,
         totalDrillsAvailable: totalDrillsAvailable || 0,
+        completedAllBeginnerDrills,
       };
     },
     enabled: !!userId,

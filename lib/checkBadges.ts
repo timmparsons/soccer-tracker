@@ -9,6 +9,7 @@ export interface BadgeCheckContext {
   durationMinutes: number | null;
   sessionsThisWeek: number;
   teamId: string | null;
+  completedAllBeginnerDrills: boolean;
 }
 
 export async function checkAndAwardBadges(
@@ -64,6 +65,9 @@ export async function checkAndAwardBadges(
 
   // Social badges
   candidate('social_team', context.teamId !== null);
+
+  // Drills badges
+  candidate('drills_beginner', context.completedAllBeginnerDrills);
 
   if (toAward.length === 0) return [];
 

@@ -7,7 +7,7 @@ import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -112,6 +112,7 @@ const TrainPage = () => {
 
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
+  const { data: challengeStats } = useChallengeStats(user?.id, undefined);
   const { data: drills = [], refetch: refetchDrills } = useDrills();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -807,6 +808,7 @@ const TrainPage = () => {
             previousJugglePB: jugglePB,
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,
+            completedAllBeginnerDrills: challengeStats?.completedAllBeginnerDrills ?? false,
           }}
           onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
             setCelebrationTouches(tc);
