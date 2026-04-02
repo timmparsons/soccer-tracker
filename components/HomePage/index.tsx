@@ -1,8 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
-import LogSessionModal from '@/components/modals/LogSessionModal';
-import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -22,23 +20,6 @@ import {
 const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [challengeDrillId, setChallengeDrillId] = useState<
-    string | undefined
-  >();
-  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<
-    number | undefined
-  >();
-  const [challengeName, setChallengeName] = useState<string | undefined>();
-  const [challengeDifficulty, setChallengeDifficulty] = useState<
-    string | undefined
-  >();
-  const [vinnieVisible, setVinnieVisible] = useState(false);
-  const [vinnieTouches, setVinnieTouches] = useState(0);
-  const [vinnieIsChallenge, setVinnieIsChallenge] = useState(false);
-  const [vinnieDrillName, setVinnieDrillName] = useState<string | undefined>();
-
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -54,9 +35,8 @@ const HomeScreen = () => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refetchProfile(), refetchStats(), refetchChallengeStats()]);
-    queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +60,6 @@ const HomeScreen = () => {
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
 
-  // TPM intensity indicator
   const getTpmLabel = (tpm: number) => {
     if (tpm === 0) return 'No data';
     if (tpm < 30) return 'Slow pace';
@@ -110,24 +89,8 @@ const HomeScreen = () => {
           streak={streak}
         />
 
-        {/* TODAY'S CHALLENGE */}
-        {user?.id && (
-          <TodayChallengeCard
-            userId={user.id}
-            onStartChallenge={(
-              drillId,
-              durationMinutes,
-              drillName,
-              difficulty,
-            ) => {
-              setChallengeDrillId(drillId);
-              setChallengeDurationMinutes(durationMinutes);
-              setChallengeName(drillName);
-              setChallengeDifficulty(difficulty);
-              setModalVisible(true);
-            }}
-          />
-        )}
+        {/* PLAYER CHALLENGES */}
+        {user?.id && <ChallengesCard userId={user.id} />}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
@@ -173,53 +136,11 @@ const HomeScreen = () => {
             </Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
             <Text style={styles.statSubtext}>
-              {challengeStreak === 0
-                ? "Do today's challenge!"
-                : 'Days in a row'}
+              {challengeStreak === 0 ? "Do today's challenge!" : 'Days in a row'}
             </Text>
           </View>
         </View>
       </ScrollView>
-
-      {user?.id && (
-        <LogSessionModal
-          visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            setChallengeDrillId(undefined);
-            setChallengeDurationMinutes(undefined);
-            setChallengeName(undefined);
-            setChallengeDifficulty(undefined);
-          }}
-          userId={user.id}
-          challengeDrillId={challengeDrillId}
-          challengeDurationMinutes={challengeDurationMinutes}
-          challengeName={challengeName}
-          challengeDifficulty={challengeDifficulty}
-          onSuccess={() => {
-            refetchProfile();
-            refetchStats();
-            refetchChallengeStats();
-            queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
-          }}
-          onSessionLogged={(tc, isChallenge, drillName) => {
-            setVinnieTouches(tc);
-            setVinnieIsChallenge(isChallenge);
-            setVinnieDrillName(drillName);
-            setVinnieVisible(true);
-          }}
-        />
-      )}
-
-      <VinnieCelebrationModal
-        visible={vinnieVisible}
-        touchCount={vinnieTouches}
-        isChallenge={vinnieIsChallenge}
-        drillName={vinnieDrillName}
-        streak={streak}
-        challengeStreak={challengeStreak}
-        onClose={() => setVinnieVisible(false)}
-      />
     </View>
   );
 };

@@ -33,8 +33,7 @@ const TodayChallengeCard = ({
   onStartChallenge,
 }: TodayChallengeCardProps) => {
   const router = useRouter();
-  const { data: challenge, isLoading: challengeLoading } =
-    useTodayChallenge(userId);
+  const { data: challenge, isLoading: challengeLoading } = useTodayChallenge(userId);
   const { data: stats } = useChallengeStats(userId, challenge?.id);
   const [videoVisible, setVideoVisible] = useState(false);
 
@@ -50,8 +49,7 @@ const TodayChallengeCard = ({
 
   const durationMinutes = Math.round(challenge.challenge_duration_seconds / 60);
   const difficulty = challenge.difficulty_level as string;
-  const difficultyStyle =
-    DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS['beginner'];
+  const difficultyStyle = DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS['beginner'];
   const completedToday = stats?.completedToday ?? false;
 
   return (
@@ -61,15 +59,8 @@ const TodayChallengeCard = ({
 
         <View style={styles.drillRow}>
           <Text style={styles.drillName}>{challenge.name}</Text>
-          <View
-            style={[
-              styles.difficultyChip,
-              { backgroundColor: difficultyStyle.bg },
-            ]}
-          >
-            <Text
-              style={[styles.difficultyText, { color: difficultyStyle.text }]}
-            >
+          <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg }]}>
+            <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>
               {difficulty}
             </Text>
           </View>
@@ -121,20 +112,14 @@ const TodayChallengeCard = ({
         ) : (
           <TouchableOpacity
             style={styles.startButton}
-            onPress={() =>
-              onStartChallenge(
-                challenge.id,
-                durationMinutes,
-                challenge.name,
-                difficulty,
-              )
-            }
+            onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
             activeOpacity={0.8}
           >
             <Text style={styles.startButtonText}>Start Challenge</Text>
           </TouchableOpacity>
         )}
       </View>
+
       <DrillVideoModal
         visible={videoVisible}
         onClose={() => setVideoVisible(false)}
@@ -238,6 +223,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  videoComingSoon: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B0BEC5',
+    marginBottom: 8,
+  },
   startButton: {
     backgroundColor: '#31af4d',
     borderRadius: 14,
@@ -280,11 +271,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.5,
-  },
-  videoComingSoon: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B0BEC5',
-    marginBottom: 8,
   },
 });

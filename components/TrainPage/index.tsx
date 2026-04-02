@@ -1,4 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
+import VinnieCard from '@/components/common/VinnieCard';
+import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
@@ -30,152 +32,6 @@ import {
   View,
 } from 'react-native';
 
-const BESWICK_QUOTES = [
-  'Champions train when nobody is watching.',
-  'You either train to dominate or you train to lose.',
-  'The difference between winners and losers is attitude, not ability.',
-  'Turn up, train to win, or train to dominate — the choice defines you.',
-  'Be a fighter. Never a victim.',
-  "How much do you want it? That's the only question that matters.",
-  "Elite players don't wait to be motivated. They create it.",
-  'Consistency over intensity. Show up every day.',
-  'Your habits today are your results tomorrow.',
-  'Suffering in training means winning in competition.',
-  'Identity drives behaviour. Decide who you are, then act accordingly.',
-  'The mental game is won in training, not on match day.',
-];
-
-const getDailyBeswickQuote = () => {
-  const today = new Date();
-  const dayOfYear = Math.floor(
-    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24),
-  );
-  return BESWICK_QUOTES[dayOfYear % BESWICK_QUOTES.length];
-};
-
-// Pro tips - mix of quotes and practical training advice
-const PRO_TIPS = [
-  // Inspirational quotes
-  {
-    text: 'The ball is like a magnet. If you can control it, you can do anything.',
-    author: 'Ronaldinho',
-  },
-  {
-    text: "I always tell young players to work on your technique. That's the foundation.",
-    author: 'Xavi Hernández',
-  },
-  {
-    text: 'You have to fight to reach your dream. Sacrifice and work hard for it.',
-    author: 'Lionel Messi',
-  },
-  {
-    text: 'Every training session is an opportunity to improve. Never waste one.',
-    author: 'Pep Guardiola',
-  },
-  {
-    text: 'Ball control is everything. The best players touch the ball 10,000 times a day.',
-    author: 'Wiel Coerver',
-  },
-  {
-    text: 'Work on your weaknesses until they become your strengths.',
-    author: 'Johan Cruyff',
-  },
-  {
-    text: 'The secret is to believe in your dreams. They can come true.',
-    author: 'Cristiano Ronaldo',
-  },
-
-  // Practical tips - Ball Control
-  {
-    text: 'Keep the ball close to your feet. The tighter your control, the harder you are to dispossess.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Use all surfaces of your foot - inside, outside, sole, and laces. Versatility is key.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Practice with your weaker foot as much as your strong foot. Two-footed players are unstoppable.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Keep your knees slightly bent and stay on your toes. Good balance means better control.',
-    author: 'Training Tip',
-  },
-
-  // Practical tips - First Touch
-  {
-    text: 'Cushion the ball on your first touch. A soft touch keeps the ball close and ready.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Always know where you want to go before the ball arrives. Look up, then receive.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Practice receiving the ball while turning. It saves time and beats defenders.',
-    author: 'Training Tip',
-  },
-
-  // Practical tips - Dribbling
-  {
-    text: 'Keep your head up while dribbling. The ball should be felt, not watched.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Change pace and direction suddenly. Unpredictability is your greatest weapon.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Use your body to shield the ball. Get between the defender and the ball.',
-    author: 'Training Tip',
-  },
-
-  // Practical tips - Training Habits
-  {
-    text: 'Quality over quantity. 100 focused touches beat 500 sloppy ones.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Train in short bursts throughout the day. Consistency beats intensity.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Practice under pressure. Add time limits or challenges to simulate game situations.',
-    author: 'Training Tip',
-  },
-  {
-    text: 'Record yourself training. Watching your technique helps you spot mistakes.',
-    author: 'Training Tip',
-  },
-
-  // Game Speed Training
-  {
-    text: "Train faster than you play. If you can do it fast in training, it'll be easy in a game.",
-    author: 'Training Tip',
-  },
-  {
-    text: 'Perfect practice at slow speed is useless. The game is fast - your training should be too.',
-    author: 'Training Tip',
-  },
-  {
-    text: "Mistakes at speed are better than perfection at a snail's pace. Learn from errors, keep pushing.",
-    author: 'Training Tip',
-  },
-  {
-    text: "Aim for 50+ touches per minute. That's game speed. Anything less is warm-up.",
-    author: 'Training Tip',
-  },
-  {
-    text: "Speed is a skill. The more you practice fast, the more comfortable you'll be under pressure.",
-    author: 'Training Tip',
-  },
-  {
-    text: 'In a game, you have 1-2 seconds on the ball. Train like you have even less.',
-    author: 'Training Tip',
-  },
-];
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   beginner: { bg: '#E8F5E9', text: '#388E3C' },
@@ -183,28 +39,14 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   advanced: { bg: '#FFEBEE', text: '#D32F2F' },
 };
 
-// Get 3 tips for today based on the date
-const getTodaysTips = () => {
-  const today = new Date();
-  const dayOfYear = Math.floor(
-    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24),
-  );
-  const startIndex = (dayOfYear * 3) % PRO_TIPS.length;
-  return [
-    PRO_TIPS[startIndex % PRO_TIPS.length],
-    PRO_TIPS[(startIndex + 1) % PRO_TIPS.length],
-    PRO_TIPS[(startIndex + 2) % PRO_TIPS.length],
-  ];
-};
 
 const TrainPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const [modalVisible, setModalVisible] = useState(false);
-
-  const todaysTips = getTodaysTips();
-
+  const [drillLibraryOpen, setDrillLibraryOpen] = useState(false);
+  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
+  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   // Timer state
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -530,53 +372,78 @@ const TrainPage = () => {
         </View>
 
 
+        {/* TODAY'S CHALLENGE */}
+        {user?.id && (
+          <TodayChallengeCard
+            userId={user.id}
+            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
+              setChallengeDrillId(drillId);
+              setChallengeDurationMinutes(durationMinutes);
+              setChallengeName(drillName);
+              setChallengeDifficulty(difficulty);
+              setModalVisible(true);
+            }}
+          />
+        )}
+
         {/* Drill Library */}
         <View style={styles.libraryCard}>
-          <View style={styles.libraryHeader}>
+          <TouchableOpacity
+            style={styles.libraryHeader}
+            onPress={() => setDrillLibraryOpen((o) => !o)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.libraryTitle}>Drill Library</Text>
-          </View>
+            <Ionicons
+              name={drillLibraryOpen ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color='#78909C'
+            />
+          </TouchableOpacity>
 
-          {/* Level filter pills */}
-          <View style={styles.drillFilterRow}>
-            {(['beginner', 'intermediate', 'advanced', 'all'] as const).map(
-              (level) => (
-                <TouchableOpacity
-                  key={level}
-                  style={[
-                    styles.drillFilterPill,
-                    drillFilter === level && styles.drillFilterPillActive,
-                    drillFilter === level &&
-                      level !== 'all' && {
-                        backgroundColor: DIFFICULTY_COLORS[level].bg,
-                      },
-                  ]}
-                  onPress={() => setDrillFilter(level)}
-                >
-                  <Text
-                    style={[
-                      styles.drillFilterPillText,
-                      drillFilter === level && styles.drillFilterPillTextActive,
-                      drillFilter === level &&
-                        level !== 'all' && {
-                          color: DIFFICULTY_COLORS[level].text,
-                        },
-                    ]}
-                  >
-                    {level === 'all'
-                      ? 'All'
-                      : level.charAt(0).toUpperCase() + level.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ),
-            )}
-          </View>
+          {drillLibraryOpen && (
+            <>
+              {/* Level filter pills */}
+              <View style={styles.drillFilterRow}>
+                {(['beginner', 'intermediate', 'advanced', 'all'] as const).map(
+                  (level) => (
+                    <TouchableOpacity
+                      key={level}
+                      style={[
+                        styles.drillFilterPill,
+                        drillFilter === level && styles.drillFilterPillActive,
+                        drillFilter === level &&
+                          level !== 'all' && {
+                            backgroundColor: DIFFICULTY_COLORS[level].bg,
+                          },
+                      ]}
+                      onPress={() => setDrillFilter(level)}
+                    >
+                      <Text
+                        style={[
+                          styles.drillFilterPillText,
+                          drillFilter === level && styles.drillFilterPillTextActive,
+                          drillFilter === level &&
+                            level !== 'all' && {
+                              color: DIFFICULTY_COLORS[level].text,
+                            },
+                        ]}
+                      >
+                        {level === 'all'
+                          ? 'All'
+                          : level.charAt(0).toUpperCase() + level.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ),
+                )}
+              </View>
 
-          <Text style={styles.drillHint}>
-            Tap a drill to log a session · Tap{' '}
-            <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
-          </Text>
+              <Text style={styles.drillHint}>
+                Tap a drill to log a session · Tap{' '}
+                <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
+              </Text>
 
-          {visibleLevels.map((level) => {
+              {visibleLevels.map((level) => {
             const levelDrills = drillsByDifficulty[level];
             if (levelDrills.length === 0) return null;
             return (
@@ -643,34 +510,15 @@ const TrainPage = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            );
-          })}
+                </View>
+              );
+            })}
+            </>
+          )}
         </View>
 
-        {/* Coach's Tips */}
-        <View style={styles.tipsCard}>
-          <View style={styles.tipsHeader}>
-            <Text style={styles.tipsIcon}>💡</Text>
-            <Text style={styles.tipsTitle}>Coach&apos;s Tips</Text>
-          </View>
-          <View style={styles.tipsList}>
-            <View style={styles.tipItem}>
-              <View style={styles.tipContent}>
-                <Text style={styles.tipText}>&quot;{getDailyBeswickQuote()}&quot;</Text>
-                <Text style={styles.tipAuthor}>— Bill Beswick, Sports Psychologist</Text>
-              </View>
-            </View>
-            {todaysTips.map((tip, index) => (
-              <View key={index} style={styles.tipItem}>
-                <View style={styles.tipContent}>
-                  <Text style={styles.tipText}>&quot;{tip.text}&quot;</Text>
-                  <Text style={styles.tipAuthor}>— {tip.author}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        {/* Vinnie */}
+        <VinnieCard trainedToday={(touchStats?.today_touches ?? 0) > 0} streak={touchStats?.current_streak ?? 0} />
       </ScrollView>
 
       {/* Timer Modal */}
@@ -943,11 +791,15 @@ const TrainPage = () => {
             setModalVisible(false);
             setChallengeDrillId(undefined);
             setChallengeName(undefined);
+            setChallengeDurationMinutes(undefined);
+            setChallengeDifficulty(undefined);
           }}
           userId={user.id}
           onSuccess={handleSessionLogged}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
+          challengeDurationMinutes={challengeDurationMinutes}
+          challengeDifficulty={challengeDifficulty}
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
             totalTouches: touchStats?.total_touches ?? 0,
@@ -1122,7 +974,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   libraryHeader: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   drillFilterRow: {
     flexDirection: 'row',
@@ -1414,55 +1269,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     color: '#FFF',
-  },
-
-  // TIPS CARD
-  tipsCard: {
-    backgroundColor: '#FFF8E1',
-    padding: 24,
-    borderRadius: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FFE082',
-  },
-  tipsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  tipsIcon: {
-    fontSize: 26,
-  },
-  tipsTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#F57C00',
-  },
-  tipsList: {
-    gap: 12,
-  },
-  tipItem: {
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF9800',
-  },
-  tipContent: {
-    gap: 6,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#5D4037',
-    fontWeight: '600',
-    lineHeight: 21,
-    fontStyle: 'italic',
-  },
-  tipAuthor: {
-    fontSize: 12,
-    color: '#8D6E63',
-    fontWeight: '700',
   },
 
   // TIMER PICKER MODAL

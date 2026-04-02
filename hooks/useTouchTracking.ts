@@ -26,7 +26,6 @@ interface SessionLog {
   created_at: string;
 }
 
-
 export const useTouchTracking = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['touch-tracking', userId],
@@ -86,7 +85,8 @@ export const useTouchTracking = (userId: string | undefined) => {
         .eq('user_id', userId)
         .order('date', { ascending: false });
 
-      const totalTouches = allSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
+      const totalTouches =
+        allSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
       const totalSessions = allSessions?.length || 0;
       const sessionsThisWeek = weekSessions?.length || 0;
 
@@ -161,14 +161,23 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      return (data || []).map((s: { id: string; date: string; touches_logged: number; duration_minutes: number | null; created_at: string; drills: { name: string } | null }) => ({
-        id: s.id,
-        date: s.date,
-        drill_name: s.drills?.name || null,
-        touches_logged: s.touches_logged,
-        duration_minutes: s.duration_minutes,
-        created_at: s.created_at,
-      }));
+      return (data || []).map(
+        (s: {
+          id: string;
+          date: string;
+          touches_logged: number;
+          duration_minutes: number | null;
+          created_at: string;
+          drills: { name: string } | null;
+        }) => ({
+          id: s.id,
+          date: s.date,
+          drill_name: s.drills?.name || null,
+          touches_logged: s.touches_logged,
+          duration_minutes: s.duration_minutes,
+          created_at: s.created_at,
+        }),
+      );
     },
     enabled: !!userId,
   });
@@ -196,7 +205,7 @@ export const useDrills = () => {
 };
 
 // Time durations for challenges (in seconds)
-const CHALLENGE_DURATIONS = [180, 240, 300, 360]; // 3, 4, 5, 6 minutes
+const CHALLENGE_DURATIONS = [60, 120, 180, 240]; // 3, 4, 5, 6 minutes
 
 export const useJugglingRecord = (userId: string | undefined) => {
   return useQuery({
@@ -308,7 +317,10 @@ export const useTodayChallenge = (userId: string | undefined) => {
       // Fetch drills and user's all-time total touches in parallel
       const [{ data: drills }, { data: allSessions }] = await Promise.all([
         supabase.from('drills').select('*'),
-        supabase.from('daily_sessions').select('touches_logged').eq('user_id', userId),
+        supabase
+          .from('daily_sessions')
+          .select('touches_logged')
+          .eq('user_id', userId),
       ]);
 
       if (!drills || drills.length === 0) return null;
@@ -317,14 +329,19 @@ export const useTodayChallenge = (userId: string | undefined) => {
       // < 10,000  → beginner fundamentals
       // 10k–50k   → intermediate challenges
       // > 50,000  → random from any tier (fully unlocked)
-      const totalTouches = allSessions?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) ?? 0;
+      const totalTouches =
+        allSessions?.reduce((sum, s) => sum + (s.touches_logged || 0), 0) ?? 0;
       const tier =
-        totalTouches >= 50000 ? null :          // null = all tiers
-        totalTouches >= 10000 ? 'intermediate' :
-        'beginner';
+        totalTouches >= 50000
+          ? null // null = all tiers
+          : totalTouches >= 10000
+            ? 'intermediate'
+            : 'beginner';
 
       // Filter pool to tier (null means all drills)
-      const pool = tier ? drills.filter((d) => d.difficulty_level === tier) : drills;
+      const pool = tier
+        ? drills.filter((d) => d.difficulty_level === tier)
+        : drills;
       const selectedPool = pool.length > 0 ? pool : drills;
 
       // Use the current date as a seed for consistent daily selection
