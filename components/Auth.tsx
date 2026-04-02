@@ -104,7 +104,7 @@ export default function Auth() {
       const { error } = await supabase.auth.resetPasswordForEmail(
         trimmedEmail,
         {
-          redirectTo: 'mastertouch://auth/reset-password',
+          redirectTo: 'mastertouch://',
         },
       );
       if (error) throw error;

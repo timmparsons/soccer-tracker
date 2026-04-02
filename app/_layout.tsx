@@ -252,7 +252,8 @@ export default function RootLayout() {
     const inAuthGroup = rootSegment === '(auth)';
 
     if (isPasswordRecovery) {
-      if (rootSegment !== '(auth)') {
+      const currentPath = segments.join('/');
+      if (!currentPath.includes('reset-password')) {
         router.replace('/(auth)/reset-password');
       }
       return;
