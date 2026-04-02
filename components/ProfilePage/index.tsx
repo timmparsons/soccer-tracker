@@ -839,7 +839,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.1.4</Text>
+                <Text style={styles.version}>Version 2.2.5</Text>
               </ScrollView>
             </View>
           </View>
