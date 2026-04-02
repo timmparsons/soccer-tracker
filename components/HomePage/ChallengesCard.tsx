@@ -4,55 +4,9 @@ import {
   usePlayerChallenges,
   useRespondToChallenge,
 } from '@/hooks/usePlayerChallenges';
-import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// MOCK — remove when player_challenges table is set up in Supabase
-const MOCK_CHALLENGES: PlayerChallenge[] = __DEV__
-  ? [
-      {
-        id: 'mock-incoming',
-        challenger_id: 'other-user-1',
-        challenged_id: 'current-user',
-        touches_target: 100,
-        time_limit_hours: 24,
-        status: 'pending',
-        expires_at: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
-        deadline_at: null,
-        challenger_time_seconds: null,
-        challenger_completed_at: null,
-        challenged_time_seconds: null,
-        challenged_completed_at: null,
-        winner_id: null,
-        created_at: new Date().toISOString(),
-        challenger_name: 'Jamie',
-        challenger_avatar: null,
-        challenged_name: 'You',
-        challenged_avatar: null,
-      },
-      {
-        id: 'mock-active',
-        challenger_id: 'current-user',
-        challenged_id: 'other-user-2',
-        touches_target: 200,
-        time_limit_hours: 48,
-        status: 'accepted',
-        expires_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-        deadline_at: new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString(),
-        challenger_time_seconds: null,
-        challenger_completed_at: null,
-        challenged_time_seconds: null,
-        challenged_completed_at: null,
-        winner_id: null,
-        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        challenger_name: 'You',
-        challenger_avatar: null,
-        challenged_name: 'Alex',
-        challenged_avatar: null,
-      },
-    ]
-  : [];
 
 function timeRemaining(isoDate: string) {
   const ms = new Date(isoDate).getTime() - Date.now();
@@ -68,20 +22,9 @@ interface ChallengesCardProps {
 }
 
 export default function ChallengesCard({ userId }: ChallengesCardProps) {
-  const { data: liveChallenges = [] } = usePlayerChallenges(userId);
+  const { data: challenges = [] } = usePlayerChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
-
-  // Swap mock's 'current-user' placeholder with real userId for demo rendering
-  const mockWithRealId = MOCK_CHALLENGES.map((c) => ({
-    ...c,
-    challenger_id: c.challenger_id === 'current-user' ? userId : c.challenger_id,
-    challenged_id: c.challenged_id === 'current-user' ? userId : c.challenged_id,
-  }));
-
-  const challenges = liveChallenges.length > 0 ? liveChallenges : mockWithRealId;
-
-  if (challenges.length === 0) return null;
 
   const pendingCount = challenges.filter(
     (c) => c.status === 'pending' && c.challenged_id === userId,
@@ -90,10 +33,9 @@ export default function ChallengesCard({ userId }: ChallengesCardProps) {
   return (
     <>
       <View style={styles.container}>
-        {/* Dark header */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerEmoji}>⚔️</Text>
             <Text style={styles.headerTitle}>Challenges</Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -106,6 +48,12 @@ export default function ChallengesCard({ userId }: ChallengesCardProps) {
 
         {/* Rows */}
         <View style={styles.rows}>
+          {challenges.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No active challenges</Text>
+              <Text style={styles.emptySubtitle}>Tap a teammate on the leaderboard to challenge them</Text>
+            </View>
+          )}
           {challenges.map((c) => (
             <ChallengeRow
               key={c.id}
@@ -158,9 +106,7 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
             </View>
           </View>
           <Text style={styles.rowDetail}>challenged you · {c.time_limit_hours}h to complete</Text>
-          <Text style={styles.timerText}>
-            <Ionicons name='time-outline' size={11} /> {timeRemaining(c.expires_at)} to accept
-          </Text>
+          <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
           <View style={styles.incomingActions}>
             <TouchableOpacity style={styles.acceptBtn} onPress={() => onRespond(true)}>
               <Text style={styles.acceptBtnText}>Accept Challenge</Text>
@@ -182,14 +128,11 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
           <View style={styles.rowTop}>
             <Text style={styles.rowName}>vs {opponentName}</Text>
             <View style={styles.waitingBadge}>
-              <Ionicons name='hourglass-outline' size={12} color='#78909C' />
               <Text style={styles.waitingText}>Waiting</Text>
             </View>
           </View>
           <Text style={styles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
-          <Text style={styles.timerText}>
-            <Ionicons name='time-outline' size={11} /> {timeRemaining(c.expires_at)} to accept
-          </Text>
+          <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
         </View>
       </View>
     );
@@ -211,19 +154,15 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
             </View>
           </View>
           {c.deadline_at && (
-            <Text style={styles.timerText}>
-              <Ionicons name='time-outline' size={11} /> {timeRemaining(c.deadline_at)} to complete
-            </Text>
+            <Text style={styles.timerText}>{timeRemaining(c.deadline_at)} to complete</Text>
           )}
           <View style={styles.activeBottom}>
             {iDone && !theyDone ? (
               <View style={styles.waitingBadge}>
-                <Ionicons name='hourglass-outline' size={12} color='#78909C' />
                 <Text style={styles.waitingText}>Waiting for {opponentName}…</Text>
               </View>
             ) : !iDone ? (
               <TouchableOpacity style={styles.goBtn} onPress={onAttempt}>
-                <Ionicons name='play' size={16} color='#FFF' />
                 <Text style={styles.goBtnText}>Go!</Text>
               </TouchableOpacity>
             ) : null}
@@ -246,7 +185,6 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
 
     return (
       <View style={[styles.completedRow, iWon && styles.completedRowWin]}>
-        <Text style={styles.resultEmoji}>{iWon ? '🏆' : '💪'}</Text>
         <View style={styles.resultMid}>
           <Text style={[styles.resultTitle, iWon && styles.resultTitleWin]}>
             {iWon ? 'You won!' : `${opponentName} won`}
@@ -269,38 +207,33 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFF',
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: 12,
-    shadowColor: '#1f89ee',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
   },
   header: {
-    backgroundColor: '#1a1a2e',
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  headerEmoji: {
-    fontSize: 18,
-  },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    color: '#FFF',
+    color: '#1a1a2e',
   },
   pendingBadge: {
-    backgroundColor: '#ffb724',
+    backgroundColor: '#1f89ee',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -311,27 +244,49 @@ const styles = StyleSheet.create({
   pendingBadgeText: {
     fontSize: 11,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
   },
   headerSub: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: '#78909C',
   },
   rows: {
     gap: 0,
   },
 
-  // INCOMING ROW
-  incomingRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F0FDF4',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  emptyState: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 6,
   },
-  incomingAccent: {
-    width: 4,
-    backgroundColor: '#31af4d',
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+  },
+
+  // ROWS (shared)
+  incomingRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  incomingAccent: {},
+  activeRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  activeAccent: {},
+  outgoingRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   rowContent: {
     flex: 1,
@@ -353,16 +308,33 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     flex: 1,
   },
+  rowName: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    flex: 1,
+  },
   targetBadge: {
-    backgroundColor: '#31af4d',
+    backgroundColor: '#F3F4F6',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   targetBadgeText: {
     fontSize: 11,
-    fontWeight: '900',
-    color: '#FFF',
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  targetBadgeOrange: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  targetBadgeOrangeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1a1a2e',
   },
   rowDetail: {
     fontSize: 12,
@@ -371,8 +343,8 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#ffb724',
+    fontWeight: '600',
+    color: '#78909C',
   },
   incomingActions: {
     flexDirection: 'row',
@@ -381,45 +353,35 @@ const styles = StyleSheet.create({
   },
   acceptBtn: {
     flex: 1,
-    backgroundColor: '#31af4d',
+    backgroundColor: '#1f89ee',
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: 13,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   acceptBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
     color: '#FFF',
   },
   declineBtn: {
-    backgroundColor: '#F3F4F6',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     alignItems: 'center',
   },
   declineBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#6B7280',
   },
-
-  // OUTGOING ROW
-  outgoingRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  rowName: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    flex: 1,
-  },
   waitingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     backgroundColor: '#F3F4F6',
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -430,43 +392,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
   },
-
-  // ACTIVE ROW
-  activeRow: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFBF0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  activeAccent: {
-    width: 4,
-    backgroundColor: '#ffb724',
-  },
-  targetBadgeOrange: {
-    backgroundColor: '#FFF3CD',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#ffb724',
-  },
-  targetBadgeOrangeText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#B45309',
-  },
   activeBottom: {
     marginTop: 6,
   },
   goBtn: {
     backgroundColor: '#1f89ee',
     borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
     alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   goBtnText: {
     fontSize: 14,
@@ -480,16 +419,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     gap: 10,
-    backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F3F4F6',
   },
-  completedRowWin: {
-    backgroundColor: '#F0FDF4',
-  },
-  resultEmoji: {
-    fontSize: 26,
-  },
+  completedRowWin: {},
   resultMid: {
     flex: 1,
     gap: 2,
@@ -499,9 +432,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1a1a2e',
   },
-  resultTitleWin: {
-    color: '#31af4d',
-  },
+  resultTitleWin: {},
   timesCol: {
     gap: 4,
     alignItems: 'flex-end',
@@ -515,8 +446,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  timeChipWin: {
-    backgroundColor: '#D1FAE5',
-    color: '#31af4d',
-  },
+  timeChipWin: {},
 });
