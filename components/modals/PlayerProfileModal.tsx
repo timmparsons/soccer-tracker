@@ -1,9 +1,12 @@
 import BadgeGrid from '@/components/common/BadgeGrid';
+import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
 import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useUser } from '@/hooks/useUser';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -24,6 +27,8 @@ interface PlayerProfileModalProps {
 
 export default function PlayerProfileModal({ playerId, visible, onClose }: PlayerProfileModalProps) {
   const insets = useSafeAreaInsets();
+  const { data: currentUser } = useUser();
+  const [challengeSetupVisible, setChallengeSetupVisible] = useState(false);
   const { data: profile } = useProfile(playerId ?? undefined);
   const { data: touchStats } = useTouchTracking(playerId ?? undefined);
   const { data: jugglePB = 0 } = useJugglingRecord(playerId ?? undefined);
@@ -52,6 +57,16 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name='close' size={20} color='#6B7280' />
           </TouchableOpacity>
+
+          {currentUser && playerId && currentUser.id !== playerId && (
+            <ChallengeSetupModal
+              visible={challengeSetupVisible}
+              onClose={() => setChallengeSetupVisible(false)}
+              challengerId={currentUser.id}
+              challengedId={playerId}
+              challengedName={profile?.display_name || profile?.name || 'them'}
+            />
+          )}
 
           {isLoading ? (
             <ActivityIndicator style={styles.loader} color='#1f89ee' />
@@ -93,6 +108,16 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
                   <Text style={styles.statLabel}>Juggle PB</Text>
                 </View>
               </View>
+
+              {/* Challenge button — only shown for other players */}
+              {currentUser && playerId && currentUser.id !== playerId && (
+                <TouchableOpacity
+                  style={styles.challengeButton}
+                  onPress={() => setChallengeSetupVisible(true)}
+                >
+                  <Text style={styles.challengeButtonText}>⚔️  Challenge {profile?.display_name || profile?.name}</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Badges */}
               <View style={styles.badgesSection}>
@@ -223,5 +248,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#78909C',
+  },
+  challengeButton: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  challengeButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFF',
   },
 });

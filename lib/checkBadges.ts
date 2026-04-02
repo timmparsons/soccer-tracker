@@ -65,6 +65,25 @@ export async function checkAndAwardBadges(
   // Social badges
   candidate('social_team', context.teamId !== null);
 
+  // Drills badges — only check if not already earned (avoids unnecessary queries)
+  if (!earned.has('drills_beginner')) {
+    const [{ data: beginnerDrills }, { data: completedSessions }] = await Promise.all([
+      supabase.from('drills').select('id').eq('difficulty_level', 'beginner'),
+      supabase
+        .from('daily_sessions')
+        .select('drill_id')
+        .eq('user_id', userId)
+        .not('drill_id', 'is', null),
+    ]);
+
+    const completedIds = new Set((completedSessions ?? []).map((s) => s.drill_id));
+    const allBeginnerDone =
+      (beginnerDrills ?? []).length > 0 &&
+      (beginnerDrills ?? []).every((d) => completedIds.has(d.id));
+
+    candidate('drills_beginner', allBeginnerDone);
+  }
+
   if (toAward.length === 0) return [];
 
   const { error } = await supabase.from('user_badges').insert(

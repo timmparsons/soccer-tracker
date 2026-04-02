@@ -1,4 +1,5 @@
 import SplashScreen from '@/components/SplashScreen';
+import { fetchTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import {
   requestNotificationPermission,
   scheduleInactivityReminders,
@@ -116,10 +117,15 @@ export default function RootLayout() {
           );
           const query = supabase
             .from('profiles')
-            .select('onboarding_completed, name, display_name')
+            .select('*, teams(*)')
             .eq('id', sess.user.id)
             .single();
           const { data: profile } = await Promise.race([query, timeout]);
+
+          // Seed React Query cache so useProfile() resolves instantly on mount
+          if (profile) {
+            queryClient.setQueryData(['profile', sess.user.id], profile);
+          }
 
           // Sync name from user metadata if display_name looks like email prefix
           if (profile) {
@@ -149,6 +155,14 @@ export default function RootLayout() {
               : '/(onboarding)',
           );
           setupNotifications(sess.user.id);
+
+          // Prefetch leaderboard in parallel — by the time splash clears it'll be warm
+          if (profile?.team_id) {
+            queryClient.prefetchQuery({
+              queryKey: ['team-touches-leaderboard', profile.team_id],
+              queryFn: () => fetchTouchesLeaderboard(profile.team_id),
+            });
+          }
         } catch {
           setTargetRoute('/(tabs)');
         }
