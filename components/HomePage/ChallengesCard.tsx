@@ -1,8 +1,8 @@
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import {
-  PlayerChallenge,
   usePlayerChallenges,
   useRespondToChallenge,
+  type PlayerChallenge,
 } from '@/hooks/usePlayerChallenges';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -24,6 +24,7 @@ interface ChallengesCardProps {
 export default function ChallengesCard({ userId }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
+
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
 
   const pendingCount = challenges.filter(

@@ -57,6 +57,34 @@ export function usePlayerChallenges(userId: string | undefined) {
   });
 }
 
+export function useAllPlayerChallenges(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['player-challenges-all', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('player_challenges')
+        .select(`
+          *,
+          challenger:profiles!challenger_id(name, display_name, avatar_url),
+          challenged:profiles!challenged_id(name, display_name, avatar_url)
+        `)
+        .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+        .order('created_at', { ascending: false });
+
+      if (error) return [] as PlayerChallenge[];
+
+      return (data ?? []).map((row: Record<string, any>) => ({
+        ...row,
+        challenger_name: row.challenger?.display_name || row.challenger?.name,
+        challenger_avatar: row.challenger?.avatar_url ?? null,
+        challenged_name: row.challenged?.display_name || row.challenged?.name,
+        challenged_avatar: row.challenged?.avatar_url ?? null,
+      })) as PlayerChallenge[];
+    },
+  });
+}
+
 export function useSendChallenge() {
   const queryClient = useQueryClient();
   return useMutation({

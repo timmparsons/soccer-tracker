@@ -1,6 +1,8 @@
 import PageHeader from '@/components/common/PageHeader';
+import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
+import { PlayerChallenge, useAllPlayerChallenges, useRespondToChallenge } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
@@ -37,10 +39,11 @@ interface JugglingRecord {
 const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
+  const [activeTab, setActiveTab] = useState<'touches' | 'juggling' | 'challenges'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
 
   // Last week's Sunday (start of last week)
   const lastWeekStart = useMemo(() => {
@@ -122,6 +125,9 @@ const Leaderboard = () => {
     enabled: !!profile?.team_id,
   });
 
+  const { data: allChallenges = [], refetch: refetchChallenges } = useAllPlayerChallenges(user?.id);
+  const { mutate: respond } = useRespondToChallenge();
+
   const isLoading = touchesLoading || jugglingLoading;
 
   // Record last week's winner (idempotent — safe to run every load)
@@ -136,6 +142,7 @@ const Leaderboard = () => {
   const handleRefresh = () => {
     refetchTouches();
     refetchJuggling();
+    refetchChallenges();
   };
 
   // Refetch data when screen comes into focus
@@ -233,6 +240,19 @@ const Leaderboard = () => {
             Juggling
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'challenges' && styles.tabActive]}
+          onPress={() => setActiveTab('challenges')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'challenges' && styles.tabTextActive,
+            ]}
+          >
+            Challenges
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -241,7 +261,16 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {activeTab === 'touches' ? (
+        {activeTab === 'challenges' ? (
+          <ChallengesTabContent
+            challenges={allChallenges}
+            userId={user?.id ?? ''}
+            onRespond={(challengeId, accept, timeLimitHours) =>
+              respond({ challengeId, accept, timeLimitHours })
+            }
+            onAttempt={(c) => setAttemptChallenge(c)}
+          />
+        ) : activeTab === 'touches' ? (
           <>
             {/* Period pills */}
             <View style={styles.periodPillRow}>
@@ -650,6 +679,15 @@ const Leaderboard = () => {
         )}
       </ScrollView>
 
+      {attemptChallenge && (
+        <ChallengeAttemptModal
+          visible={!!attemptChallenge}
+          onClose={() => setAttemptChallenge(null)}
+          challenge={attemptChallenge}
+          currentUserId={user?.id ?? ''}
+        />
+      )}
+
       <PlayerProfileModal
         playerId={selectedPlayerId}
         visible={!!selectedPlayerId}
@@ -658,6 +696,376 @@ const Leaderboard = () => {
     </View>
   );
 };
+
+function formatSeconds(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function timeRemaining(isoDate: string) {
+  const ms = new Date(isoDate).getTime() - Date.now();
+  if (ms <= 0) return 'Expired';
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
+interface ChallengesTabProps {
+  challenges: PlayerChallenge[];
+  userId: string;
+  onRespond: (challengeId: string, accept: boolean, timeLimitHours: number) => void;
+  onAttempt: (c: PlayerChallenge) => void;
+}
+
+function ChallengesTabContent({ challenges, userId, onRespond, onAttempt }: ChallengesTabProps) {
+  const active = challenges.filter((c) => c.status === 'pending' || c.status === 'accepted');
+  const history = challenges.filter((c) => c.status === 'completed' || c.status === 'declined' || c.status === 'expired');
+  const wins = history.filter((c) => c.winner_id === userId).length;
+  const losses = history.filter((c) => c.status === 'completed' && c.winner_id !== userId).length;
+
+  if (challenges.length === 0) {
+    return (
+      <View style={cStyles.empty}>
+        <Text style={cStyles.emptyTitle}>No challenges yet</Text>
+        <Text style={cStyles.emptySub}>Tap a teammate to challenge them</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={cStyles.container}>
+      {/* W/L record */}
+      {history.length > 0 && (
+        <View style={cStyles.record}>
+          <View style={cStyles.recordStat}>
+            <Text style={cStyles.recordValue}>{wins}</Text>
+            <Text style={cStyles.recordLabel}>Won</Text>
+          </View>
+          <View style={cStyles.recordDivider} />
+          <View style={cStyles.recordStat}>
+            <Text style={cStyles.recordValue}>{losses}</Text>
+            <Text style={cStyles.recordLabel}>Lost</Text>
+          </View>
+          <View style={cStyles.recordDivider} />
+          <View style={cStyles.recordStat}>
+            <Text style={cStyles.recordValue}>{wins + losses}</Text>
+            <Text style={cStyles.recordLabel}>Total</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Active */}
+      {active.length > 0 && (
+        <>
+          <Text style={cStyles.sectionLabel}>Active</Text>
+          {active.map((c) => {
+            const isChallenger = c.challenger_id === userId;
+            const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
+            const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
+
+            if (c.status === 'pending' && !isChallenger) {
+              return (
+                <View key={c.id} style={cStyles.row}>
+                  <View style={cStyles.rowLeft}>
+                    <Text style={cStyles.rowName}>{c.challenger_name}</Text>
+                    <Text style={cStyles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
+                    <Text style={cStyles.rowTimer}>{timeRemaining(c.expires_at)} to accept</Text>
+                  </View>
+                  <View style={cStyles.rowActions}>
+                    <TouchableOpacity
+                      style={cStyles.acceptBtn}
+                      onPress={() => onRespond(c.id, true, c.time_limit_hours)}
+                    >
+                      <Text style={cStyles.acceptBtnText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={cStyles.declineBtn}
+                      onPress={() => onRespond(c.id, false, c.time_limit_hours)}
+                    >
+                      <Text style={cStyles.declineBtnText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }
+
+            if (c.status === 'pending' && isChallenger) {
+              return (
+                <View key={c.id} style={cStyles.row}>
+                  <View style={cStyles.rowLeft}>
+                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
+                    <Text style={cStyles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
+                    <Text style={cStyles.rowTimer}>{timeRemaining(c.expires_at)} to accept</Text>
+                  </View>
+                  <View style={cStyles.waitingBadge}>
+                    <Text style={cStyles.waitingText}>Waiting</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            // accepted
+            const iDone = myTime !== null;
+            return (
+              <View key={c.id} style={cStyles.row}>
+                <View style={cStyles.rowLeft}>
+                  <Text style={cStyles.rowName}>vs {opponentName}</Text>
+                  <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
+                  {c.deadline_at && <Text style={cStyles.rowTimer}>{timeRemaining(c.deadline_at)} to complete</Text>}
+                </View>
+                {iDone ? (
+                  <View style={cStyles.waitingBadge}>
+                    <Text style={cStyles.waitingText}>Waiting</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={cStyles.goBtn} onPress={() => onAttempt(c)}>
+                    <Text style={cStyles.goBtnText}>Go!</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {/* History */}
+      {history.length > 0 && (
+        <>
+          <Text style={cStyles.sectionLabel}>History</Text>
+          {history.map((c) => {
+            const isChallenger = c.challenger_id === userId;
+            const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
+            const mySeconds = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
+            const theirSeconds = isChallenger ? c.challenged_time_seconds : c.challenger_time_seconds;
+
+            if (c.status === 'declined') {
+              return (
+                <View key={c.id} style={cStyles.historyRow}>
+                  <View style={cStyles.rowLeft}>
+                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
+                    <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
+                  </View>
+                  <Text style={cStyles.declinedChip}>Declined</Text>
+                </View>
+              );
+            }
+
+            if (c.status === 'expired') {
+              return (
+                <View key={c.id} style={cStyles.historyRow}>
+                  <View style={cStyles.rowLeft}>
+                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
+                    <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
+                  </View>
+                  <Text style={cStyles.declinedChip}>Expired</Text>
+                </View>
+              );
+            }
+
+            const iWon = c.winner_id === userId;
+            return (
+              <View key={c.id} style={cStyles.historyRow}>
+                <View style={cStyles.rowLeft}>
+                  <Text style={cStyles.rowName}>vs {opponentName}</Text>
+                  <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
+                </View>
+                <View style={cStyles.resultRight}>
+                  <Text style={[cStyles.resultOutcome, iWon ? cStyles.resultWon : cStyles.resultLost]}>
+                    {iWon ? 'Won' : 'Lost'}
+                  </Text>
+                  {mySeconds !== null && theirSeconds !== null && (
+                    <Text style={cStyles.resultTimes}>
+                      {formatSeconds(mySeconds)} vs {formatSeconds(theirSeconds)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+    </View>
+  );
+}
+
+const cStyles = StyleSheet.create({
+  container: {
+    gap: 4,
+  },
+  empty: {
+    paddingTop: 60,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  emptySub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  record: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  recordStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  recordValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  recordLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  recordDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 4,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#78909C',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  rowLeft: {
+    flex: 1,
+    gap: 3,
+  },
+  rowName: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  rowDetail: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  rowTimer: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  rowActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  acceptBtn: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  acceptBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  declineBtn: {
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  declineBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  waitingBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  waitingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  goBtn: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  goBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  resultRight: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  resultOutcome: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  resultWon: {
+    color: '#1f89ee',
+  },
+  resultLost: {
+    color: '#78909C',
+  },
+  resultTimes: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  declinedChip: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+});
 
 export default Leaderboard;
 
