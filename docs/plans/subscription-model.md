@@ -11,13 +11,15 @@ Single subscription tier: **MasterTouch Pro**
 
 ## Premium Features Gated
 
-| Feature | Free | Pro |
-|---------|------|-----|
-| Chart view | 7-day only | 7-day + monthly |
-| Session history | Last 3 sessions | Full history |
-| Achievements | First 3 unlocked | All achievements |
-| Team creation | Blocked → paywall | Enabled |
-| Timer presets | 1 min + 5 min only | Custom input |
+| Feature | Free | Pro | Coach |
+|---------|------|-----|-------|
+| Chart view | 7-day only | 7-day + monthly | 7-day + monthly |
+| Session history | Last 3 sessions | Full history | Full history |
+| Achievements | First 3 unlocked | All achievements | All achievements |
+| Team creation | ❌ | ❌ | ✅ |
+| Timer presets | 1 min + 5 min only | Custom input | Custom input |
+| Daily challenges | ❌ | ✅ | ✅ |
+| Challenge other players | ❌ | ✅ | ✅ |
 
 ---
 

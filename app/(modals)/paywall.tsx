@@ -23,6 +23,8 @@ const PRO_FEATURES = [
   { icon: '🏆', label: 'All achievements unlocked' },
   { icon: '⏱️', label: 'Custom practice timer' },
   { icon: '🎯', label: 'Advanced & intermediate drills' },
+  { icon: '⚡', label: 'Daily challenges' },
+  { icon: '🆚', label: 'Challenge other players' },
 ];
 
 const COACH_FEATURES = [
