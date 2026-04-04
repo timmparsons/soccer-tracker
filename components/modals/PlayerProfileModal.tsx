@@ -53,11 +53,6 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
           {/* Handle */}
           <View style={styles.handle} />
 
-          {/* Close button */}
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name='close' size={20} color='#6B7280' />
-          </TouchableOpacity>
-
           {currentUser && playerId && currentUser.id !== playerId && (
             <ChallengeSetupModal
               visible={challengeSetupVisible}
@@ -131,6 +126,11 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
               </View>
             </ScrollView>
           )}
+
+          {/* Close button rendered after ScrollView so it sits on top */}
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name='close' size={20} color='#6B7280' />
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
