@@ -9,6 +9,7 @@ import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
@@ -110,6 +111,7 @@ const TrainPage = () => {
     };
   }, []);
 
+  const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
   const { data: drills = [], refetch: refetchDrills } = useDrills();
@@ -124,6 +126,8 @@ const TrainPage = () => {
 
   const handleSessionLogged = () => {
     refetch();
+    queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
   };
 
   // Timer logic
