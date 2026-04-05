@@ -65,6 +65,44 @@ export async function checkAndAwardBadges(
   // Social badges
   candidate('social_team', context.teamId !== null);
 
+  // Tier unlock badges
+  candidate('challenge_intermediate', context.totalTouches >= 10_000);
+  candidate('challenge_advanced', context.totalTouches >= 50_000);
+
+  // Challenge streak badges — fetched at submit time, only if not all already earned
+  const missingStreakBadges = ['challenge_streak_3', 'challenge_streak_7', 'challenge_streak_30']
+    .filter((id) => !earned.has(id));
+
+  if (missingStreakBadges.length > 0) {
+    const { data: challengeSessions } = await supabase
+      .from('daily_sessions')
+      .select('date')
+      .eq('user_id', userId)
+      .not('drill_id', 'is', null)
+      .order('date', { ascending: false });
+
+    let challengeStreak = 0;
+    if (challengeSessions && challengeSessions.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let cursor = new Date(today);
+
+      for (const s of challengeSessions) {
+        const d = new Date(s.date + 'T00:00:00');
+        if (d.getTime() === cursor.getTime()) {
+          challengeStreak++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else if (d < cursor) {
+          break;
+        }
+      }
+    }
+
+    candidate('challenge_streak_3', challengeStreak >= 3);
+    candidate('challenge_streak_7', challengeStreak >= 7);
+    candidate('challenge_streak_30', challengeStreak >= 30);
+  }
+
   // Drills badges — only check if not already earned (avoids unnecessary queries)
   if (!earned.has('drills_beginner')) {
     const [{ data: beginnerDrills }, { data: completedSessions }] = await Promise.all([

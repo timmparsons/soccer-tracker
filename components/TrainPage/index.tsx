@@ -380,6 +380,7 @@ const TrainPage = () => {
         {user?.id && (
           <TodayChallengeCard
             userId={user.id}
+            totalTouches={touchStats?.total_touches ?? 0}
             onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
               setChallengeDrillId(drillId);
               setChallengeDurationMinutes(durationMinutes);

@@ -14,6 +14,7 @@ import {
 
 interface TodayChallengeCardProps {
   userId: string;
+  totalTouches: number;
   onStartChallenge: (
     drillId: string,
     durationMinutes: number,
@@ -28,8 +29,23 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   advanced: { bg: '#FFEBEE', text: '#D32F2F' },
 };
 
+const TIER_THRESHOLDS = [
+  { tier: 'beginner',     next: 'Intermediate', threshold: 10_000 },
+  { tier: 'intermediate', next: 'Advanced',     threshold: 50_000 },
+];
+
+const getTierProgress = (totalTouches: number) => {
+  if (totalTouches >= 50_000) return null; // fully unlocked
+  const current = TIER_THRESHOLDS.find((t) => totalTouches < t.threshold)!;
+  const prev = current.tier === 'beginner' ? 0 : 10_000;
+  const pct = Math.min((totalTouches - prev) / (current.threshold - prev), 1);
+  const remaining = (current.threshold - totalTouches).toLocaleString();
+  return { next: current.next, threshold: current.threshold, pct, remaining };
+};
+
 const TodayChallengeCard = ({
   userId,
+  totalTouches,
   onStartChallenge,
 }: TodayChallengeCardProps) => {
   const router = useRouter();
@@ -51,6 +67,7 @@ const TodayChallengeCard = ({
   const difficulty = challenge.difficulty_level as string;
   const difficultyStyle = DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS['beginner'];
   const completedToday = stats?.completedToday ?? false;
+  const tierProgress = getTierProgress(totalTouches);
 
   return (
     <>
@@ -94,6 +111,27 @@ const TodayChallengeCard = ({
           </TouchableOpacity>
         ) : (
           <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
+        )}
+
+        {/* Tier progress */}
+        {tierProgress ? (
+          <View style={styles.tierProgress}>
+            <View style={styles.tierProgressHeader}>
+              <Text style={styles.tierProgressLabel}>
+                🔓 {tierProgress.remaining} touches to unlock {tierProgress.next}
+              </Text>
+              <Text style={styles.tierProgressPct}>
+                {Math.round(tierProgress.pct * 100)}%
+              </Text>
+            </View>
+            <View style={styles.tierProgressTrack}>
+              <View style={[styles.tierProgressFill, { width: `${tierProgress.pct * 100}%` as any }]} />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.tierUnlocked}>
+            <Text style={styles.tierUnlockedText}>🔓 All challenge tiers unlocked!</Text>
+          </View>
         )}
 
         {completedToday ? (
@@ -228,6 +266,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#B0BEC5',
     marginBottom: 8,
+  },
+  tierProgress: {
+    marginBottom: 12,
+  },
+  tierProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tierProgressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+    flex: 1,
+  },
+  tierProgressPct: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1f89ee',
+  },
+  tierProgressTrack: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  tierProgressFill: {
+    height: '100%',
+    backgroundColor: '#1f89ee',
+    borderRadius: 3,
+  },
+  tierUnlocked: {
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  tierUnlockedText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#31af4d',
   },
   startButton: {
     backgroundColor: '#31af4d',
