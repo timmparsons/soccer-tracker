@@ -13,7 +13,7 @@ export interface TeamMemberStats {
   daily_target: number;
 }
 
-export async function fetchTouchesLeaderboard(teamId: string): Promise<TeamMemberStats[]> {
+export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: string | null): Promise<TeamMemberStats[]> {
   const today = getLocalDate();
   const todayObj = new Date();
 
@@ -39,11 +39,22 @@ export async function fetchTouchesLeaderboard(teamId: string): Promise<TeamMembe
 
   const memberIds = teamMembers.map((m) => m.id);
 
+  // Convert seasonStartDate to a date string (YYYY-MM-DD) for comparison
+  const seasonStart = seasonStartDate
+    ? getLocalDate(new Date(seasonStartDate))
+    : null;
+
+  let sessionsQuery = supabase
+    .from('daily_sessions')
+    .select('user_id, touches_logged, date')
+    .in('user_id', memberIds);
+
+  if (seasonStart) {
+    sessionsQuery = sessionsQuery.gte('date', seasonStart);
+  }
+
   const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
-    supabase
-      .from('daily_sessions')
-      .select('user_id, touches_logged, date')
-      .in('user_id', memberIds),
+    sessionsQuery,
     supabase
       .from('user_targets')
       .select('user_id, daily_target_touches')
@@ -103,10 +114,10 @@ export async function fetchTouchesLeaderboard(teamId: string): Promise<TeamMembe
   return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
 }
 
-export function useTouchesLeaderboard(teamId: string | null | undefined) {
+export function useTouchesLeaderboard(teamId: string | null | undefined, seasonStartDate?: string | null) {
   return useQuery({
-    queryKey: ['team-touches-leaderboard', teamId],
-    queryFn: () => fetchTouchesLeaderboard(teamId!),
+    queryKey: ['team-touches-leaderboard', teamId, seasonStartDate ?? null],
+    queryFn: () => fetchTouchesLeaderboard(teamId!, seasonStartDate),
     enabled: !!teamId,
   });
 }

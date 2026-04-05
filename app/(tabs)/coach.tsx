@@ -1,5 +1,6 @@
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { useStartNewSeason } from '@/hooks/useSeasons';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,6 +72,10 @@ export default function CoachDashboard() {
   const [addPlayerEmail, setAddPlayerEmail] = useState('');
   const [addPlayerPassword, setAddPlayerPassword] = useState('');
   const [addPlayerSaving, setAddPlayerSaving] = useState(false);
+
+  // New season state
+  const [newSeasonCode, setNewSeasonCode] = useState<string | null>(null);
+  const { mutateAsync: startNewSeason, isPending: startingNewSeason } = useStartNewSeason();
 
   // Get team info
   const { data: team } = useQuery({
@@ -392,6 +397,77 @@ export default function CoachDashboard() {
     Alert.alert('Copied!', 'Team code copied to clipboard');
   };
 
+  // Remove player from team
+  const handleRemovePlayer = (player: PlayerStats) => {
+    Alert.alert(
+      'Remove Player',
+      `Remove ${player.display_name || player.name} from the team? They can rejoin with the team code.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('profiles')
+                .update({ team_id: null })
+                .eq('id', player.id);
+              if (error) throw error;
+              await refetch();
+            } catch {
+              Alert.alert('Error', 'Failed to remove player. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Start new season
+  const handleStartNewSeason = () => {
+    if (!team) return;
+    Alert.alert(
+      'Start New Season?',
+      'This will reset the team leaderboard and generate a new join code. Players keep all personal stats and stay on the team automatically.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Season',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const sorted = [...(teamPlayers ?? [])].sort(
+                (a, b) => b.total_touches - a.total_touches,
+              );
+              const standings = sorted.map((p, i) => ({
+                player_id: p.id,
+                name: p.display_name || p.name,
+                avatar_url: p.avatar_url,
+                total_touches: p.total_touches,
+                rank: i + 1,
+              }));
+
+              const { newCode } = await startNewSeason({
+                teamId: team.id,
+                currentSeasonNumber: team.season_number ?? 1,
+                currentSeasonStartDate: team.season_start_date ?? team.created_at,
+                finalTeamXp: team.team_xp,
+                finalTeamLevel: team.team_level,
+                playerStandings: standings,
+              });
+
+              setNewSeasonCode(newCode);
+              await refetch();
+            } catch {
+              Alert.alert('Error', 'Failed to start new season. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // Add managed player
   const handleAddPlayer = async () => {
     if (!addPlayerName.trim() || !addPlayerEmail.trim() || !addPlayerPassword.trim()) {
@@ -498,7 +574,9 @@ export default function CoachDashboard() {
         <View style={styles.codeCard}>
           <View style={styles.codeHeader}>
             <Ionicons name="key" size={20} color="#1f89ee" />
-            <Text style={styles.codeLabel}>Team Code</Text>
+            <Text style={styles.codeLabel}>
+              Team Code{team?.season_number ? ` · Season ${team.season_number}` : ''}
+            </Text>
           </View>
           <Text style={styles.codeText}>{team?.code || '---'}</Text>
           <View style={styles.codeActions}>
@@ -515,6 +593,45 @@ export default function CoachDashboard() {
               <Text style={styles.codeButtonText}>Add Player</Text>
             </TouchableOpacity>
           </View>
+
+          {/* New season code reveal */}
+          {newSeasonCode && (
+            <View style={styles.newSeasonBanner}>
+              <Text style={styles.newSeasonBannerTitle}>New season started!</Text>
+              <Text style={styles.newSeasonBannerSub}>
+                Share this code with new players to join:
+              </Text>
+              <Text style={styles.newSeasonBannerCode}>{newSeasonCode}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Clipboard.setStringAsync(newSeasonCode);
+                  Alert.alert('Copied!', 'New team code copied to clipboard');
+                }}
+                style={styles.newSeasonCopyBtn}
+              >
+                <Ionicons name="copy-outline" size={16} color="#FFF" />
+                <Text style={styles.newSeasonCopyBtnText}>Copy New Code</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setNewSeasonCode(null)}>
+                <Text style={styles.newSeasonDismiss}>Dismiss</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.newSeasonBtn, startingNewSeason && styles.newSeasonBtnDisabled]}
+            onPress={handleStartNewSeason}
+            disabled={startingNewSeason}
+          >
+            {startingNewSeason ? (
+              <ActivityIndicator size="small" color="#1f89ee" />
+            ) : (
+              <>
+                <Ionicons name="refresh-circle-outline" size={18} color="#1f89ee" />
+                <Text style={styles.newSeasonBtnText}>Start New Season</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Team Overview Card */}
@@ -670,6 +787,13 @@ export default function CoachDashboard() {
                       {isWarning && <View style={[styles.statusDot, styles.statusWarning]} />}
                       {!isActive && !isWarning && <View style={[styles.statusDot, styles.statusInactive]} />}
                     </View>
+                    <TouchableOpacity
+                      style={styles.removePlayerBtn}
+                      onPress={(e) => { e.stopPropagation(); handleRemovePlayer(player); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#EF4444" />
+                    </TouchableOpacity>
                   </View>
 
                   {/* Today's Target Progress */}
@@ -1105,6 +1229,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  newSeasonBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+    borderStyle: 'dashed',
+  },
+  newSeasonBtnDisabled: {
+    opacity: 0.5,
+  },
+  newSeasonBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  newSeasonBanner: {
+    marginTop: 12,
+    backgroundColor: '#EEF7FF',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  newSeasonBannerTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  newSeasonBannerSub: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  newSeasonBannerCode: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1f89ee',
+    letterSpacing: 3,
+  },
+  newSeasonCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1f89ee',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  newSeasonCopyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  newSeasonDismiss: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  removePlayerBtn: {
+    paddingLeft: 8,
   },
 
   // Overview Card

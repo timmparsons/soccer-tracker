@@ -6,6 +6,8 @@ import {
   useLeaderboardWinCount,
   useUserBadges,
 } from '@/hooks/useBadges';
+import { useArchivedSeasons, type ArchivedSeason } from '@/hooks/useArchivedSeasons';
+import PastSeasonModal from '@/components/modals/PastSeasonModal';
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
@@ -57,6 +59,9 @@ const ProfilePage = () => {
     badge: Badge;
     isEarned: boolean;
   } | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<ArchivedSeason | null>(null);
+
+  const { data: archivedSeasons = [] } = useArchivedSeasons(profile?.team_id);
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -641,7 +646,49 @@ const ProfilePage = () => {
               }
             />
           </View>
+
+          {/* Past Seasons */}
+          {archivedSeasons.length > 0 && (
+            <View style={styles.pastSeasonsCard}>
+              <Text style={styles.pastSeasonsTitle}>Past Seasons</Text>
+              {archivedSeasons.map((season) => {
+                const start = new Date(season.season_start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const end = new Date(season.season_end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const top3 = season.player_standings.slice(0, 3);
+                return (
+                  <TouchableOpacity
+                    key={season.id}
+                    style={styles.pastSeasonRow}
+                    onPress={() => setSelectedSeason(season)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.pastSeasonLeft}>
+                      <Text style={styles.pastSeasonNumber}>Season {season.season_number}</Text>
+                      <Text style={styles.pastSeasonDates}>{start} – {end}</Text>
+                      {top3.length > 0 && (
+                        <Text style={styles.pastSeasonTop} numberOfLines={1}>
+                          {top3.map((p, i) => `${['🥇','🥈','🥉'][i]} ${p.name}`).join('  ')}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.pastSeasonRight}>
+                      <Text style={styles.pastSeasonLevel}>Lv {season.final_team_level}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#78909C" />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
+
+        {selectedSeason && (
+          <PastSeasonModal
+            visible={!!selectedSeason}
+            onClose={() => setSelectedSeason(null)}
+            season={selectedSeason}
+          />
+        )}
 
         {/* Settings Modal */}
         <Modal
@@ -1909,5 +1956,58 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '900',
+  },
+
+  // Past Seasons
+  pastSeasonsCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+  },
+  pastSeasonsTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  pastSeasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  pastSeasonLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  pastSeasonNumber: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  pastSeasonDates: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  pastSeasonTop: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  pastSeasonRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pastSeasonLevel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
 });

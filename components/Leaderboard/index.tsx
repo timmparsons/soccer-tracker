@@ -2,6 +2,7 @@ import PageHeader from '@/components/common/PageHeader';
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
+import { useTeam } from '@/hooks/useTeam';
 import { PlayerChallenge, useAllPlayerChallenges, useRespondToChallenge } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
@@ -39,11 +40,14 @@ interface JugglingRecord {
 const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling' | 'challenges'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
+
+  const seasonStartDate = team?.season_start_date ?? null;
 
   // Last week's Sunday (start of last week)
   const lastWeekStart = useMemo(() => {
@@ -55,12 +59,12 @@ const Leaderboard = () => {
     return getLocalDate(lastSunday);
   }, []);
 
-  // Fetch team members with their touch stats
+  // Fetch team members with their touch stats (filtered to current season)
   const {
     data: touchesLeaderboard = [],
     isLoading: touchesLoading,
     refetch: refetchTouches,
-  } = useTouchesLeaderboard(profile?.team_id);
+  } = useTouchesLeaderboard(profile?.team_id, seasonStartDate);
 
   // Fetch juggling records
   const {
@@ -68,7 +72,7 @@ const Leaderboard = () => {
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
   } = useQuery({
-    queryKey: ['team-juggling-leaderboard', profile?.team_id, jugglingPeriod],
+    queryKey: ['team-juggling-leaderboard', profile?.team_id, jugglingPeriod, seasonStartDate],
     queryFn: async () => {
       if (!profile?.team_id) return [];
 
@@ -77,6 +81,11 @@ const Leaderboard = () => {
       const weekStartObj = new Date();
       weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
       const weekStartDate = getLocalDate(weekStartObj);
+
+      // Convert seasonStartDate to YYYY-MM-DD for date comparison
+      const seasonStart = seasonStartDate
+        ? getLocalDate(new Date(seasonStartDate))
+        : null;
 
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
@@ -103,6 +112,8 @@ const Leaderboard = () => {
 
           if (jugglingPeriod === 'week') {
             query = query.gte('date', weekStartDate).lte('date', today);
+          } else if (jugglingPeriod === 'alltime' && seasonStart) {
+            query = query.gte('date', seasonStart);
           }
 
           const { data: bestSession } = await query.single();

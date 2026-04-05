@@ -1,13 +1,15 @@
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 
-interface Team {
+export interface Team {
   id: string;
   name: string;
   code: string;
   coach_id: string;
   team_xp: number;
   team_level: number;
+  season_number: number;
+  season_start_date: string;
   created_at: string;
 }
 

@@ -63,6 +63,7 @@ const LogSessionModal = ({
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
+  const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -85,6 +86,8 @@ const LogSessionModal = ({
       setDuration(
         challengeDurationMinutes ? String(challengeDurationMinutes) : '',
       );
+      setAttempted(false);
+      setTouches('');
     }
   }, [visible, challengeDurationMinutes]);
 
@@ -95,8 +98,8 @@ const LogSessionModal = ({
     const juggleCount = juggles ? parseInt(juggles) : 0;
 
     if (isChallengeMode) {
-      if (touchCount <= 0) {
-        Alert.alert('Invalid Input', 'Please enter your score or rep count');
+      if (!attempted) {
+        Alert.alert('Did you attempt it?', 'Check the box to confirm you attempted this challenge');
         return;
       }
     } else if (touchCount <= 0 && juggleCount <= 0) {
@@ -138,6 +141,7 @@ const LogSessionModal = ({
       setTouches('');
       setDuration('');
       setJuggles('');
+      setAttempted(false);
 
       onSuccess();
       onClose();
@@ -159,7 +163,7 @@ const LogSessionModal = ({
   const touchCount = touches ? parseInt(touches) : 0;
   const juggleCount = juggles ? parseInt(juggles) : 0;
   const isFormValid = isChallengeMode
-    ? touchCount > 0
+    ? attempted
     : touchCount > 0 || juggleCount > 0;
 
   return (
@@ -223,13 +227,29 @@ const LogSessionModal = ({
                 </View>
               )}
 
+            {/* Attempted checkbox — challenge mode only */}
+            {isChallengeMode && (
+              <TouchableOpacity
+                style={styles.attemptedRow}
+                onPress={() => setAttempted((prev) => !prev)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, attempted && styles.checkboxChecked]}>
+                  {attempted && <Ionicons name='checkmark' size={14} color='#FFF' />}
+                </View>
+                <Text style={styles.attemptedLabel}>I attempted this challenge</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Touches + Duration — side by side so both are always visible when keyboard is open */}
             <View style={styles.inputPairSection}>
               <View style={styles.inputPairRow}>
                 {/* Left: Touches / Score */}
                 <View style={styles.inputPairHalf}>
                   <Text style={styles.sectionLabel}>
-                    {isChallengeMode ? 'Score / Reps' : 'Touches'}
+                    {isChallengeMode ? (
+                      <>Score / Reps <Text style={styles.optionalLabel}>(optional)</Text></>
+                    ) : 'Touches'}
                   </Text>
                   <View style={styles.inputContainer}>
                     <TextInput
@@ -279,7 +299,7 @@ const LogSessionModal = ({
 
               {/* Hint */}
               {isChallengeMode ? (
-                <Text style={styles.sectionHint}>Enter your score or rep count</Text>
+                <Text style={styles.sectionHint}>Score is optional — logging the attempt still counts!</Text>
               ) : !duration ? (
                 <Text style={styles.sectionHint}>Add minutes to track your touches per minute!</Text>
               ) : null}
@@ -346,7 +366,9 @@ const LogSessionModal = ({
               ) : (
                 <Text style={styles.submitButtonText}>
                   {isChallengeMode
-                    ? 'LOG CHALLENGE'
+                    ? touchCount > 0
+                      ? `LOG CHALLENGE • ${touchCount.toLocaleString()}`
+                      : 'LOG ATTEMPT'
                     : touchCount > 0 && juggleCount > 0
                         ? 'LOG ' +
                           touchCount.toLocaleString() +
@@ -551,6 +573,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  attemptedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#D1FAE5',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#31af4d',
+    borderColor: '#31af4d',
+  },
+  attemptedLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    flex: 1,
   },
   challengeLabel: {
     backgroundColor: '#E8F5E9',
