@@ -43,11 +43,10 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       const todayTouches =
         todaySessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
-      const todayMinutes =
-        todaySessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) ||
-        0;
-      const todayTpm =
-        todayMinutes > 0 ? Math.round(todayTouches / todayMinutes) : 0;
+      const timedTodaySessions = todaySessions?.filter((s) => (s.duration_minutes || 0) > 0) ?? [];
+      const todayMinutes = timedTodaySessions.reduce((sum, s) => sum + s.duration_minutes!, 0);
+      const todayTpmTouches = timedTodaySessions.reduce((sum, s) => sum + s.touches_logged, 0);
+      const todayTpm = todayMinutes > 0 ? Math.round(todayTpmTouches / todayMinutes) : 0;
 
       // Get user's daily target
       const { data: targetData } = await supabase
@@ -72,11 +71,23 @@ export const useTouchTracking = (userId: string | undefined) => {
 
       const weekTouches =
         weekSessions?.reduce((sum, s) => sum + s.touches_logged, 0) || 0;
-      const weekMinutes =
-        weekSessions?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) ||
-        0;
-      const weekTpm =
-        weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
+
+      // TPM uses a rolling 7-day window (same as Progress page) so it stays meaningful
+      // even at the start of the week when the Sun-Sat window may only cover 1–2 days
+      const sevenDaysAgoObj = new Date();
+      sevenDaysAgoObj.setDate(sevenDaysAgoObj.getDate() - 7);
+      const sevenDaysAgo = getLocalDate(sevenDaysAgoObj);
+
+      const { data: rollingTpmSessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged, duration_minutes')
+        .eq('user_id', userId)
+        .gte('date', sevenDaysAgo)
+        .gt('duration_minutes', 0);
+
+      const weekMinutes = rollingTpmSessions?.reduce((sum, s) => sum + s.duration_minutes!, 0) ?? 0;
+      const weekTpmTouches = rollingTpmSessions?.reduce((sum, s) => sum + s.touches_logged, 0) ?? 0;
+      const weekTpm = weekMinutes > 0 ? Math.round(weekTpmTouches / weekMinutes) : 0;
 
       // Calculate streak + totals (consecutive days with at least 1 session)
       const { data: allSessions } = await supabase

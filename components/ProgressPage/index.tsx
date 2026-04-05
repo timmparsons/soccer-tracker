@@ -148,10 +148,11 @@ const ProgressPage = () => {
       const dailyAvg = Math.round(dailyTotals.reduce((a, b) => a + b, 0) / 7);
       const daysHitTarget = dailyTotals.filter(t => t >= 1000).length;
 
-      // Calculate average TPM
-      const totalTouches = sessions.reduce((sum, s) => sum + s.touches_logged, 0);
-      const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-      const avgTpm = totalMinutes > 0 ? Math.round(totalTouches / totalMinutes) : 0;
+      // Calculate average TPM — only sessions that have a duration recorded
+      const timedSessions = sessions.filter((s) => (s.duration_minutes || 0) > 0);
+      const tpmTouches = timedSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+      const totalMinutes = timedSessions.reduce((sum, s) => sum + s.duration_minutes!, 0);
+      const avgTpm = totalMinutes > 0 ? Math.round(tpmTouches / totalMinutes) : 0;
 
       return { bestDay, dailyAvg, daysHitTarget, avgTpm };
     },
