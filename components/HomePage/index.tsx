@@ -90,7 +90,7 @@ const HomeScreen = () => {
         />
 
         {/* PLAYER CHALLENGES */}
-        {user?.id && <ChallengesCard userId={user.id} />}
+        {user?.id && <ChallengesCard userId={user.id} teamId={profile?.team_id} />}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>

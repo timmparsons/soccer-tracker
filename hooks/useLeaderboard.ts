@@ -39,19 +39,12 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
 
   const memberIds = teamMembers.map((m) => m.id);
 
-  // Convert seasonStartDate to a date string (YYYY-MM-DD) for comparison
-  const seasonStart = seasonStartDate
-    ? getLocalDate(new Date(seasonStartDate))
-    : null;
-
-  let sessionsQuery = supabase
+  // No date filter on the query — each stat scopes its own date range in JS.
+  // alltime_best_week needs full history; weekly/lastWeek filter themselves below.
+  const sessionsQuery = supabase
     .from('daily_sessions')
     .select('user_id, touches_logged, date')
     .in('user_id', memberIds);
-
-  if (seasonStart) {
-    sessionsQuery = sessionsQuery.gte('date', seasonStart);
-  }
 
   const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
     sessionsQuery,

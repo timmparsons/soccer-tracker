@@ -1,4 +1,6 @@
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
+import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
+import TeammatePickerModal from '@/components/modals/TeammatePickerModal';
 import {
   usePlayerChallenges,
   useRespondToChallenge,
@@ -17,15 +19,24 @@ function timeRemaining(isoDate: string) {
   return `${mins}m left`;
 }
 
-interface ChallengesCardProps {
-  userId: string;
+interface Teammate {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
-export default function ChallengesCard({ userId }: ChallengesCardProps) {
+interface ChallengesCardProps {
+  userId: string;
+  teamId: string | null | undefined;
+}
+
+export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
 
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectedTeammate, setSelectedTeammate] = useState<Teammate | null>(null);
 
   const pendingCount = challenges.filter(
     (c) => c.status === 'pending' && c.challenged_id === userId,
@@ -52,7 +63,13 @@ export default function ChallengesCard({ userId }: ChallengesCardProps) {
           {challenges.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No active challenges</Text>
-              <Text style={styles.emptySubtitle}>Tap a teammate on the leaderboard to challenge them</Text>
+              {teamId ? (
+                <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
+                  <Text style={styles.challengeBtnText}>⚔️ Challenge a Teammate</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
+              )}
             </View>
           )}
           {challenges.map((c) => (
@@ -75,6 +92,29 @@ export default function ChallengesCard({ userId }: ChallengesCardProps) {
           onClose={() => setAttemptChallenge(null)}
           challenge={attemptChallenge}
           currentUserId={userId}
+        />
+      )}
+
+      {teamId && (
+        <TeammatePickerModal
+          visible={showPicker}
+          onClose={() => setShowPicker(false)}
+          teamId={teamId}
+          currentUserId={userId}
+          onSelect={(teammate) => {
+            setShowPicker(false);
+            setSelectedTeammate(teammate);
+          }}
+        />
+      )}
+
+      {selectedTeammate && (
+        <ChallengeSetupModal
+          visible={!!selectedTeammate}
+          onClose={() => setSelectedTeammate(null)}
+          challengerId={userId}
+          challengedId={selectedTeammate.id}
+          challengedName={selectedTeammate.name}
         />
       )}
     </>
@@ -272,6 +312,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
+  },
+  challengeBtn: {
+    marginTop: 4,
+    backgroundColor: '#1f89ee',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  challengeBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
   },
 
   // ROWS (shared)
