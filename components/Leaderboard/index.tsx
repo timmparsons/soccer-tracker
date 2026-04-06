@@ -194,6 +194,19 @@ const Leaderboard = () => {
     return '';
   };
 
+  const getRankLabel = (rank: number) => {
+    if (rank === 1) return '1st';
+    if (rank === 2) return '2nd';
+    if (rank === 3) return '3rd';
+    return `${rank}th`;
+  };
+
+  const getPodiumRankStyle = (rank: number) => {
+    if (rank === 1) return styles.podiumRank1;
+    if (rank === 2) return styles.podiumRank2;
+    return styles.podiumRank3;
+  };
+
   const getCurrentUserId = () => user?.id;
 
   const formatDate = (dateString: string) => {
@@ -319,6 +332,7 @@ const Leaderboard = () => {
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
+                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -334,11 +348,11 @@ const Leaderboard = () => {
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥇</Text>
+                      <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank1}>
-                        <Text style={styles.podiumRankText}>1st</Text>
+                      <View style={getPodiumRankStyle(rank)}>
+                        <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
@@ -353,6 +367,7 @@ const Leaderboard = () => {
                 {podiumCount >= 2 && (() => {
                   const p = scoredPlayers[1];
                   const score = getTouchScore(p);
+                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -365,11 +380,11 @@ const Leaderboard = () => {
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥈</Text>
+                      <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank2}>
-                        <Text style={styles.podiumRankText}>2nd</Text>
+                      <View style={getPodiumRankStyle(rank)}>
+                        <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
@@ -384,6 +399,7 @@ const Leaderboard = () => {
                 {podiumCount === 3 && (() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
+                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -399,11 +415,11 @@ const Leaderboard = () => {
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥇</Text>
+                      <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank1}>
-                        <Text style={styles.podiumRankText}>1st</Text>
+                      <View style={getPodiumRankStyle(rank)}>
+                        <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
@@ -418,6 +434,7 @@ const Leaderboard = () => {
                 {podiumCount >= 3 && (() => {
                   const p = scoredPlayers[2];
                   const score = getTouchScore(p);
+                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -430,11 +447,11 @@ const Leaderboard = () => {
                           <Text style={styles.podiumTargetIcon}>🎯</Text>
                         )}
                       </View>
-                      <Text style={styles.podiumMedal}>🥉</Text>
+                      <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
                       <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
                       <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-                      <View style={styles.podiumRank3}>
-                        <Text style={styles.podiumRankText}>3rd</Text>
+                      <View style={getPodiumRankStyle(rank)}>
+                        <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
                       </View>
                       {level && (
                         <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}>
@@ -545,135 +562,121 @@ const Leaderboard = () => {
               </View>
             )}
 
-            {/* Top 3 Podium for Juggling */}
-            {jugglingLeaderboard.length >= 3 && (
-              <View style={styles.podium}>
-                {/* 2nd Place */}
-                <View style={styles.podiumSpot}>
-                  <Image
-                    source={{
-                      uri:
-                        jugglingLeaderboard[1].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar2}
-                  />
-                  <Text style={styles.podiumMedal}>🥈</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {jugglingLeaderboard[1].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {jugglingLeaderboard[1].high_score}
-                  </Text>
-                  <View style={styles.podiumRank2}>
-                    <Text style={styles.podiumRankText}>2nd</Text>
-                  </View>
-                </View>
+            {/* Podium for Juggling — mirrors touches podium */}
+            {jugglingLeaderboard.length >= 1 && (() => {
+              const jPodiumCount = Math.min(jugglingLeaderboard.length, 3);
+              return (
+                <View style={styles.podium}>
+                  {/* 1st Place — left when only 1 or 2, centre when 3 */}
+                  {(jPodiumCount === 1 || jPodiumCount === 2) && (() => {
+                    const p = jugglingLeaderboard[0];
+                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    return (
+                      <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
+                        <View style={styles.crownContainer}>
+                          <Text style={styles.crown}>👑</Text>
+                        </View>
+                        <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
+                        <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                        <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                        <Text style={styles.podiumTouches}>{p.high_score}</Text>
+                        <View style={getPodiumRankStyle(rank)}>
+                          <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
 
-                {/* 1st Place */}
-                <View style={[styles.podiumSpot, styles.podiumFirst]}>
-                  <View style={styles.crownContainer}>
-                    <Text style={styles.crown}>👑</Text>
-                  </View>
-                  <Image
-                    source={{
-                      uri:
-                        jugglingLeaderboard[0].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar1}
-                  />
-                  <Text style={styles.podiumMedal}>🥇</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {jugglingLeaderboard[0].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {jugglingLeaderboard[0].high_score}
-                  </Text>
-                  <View style={styles.podiumRank1}>
-                    <Text style={styles.podiumRankText}>1st</Text>
-                  </View>
-                </View>
+                  {/* 2nd Place — right when 2, left when 3 */}
+                  {jPodiumCount >= 2 && (() => {
+                    const p = jugglingLeaderboard[1];
+                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    return (
+                      <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
+                        <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
+                        <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                        <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                        <Text style={styles.podiumTouches}>{p.high_score}</Text>
+                        <View style={getPodiumRankStyle(rank)}>
+                          <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
 
-                {/* 3rd Place */}
-                <View style={styles.podiumSpot}>
-                  <Image
-                    source={{
-                      uri:
-                        jugglingLeaderboard[2].avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar3}
-                  />
-                  <Text style={styles.podiumMedal}>🥉</Text>
-                  <Text style={styles.podiumName} numberOfLines={1}>
-                    {jugglingLeaderboard[2].name}
-                  </Text>
-                  <Text style={styles.podiumTouches}>
-                    {jugglingLeaderboard[2].high_score}
-                  </Text>
-                  <View style={styles.podiumRank3}>
-                    <Text style={styles.podiumRankText}>3rd</Text>
-                  </View>
-                </View>
-              </View>
-            )}
+                  {/* 1st Place — centre, only when 3 on podium */}
+                  {jPodiumCount === 3 && (() => {
+                    const p = jugglingLeaderboard[0];
+                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    return (
+                      <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
+                        <View style={styles.crownContainer}>
+                          <Text style={styles.crown}>👑</Text>
+                        </View>
+                        <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
+                        <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                        <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                        <Text style={styles.podiumTouches}>{p.high_score}</Text>
+                        <View style={getPodiumRankStyle(rank)}>
+                          <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
 
-            {/* Rest of Juggling List */}
+                  {/* 3rd Place */}
+                  {jPodiumCount >= 3 && (() => {
+                    const p = jugglingLeaderboard[2];
+                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    return (
+                      <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
+                        <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
+                        <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                        <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                        <Text style={styles.podiumTouches}>{p.high_score}</Text>
+                        <View style={getPodiumRankStyle(rank)}>
+                          <Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                </View>
+              );
+            })()}
+
+            {/* Juggling list — starts at #4 */}
             <View style={styles.listContainer}>
-              {jugglingLeaderboard.map((player) => {
+              {jugglingLeaderboard.slice(Math.min(jugglingLeaderboard.length, 3)).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const rank = jugglingLeaderboard.filter(p => p.high_score > player.high_score).length + 1;
 
                 return (
                   <TouchableOpacity
                     key={player.id}
-                    style={[
-                      styles.playerCard,
-                      isCurrentUser && styles.currentUserCard,
-                    ]}
+                    style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
                     onPress={() => setSelectedPlayerId(player.id)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.playerLeft}>
                       <View style={styles.rankContainer}>
-                        {rank <= 3 ? (
-                          <Text style={styles.medalEmoji}>
-                            {getMedalEmoji(rank)}
-                          </Text>
-                        ) : (
-                          <Text style={styles.rankNumber}>{rank}</Text>
-                        )}
+                        <Text style={styles.rankNumber}>{rank}</Text>
                       </View>
-
                       <Image
-                        source={{
-                          uri:
-                            player.avatar_url ||
-                            'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                        }}
+                        source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
                         style={styles.avatar}
                       />
-
                       <View style={styles.playerInfo}>
                         <View style={styles.nameRow}>
                           <Text style={styles.playerName}>
                             {player.name}
-                            {isCurrentUser && (
-                              <Text style={styles.youBadge}> (You)</Text>
-                            )}
+                            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                           </Text>
                         </View>
-                        <Text style={styles.jugglingDate}>
-                          {formatDate(player.date_achieved)}
-                        </Text>
+                        <Text style={styles.jugglingDate}>{formatDate(player.date_achieved)}</Text>
                       </View>
                     </View>
-
                     <View style={styles.playerRight}>
-                      <Text style={styles.jugglingScore}>
-                        {player.high_score}
-                      </Text>
+                      <Text style={styles.jugglingScore}>{player.high_score}</Text>
                       <Text style={styles.touchesLabel}>juggles</Text>
                     </View>
                   </TouchableOpacity>
