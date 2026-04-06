@@ -78,7 +78,14 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               challenge={c}
               userId={userId}
               onRespond={(accept) =>
-                respond({ challengeId: c.id, accept, timeLimitHours: c.time_limit_hours })
+                respond({
+                  challengeId: c.id,
+                  accept,
+                  timeLimitHours: c.time_limit_hours,
+                  challengerId: c.challenger_id,
+                  responderId: userId,
+                  responderName: c.challenged_name ?? '',
+                })
               }
               onAttempt={() => setAttemptChallenge(c)}
             />

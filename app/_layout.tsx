@@ -4,6 +4,7 @@ import {
   requestNotificationPermission,
   scheduleInactivityReminders,
 } from '@/lib/notifications';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
@@ -286,10 +287,19 @@ export default function RootLayout() {
     }
   }, [session, segments, loading, minTimeDone, isPasswordRecovery, hasSeenIntro]);
 
-  // Fire-and-forget: request notification permission and schedule reminders.
+  // Fire-and-forget: request notification permission, save push token, schedule reminders.
   const setupNotifications = async (userId: string) => {
     const granted = await requestNotificationPermission();
     if (!granted) return;
+
+    // Save this device's push token so other users can notify it
+    try {
+      const { data: tokenData } = await Notifications.getExpoPushTokenAsync();
+      await supabase
+        .from('profiles')
+        .update({ expo_push_token: tokenData.data })
+        .eq('id', userId);
+    } catch {}
 
     const { data: lastSession } = await supabase
       .from('daily_sessions')

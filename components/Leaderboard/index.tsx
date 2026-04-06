@@ -283,8 +283,8 @@ const Leaderboard = () => {
           <ChallengesTabContent
             challenges={allChallenges}
             userId={user?.id ?? ''}
-            onRespond={(challengeId, accept, timeLimitHours) =>
-              respond({ challengeId, accept, timeLimitHours })
+            onRespond={(challengeId, accept, timeLimitHours, challengerId, responderName) =>
+              respond({ challengeId, accept, timeLimitHours, challengerId, responderId: user?.id ?? '', responderName })
             }
             onAttempt={(c) => setAttemptChallenge(c)}
           />
@@ -723,7 +723,7 @@ function timeRemaining(isoDate: string) {
 interface ChallengesTabProps {
   challenges: PlayerChallenge[];
   userId: string;
-  onRespond: (challengeId: string, accept: boolean, timeLimitHours: number) => void;
+  onRespond: (challengeId: string, accept: boolean, timeLimitHours: number, challengerId: string, responderName: string) => void;
   onAttempt: (c: PlayerChallenge) => void;
 }
 
@@ -784,13 +784,13 @@ function ChallengesTabContent({ challenges, userId, onRespond, onAttempt }: Chal
                   <View style={cStyles.rowActions}>
                     <TouchableOpacity
                       style={cStyles.acceptBtn}
-                      onPress={() => onRespond(c.id, true, c.time_limit_hours)}
+                      onPress={() => onRespond(c.id, true, c.time_limit_hours, c.challenger_id, c.challenged_name ?? '')}
                     >
                       <Text style={cStyles.acceptBtnText}>Accept</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={cStyles.declineBtn}
-                      onPress={() => onRespond(c.id, false, c.time_limit_hours)}
+                      onPress={() => onRespond(c.id, false, c.time_limit_hours, c.challenger_id, c.challenged_name ?? '')}
                     >
                       <Text style={cStyles.declineBtnText}>Decline</Text>
                     </TouchableOpacity>

@@ -1,6 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+async function sendPushToUser(userId: string, title: string, body: string) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('expo_push_token')
+    .eq('id', userId)
+    .single();
+  if (!data?.expo_push_token) return;
+  await supabase.functions.invoke('send-push', {
+    body: { to: data.expo_push_token, title, body },
+  });
+}
+
 export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
 
 export interface PlayerChallenge {
@@ -117,6 +129,11 @@ export function useSendChallenge() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges', vars.challengerId] });
+      sendPushToUser(
+        vars.challengedId,
+        '⚔️ New Challenge!',
+        `You've been challenged to ${vars.touchesTarget} touches. You have 24h to accept.`,
+      );
     },
   });
 }
@@ -132,6 +149,9 @@ export function useRespondToChallenge() {
       challengeId: string;
       accept: boolean;
       timeLimitHours: number;
+      challengerId: string; // used in onSuccess only
+      responderId: string;  // used in onSuccess only
+      responderName: string;
     }) => {
       const update: Record<string, string> = { status: accept ? 'accepted' : 'declined' };
       if (accept) {
@@ -145,8 +165,15 @@ export function useRespondToChallenge() {
         .eq('id', challengeId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+      sendPushToUser(
+        vars.challengerId,
+        vars.accept ? '✅ Challenge Accepted!' : '❌ Challenge Declined',
+        vars.accept
+          ? `${vars.responderName} accepted your challenge. Game on!`
+          : `${vars.responderName} declined your challenge.`,
+      );
     },
   });
 }
@@ -200,8 +227,16 @@ export function useCompleteChallenge() {
         .eq('id', challengeId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+      // Notify the opponent when both players have now finished
+      const otherTime = vars.userId === vars.challengerId
+        ? vars.existingChallengedTime
+        : vars.existingChallengerTime;
+      if (otherTime !== null) {
+        const opponentId = vars.userId === vars.challengerId ? vars.challengedId : vars.challengerId;
+        sendPushToUser(opponentId, '🏆 Results are in!', 'Tap to see who won the challenge.');
+      }
     },
   });
 }
