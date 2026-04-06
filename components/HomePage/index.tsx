@@ -34,16 +34,22 @@ const HomeScreen = () => {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchProfile(), refetchStats(), refetchChallengeStats()]);
+    await Promise.all([
+      refetchProfile(),
+      refetchStats(),
+      refetchChallengeStats(),
+      queryClient.invalidateQueries({ queryKey: ['player-challenges'] }),
+    ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-    }, [refetchProfile, refetchStats, refetchChallengeStats]),
+      queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]),
   );
 
   if (statsLoading) {
