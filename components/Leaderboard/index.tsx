@@ -82,11 +82,6 @@ const Leaderboard = () => {
       weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
       const weekStartDate = getLocalDate(weekStartObj);
 
-      // Convert seasonStartDate to YYYY-MM-DD for date comparison
-      const seasonStart = seasonStartDate
-        ? getLocalDate(new Date(seasonStartDate))
-        : null;
-
       // Get all team members (excluding coaches)
       const { data: teamMembers, error: membersError } = await supabase
         .from('profiles')
@@ -112,9 +107,8 @@ const Leaderboard = () => {
 
           if (jugglingPeriod === 'week') {
             query = query.gte('date', weekStartDate).lte('date', today);
-          } else if (jugglingPeriod === 'alltime' && seasonStart) {
-            query = query.gte('date', seasonStart);
           }
+          // alltime = no date filter — return the player's best juggling session ever
 
           const { data: bestSession } = await query.single();
 
