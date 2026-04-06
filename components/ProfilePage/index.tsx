@@ -55,6 +55,10 @@ const ProfilePage = () => {
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
@@ -193,6 +197,28 @@ const ProfilePage = () => {
         },
       ],
     );
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      Alert.alert('Too short', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'Passwords do not match.');
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowChangePasswordModal(false);
+      Alert.alert('Done', 'Your password has been updated.');
+    }
   };
 
   const executeDeleteAccount = async () => {
@@ -852,6 +878,17 @@ const ProfilePage = () => {
                 <View style={styles.actionsCard}>
                   <TouchableOpacity
                     style={styles.actionButton}
+                    onPress={() => {
+                      setShowSettingsModal(false);
+                      setShowChangePasswordModal(true);
+                    }}
+                  >
+                    <Ionicons name='key' size={24} color='#1f89ee' />
+                    <Text style={styles.actionButtonText}>Change Password</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity
+                    style={styles.actionButton}
                     onPress={handleFeedback}
                   >
                     <Ionicons
@@ -890,6 +927,59 @@ const ProfilePage = () => {
               </ScrollView>
             </View>
           </View>
+        </Modal>
+
+        {/* Change Password Modal */}
+        <Modal
+          visible={showChangePasswordModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowChangePasswordModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.changePasswordOverlay}
+          >
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowChangePasswordModal(false)} />
+            <View style={[styles.changePasswordSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.sheetHandle} />
+              <TouchableOpacity style={styles.sheetClose} onPress={() => setShowChangePasswordModal(false)}>
+                <Ionicons name='close' size={20} color='#6B7280' />
+              </TouchableOpacity>
+              <Text style={styles.sheetTitle}>Change Password</Text>
+              <Text style={styles.sheetSubtitle}>Choose a new password for your account</Text>
+
+              <TextInput
+                style={styles.sheetInput}
+                placeholder='New password'
+                placeholderTextColor='#9CA3AF'
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+                autoFocus
+              />
+              <TextInput
+                style={styles.sheetInput}
+                placeholder='Confirm new password'
+                placeholderTextColor='#9CA3AF'
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+
+              <TouchableOpacity
+                style={[styles.sheetSaveButton, changingPassword && { opacity: 0.5 }]}
+                onPress={handleChangePassword}
+                disabled={changingPassword}
+              >
+                {changingPassword ? (
+                  <ActivityIndicator color='#FFF' />
+                ) : (
+                  <Text style={styles.sheetSaveButtonText}>Update Password</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Daily Target Modal */}
@@ -1552,6 +1642,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  changePasswordOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  changePasswordSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetClose: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 6,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 20,
+  },
+  sheetInput: {
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  sheetSaveButton: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sheetSaveButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFF',
   },
   settingsSheet: {
     backgroundColor: '#F5F7FA',

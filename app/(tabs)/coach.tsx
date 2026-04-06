@@ -25,7 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface PlayerStats {
   id: string;
@@ -49,6 +49,7 @@ export default function CoachDashboard() {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { setViewMode } = useContext(ViewModeContext);
+  const insets = useSafeAreaInsets();
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
@@ -1019,89 +1020,82 @@ export default function CoachDashboard() {
       </Modal>
 
       {/* ADD PLAYER MODAL */}
-      <Modal transparent visible={addPlayerVisible} animationType="slide" onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)} statusBarTranslucent={Platform.OS === 'android'}>
+      <Modal transparent visible={addPlayerVisible} animationType="slide" onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+          style={styles.addPlayerOverlay}
         >
           <TouchableOpacity
             activeOpacity={1}
-            style={styles.modalOverlay}
+            style={{ flex: 1 }}
             onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
-          >
+          />
+          <View style={[styles.addPlayerSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.addPlayerHandle} />
             <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={styles.modalWrapper}
+              style={styles.addPlayerClose}
+              onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
             >
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Ionicons name="person-add" size={32} color="#1f89ee" />
-                  <Text style={styles.modalTitle}>Add Player</Text>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Player's full name"
-                    placeholderTextColor="#9CA3AF"
-                    value={addPlayerName}
-                    onChangeText={setAddPlayerName}
-                    autoFocus
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Their login email"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={addPlayerEmail}
-                    onChangeText={setAddPlayerEmail}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Temporary Password *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="They can change this later"
-                    placeholderTextColor="#9CA3AF"
-                    secureTextEntry
-                    value={addPlayerPassword}
-                    onChangeText={setAddPlayerPassword}
-                  />
-                  <Text style={styles.inputHint}>
-                    Share this password with the player so they can sign in
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.saveButton, addPlayerSaving && styles.saveButtonDisabled]}
-                  onPress={handleAddPlayer}
-                  disabled={addPlayerSaving}
-                >
-                  {addPlayerSaving ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Add to Team</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setAddPlayerVisible(false)}
-                  disabled={addPlayerSaving}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
+              <Ionicons name="close" size={20} color="#6B7280" />
             </TouchableOpacity>
-          </TouchableOpacity>
+
+            <View style={styles.modalHeader}>
+              <Ionicons name="person-add" size={32} color="#1f89ee" />
+              <Text style={styles.modalTitle}>Add Player</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Player's full name"
+                placeholderTextColor="#9CA3AF"
+                value={addPlayerName}
+                onChangeText={setAddPlayerName}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Their login email"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={addPlayerEmail}
+                onChangeText={setAddPlayerEmail}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Temporary Password *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="They can change this later"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                value={addPlayerPassword}
+                onChangeText={setAddPlayerPassword}
+              />
+              <Text style={styles.inputHint}>
+                Share this password with the player so they can sign in
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.saveButton, addPlayerSaving && styles.saveButtonDisabled]}
+              onPress={handleAddPlayer}
+              disabled={addPlayerSaving}
+            >
+              {addPlayerSaving ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Add to Team</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -1668,6 +1662,37 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+  },
+  addPlayerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  addPlayerSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  addPlayerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  addPlayerClose: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalContent: {
     backgroundColor: '#FFF',
