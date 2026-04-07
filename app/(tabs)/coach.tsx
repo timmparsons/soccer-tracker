@@ -1,14 +1,13 @@
+import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
-import { useStartNewSeason } from '@/hooks/useSeasons';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useContext, useState } from 'react';
-import { ViewModeContext } from './_layout';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,14 +17,13 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface PlayerStats {
   id: string;
@@ -43,13 +41,19 @@ interface PlayerStats {
   week_tpm: number;
   days_active_this_week: number;
   best_juggle: number;
+  challenges_completed: number;
 }
 
 export default function CoachDashboard() {
+  const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { setViewMode } = useContext(ViewModeContext);
-  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const { data: coachTeams = [], refetch: refetchCoachTeams } = useCoachTeams(user?.id);
+
+  // Team switcher state
+  const [switcherVisible, setSwitcherVisible] = useState(false);
+  const [switchingTeam, setSwitchingTeam] = useState(false);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
@@ -66,17 +70,6 @@ export default function CoachDashboard() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editCount, setEditCount] = useState('');
   const [editSaving, setEditSaving] = useState(false);
-
-  // Add player state
-  const [addPlayerVisible, setAddPlayerVisible] = useState(false);
-  const [addPlayerName, setAddPlayerName] = useState('');
-  const [addPlayerEmail, setAddPlayerEmail] = useState('');
-  const [addPlayerPassword, setAddPlayerPassword] = useState('');
-  const [addPlayerSaving, setAddPlayerSaving] = useState(false);
-
-  // New season state
-  const [newSeasonCode, setNewSeasonCode] = useState<string | null>(null);
-  const { mutateAsync: startNewSeason, isPending: startingNewSeason } = useStartNewSeason();
 
   // Get team info
   const { data: team } = useQuery({
@@ -114,14 +107,15 @@ export default function CoachDashboard() {
       if (!players || players.length === 0) return [];
 
       const today = getLocalDate();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const weekStart = getLocalDate(sevenDaysAgo);
+      const todayObj = new Date();
+      const weekStartObj = new Date(todayObj);
+      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // rewind to Sunday
+      const weekStart = getLocalDate(weekStartObj);
 
       const playerIds = players.map((p) => p.id);
 
-      // Batch fetch all sessions and targets in 2 queries instead of 2N
-      const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
+      // Batch fetch all sessions, targets, and challenges in 3 queries
+      const [{ data: allSessionsRaw }, { data: allTargetsRaw }, { data: challengeData }] = await Promise.all([
         supabase
           .from('daily_sessions')
           .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
@@ -131,7 +125,18 @@ export default function CoachDashboard() {
           .from('user_targets')
           .select('user_id, daily_target_touches')
           .in('user_id', playerIds),
+        supabase
+          .from('player_challenges')
+          .select('challenger_id, challenged_id')
+          .or(`challenger_id.in.(${playerIds.join(',')}),challenged_id.in.(${playerIds.join(',')})`)
+          .eq('status', 'completed'),
       ]);
+
+      const challengesByPlayer: Record<string, number> = {};
+      for (const c of challengeData || []) {
+        challengesByPlayer[c.challenger_id] = (challengesByPlayer[c.challenger_id] ?? 0) + 1;
+        challengesByPlayer[c.challenged_id] = (challengesByPlayer[c.challenged_id] ?? 0) + 1;
+      }
 
       // Build lookup maps
       type SessionRow = NonNullable<typeof allSessionsRaw>[number];
@@ -197,8 +202,9 @@ export default function CoachDashboard() {
           daily_target: targetByPlayer[player.id] || 1000,
           week_minutes: weekMinutes,
           week_tpm: weekTpm,
-          days_active_this_week: uniqueWeekDays,
+          days_active_this_week: Math.min(uniqueWeekDays, 7),
           best_juggle: bestJuggle,
+          challenges_completed: challengesByPlayer[player.id] ?? 0,
         };
       });
 
@@ -212,7 +218,8 @@ export default function CoachDashboard() {
     useCallback(() => {
       refetch();
       refetchProfile();
-    }, [refetch, refetchProfile])
+      refetchCoachTeams();
+    }, [refetch, refetchProfile, refetchCoachTeams])
   );
 
   // Pull to refresh
@@ -221,6 +228,37 @@ export default function CoachDashboard() {
     await refetch();
     setRefreshing(false);
   }, [refetch]);
+
+  // AI coaching tips — compute params from teamPlayers directly (hook must be before early returns)
+  const tipsParams = (() => {
+    if (!teamPlayers || teamPlayers.length === 0) return null;
+    const now = Date.now();
+    const activeCount = teamPlayers.filter(
+      (p) => p.last_session_date && new Date(p.last_session_date).getTime() > now - 3 * 24 * 60 * 60 * 1000
+    ).length;
+    const inactiveNames = teamPlayers
+      .filter((p) => !p.last_session_date || new Date(p.last_session_date).getTime() < now - 7 * 24 * 60 * 60 * 1000)
+      .slice(0, 3)
+      .map((p) => p.display_name || p.name);
+    const totalMins = teamPlayers.reduce((s, p) => s + p.week_minutes, 0);
+    const totalWeekTouches = teamPlayers.reduce((s, p) => s + p.week_touches, 0);
+    const avgTpm = totalMins > 0 ? Math.round(totalWeekTouches / totalMins) : 0;
+    const top = teamPlayers[0];
+    return {
+      playerCount: teamPlayers.length,
+      activePlayers: activeCount,
+      inactivePlayers: inactiveNames,
+      avgTpm,
+      topPlayerName: top?.display_name || top?.name,
+      topPlayerWeekTouches: top?.week_touches ?? 0,
+      avgWeekTouches: Math.round(totalWeekTouches / teamPlayers.length),
+    };
+  })();
+
+  const { data: tips = [], isFetching: tipsFetching } = useCoachingTips(
+    profile?.team_id ?? undefined,
+    tipsParams,
+  );
 
   // Redirect if not a coach
   if (!profile?.is_coach) {
@@ -378,24 +416,16 @@ export default function CoachDashboard() {
     }
   };
 
-  // Share team code
-  const handleShareCode = async () => {
-    if (!team?.code) return;
-
-    try {
-      await Share.share({
-        message: `Join my team "${team.name}" on Master Touch!\n\nTeam Code: ${team.code}`,
-      });
-    } catch (error) {
-      // Sharing cancelled
+  const handleSwitchTeam = async (teamId: string) => {
+    if (!user?.id || teamId === profile?.team_id) {
+      setSwitcherVisible(false);
+      return;
     }
-  };
-
-  // Copy team code
-  const handleCopyCode = async () => {
-    if (!team?.code) return;
-    await Clipboard.setStringAsync(team.code);
-    Alert.alert('Copied!', 'Team code copied to clipboard');
+    setSwitchingTeam(true);
+    await supabase.from('profiles').update({ team_id: teamId }).eq('id', user.id);
+    await refetchProfile();
+    setSwitchingTeam(false);
+    setSwitcherVisible(false);
   };
 
   // Remove player from team
@@ -425,92 +455,6 @@ export default function CoachDashboard() {
     );
   };
 
-  // Start new season
-  const handleStartNewSeason = () => {
-    if (!team) return;
-    Alert.alert(
-      'Start New Season?',
-      'This will reset the team leaderboard and generate a new join code. Players keep all personal stats and stay on the team automatically.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Start Season',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const sorted = [...(teamPlayers ?? [])].sort(
-                (a, b) => b.total_touches - a.total_touches,
-              );
-              const standings = sorted.map((p, i) => ({
-                player_id: p.id,
-                name: p.display_name || p.name,
-                avatar_url: p.avatar_url,
-                total_touches: p.total_touches,
-                rank: i + 1,
-              }));
-
-              const { newCode } = await startNewSeason({
-                teamId: team.id,
-                currentSeasonNumber: team.season_number ?? 1,
-                currentSeasonStartDate: team.season_start_date ?? team.created_at,
-                finalTeamXp: team.team_xp,
-                finalTeamLevel: team.team_level,
-                playerStandings: standings,
-              });
-
-              setNewSeasonCode(newCode);
-              await refetch();
-            } catch {
-              Alert.alert('Error', 'Failed to start new season. Please try again.');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Add managed player
-  const handleAddPlayer = async () => {
-    if (!addPlayerName.trim() || !addPlayerEmail.trim() || !addPlayerPassword.trim()) {
-      Alert.alert('Required', 'Please fill in all fields.');
-      return;
-    }
-    setAddPlayerSaving(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-managed-player`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session!.access_token}`,
-          },
-          body: JSON.stringify({
-            name: addPlayerName.trim(),
-            email: addPlayerEmail.trim(),
-            password: addPlayerPassword,
-          }),
-        }
-      );
-      const json = await res.json();
-      if (!res.ok) {
-        if (json.error === 'email_taken') throw new Error('That email is already registered.');
-        throw new Error('Failed to add player. Please try again.');
-      }
-      Alert.alert('Player Added!', `${addPlayerName.trim()} is now on your team.`);
-      setAddPlayerVisible(false);
-      setAddPlayerName('');
-      setAddPlayerEmail('');
-      setAddPlayerPassword('');
-      await refetch();
-    } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
-    } finally {
-      setAddPlayerSaving(false);
-    }
-  };
-
   // Format last active time
   const formatLastActive = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
@@ -526,15 +470,6 @@ export default function CoachDashboard() {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return `${Math.floor(diffDays / 7)}w ago`;
-  };
-
-  // Get TPM label
-  const getTpmLabel = (tpm: number) => {
-    if (tpm === 0) return 'No data';
-    if (tpm < 30) return 'Slow';
-    if (tpm < 50) return 'Moderate';
-    if (tpm < 80) return 'Good';
-    return 'Game speed';
   };
 
   // Get TPM color
@@ -560,79 +495,18 @@ export default function CoachDashboard() {
             <Ionicons name="clipboard" size={32} color="#ffb724" />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
+            {coachTeams.length > 1 ? (
+              <TouchableOpacity style={styles.teamSwitcherPill} onPress={() => setSwitcherVisible(true)} activeOpacity={0.7}>
+                <Text style={styles.headerTitle} numberOfLines={1}>{team?.name || 'My Team'}</Text>
+                <Ionicons name="chevron-down" size={16} color="#ffb724" />
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
+            )}
             <Text style={styles.headerSubtitle}>
               {totalPlayers} {totalPlayers === 1 ? 'player' : 'players'} • {activePlayers} active
             </Text>
           </View>
-          <TouchableOpacity style={styles.viewTogglePill} onPress={() => setViewMode('player')}>
-            <Ionicons name="person-outline" size={14} color="#1f89ee" />
-            <Text style={styles.viewToggleText}>Player View</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Team Code Card */}
-        <View style={styles.codeCard}>
-          <View style={styles.codeHeader}>
-            <Ionicons name="key" size={20} color="#1f89ee" />
-            <Text style={styles.codeLabel}>
-              Team Code{team?.season_number ? ` · Season ${team.season_number}` : ''}
-            </Text>
-          </View>
-          <Text style={styles.codeText}>{team?.code || '---'}</Text>
-          <View style={styles.codeActions}>
-            <TouchableOpacity style={styles.codeButton} onPress={handleCopyCode}>
-              <Ionicons name="copy-outline" size={18} color="#1f89ee" />
-              <Text style={styles.codeButtonText}>Copy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.codeButton} onPress={handleShareCode}>
-              <Ionicons name="share-outline" size={18} color="#1f89ee" />
-              <Text style={styles.codeButtonText}>Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.codeButton} onPress={() => setAddPlayerVisible(true)}>
-              <Ionicons name="person-add-outline" size={18} color="#1f89ee" />
-              <Text style={styles.codeButtonText}>Add Player</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* New season code reveal */}
-          {newSeasonCode && (
-            <View style={styles.newSeasonBanner}>
-              <Text style={styles.newSeasonBannerTitle}>New season started!</Text>
-              <Text style={styles.newSeasonBannerSub}>
-                Share this code with new players to join:
-              </Text>
-              <Text style={styles.newSeasonBannerCode}>{newSeasonCode}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  Clipboard.setStringAsync(newSeasonCode);
-                  Alert.alert('Copied!', 'New team code copied to clipboard');
-                }}
-                style={styles.newSeasonCopyBtn}
-              >
-                <Ionicons name="copy-outline" size={16} color="#FFF" />
-                <Text style={styles.newSeasonCopyBtnText}>Copy New Code</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setNewSeasonCode(null)}>
-                <Text style={styles.newSeasonDismiss}>Dismiss</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.newSeasonBtn, startingNewSeason && styles.newSeasonBtnDisabled]}
-            onPress={handleStartNewSeason}
-            disabled={startingNewSeason}
-          >
-            {startingNewSeason ? (
-              <ActivityIndicator size="small" color="#1f89ee" />
-            ) : (
-              <>
-                <Ionicons name="refresh-circle-outline" size={18} color="#1f89ee" />
-                <Text style={styles.newSeasonBtnText}>Start New Season</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Team Overview Card */}
@@ -642,17 +516,17 @@ export default function CoachDashboard() {
           <View style={styles.overviewGrid}>
             <View style={styles.overviewItem}>
               <Text style={styles.overviewEmoji}>📊</Text>
-              <Text style={styles.overviewValue}>{teamTodayTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamTodayTouches.toLocaleString()}</Text>
               <Text style={styles.overviewLabel}>Today</Text>
             </View>
             <View style={styles.overviewItem}>
               <Text style={styles.overviewEmoji}>📈</Text>
-              <Text style={styles.overviewValue}>{teamWeekTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamWeekTouches.toLocaleString()}</Text>
               <Text style={styles.overviewLabel}>This Week</Text>
             </View>
             <View style={styles.overviewItem}>
               <Text style={styles.overviewEmoji}>🏆</Text>
-              <Text style={styles.overviewValue}>{teamTotalTouches.toLocaleString()}</Text>
+              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamTotalTouches.toLocaleString()}</Text>
               <Text style={styles.overviewLabel}>All Time</Text>
             </View>
           </View>
@@ -676,6 +550,34 @@ export default function CoachDashboard() {
             </View>
           </View>
         </View>
+
+        {/* AI Training Tips */}
+        {(tips.length > 0 || tipsFetching) && (
+          <View style={styles.tipsCard}>
+            <View style={styles.tipsHeader}>
+              <Text style={styles.tipsTitle}>Training Tips</Text>
+              <TouchableOpacity
+                onPress={() => queryClient.invalidateQueries({ queryKey: ['coaching-tips', profile?.team_id] })}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="refresh-outline" size={18} color="#1f89ee" />
+              </TouchableOpacity>
+            </View>
+            {tipsFetching && tips.length === 0 ? (
+              <ActivityIndicator color="#1f89ee" style={{ marginVertical: 12 }} />
+            ) : (
+              tips.map((tip, i) => (
+                <View key={i}>
+                  {i > 0 && <View style={styles.tipDivider} />}
+                  <View style={styles.tipRow}>
+                    <Text style={styles.tipTitle}>{tip.title}</Text>
+                    <Text style={styles.tipBody}>{tip.body}</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         {/* Top Performer Card */}
         {topPerformer && topPerformer.week_touches > 0 && (
@@ -706,6 +608,98 @@ export default function CoachDashboard() {
             </View>
           </View>
         )}
+
+        {/* Player Rankings */}
+        <View style={styles.playerList}>
+          <Text style={styles.sectionTitle}>Player Rankings</Text>
+
+          {teamPlayers && teamPlayers.length > 0 ? (
+            teamPlayers.map((player) => {
+              const rank = teamPlayers.filter((p) => p.week_touches > player.week_touches).length + 1;
+              const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
+
+              return (
+                <TouchableOpacity
+                  key={player.id}
+                  style={styles.playerCard}
+                  onPress={() => handlePlayerPress(player)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.playerRow}>
+                    {/* Rank */}
+                    <View style={styles.rankCol}>
+                      {medal ? (
+                        <Text style={styles.medalEmoji}>{medal}</Text>
+                      ) : (
+                        <View style={styles.rankPill}>
+                          <Text style={styles.rankText}>{rank}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Avatar */}
+                    <Image
+                      source={{
+                        uri: player.avatar_url ||
+                          'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                      }}
+                      style={styles.playerAvatar}
+                    />
+
+                    {/* Name + meta */}
+                    <View style={styles.playerInfo}>
+                      <View style={styles.playerNameRow}>
+                        <Text style={styles.playerName} numberOfLines={1}>
+                          {player.display_name || player.name || 'Player'}
+                        </Text>
+                        {player.current_streak > 0 && (
+                          <View style={styles.streakBadge}>
+                            <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.playerLastActive}>
+                        {formatLastActive(player.last_session_date)}
+                        {player.today_touches > 0 && ` • ${player.today_touches.toLocaleString()} today`}
+                      </Text>
+                    </View>
+
+                    {/* Stats */}
+                    <View style={styles.playerRightCol}>
+                      <Text style={styles.playerWeekTouches}>{player.week_touches.toLocaleString()}</Text>
+                      <Text style={styles.playerWeekLabel}>this week</Text>
+                      {player.challenges_completed > 0 && (
+                        <Text style={styles.challengeCount}>⚔️ {player.challenges_completed}</Text>
+                      )}
+                    </View>
+
+                    {/* Remove */}
+                    <TouchableOpacity
+                      style={styles.removePlayerBtn}
+                      onPress={(e) => { e.stopPropagation(); handleRemovePlayer(player); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.addTouchesHint}>
+                    <Ionicons name="add-circle-outline" size={14} color="#1f89ee" />
+                    <Text style={styles.addTouchesText}>Tap to log touches</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyStateText}>No players yet</Text>
+              <Text style={styles.emptyStateHint}>
+                Add players from your Profile page
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Needs Attention Section */}
         {inactivePlayers.length > 0 && (
@@ -738,137 +732,38 @@ export default function CoachDashboard() {
             </View>
           </View>
         )}
-
-        {/* Player List */}
-        <View style={styles.playerList}>
-          <Text style={styles.sectionTitle}>All Players</Text>
-
-          {teamPlayers && teamPlayers.length > 0 ? (
-            teamPlayers.map((player) => {
-              const isActive = player.last_session_date &&
-                new Date(player.last_session_date) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-              const isWarning = player.last_session_date &&
-                new Date(player.last_session_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) &&
-                !isActive;
-              const targetProgress = Math.min((player.today_touches / player.daily_target) * 100, 100);
-
-              return (
-                <TouchableOpacity
-                  key={player.id}
-                  style={styles.playerCard}
-                  onPress={() => handlePlayerPress(player)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.playerTop}>
-                    <Image
-                      source={{
-                        uri: player.avatar_url ||
-                          'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                      }}
-                      style={styles.playerAvatar}
-                    />
-                    <View style={styles.playerInfo}>
-                      <View style={styles.playerNameRow}>
-                        <Text style={styles.playerName}>
-                          {player.display_name || player.name || 'Player'}
-                        </Text>
-                        {player.current_streak > 0 && (
-                          <View style={styles.streakBadge}>
-                            <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.playerLastActive}>
-                        {formatLastActive(player.last_session_date)}
-                        {player.days_active_this_week > 0 && ` • ${player.days_active_this_week}/7 days`}
-                      </Text>
-                    </View>
-                    <View style={styles.playerStatus}>
-                      {isActive && <View style={[styles.statusDot, styles.statusActive]} />}
-                      {isWarning && <View style={[styles.statusDot, styles.statusWarning]} />}
-                      {!isActive && !isWarning && <View style={[styles.statusDot, styles.statusInactive]} />}
-                    </View>
-                    <TouchableOpacity
-                      style={styles.removePlayerBtn}
-                      onPress={(e) => { e.stopPropagation(); handleRemovePlayer(player); }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={22} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Today's Target Progress */}
-                  <View style={styles.targetProgressContainer}>
-                    <View style={styles.targetProgressHeader}>
-                      <Text style={styles.targetProgressLabel}>Today's Target</Text>
-                      <Text style={styles.targetProgressValue}>
-                        {player.today_touches.toLocaleString()} / {player.daily_target.toLocaleString()}
-                      </Text>
-                    </View>
-                    <View style={styles.targetProgressBar}>
-                      <View
-                        style={[
-                          styles.targetProgressFill,
-                          {
-                            width: `${targetProgress}%`,
-                            backgroundColor: targetProgress >= 100 ? '#22C55E' : '#1f89ee',
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.playerStats}>
-                    <View style={styles.playerStat}>
-                      <Text style={styles.playerStatValue}>{player.week_touches.toLocaleString()}</Text>
-                      <Text style={styles.playerStatLabel}>Week</Text>
-                    </View>
-                    <View style={styles.playerStatDivider} />
-                    <View style={styles.playerStat}>
-                      <Text style={styles.playerStatValue}>{player.total_touches.toLocaleString()}</Text>
-                      <Text style={styles.playerStatLabel}>Total</Text>
-                    </View>
-                    <View style={styles.playerStatDivider} />
-                    <View style={styles.playerStat}>
-                      <Text style={[styles.playerStatValue, { color: getTpmColor(player.week_tpm) }]}>
-                        {player.week_tpm > 0 ? player.week_tpm : '-'}
-                      </Text>
-                      <Text style={styles.playerStatLabel}>Tempo</Text>
-                    </View>
-                    <View style={styles.playerStatDivider} />
-                    <View style={styles.playerStat}>
-                      <Text style={styles.playerStatValue}>{player.total_sessions}</Text>
-                      <Text style={styles.playerStatLabel}>Sessions</Text>
-                    </View>
-                    {player.best_juggle > 0 && (
-                      <>
-                        <View style={styles.playerStatDivider} />
-                        <View style={styles.playerStat}>
-                          <Text style={[styles.playerStatValue, { color: '#ffb724' }]}>{player.best_juggle}</Text>
-                          <Text style={styles.playerStatLabel}>Juggles</Text>
-                        </View>
-                      </>
-                    )}
-                  </View>
-
-                  <View style={styles.addTouchesHint}>
-                    <Ionicons name="add-circle-outline" size={16} color="#1f89ee" />
-                    <Text style={styles.addTouchesText}>Tap to log touches</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyStateText}>No players yet</Text>
-              <Text style={styles.emptyStateHint}>
-                Share your team code to invite players
-              </Text>
-            </View>
-          )}
-        </View>
       </ScrollView>
+
+      {/* TEAM SWITCHER MODAL */}
+      {coachTeams.length > 1 && (
+        <Modal transparent visible={switcherVisible} animationType="fade" onRequestClose={() => setSwitcherVisible(false)}>
+          <TouchableOpacity style={styles.switcherOverlay} activeOpacity={1} onPress={() => setSwitcherVisible(false)}>
+            <View style={styles.switcherSheet}>
+              <Text style={styles.switcherTitle}>Switch Team</Text>
+              {coachTeams.map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.switcherRow, t.id === profile?.team_id && styles.switcherRowActive]}
+                  onPress={() => handleSwitchTeam(t.id)}
+                  disabled={switchingTeam}
+                >
+                  <Text style={[styles.switcherRowText, t.id === profile?.team_id && styles.switcherRowTextActive]}>
+                    {t.name}
+                  </Text>
+                  {t.id === profile?.team_id && <Ionicons name="checkmark" size={18} color="#1f89ee" />}
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.switcherCreateRow}
+                onPress={() => { setSwitcherVisible(false); router.push('/(modals)/create-team'); }}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#1f89ee" />
+                <Text style={styles.switcherCreateText}>Create New Team</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
 
       {/* ADD TOUCHES MODAL */}
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
@@ -1019,85 +914,6 @@ export default function CoachDashboard() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ADD PLAYER MODAL */}
-      <Modal transparent visible={addPlayerVisible} animationType="slide" onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.addPlayerOverlay}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ flex: 1 }}
-            onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
-          />
-          <View style={[styles.addPlayerSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.addPlayerHandle} />
-            <TouchableOpacity
-              style={styles.addPlayerClose}
-              onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
-            >
-              <Ionicons name="close" size={20} color="#6B7280" />
-            </TouchableOpacity>
-
-            <View style={styles.modalHeader}>
-              <Ionicons name="person-add" size={32} color="#1f89ee" />
-              <Text style={styles.modalTitle}>Add Player</Text>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Player's full name"
-                placeholderTextColor="#9CA3AF"
-                value={addPlayerName}
-                onChangeText={setAddPlayerName}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Their login email"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={addPlayerEmail}
-                onChangeText={setAddPlayerEmail}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Temporary Password *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="They can change this later"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry
-                value={addPlayerPassword}
-                onChangeText={setAddPlayerPassword}
-              />
-              <Text style={styles.inputHint}>
-                Share this password with the player so they can sign in
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, addPlayerSaving && styles.saveButtonDisabled]}
-              onPress={handleAddPlayer}
-              disabled={addPlayerSaving}
-            >
-              {addPlayerSaving ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Add to Team</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1135,20 +951,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 20,
   },
-  viewTogglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  viewToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
   headerIcon: {
     width: 64,
     height: 64,
@@ -1165,6 +967,66 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1a1a2e',
   },
+  teamSwitcherPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  switcherOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  switcherSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 4,
+  },
+  switcherTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  switcherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  switcherRowActive: {
+    backgroundColor: '#EBF4FF',
+  },
+  switcherRowText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  switcherRowTextActive: {
+    color: '#1f89ee',
+  },
+  switcherCreateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  switcherCreateText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
   headerSubtitle: {
     fontSize: 15,
     fontWeight: '600',
@@ -1172,8 +1034,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Code Card
-  codeCard: {
+  // Tips Card
+  tipsCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,
     padding: 20,
@@ -1184,115 +1046,39 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  codeHeader: {
+  tipsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
-  codeLabel: {
+  tipsTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  tipDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 10,
+  },
+  tipRow: {
+    gap: 3,
+  },
+  tipTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  tipBody: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    lineHeight: 18,
   },
-  codeText: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    letterSpacing: 4,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  codeActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  codeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EEF2FF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  codeButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  newSeasonBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#1f89ee',
-    borderStyle: 'dashed',
-  },
-  newSeasonBtnDisabled: {
-    opacity: 0.5,
-  },
-  newSeasonBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  newSeasonBanner: {
-    marginTop: 12,
-    backgroundColor: '#EEF7FF',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  newSeasonBannerTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  newSeasonBannerSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  newSeasonBannerCode: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1f89ee',
-    letterSpacing: 3,
-  },
-  newSeasonCopyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1f89ee',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  newSeasonCopyBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  newSeasonDismiss: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    marginTop: 2,
-  },
+
   removePlayerBtn: {
-    paddingLeft: 8,
+    paddingLeft: 4,
   },
 
   // Overview Card
@@ -1486,149 +1272,116 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
   },
 
-  // Player List
+  // Player Rankings
   playerList: {
     marginBottom: 20,
   },
   playerCard: {
     backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
   },
-  playerTop: {
+  playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
+    gap: 10,
+    marginBottom: 6,
+  },
+  rankCol: {
+    width: 32,
+    alignItems: 'center',
+  },
+  medalEmoji: {
+    fontSize: 22,
+  },
+  rankPill: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#6B7280',
   },
   playerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 2,
     borderColor: '#E5E7EB',
   },
   playerInfo: {
     flex: 1,
+    minWidth: 0,
   },
   playerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   playerName: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
+    flexShrink: 1,
   },
   streakBadge: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
   },
   streakText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#D97706',
   },
   playerLastActive: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#9CA3AF',
-    marginTop: 2,
+    marginTop: 1,
   },
-  playerStatus: {
-    paddingLeft: 12,
+  playerRightCol: {
+    alignItems: 'flex-end',
+    minWidth: 70,
   },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusActive: {
-    backgroundColor: '#22C55E',
-  },
-  statusWarning: {
-    backgroundColor: '#ffb724',
-  },
-  statusInactive: {
-    backgroundColor: '#D1D5DB',
-  },
-
-  // Target Progress
-  targetProgressContainer: {
-    marginBottom: 16,
-  },
-  targetProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  targetProgressLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  targetProgressValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1a1a2e',
-  },
-  targetProgressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  targetProgressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-
-  playerStats: {
-    flexDirection: 'row',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  playerStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  playerStatValue: {
-    fontSize: 16,
+  playerWeekTouches: {
+    fontSize: 15,
     fontWeight: '900',
     color: '#1f89ee',
-    marginBottom: 2,
   },
-  playerStatLabel: {
+  playerWeekLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#9CA3AF',
     textTransform: 'uppercase',
   },
-  playerStatDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 4,
+  challengeCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginTop: 2,
   },
   addTouchesHint: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
   },
   addTouchesText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1f89ee',
   },
@@ -1662,37 +1415,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-  },
-  addPlayerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  addPlayerSheet: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  addPlayerHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  addPlayerClose: {
-    position: 'absolute',
-    top: 16,
-    right: 20,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   modalContent: {
     backgroundColor: '#FFF',

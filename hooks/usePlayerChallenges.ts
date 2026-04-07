@@ -178,6 +178,23 @@ export function useRespondToChallenge() {
   });
 }
 
+export function useCancelPlayerChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ challengeId }: { challengeId: string }) => {
+      const { error } = await supabase
+        .from('player_challenges')
+        .delete()
+        .eq('id', challengeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['player-challenges-all'] });
+    },
+  });
+}
+
 export function useCompleteChallenge() {
   const queryClient = useQueryClient();
   return useMutation({

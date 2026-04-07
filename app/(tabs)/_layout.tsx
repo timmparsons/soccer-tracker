@@ -71,7 +71,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name='index'
           options={{
-            title: isCoachInCoachMode ? 'Team' : 'Home',
+            title: profile?.is_coach ? 'Team' : 'Home',
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
@@ -84,7 +84,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <ChartSpline size={size ?? 28} color={color} />
             ),
-            href: isCoachInCoachMode ? null : '/progress',
+            href: profile?.is_coach ? null : '/progress',
           }}
         />
         <Tabs.Screen
@@ -94,7 +94,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <Play size={size ?? 28} color={color} />
             ),
-            href: isCoachInCoachMode ? null : '/train',
+            href: profile?.is_coach ? null : '/train',
           }}
         />
         <Tabs.Screen

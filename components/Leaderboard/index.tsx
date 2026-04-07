@@ -1,9 +1,8 @@
 import PageHeader from '@/components/common/PageHeader';
-import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
-import { PlayerChallenge, useAllPlayerChallenges, useRespondToChallenge } from '@/hooks/usePlayerChallenges';
+import { useGlobalLeaderboard, type GlobalPlayer } from '@/hooks/useGlobalLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
@@ -41,11 +40,10 @@ const Leaderboard = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
-  const [activeTab, setActiveTab] = useState<'touches' | 'juggling' | 'challenges'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
+  const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
 
   const seasonStartDate = team?.season_start_date ?? null;
 
@@ -130,8 +128,10 @@ const Leaderboard = () => {
     enabled: !!profile?.team_id,
   });
 
-  const { data: allChallenges = [], refetch: refetchChallenges } = useAllPlayerChallenges(user?.id);
-  const { mutate: respond } = useRespondToChallenge();
+  const { data: globalPlayers = [], refetch: refetchGlobal } = useGlobalLeaderboard();
+
+  // Placeholder — wire up to useSubscription when monetization branch merges
+  const isPro = !!(profile?.is_coach);
 
   const isLoading = touchesLoading || jugglingLoading;
 
@@ -147,7 +147,7 @@ const Leaderboard = () => {
   const handleRefresh = () => {
     refetchTouches();
     refetchJuggling();
-    refetchChallenges();
+    refetchGlobal();
   };
 
   // Refetch data when screen comes into focus
@@ -258,19 +258,6 @@ const Leaderboard = () => {
             Juggling
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'challenges' && styles.tabActive]}
-          onPress={() => setActiveTab('challenges')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'challenges' && styles.tabTextActive,
-            ]}
-          >
-            Challenges
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -279,16 +266,7 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {activeTab === 'challenges' ? (
-          <ChallengesTabContent
-            challenges={allChallenges}
-            userId={user?.id ?? ''}
-            onRespond={(challengeId, accept, timeLimitHours, challengerId, responderName) =>
-              respond({ challengeId, accept, timeLimitHours, challengerId, responderId: user?.id ?? '', responderName })
-            }
-            onAttempt={(c) => setAttemptChallenge(c)}
-          />
-        ) : activeTab === 'touches' ? (
+        {activeTab === 'touches' ? (
           <>
             {/* Period pills */}
             <View style={styles.periodPillRow}>
@@ -316,6 +294,12 @@ const Leaderboard = () => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('global')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
+              </TouchableOpacity>
             </View>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
@@ -325,8 +309,17 @@ const Leaderboard = () => {
             )}
 
 
+            {touchesPeriod === 'global' ? (
+              <GlobalTabContent
+                players={globalPlayers}
+                currentUserId={user?.id ?? ''}
+                isPro={isPro}
+                onPlayerPress={(id) => setSelectedPlayerId(id)}
+              />
+            ) : null}
+
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
-            {showTouchesPodium && (
+            {touchesPeriod !== 'global' && showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 1st Place — left when only 2 on podium, centre when 3 */}
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
@@ -465,7 +458,7 @@ const Leaderboard = () => {
             )}
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
-            <View style={styles.listContainer}>
+            {touchesPeriod !== 'global' && <View style={styles.listContainer}>
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
@@ -532,7 +525,7 @@ const Leaderboard = () => {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </View>}
           </>
         ) : (
           <>
@@ -687,15 +680,6 @@ const Leaderboard = () => {
         )}
       </ScrollView>
 
-      {attemptChallenge && (
-        <ChallengeAttemptModal
-          visible={!!attemptChallenge}
-          onClose={() => setAttemptChallenge(null)}
-          challenge={attemptChallenge}
-          currentUserId={user?.id ?? ''}
-        />
-      )}
-
       <PlayerProfileModal
         playerId={selectedPlayerId}
         visible={!!selectedPlayerId}
@@ -705,198 +689,184 @@ const Leaderboard = () => {
   );
 };
 
-function formatSeconds(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${String(sec).padStart(2, '0')}`;
+interface GlobalTabProps {
+  players: GlobalPlayer[];
+  currentUserId: string;
+  isPro: boolean;
+  onPlayerPress: (id: string) => void;
 }
 
-function timeRemaining(isoDate: string) {
-  const ms = new Date(isoDate).getTime() - Date.now();
-  if (ms <= 0) return 'Expired';
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) return `${hours}h ${mins}m left`;
-  return `${mins}m left`;
-}
-
-interface ChallengesTabProps {
-  challenges: PlayerChallenge[];
-  userId: string;
-  onRespond: (challengeId: string, accept: boolean, timeLimitHours: number, challengerId: string, responderName: string) => void;
-  onAttempt: (c: PlayerChallenge) => void;
-}
-
-function ChallengesTabContent({ challenges, userId, onRespond, onAttempt }: ChallengesTabProps) {
-  const active = challenges.filter((c) => c.status === 'pending' || c.status === 'accepted');
-  const history = challenges.filter((c) => c.status === 'completed' || c.status === 'declined' || c.status === 'expired');
-  const wins = history.filter((c) => c.winner_id === userId).length;
-  const losses = history.filter((c) => c.status === 'completed' && c.winner_id !== userId).length;
-
-  if (challenges.length === 0) {
-    return (
-      <View style={cStyles.empty}>
-        <Text style={cStyles.emptyTitle}>No challenges yet</Text>
-        <Text style={cStyles.emptySub}>Tap a teammate to challenge them</Text>
-      </View>
-    );
-  }
+function GlobalTabContent({ players, currentUserId, isPro, onPlayerPress }: GlobalTabProps) {
+  const myRank = players.findIndex((p) => p.id === currentUserId) + 1;
+  const visiblePlayers = isPro ? players : players.slice(0, 5);
+  const showMyRow = !isPro && myRank > 5;
 
   return (
-    <View style={cStyles.container}>
-      {/* W/L record */}
-      {history.length > 0 && (
-        <View style={cStyles.record}>
-          <View style={cStyles.recordStat}>
-            <Text style={cStyles.recordValue}>{wins}</Text>
-            <Text style={cStyles.recordLabel}>Won</Text>
-          </View>
-          <View style={cStyles.recordDivider} />
-          <View style={cStyles.recordStat}>
-            <Text style={cStyles.recordValue}>{losses}</Text>
-            <Text style={cStyles.recordLabel}>Lost</Text>
-          </View>
-          <View style={cStyles.recordDivider} />
-          <View style={cStyles.recordStat}>
-            <Text style={cStyles.recordValue}>{wins + losses}</Text>
-            <Text style={cStyles.recordLabel}>Total</Text>
-          </View>
+    <View style={gStyles.container}>
+      <Text style={gStyles.subtitle}>Weekly touches · resets Sunday</Text>
+      {visiblePlayers.map((player, idx) => {
+        const rank = idx + 1;
+        const isMe = player.id === currentUserId;
+        return (
+          <TouchableOpacity
+            key={player.id}
+            style={[gStyles.row, isMe && gStyles.rowMe]}
+            onPress={() => onPlayerPress(player.id)}
+            activeOpacity={0.7}
+          >
+            <View style={gStyles.rankBox}>
+              <Text style={gStyles.rankText}>{rank}</Text>
+            </View>
+            <Image
+              source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+              style={gStyles.avatar}
+            />
+            <View style={gStyles.info}>
+              <Text style={gStyles.name} numberOfLines={1}>
+                {player.name}{isMe ? ' (You)' : ''}
+              </Text>
+              {player.team_name && (
+                <Text style={gStyles.team} numberOfLines={1}>{player.team_name}</Text>
+              )}
+            </View>
+            <View style={gStyles.scoreBox}>
+              <Text style={gStyles.score}>{player.weekly_touches.toLocaleString()}</Text>
+              <Text style={gStyles.scoreLabel}>touches</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+      {showMyRow && myRank > 0 && (() => {
+        const me = players[myRank - 1];
+        return (
+          <>
+            <View style={gStyles.separator}>
+              <Text style={gStyles.separatorText}>· · ·</Text>
+            </View>
+            <TouchableOpacity
+              style={[gStyles.row, gStyles.rowMe]}
+              onPress={() => onPlayerPress(me.id)}
+              activeOpacity={0.7}
+            >
+              <View style={gStyles.rankBox}>
+                <Text style={gStyles.rankText}>{myRank}</Text>
+              </View>
+              <Image
+                source={{ uri: me.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                style={gStyles.avatar}
+              />
+              <View style={gStyles.info}>
+                <Text style={gStyles.name} numberOfLines={1}>{me.name} (You)</Text>
+                {me.team_name && <Text style={gStyles.team} numberOfLines={1}>{me.team_name}</Text>}
+              </View>
+              <View style={gStyles.scoreBox}>
+                <Text style={gStyles.score}>{me.weekly_touches.toLocaleString()}</Text>
+                <Text style={gStyles.scoreLabel}>touches</Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        );
+      })()}
+      {!isPro && (
+        <View style={gStyles.paywall}>
+          <Text style={gStyles.paywallText}>Upgrade to Pro to see the full leaderboard</Text>
         </View>
-      )}
-
-      {/* Active */}
-      {active.length > 0 && (
-        <>
-          <Text style={cStyles.sectionLabel}>Active</Text>
-          {active.map((c) => {
-            const isChallenger = c.challenger_id === userId;
-            const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
-            const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
-
-            if (c.status === 'pending' && !isChallenger) {
-              return (
-                <View key={c.id} style={cStyles.row}>
-                  <View style={cStyles.rowLeft}>
-                    <Text style={cStyles.rowName}>{c.challenger_name}</Text>
-                    <Text style={cStyles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
-                    <Text style={cStyles.rowTimer}>{timeRemaining(c.expires_at)} to accept</Text>
-                  </View>
-                  <View style={cStyles.rowActions}>
-                    <TouchableOpacity
-                      style={cStyles.acceptBtn}
-                      onPress={() => onRespond(c.id, true, c.time_limit_hours, c.challenger_id, c.challenged_name ?? '')}
-                    >
-                      <Text style={cStyles.acceptBtnText}>Accept</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={cStyles.declineBtn}
-                      onPress={() => onRespond(c.id, false, c.time_limit_hours, c.challenger_id, c.challenged_name ?? '')}
-                    >
-                      <Text style={cStyles.declineBtnText}>Decline</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            }
-
-            if (c.status === 'pending' && isChallenger) {
-              return (
-                <View key={c.id} style={cStyles.row}>
-                  <View style={cStyles.rowLeft}>
-                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
-                    <Text style={cStyles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
-                    <Text style={cStyles.rowTimer}>{timeRemaining(c.expires_at)} to accept</Text>
-                  </View>
-                  <View style={cStyles.waitingBadge}>
-                    <Text style={cStyles.waitingText}>Waiting</Text>
-                  </View>
-                </View>
-              );
-            }
-
-            // accepted
-            const iDone = myTime !== null;
-            return (
-              <View key={c.id} style={cStyles.row}>
-                <View style={cStyles.rowLeft}>
-                  <Text style={cStyles.rowName}>vs {opponentName}</Text>
-                  <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
-                  {c.deadline_at && <Text style={cStyles.rowTimer}>{timeRemaining(c.deadline_at)} to complete</Text>}
-                </View>
-                {iDone ? (
-                  <View style={cStyles.waitingBadge}>
-                    <Text style={cStyles.waitingText}>Waiting</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={cStyles.goBtn} onPress={() => onAttempt(c)}>
-                    <Text style={cStyles.goBtnText}>Go!</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
-        </>
-      )}
-
-      {/* History */}
-      {history.length > 0 && (
-        <>
-          <Text style={cStyles.sectionLabel}>History</Text>
-          {history.map((c) => {
-            const isChallenger = c.challenger_id === userId;
-            const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
-            const mySeconds = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
-            const theirSeconds = isChallenger ? c.challenged_time_seconds : c.challenger_time_seconds;
-
-            if (c.status === 'declined') {
-              return (
-                <View key={c.id} style={cStyles.historyRow}>
-                  <View style={cStyles.rowLeft}>
-                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
-                    <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
-                  </View>
-                  <Text style={cStyles.declinedChip}>Declined</Text>
-                </View>
-              );
-            }
-
-            if (c.status === 'expired') {
-              return (
-                <View key={c.id} style={cStyles.historyRow}>
-                  <View style={cStyles.rowLeft}>
-                    <Text style={cStyles.rowName}>vs {opponentName}</Text>
-                    <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
-                  </View>
-                  <Text style={cStyles.declinedChip}>Expired</Text>
-                </View>
-              );
-            }
-
-            const iWon = c.winner_id === userId;
-            return (
-              <View key={c.id} style={cStyles.historyRow}>
-                <View style={cStyles.rowLeft}>
-                  <Text style={cStyles.rowName}>vs {opponentName}</Text>
-                  <Text style={cStyles.rowDetail}>{c.touches_target} touches</Text>
-                </View>
-                <View style={cStyles.resultRight}>
-                  <Text style={[cStyles.resultOutcome, iWon ? cStyles.resultWon : cStyles.resultLost]}>
-                    {iWon ? 'Won' : 'Lost'}
-                  </Text>
-                  {mySeconds !== null && theirSeconds !== null && (
-                    <Text style={cStyles.resultTimes}>
-                      {formatSeconds(mySeconds)} vs {formatSeconds(theirSeconds)}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-        </>
       )}
     </View>
   );
 }
+
+const gStyles = StyleSheet.create({
+  container: {
+    gap: 6,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 10,
+  },
+  rowMe: {
+    borderColor: '#1f89ee',
+    backgroundColor: '#EBF4FF',
+  },
+  rankBox: {
+    width: 28,
+    alignItems: 'center',
+  },
+  rankText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  info: {
+    flex: 1,
+    gap: 2,
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  team: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  scoreBox: {
+    alignItems: 'flex-end',
+  },
+  score: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  scoreLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  separator: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  separatorText: {
+    fontSize: 16,
+    color: '#78909C',
+    letterSpacing: 4,
+  },
+  paywall: {
+    marginTop: 8,
+    backgroundColor: '#FFF8E7',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFB724',
+  },
+  paywallText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B45309',
+    textAlign: 'center',
+  },
+});
 
 const cStyles = StyleSheet.create({
   container: {
@@ -1062,6 +1032,66 @@ const cStyles = StyleSheet.create({
   resultTimes: {
     fontSize: 11,
     fontWeight: '600',
+    color: '#78909C',
+  },
+  addBtn: {
+    marginTop: 12,
+    backgroundColor: '#1f89ee',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  assignRow: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  assignRowText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  completedBadge: {
+    backgroundColor: '#E8F5E9',
+  },
+  completedText: {
+    color: '#31af4d',
+  },
+  cancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  statusBadge: {
+    backgroundColor: '#EBF4FF',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  statusBadgeDone: {
+    backgroundColor: '#E8F5E9',
+  },
+  statusBadgeExpired: {
+    backgroundColor: '#F3F4F6',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  statusBadgeTextDone: {
+    color: '#31af4d',
+  },
+  statusBadgeTextExpired: {
     color: '#78909C',
   },
   declinedChip: {

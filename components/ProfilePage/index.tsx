@@ -1,4 +1,6 @@
 import { useViewMode } from '@/app/(tabs)/_layout';
+import TeamCodeCard from '@/components/coach/TeamCodeCard';
+import { useCoachTeams } from '@/hooks/useCoachTeams';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import type { Badge } from '@/hooks/useBadges';
 import {
@@ -46,6 +48,7 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
   const { mutateAsync: updateProfile } = useUpdateProfile(user?.id);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
@@ -483,41 +486,45 @@ const ProfilePage = () => {
             <Text style={styles.role}>
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
-            <View style={styles.xpPill}>
-              <Text style={styles.xpPillText}>
-                Level {level} · {rankName} ·{' '}
-                {(profile?.total_xp ?? 0).toLocaleString()} XP
-              </Text>
-            </View>
+            {!profile?.is_coach && (
+              <>
+                <View style={styles.xpPill}>
+                  <Text style={styles.xpPillText}>
+                    Level {level} · {rankName} ·{' '}
+                    {(profile?.total_xp ?? 0).toLocaleString()} XP
+                  </Text>
+                </View>
 
-            {/* XP Progress Bar */}
-            <View style={styles.xpProgressContainer}>
-              <View style={styles.xpProgressTrack}>
-                <View
-                  style={[
-                    styles.xpProgressFill,
-                    {
-                      width: `${Math.round(xpProgress * 100)}%`,
-                      backgroundColor: rankBadge.color,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.xpProgressLabel}>
-                {xpIntoLevel.toLocaleString()} /{' '}
-                {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
-              </Text>
-            </View>
+                {/* XP Progress Bar */}
+                <View style={styles.xpProgressContainer}>
+                  <View style={styles.xpProgressTrack}>
+                    <View
+                      style={[
+                        styles.xpProgressFill,
+                        {
+                          width: `${Math.round(xpProgress * 100)}%`,
+                          backgroundColor: rankBadge.color,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.xpProgressLabel}>
+                    {xpIntoLevel.toLocaleString()} /{' '}
+                    {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
+                  </Text>
+                </View>
 
-            {/* View Roadmap button */}
-            <TouchableOpacity
-              style={styles.roadmapButton}
-              onPress={() => router.push(`/(modals)/roadmap?level=${level}`)}
-            >
-              <Ionicons name='map-outline' size={16} color='#ffb724' />
-              <Text style={styles.roadmapButtonText}>View Level Roadmap</Text>
-              <Ionicons name='chevron-forward' size={16} color='#ffb724' />
-            </TouchableOpacity>
+                {/* View Roadmap button */}
+                <TouchableOpacity
+                  style={styles.roadmapButton}
+                  onPress={() => router.push(`/(modals)/roadmap?level=${level}`)}
+                >
+                  <Ionicons name='map-outline' size={16} color='#ffb724' />
+                  <Text style={styles.roadmapButtonText}>View Level Roadmap</Text>
+                  <Ionicons name='chevron-forward' size={16} color='#ffb724' />
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Daily Target Badge - only for players */}
             {!profile?.is_coach && (
@@ -597,8 +604,8 @@ const ProfilePage = () => {
             </View>
           )}
 
-          {/* Training Levels Card */}
-          <View style={styles.levelsCard}>
+          {/* Training Levels Card - players only */}
+          {!profile?.is_coach && (<View style={styles.levelsCard}>
             <Text style={styles.levelsTitle}>Training Levels</Text>
             <Text style={styles.levelsSubtitle}>
               Bill Beswick&apos;s performance philosophy. Your badge on the
@@ -652,26 +659,45 @@ const ProfilePage = () => {
                 </Text>
               </View>
             </View>
-          </View>
+          </View>)}
 
-          {/* Badges Card */}
-          <View style={styles.badgesCard}>
-            <View style={styles.badgesHeader}>
-              <Text style={styles.badgesTitle}>Badges</Text>
-              <Text style={styles.badgesCount}>
-                {earnedBadgeIds.size}/{allBadges.length} earned
-              </Text>
+          {/* Team Cards - coaches only (one per coached team) */}
+          {profile?.is_coach && user?.id && (
+            <>
+              {coachTeams.map((team) => (
+                <TeamCodeCard key={team.id} teamId={team.id} userId={user.id} />
+              ))}
+              <TouchableOpacity
+                style={styles.createTeamBtn}
+                onPress={() => router.push('/(modals)/create-team')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#1f89ee" />
+                <Text style={styles.createTeamBtnText}>Create New Team</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Badges Card - players only */}
+          {!profile?.is_coach && (
+            <View style={styles.badgesCard}>
+              <View style={styles.badgesHeader}>
+                <Text style={styles.badgesTitle}>Badges</Text>
+                <Text style={styles.badgesCount}>
+                  {earnedBadgeIds.size}/{allBadges.length} earned
+                </Text>
+              </View>
+              <BadgeGrid
+                allBadges={allBadges}
+                earnedIds={earnedBadgeIds}
+                badgeCounts={badgeCounts}
+                dark
+                onBadgePress={(badge, isEarned) =>
+                  setSelectedBadge({ badge, isEarned })
+                }
+              />
             </View>
-            <BadgeGrid
-              allBadges={allBadges}
-              earnedIds={earnedBadgeIds}
-              badgeCounts={badgeCounts}
-              dark
-              onBadgePress={(badge, isEarned) =>
-                setSelectedBadge({ badge, isEarned })
-              }
-            />
-          </View>
+          )}
 
           {/* Past Seasons */}
           {archivedSeasons.length > 0 && (
@@ -1774,6 +1800,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  createTeamBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+    borderStyle: 'dashed',
+    marginBottom: 16,
+  },
+  createTeamBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   badgesCard: {
     backgroundColor: '#1E1A3A',

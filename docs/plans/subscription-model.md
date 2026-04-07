@@ -41,9 +41,11 @@ Hold off until there's real user feedback on pricing. Don't add pricing complexi
 | Full leaderboard access | ❌ | ❌ | ❌ | ✅ |
 
 ### Coach tier — squad licence
-A Coach subscription covers every player on the coach's team. Players on a coached team get the full Pro feature set at no cost to them. If a player leaves the team they revert to free unless they hold their own Pro subscription.
+A Coach subscription covers **up to 3 teams** and every player on those teams. Players on a coached team get the full Pro feature set at no cost to them. If a player leaves the team they revert to free unless they hold their own Pro subscription.
 
-This makes the Coach tier worth $19.99 — you're buying a team licence, not just a personal account.
+The 3-team cap is enforced in the app at team creation time (graceful error message, not a crash). When a Coach subscription activates, the `team_is_pro = true` flag is set on all players across all coached teams (not just the active one).
+
+This makes the Coach tier worth $19.99 — you're buying a squad licence, not just a personal account. Future: a "Club" tier for coaches managing 5+ teams can be introduced once demand justifies the complexity.
 
 ---
 
@@ -102,7 +104,7 @@ Returns `{ isPremium: boolean, isCoach: boolean, isLoading: boolean }`.
    ALTER TABLE profiles ADD COLUMN team_is_pro BOOLEAN NOT NULL DEFAULT FALSE;
    ```
 2. Deploy `revenuecat-webhook` edge function:
-   - On Coach subscription purchase/renewal → set `is_premium = true` on the coach's profile AND set `team_is_pro = true` on all profiles where `team_id` matches
+   - On Coach subscription purchase/renewal → set `is_premium = true` on the coach's profile AND set `team_is_pro = true` on all profiles where `team_id IN (SELECT id FROM teams WHERE coach_id = coachUserId)` — covers all coached teams, not just the active one
    - On Coach subscription expiry/cancellation → reverse both
    - On Pro subscription purchase/renewal → set `is_premium = true` on the subscriber's profile only
    - On Pro subscription expiry → set `is_premium = false`

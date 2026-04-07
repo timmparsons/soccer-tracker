@@ -1,7 +1,9 @@
+import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -20,30 +22,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CreateTeam() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
 
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If already on a team, redirect
-  if (profile?.team_id) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centered}>
-          <Ionicons name='checkmark-circle' size={64} color='#22c55e' />
-          <Text style={styles.title}>Already on a Team!</Text>
-          <Text style={styles.subtitle}>
-            You&apos;re already part of a team. Leave your current team to create a
-            new one.
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={() => router.back()}>
-            <Text style={styles.buttonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
 
   const generateTeamCode = () => {
     // Generate 8-character alphanumeric code
@@ -63,6 +49,11 @@ export default function CreateTeam() {
 
     if (!user?.id) {
       Alert.alert('Error', 'You must be logged in to create a team');
+      return;
+    }
+
+    if (coachTeams.length >= 3) {
+      Alert.alert('Team Limit Reached', 'The Coach plan supports up to 3 teams. Remove an existing team to create a new one.');
       return;
     }
 
@@ -121,35 +112,48 @@ export default function CreateTeam() {
         throw new Error('Team was not created');
       }
 
-      // Update user's profile to join the team AND become a coach
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          team_id: team.id,
-          is_coach: true,
-          role: 'coach'
-        })
-        .eq('id', user.id);
+      // Invalidate so the coach dashboard picks up the new team immediately
+      queryClient.invalidateQueries({ queryKey: ['coach-teams', user.id] });
 
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
+      const isAddingSecondTeam = !!profile?.team_id;
+
+      if (!isAddingSecondTeam) {
+        // First team — set as active and mark as coach
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ team_id: team.id, is_coach: true, role: 'coach' })
+          .eq('id', user.id);
+        if (profileError) throw profileError;
+        await refetchProfile();
+
+        Alert.alert(
+          'Team Created! 🎉',
+          `Team: ${teamName}\nTeam Code: ${teamCode}\n\nShare this code with your teammates so they can join!`,
+          [{ text: 'Done', onPress: () => router.replace('/') }],
+        );
+      } else {
+        // Additional team — ask if they want to switch active team
+        await refetchProfile();
+        Alert.alert(
+          'Team Created! 🎉',
+          `Team: ${teamName}\nTeam Code: ${teamCode}\n\nSwitch to this team as your active team?`,
+          [
+            {
+              text: 'Switch',
+              onPress: async () => {
+                await supabase.from('profiles').update({ team_id: team.id }).eq('id', user.id);
+                await refetchProfile();
+                router.replace('/');
+              },
+            },
+            {
+              text: 'Stay on current team',
+              style: 'cancel',
+              onPress: () => router.replace('/'),
+            },
+          ],
+        );
       }
-
-      // Refetch profile to update UI
-      await refetchProfile();
-
-      // Show success with team code
-      Alert.alert(
-        'Team Created! 🎉',
-        `Team: ${teamName}\nTeam Code: ${teamCode}\n\nShare this code with your teammates so they can join!`,
-        [
-          {
-            text: 'Done',
-            onPress: () => router.replace('/'),
-          },
-        ]
-      );
     } catch (error: any) {
       console.error('Error creating team:', error);
       Alert.alert('Error', error.message || 'Failed to create team');

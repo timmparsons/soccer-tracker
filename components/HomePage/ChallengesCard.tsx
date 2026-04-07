@@ -1,13 +1,15 @@
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
 import TeammatePickerModal from '@/components/modals/TeammatePickerModal';
+import { useCancelCoachChallenge, usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import {
+  useCancelPlayerChallenge,
   usePlayerChallenges,
   useRespondToChallenge,
   type PlayerChallenge,
 } from '@/hooks/usePlayerChallenges';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
 function timeRemaining(isoDate: string) {
@@ -32,7 +34,10 @@ interface ChallengesCardProps {
 
 export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
+  const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
+  const { mutate: cancelPlayer } = useCancelPlayerChallenge();
+  const { mutate: cancelCoach } = useCancelCoachChallenge();
 
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -41,6 +46,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
   const pendingCount = challenges.filter(
     (c) => c.status === 'pending' && c.challenged_id === userId,
   ).length;
+  const activeCoachChallenges = coachChallenges.filter((c) => c.status === 'active');
 
   return (
     <>
@@ -55,12 +61,45 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               </View>
             )}
           </View>
-          <Text style={styles.headerSub}>{challenges.length} active</Text>
+          <Text style={styles.headerSub}>{challenges.length + activeCoachChallenges.length} active</Text>
         </View>
 
         {/* Rows */}
         <View style={styles.rows}>
-          {challenges.length === 0 && (
+          {/* Coach-assigned challenges */}
+          {activeCoachChallenges.length > 0 && (
+            <View style={styles.coachSection}>
+              <Text style={styles.coachSectionLabel}>Coach Challenges</Text>
+              {activeCoachChallenges.map((c) => (
+                <View key={c.id} style={styles.coachRow}>
+                  <View style={styles.coachRowLeft}>
+                    <Text style={styles.coachRowTarget}>{c.touches_target.toLocaleString()} touches</Text>
+                    <Text style={styles.coachRowDetail}>Due {c.due_date}</Text>
+                    <View style={styles.coachStatusRow}>
+                      <View style={styles.coachBadge}>
+                        <Text style={styles.coachBadgeText}>🎯 Coach Challenge</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() =>
+                          Alert.alert('Cancel Challenge?', 'This will remove the challenge.', [
+                            { text: 'Keep', style: 'cancel' },
+                            {
+                              text: 'Cancel',
+                              style: 'destructive',
+                              onPress: () => cancelCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id }),
+                            },
+                          ])
+                        }
+                      >
+                        <Text style={styles.cancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+          {challenges.length === 0 && activeCoachChallenges.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No active challenges</Text>
               {teamId ? (
@@ -88,6 +127,12 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
                 })
               }
               onAttempt={() => setAttemptChallenge(c)}
+              onCancel={() =>
+                Alert.alert('Cancel Challenge?', 'This will remove the challenge for both players.', [
+                  { text: 'Keep', style: 'cancel' },
+                  { text: 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: c.id }) },
+                ])
+              }
             />
           ))}
         </View>
@@ -133,9 +178,10 @@ interface ChallengeRowProps {
   userId: string;
   onRespond: (accept: boolean) => void;
   onAttempt: () => void;
+  onCancel: () => void;
 }
 
-function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeRowProps) {
+function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: ChallengeRowProps) {
   const isChallenger = c.challenger_id === userId;
   const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
   const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
@@ -181,6 +227,9 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
           </View>
           <Text style={styles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
           <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
+          <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
+            <Text style={styles.cancelText}>Cancel Challenge</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -214,6 +263,9 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt }: ChallengeR
                 <Text style={styles.goBtnText}>Go!</Text>
               </TouchableOpacity>
             ) : null}
+            <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
+              <Text style={styles.cancelText}>Cancel Challenge</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -331,6 +383,70 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: '#FFF',
+  },
+
+  cancelRow: {
+    marginTop: 6,
+  },
+  cancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+
+  // COACH CHALLENGES
+  coachSection: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  coachSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  coachRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  coachRowLeft: {
+    gap: 2,
+  },
+  coachRowTarget: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  coachRowDetail: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  coachStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+  coachBadge: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  coachBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
   },
 
   // ROWS (shared)
