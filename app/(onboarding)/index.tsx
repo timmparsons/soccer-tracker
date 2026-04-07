@@ -142,7 +142,9 @@ export default function OnboardingScreen() {
   };
 
   const handleFinish = async () => {
-    const userId = user?.id;
+    // user?.id may not be in the React Query cache yet if called immediately
+    // after signUp, so fall back to a direct session fetch
+    const userId = user?.id ?? (await supabase.auth.getUser()).data.user?.id;
     if (!userId) return;
 
     await supabase
