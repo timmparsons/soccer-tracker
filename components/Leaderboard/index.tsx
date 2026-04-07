@@ -8,7 +8,7 @@ import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -37,6 +37,7 @@ interface JugglingRecord {
 }
 
 const Leaderboard = () => {
+  const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
@@ -269,7 +270,7 @@ const Leaderboard = () => {
         {activeTab === 'touches' ? (
           <>
             {/* Period pills */}
-            <View style={styles.periodPillRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodPillRow} contentContainerStyle={styles.periodPillRowContent}>
               <TouchableOpacity
                 style={[styles.periodPill, touchesPeriod === 'today' && styles.periodPillActive]}
                 onPress={() => setTouchesPeriod('today')}
@@ -300,7 +301,7 @@ const Leaderboard = () => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
             )}
@@ -315,6 +316,7 @@ const Leaderboard = () => {
                 currentUserId={user?.id ?? ''}
                 isPro={isPro}
                 onPlayerPress={(id) => setSelectedPlayerId(id)}
+                onUpgrade={() => router.push('/(modals)/paywall' as never)}
               />
             ) : null}
 
@@ -694,9 +696,10 @@ interface GlobalTabProps {
   currentUserId: string;
   isPro: boolean;
   onPlayerPress: (id: string) => void;
+  onUpgrade: () => void;
 }
 
-function GlobalTabContent({ players, currentUserId, isPro, onPlayerPress }: GlobalTabProps) {
+function GlobalTabContent({ players, currentUserId, isPro, onPlayerPress, onUpgrade }: GlobalTabProps) {
   const myRank = players.findIndex((p) => p.id === currentUserId) + 1;
   const visiblePlayers = isPro ? players : players.slice(0, 5);
   const showMyRow = !isPro && myRank > 5;
@@ -768,9 +771,9 @@ function GlobalTabContent({ players, currentUserId, isPro, onPlayerPress }: Glob
         );
       })()}
       {!isPro && (
-        <View style={gStyles.paywall}>
-          <Text style={gStyles.paywallText}>Upgrade to Pro to see the full leaderboard</Text>
-        </View>
+        <TouchableOpacity style={gStyles.paywall} onPress={onUpgrade} activeOpacity={0.85}>
+          <Text style={gStyles.paywallText}>Upgrade to Pro to see the full leaderboard →</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -868,243 +871,6 @@ const gStyles = StyleSheet.create({
   },
 });
 
-const cStyles = StyleSheet.create({
-  container: {
-    gap: 4,
-  },
-  empty: {
-    paddingTop: 60,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  emptySub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  record: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  recordStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  recordValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  recordLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  recordDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 4,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#78909C',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  rowLeft: {
-    flex: 1,
-    gap: 3,
-  },
-  rowName: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  rowDetail: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  rowTimer: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  rowActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  acceptBtn: {
-    backgroundColor: '#1f89ee',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  acceptBtnText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  declineBtn: {
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  declineBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  waitingBadge: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  waitingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  goBtn: {
-    backgroundColor: '#1f89ee',
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  goBtnText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  resultRight: {
-    alignItems: 'flex-end',
-    gap: 3,
-  },
-  resultOutcome: {
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  resultWon: {
-    color: '#1f89ee',
-  },
-  resultLost: {
-    color: '#78909C',
-  },
-  resultTimes: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  addBtn: {
-    marginTop: 12,
-    backgroundColor: '#1f89ee',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  addBtnText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  assignRow: {
-    backgroundColor: '#1f89ee',
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  assignRowText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  completedBadge: {
-    backgroundColor: '#E8F5E9',
-  },
-  completedText: {
-    color: '#31af4d',
-  },
-  cancelText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EF4444',
-  },
-  statusBadge: {
-    backgroundColor: '#EBF4FF',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    marginTop: 6,
-  },
-  statusBadgeDone: {
-    backgroundColor: '#E8F5E9',
-  },
-  statusBadgeExpired: {
-    backgroundColor: '#F3F4F6',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  statusBadgeTextDone: {
-    color: '#31af4d',
-  },
-  statusBadgeTextExpired: {
-    color: '#78909C',
-  },
-  declinedChip: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-});
-
 export default Leaderboard;
 
 const styles = StyleSheet.create({
@@ -1169,9 +935,12 @@ const styles = StyleSheet.create({
 
   // PERIOD PILLS
   periodPillRow: {
+    marginBottom: 16,
+  },
+  periodPillRowContent: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    paddingRight: 4,
   },
   periodPill: {
     paddingVertical: 6,

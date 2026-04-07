@@ -8,6 +8,7 @@ import {
   useRespondToChallenge,
   type PlayerChallenge,
 } from '@/hooks/usePlayerChallenges';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -39,6 +40,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
   const { mutate: cancelPlayer } = useCancelPlayerChallenge();
   const { mutate: cancelCoach } = useCancelCoachChallenge();
 
+  const [expanded, setExpanded] = useState(false);
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [selectedTeammate, setSelectedTeammate] = useState<Teammate | null>(null);
@@ -51,8 +53,8 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
   return (
     <>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header — toggles dropdown */}
+        <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerTitle}>Challenges</Text>
             {pendingCount > 0 && (
@@ -61,11 +63,11 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               </View>
             )}
           </View>
-          <Text style={styles.headerSub}>{challenges.length + activeCoachChallenges.length} active</Text>
-        </View>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+        </TouchableOpacity>
 
-        {/* Rows */}
-        <View style={styles.rows}>
+        {/* Rows — only visible when expanded */}
+        {expanded && <View style={styles.rows}>
           {/* Coach-assigned challenges */}
           {activeCoachChallenges.length > 0 && (
             <View style={styles.coachSection}>
@@ -135,7 +137,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               }
             />
           ))}
-        </View>
+        </View>}
       </View>
 
       {attemptChallenge && (
@@ -315,12 +317,10 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   headerLeft: {
     flexDirection: 'row',

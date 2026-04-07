@@ -820,6 +820,7 @@ const TrainPage = () => {
           }}
         />
       )}
+
     </View>
   );
 };
@@ -1405,4 +1406,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
   },
+
 });
