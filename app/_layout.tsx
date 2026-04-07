@@ -107,7 +107,7 @@ export default function RootLayout() {
         setHasSeenIntro(seenIntro);
 
         if (!sess) {
-          setTargetRoute(seenIntro ? '/(auth)' : '/(auth)/intro');
+          setTargetRoute(seenIntro ? '/(auth)' : '/(onboarding)');
           return;
         }
 
@@ -155,7 +155,9 @@ export default function RootLayout() {
               ? '/(tabs)'
               : '/(onboarding)',
           );
-          setupNotifications(sess.user.id);
+          if (profile?.onboarding_completed === true) {
+            setupNotifications(sess.user.id);
+          }
 
           // Prefetch leaderboard in parallel — by the time splash clears it'll be warm
           if (profile?.team_id) {
@@ -251,7 +253,11 @@ export default function RootLayout() {
       router.replace(
         profile?.onboarding_completed === true ? '/(tabs)' : '/(onboarding)',
       );
-      setupNotifications(sess.user.id);
+      // Only set up notifications for returning users — new users are primed
+      // inside the onboarding flow before the system dialog is triggered.
+      if (profile?.onboarding_completed === true) {
+        setupNotifications(sess.user.id);
+      }
     } catch {
       router.replace('/(tabs)');
     } finally {
@@ -265,6 +271,7 @@ export default function RootLayout() {
 
     const rootSegment = segments[0];
     const inAuthGroup = rootSegment === '(auth)';
+    const inOnboardingGroup = rootSegment === '(onboarding)';
 
     if (isPasswordRecovery) {
       const currentPath = segments.join('/');
@@ -281,11 +288,11 @@ export default function RootLayout() {
       return;
     }
 
-    // User signed out — send back to auth
-    if (!session && !inAuthGroup) {
-      router.replace(hasSeenIntro ? '/(auth)' : '/(auth)/intro');
+    // User signed out — send back to auth (onboarding users without a session are allowed to stay)
+    if (!session && !inAuthGroup && !inOnboardingGroup) {
+      router.replace('/(auth)');
     }
-  }, [session, segments, loading, minTimeDone, isPasswordRecovery, hasSeenIntro]);
+  }, [session, segments, loading, minTimeDone, isPasswordRecovery]);
 
   // Fire-and-forget: request notification permission, save push token, schedule reminders.
   const setupNotifications = async (userId: string) => {
