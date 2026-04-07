@@ -38,12 +38,14 @@ interface OnboardingData {
 const PLAYER_STEPS = [
   'welcome', 'persona', 'goal', 'pain', 'name',
   'social', 'solution', 'notif', 'processing',
-  'dailygoal', 'demo', 'signup', 'paywall',
+  'dailygoal', 'demo', 'signup',
+  // 'paywall', — re-add when monetization branch merges
 ] as const;
 
 const COACH_STEPS = [
   'welcome', 'persona', 'coachgoal', 'coachname',
-  'coachsocial', 'coachnotif', 'coachsignup', 'coachpaywall',
+  'coachsocial', 'coachnotif', 'coachsignup',
+  // 'coachpaywall', — re-add when monetization branch merges
 ] as const;
 
 type Step = typeof PLAYER_STEPS[number] | typeof COACH_STEPS[number];
@@ -226,7 +228,7 @@ export default function OnboardingScreen() {
             password={data.password}
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
-            onNext={goNext}
+            onNext={handleFinish}
           />
         );
       case 'paywall':
@@ -259,7 +261,7 @@ export default function OnboardingScreen() {
             password={data.password}
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
-            onNext={goNext}
+            onNext={handleFinish}
           />
         );
       case 'coachpaywall':

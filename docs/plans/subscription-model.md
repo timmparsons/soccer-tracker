@@ -66,6 +66,16 @@ Returns `{ isPremium: boolean, isCoach: boolean, isLoading: boolean }`.
 
 ---
 
+## Merge from main first
+
+Before wiring up RevenueCat, merge `main` into this branch. The onboarding flow was rebuilt on main with placeholder paywall screens. After merging:
+
+- In `app/(onboarding)/index.tsx`, uncomment `'paywall'` in `PLAYER_STEPS` and `'coachpaywall'` in `COACH_STEPS` (both are commented out with a note)
+- Replace the placeholder `PaywallScreen` and `CoachPaywallScreen` components with the real `app/(modals)/paywall.tsx` modal (or wire the CTA buttons to `router.push('/(modals)/paywall')`)
+- The `SignUpScreen` in onboarding creates the account before the paywall fires, so `userId` is guaranteed to be available for RevenueCat purchase attribution
+
+---
+
 ## Modified Files
 
 - `app/_layout.tsx` — initialise RevenueCat SDK with `EXPO_PUBLIC_RC_IOS_KEY`
