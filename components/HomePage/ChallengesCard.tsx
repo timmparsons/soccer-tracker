@@ -50,6 +50,10 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
   ).length;
   const activeCoachChallenges = coachChallenges.filter((c) => c.status === 'active');
 
+  const activeChallenges = challenges.filter((c) => c.status !== 'completed');
+  const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 5);
+  const displayedChallenges = [...activeChallenges, ...completedChallenges];
+
   return (
     <>
       <View style={styles.container}>
@@ -101,7 +105,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               ))}
             </View>
           )}
-          {challenges.length === 0 && activeCoachChallenges.length === 0 && (
+          {displayedChallenges.length === 0 && activeCoachChallenges.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No active challenges</Text>
               {teamId ? (
@@ -113,7 +117,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
               )}
             </View>
           )}
-          {challenges.map((c) => (
+          {displayedChallenges.map((c) => (
             <ChallengeRow
               key={c.id}
               challenge={c}
@@ -278,7 +282,7 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: 
                 <Text style={styles.goBtnText}>Go!</Text>
               </TouchableOpacity>
             ) : null}
-            <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
+            <TouchableOpacity onPress={() => onCancel()} style={styles.cancelRow}>
               <Text style={styles.cancelText}>Cancel Challenge</Text>
             </TouchableOpacity>
           </View>

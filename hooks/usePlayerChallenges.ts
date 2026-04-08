@@ -72,6 +72,26 @@ export function usePlayerChallenges(userId: string | undefined) {
   });
 }
 
+export function useChallengeRecord(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['challenge-record', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('player_challenges')
+        .select('winner_id, challenger_id, challenged_id')
+        .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+        .eq('status', 'completed');
+
+      if (error || !data) return { wins: 0, losses: 0 };
+
+      const wins = data.filter((c) => c.winner_id === userId).length;
+      const losses = data.length - wins;
+      return { wins, losses };
+    },
+  });
+}
+
 export function useAllPlayerChallenges(userId: string | undefined) {
   return useQuery({
     queryKey: ['player-challenges-all', userId],
