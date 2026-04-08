@@ -733,6 +733,8 @@ const styles = StyleSheet.create({
   // PERIOD PILLS
   periodPillRow: {
     marginBottom: 16,
+    flexDirection: 'row',
+    gap: 8,
   },
   periodPillRowContent: {
     flexDirection: 'row',
