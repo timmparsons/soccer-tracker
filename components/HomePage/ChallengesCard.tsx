@@ -129,11 +129,15 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
                 })
               }
               onAttempt={() => setAttemptChallenge(c)}
-              onCancel={() =>
-                Alert.alert('Cancel Challenge?', 'This will remove the challenge for both players.', [
-                  { text: 'Keep', style: 'cancel' },
-                  { text: 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: c.id }) },
-                ])
+              onCancel={(expired?: boolean) =>
+                Alert.alert(
+                  expired ? 'Delete Challenge?' : 'Cancel Challenge?',
+                  expired ? 'This will remove the expired challenge.' : 'This will remove the challenge for both players.',
+                  [
+                    { text: 'Keep', style: 'cancel' },
+                    { text: expired ? 'Delete' : 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: c.id }) },
+                  ],
+                )
               }
             />
           ))}
@@ -180,7 +184,7 @@ interface ChallengeRowProps {
   userId: string;
   onRespond: (accept: boolean) => void;
   onAttempt: () => void;
-  onCancel: () => void;
+  onCancel: (expired?: boolean) => void;
 }
 
 function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: ChallengeRowProps) {
@@ -218,19 +222,28 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: 
 
   // Outgoing pending
   if (c.status === 'pending' && isChallenger) {
+    const expired = timeRemaining(c.expires_at) === 'Expired';
     return (
       <View style={styles.outgoingRow}>
         <View style={styles.rowContent}>
           <View style={styles.rowTop}>
             <Text style={styles.rowName}>vs {opponentName}</Text>
-            <View style={styles.waitingBadge}>
-              <Text style={styles.waitingText}>Waiting</Text>
-            </View>
+            {expired ? (
+              <View style={styles.expiredBadge}>
+                <Text style={styles.expiredBadgeText}>Expired</Text>
+              </View>
+            ) : (
+              <View style={styles.waitingBadge}>
+                <Text style={styles.waitingText}>Waiting</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.rowDetail}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
-          <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
-          <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
-            <Text style={styles.cancelText}>Cancel Challenge</Text>
+          {!expired && (
+            <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
+          )}
+          <TouchableOpacity onPress={() => onCancel(expired)} style={styles.cancelRow}>
+            <Text style={styles.cancelText}>{expired ? 'Delete' : 'Cancel Challenge'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -567,6 +580,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#78909C',
+  },
+  expiredBadge: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  expiredBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EF4444',
   },
   activeBottom: {
     marginTop: 6,

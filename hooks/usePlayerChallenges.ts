@@ -58,13 +58,16 @@ export function usePlayerChallenges(userId: string | undefined) {
         return [] as PlayerChallenge[];
       }
 
-      return (data ?? []).map((row: Record<string, any>) => ({
-        ...row,
-        challenger_name: row.challenger?.display_name || row.challenger?.name,
-        challenger_avatar: row.challenger?.avatar_url ?? null,
-        challenged_name: row.challenged?.display_name || row.challenged?.name,
-        challenged_avatar: row.challenged?.avatar_url ?? null,
-      })) as PlayerChallenge[];
+      const now = new Date();
+      return (data ?? [])
+        .map((row: Record<string, any>) => ({
+          ...row,
+          challenger_name: row.challenger?.display_name || row.challenger?.name,
+          challenger_avatar: row.challenger?.avatar_url ?? null,
+          challenged_name: row.challenged?.display_name || row.challenged?.name,
+          challenged_avatar: row.challenged?.avatar_url ?? null,
+        }))
+        .filter((c: PlayerChallenge) => c.status !== 'pending' || new Date(c.expires_at) > now) as PlayerChallenge[];
     },
   });
 }
@@ -188,7 +191,19 @@ export function useCancelPlayerChallenge() {
         .eq('id', challengeId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onMutate: async ({ challengeId }) => {
+      await queryClient.cancelQueries({ queryKey: ['player-challenges'] });
+      const previous = queryClient.getQueriesData<PlayerChallenge[]>({ queryKey: ['player-challenges'] });
+      queryClient.setQueriesData<PlayerChallenge[]>(
+        { queryKey: ['player-challenges'] },
+        (old) => old?.filter((c) => c.id !== challengeId) ?? [],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
       queryClient.invalidateQueries({ queryKey: ['player-challenges-all'] });
     },
