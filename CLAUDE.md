@@ -68,6 +68,11 @@ No test framework is configured — there are no tests to run.
 - Font weights used: `'600'` (body), `'700'` (labels), `'900'` (headings/buttons).
 - Border radius conventions: inputs `12`, cards `16–24`, buttons `14–16`.
 
+## App Store Builds
+- When a session wraps up with meaningful changes, ask: "Are you building this for submission?" If yes, bump the `version` in `app.json` (patch increment, e.g. `2.2.11` → `2.2.12`) before the build.
+- `autoIncrement: true` in `eas.json` handles the build number automatically — only `version` needs manual bumping.
+- Apple rejects builds where the version is the same as or lower than a previously submitted build.
+
 ## What NOT to Do
 - Don't add docstrings, comments, or type annotations to code that wasn't changed.
 - Don't add error handling for scenarios that can't happen — only validate at system boundaries.
