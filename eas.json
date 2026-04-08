@@ -19,7 +19,7 @@
     },
     "production": {
       "distribution": "store",
-      "autoIncrement": true
+      "autoIncrement": "version"
     }
   },
   "submit": {
