@@ -2,13 +2,12 @@ import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
-import { useGlobalLeaderboard, type GlobalPlayer } from '@/hooks/useGlobalLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -37,12 +36,11 @@ interface JugglingRecord {
 }
 
 const Leaderboard = () => {
-  const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global'>('today');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
@@ -129,11 +127,6 @@ const Leaderboard = () => {
     enabled: !!profile?.team_id,
   });
 
-  const { data: globalPlayers = [], refetch: refetchGlobal } = useGlobalLeaderboard();
-
-  // Placeholder — wire up to useSubscription when monetization branch merges
-  const isPro = !!(profile?.is_coach);
-
   const isLoading = touchesLoading || jugglingLoading;
 
   // Record last week's winner (idempotent — safe to run every load)
@@ -148,7 +141,6 @@ const Leaderboard = () => {
   const handleRefresh = () => {
     refetchTouches();
     refetchJuggling();
-    refetchGlobal();
   };
 
   // Refetch data when screen comes into focus
@@ -295,12 +287,6 @@ const Leaderboard = () => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('global')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
-              </TouchableOpacity>
             </ScrollView>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
@@ -310,18 +296,8 @@ const Leaderboard = () => {
             )}
 
 
-            {touchesPeriod === 'global' ? (
-              <GlobalTabContent
-                players={globalPlayers}
-                currentUserId={user?.id ?? ''}
-                isPro={isPro}
-                onPlayerPress={(id) => setSelectedPlayerId(id)}
-                onUpgrade={() => router.push('/(modals)/paywall' as never)}
-              />
-            ) : null}
-
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
-            {touchesPeriod !== 'global' && showTouchesPodium && (
+            {showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 1st Place — left when only 2 on podium, centre when 3 */}
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
@@ -460,7 +436,7 @@ const Leaderboard = () => {
             )}
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
-            {touchesPeriod !== 'global' && <View style={styles.listContainer}>
+            <View style={styles.listContainer}>
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
@@ -527,7 +503,7 @@ const Leaderboard = () => {
                   </TouchableOpacity>
                 );
               })}
-            </View>}
+            </View>
           </>
         ) : (
           <>
@@ -691,185 +667,6 @@ const Leaderboard = () => {
   );
 };
 
-interface GlobalTabProps {
-  players: GlobalPlayer[];
-  currentUserId: string;
-  isPro: boolean;
-  onPlayerPress: (id: string) => void;
-  onUpgrade: () => void;
-}
-
-function GlobalTabContent({ players, currentUserId, isPro, onPlayerPress, onUpgrade }: GlobalTabProps) {
-  const myRank = players.findIndex((p) => p.id === currentUserId) + 1;
-  const visiblePlayers = isPro ? players : players.slice(0, 5);
-  const showMyRow = !isPro && myRank > 5;
-
-  return (
-    <View style={gStyles.container}>
-      <Text style={gStyles.subtitle}>Weekly touches · resets Sunday</Text>
-      {visiblePlayers.map((player, idx) => {
-        const rank = idx + 1;
-        const isMe = player.id === currentUserId;
-        return (
-          <TouchableOpacity
-            key={player.id}
-            style={[gStyles.row, isMe && gStyles.rowMe]}
-            onPress={() => onPlayerPress(player.id)}
-            activeOpacity={0.7}
-          >
-            <View style={gStyles.rankBox}>
-              <Text style={gStyles.rankText}>{rank}</Text>
-            </View>
-            <Image
-              source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-              style={gStyles.avatar}
-            />
-            <View style={gStyles.info}>
-              <Text style={gStyles.name} numberOfLines={1}>
-                {player.name}{isMe ? ' (You)' : ''}
-              </Text>
-              {player.team_name && (
-                <Text style={gStyles.team} numberOfLines={1}>{player.team_name}</Text>
-              )}
-            </View>
-            <View style={gStyles.scoreBox}>
-              <Text style={gStyles.score}>{player.weekly_touches.toLocaleString()}</Text>
-              <Text style={gStyles.scoreLabel}>touches</Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-      {showMyRow && myRank > 0 && (() => {
-        const me = players[myRank - 1];
-        return (
-          <>
-            <View style={gStyles.separator}>
-              <Text style={gStyles.separatorText}>· · ·</Text>
-            </View>
-            <TouchableOpacity
-              style={[gStyles.row, gStyles.rowMe]}
-              onPress={() => onPlayerPress(me.id)}
-              activeOpacity={0.7}
-            >
-              <View style={gStyles.rankBox}>
-                <Text style={gStyles.rankText}>{myRank}</Text>
-              </View>
-              <Image
-                source={{ uri: me.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                style={gStyles.avatar}
-              />
-              <View style={gStyles.info}>
-                <Text style={gStyles.name} numberOfLines={1}>{me.name} (You)</Text>
-                {me.team_name && <Text style={gStyles.team} numberOfLines={1}>{me.team_name}</Text>}
-              </View>
-              <View style={gStyles.scoreBox}>
-                <Text style={gStyles.score}>{me.weekly_touches.toLocaleString()}</Text>
-                <Text style={gStyles.scoreLabel}>touches</Text>
-              </View>
-            </TouchableOpacity>
-          </>
-        );
-      })()}
-      {!isPro && (
-        <TouchableOpacity style={gStyles.paywall} onPress={onUpgrade} activeOpacity={0.85}>
-          <Text style={gStyles.paywallText}>Upgrade to Pro to see the full leaderboard →</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
-
-const gStyles = StyleSheet.create({
-  container: {
-    gap: 6,
-  },
-  subtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 10,
-  },
-  rowMe: {
-    borderColor: '#1f89ee',
-    backgroundColor: '#EBF4FF',
-  },
-  rankBox: {
-    width: 28,
-    alignItems: 'center',
-  },
-  rankText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  team: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  scoreBox: {
-    alignItems: 'flex-end',
-  },
-  score: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  scoreLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  separator: {
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  separatorText: {
-    fontSize: 16,
-    color: '#78909C',
-    letterSpacing: 4,
-  },
-  paywall: {
-    marginTop: 8,
-    backgroundColor: '#FFF8E7',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFB724',
-  },
-  paywallText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#B45309',
-    textAlign: 'center',
-  },
-});
 
 export default Leaderboard;
 
