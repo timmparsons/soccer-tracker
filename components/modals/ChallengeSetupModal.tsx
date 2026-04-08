@@ -3,7 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -61,8 +64,12 @@ export default function ChallengeSetupModal({
 
   return (
     <Modal visible={visible} animationType='slide' transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
           {/* Handle */}
           <View style={styles.handle} />
 
@@ -165,8 +172,9 @@ export default function ChallengeSetupModal({
               </Text>
             )}
           </TouchableOpacity>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
