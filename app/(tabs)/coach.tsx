@@ -959,7 +959,7 @@ export default function CoachDashboard() {
                     onPress={() => setModalTab('coins')}
                   >
                     <Text style={[styles.modalTabText, modalTab === 'coins' && styles.modalTabTextActive]}>
-                      🏆 Points
+                      🏆 Coins
                     </Text>
                   </TouchableOpacity>
                 </View>
