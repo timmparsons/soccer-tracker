@@ -1,5 +1,6 @@
 import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
+import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
@@ -74,6 +75,7 @@ export default function CoachDashboard() {
   const [coinAmount, setCoinAmount] = useState('');
   const [coinNote, setCoinNote] = useState('');
   const [awardingCoins, setAwardingCoins] = useState(false);
+  const [challengeModalVisible, setChallengeModalVisible] = useState(false);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -731,6 +733,17 @@ export default function CoachDashboard() {
                           <Text style={styles.actionBtnText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => {
+                            setExpandedPlayerId(null);
+                            setSelectedPlayer(player);
+                            setChallengeModalVisible(true);
+                          }}
+                        >
+                          <Ionicons name="flag-outline" size={15} color="#1f89ee" />
+                          <Text style={styles.actionBtnText}>Challenge</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           style={[styles.actionBtn, styles.actionBtnDanger]}
                           onPress={() => handleRemovePlayer(player)}
                         >
@@ -856,6 +869,20 @@ export default function CoachDashboard() {
             </View>
           </TouchableOpacity>
         </Modal>
+      )}
+
+      {/* COACH CHALLENGE MODAL */}
+      {profile?.team_id && user?.id && (
+        <CoachChallengeModal
+          visible={challengeModalVisible}
+          onClose={() => setChallengeModalVisible(false)}
+          coachId={user.id}
+          teamId={profile.team_id}
+          preselectedPlayer={selectedPlayer ? {
+            id: selectedPlayer.id,
+            name: selectedPlayer.display_name || selectedPlayer.name,
+          } : undefined}
+        />
       )}
 
       {/* CELL INFO SHEET */}

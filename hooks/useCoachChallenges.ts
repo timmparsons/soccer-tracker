@@ -88,6 +88,26 @@ export function useCreateCoachChallenge() {
         .select()
         .single();
       if (error) throw error;
+
+      // Send push notification to player
+      const { data: playerProfile } = await supabase
+        .from('profiles')
+        .select('expo_push_token')
+        .eq('id', playerId)
+        .single();
+
+      if (playerProfile?.expo_push_token) {
+        supabase.functions
+          .invoke('send-push', {
+            body: {
+              to: playerProfile.expo_push_token,
+              title: 'New Challenge! 🎯',
+              body: `Your coach set you a challenge: ${touchesTarget.toLocaleString()} touches by ${dueDate}`,
+            },
+          })
+          .catch((err: unknown) => console.warn('Push notification failed:', err));
+      }
+
       return data;
     },
     onSuccess: (_data, vars) => {

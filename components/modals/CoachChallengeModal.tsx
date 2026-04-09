@@ -25,6 +25,7 @@ interface CoachChallengeModalProps {
   onClose: () => void;
   coachId: string;
   teamId: string;
+  preselectedPlayer?: { id: string; name: string };
 }
 
 export default function CoachChallengeModal({
@@ -32,11 +33,21 @@ export default function CoachChallengeModal({
   onClose,
   coachId,
   teamId,
+  preselectedPlayer,
 }: CoachChallengeModalProps) {
   const insets = useSafeAreaInsets();
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(preselectedPlayer ?? null);
   const [touchesTarget, setTouchesTarget] = useState('');
   const [daysFromNow, setDaysFromNow] = useState('7');
+
+  // Sync preselected player when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      setSelectedPlayer(preselectedPlayer ?? null);
+      setTouchesTarget('');
+      setDaysFromNow('7');
+    }
+  }, [visible, preselectedPlayer?.id]);
 
   const { mutate: createChallenge, isPending } = useCreateCoachChallenge();
 
@@ -107,30 +118,37 @@ export default function CoachChallengeModal({
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps='handled'>
-          {/* Player picker */}
-          <Text style={styles.label}>Select Player</Text>
-          {playersLoading ? (
-            <ActivityIndicator color='#1f89ee' style={{ marginVertical: 12 }} />
-          ) : (
-            <View style={styles.playerList}>
-              {players.map((p) => (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.playerRow, selectedPlayer?.id === p.id && styles.playerRowSelected]}
-                  onPress={() => setSelectedPlayer(p)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[styles.playerName, selectedPlayer?.id === p.id && styles.playerNameSelected]}
-                  >
-                    {p.name}
-                  </Text>
-                  {selectedPlayer?.id === p.id && (
-                    <Ionicons name='checkmark' size={18} color='#1f89ee' />
-                  )}
-                </TouchableOpacity>
-              ))}
+          {/* Player picker — hidden when preselected */}
+          {preselectedPlayer ? (
+            <View style={styles.preselectedPlayer}>
+              <Ionicons name='person' size={18} color='#1f89ee' />
+              <Text style={styles.preselectedPlayerName}>{preselectedPlayer.name}</Text>
             </View>
+          ) : (
+            <>
+              <Text style={styles.label}>Select Player</Text>
+              {playersLoading ? (
+                <ActivityIndicator color='#1f89ee' style={{ marginVertical: 12 }} />
+              ) : (
+                <View style={styles.playerList}>
+                  {players.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.playerRow, selectedPlayer?.id === p.id && styles.playerRowSelected]}
+                      onPress={() => setSelectedPlayer(p)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.playerName, selectedPlayer?.id === p.id && styles.playerNameSelected]}>
+                        {p.name}
+                      </Text>
+                      {selectedPlayer?.id === p.id && (
+                        <Ionicons name='checkmark' size={18} color='#1f89ee' />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
           )}
 
           {/* Touches target */}
@@ -218,6 +236,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 10,
+  },
+  preselectedPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 4,
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+  },
+  preselectedPlayerName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1f89ee',
   },
   playerList: {
     gap: 6,
