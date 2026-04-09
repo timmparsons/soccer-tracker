@@ -115,7 +115,7 @@ const LogSessionModal = ({
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: userId,
         drill_id: challengeDrillId ?? null,
-        touches_logged: touchCount,
+        touches_logged: touchCount > 0 ? touchCount : juggleCount,
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
         date: today,
@@ -330,6 +330,7 @@ const LogSessionModal = ({
                   Best Juggles{' '}
                   <Text style={styles.optionalLabel}>(optional)</Text>
                 </Text>
+                <Text style={styles.jugglingHint}>Juggling only? Enter your juggle count here — it'll count as your touches too.</Text>
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.input}
@@ -438,6 +439,12 @@ const styles = StyleSheet.create({
   },
   jugglingInputSection: {
     marginBottom: 24,
+  },
+  jugglingHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 10,
   },
   optionalLabel: {
     fontSize: 13,

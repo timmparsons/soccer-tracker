@@ -40,6 +40,7 @@ export function usePlayerChallenges(userId: string | undefined) {
   return useQuery({
     queryKey: ['player-challenges', userId],
     enabled: !!userId,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('player_challenges')
@@ -151,7 +152,7 @@ export function useSendChallenge() {
       return data;
     },
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['player-challenges', vars.challengerId] });
+      queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
       sendPushToUser(
         vars.challengedId,
         '⚔️ New Challenge!',
