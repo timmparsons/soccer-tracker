@@ -1,13 +1,16 @@
+import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
+import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
+import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +34,7 @@ interface PlayerStats {
   display_name: string;
   avatar_url: string | null;
   today_touches: number;
+  yesterday_touches: number;
   week_touches: number;
   total_touches: number;
   total_sessions: number;
@@ -63,6 +67,9 @@ export default function CoachDashboard() {
   const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDate());
+  const [tipsExpanded, setTipsExpanded] = useState(false);
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -107,6 +114,9 @@ export default function CoachDashboard() {
       if (!players || players.length === 0) return [];
 
       const today = getLocalDate();
+      const yesterdayObj = new Date();
+      yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+      const yesterday = getLocalDate(yesterdayObj);
       const todayObj = new Date();
       const weekStartObj = new Date(todayObj);
       weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // rewind to Sunday
@@ -158,6 +168,10 @@ export default function CoachDashboard() {
           .filter((s) => s.date === today)
           .reduce((sum, s) => sum + s.touches_logged, 0);
 
+        const yesterdayTouches = allSessions
+          .filter((s) => s.date === yesterday)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
+
         const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
         const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
@@ -194,6 +208,7 @@ export default function CoachDashboard() {
           display_name: player.display_name,
           avatar_url: player.avatar_url,
           today_touches: todayTouches,
+          yesterday_touches: yesterdayTouches,
           week_touches: weekTouches,
           total_touches: totalTouches,
           total_sessions: allSessions.length,
@@ -212,6 +227,10 @@ export default function CoachDashboard() {
       return playersWithStats.sort((a, b) => b.week_touches - a.week_touches);
     },
   });
+
+  // Stable player IDs for the week-grid session query
+  const playerIds = useMemo(() => teamPlayers?.map((p) => p.id) ?? [], [teamPlayers]);
+  const { sessionMap, weekDates } = useTeamDailySessions(profile?.team_id, playerIds);
 
   // Refetch on focus
   useFocusEffect(
@@ -324,6 +343,18 @@ export default function CoachDashboard() {
     setEditingSessionId(null);
     setEditCount('');
     setModalVisible(true);
+  };
+
+  const handleEditPress = (player: PlayerStats) => {
+    setSelectedPlayer(player);
+    setTouchCount('');
+    setDurationMinutes('');
+    setEditSessions([]);
+    setEditingSessionId(null);
+    setEditCount('');
+    setModalVisible(true);
+    // Load edit sessions immediately
+    handleSwitchToEdit(player.id);
   };
 
   const handleSwitchToEdit = async (playerId: string) => {
@@ -481,239 +512,210 @@ export default function CoachDashboard() {
     return '#31af4d';
   };
 
+  // Sort players: consistency first (days active), then volume
+  const sortedPlayers = useMemo(
+    () =>
+      [...(teamPlayers ?? [])].sort(
+        (a, b) =>
+          b.days_active_this_week - a.days_active_this_week ||
+          b.week_touches - a.week_touches,
+      ),
+    [teamPlayers],
+  );
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTextContainer}>
+          {coachTeams.length > 1 ? (
+            <TouchableOpacity
+              style={styles.teamSwitcherPill}
+              onPress={() => setSwitcherVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {team?.name || 'My Team'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#ffb724" />
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
+          )}
+          <Text style={styles.headerSubtitle}>
+            {activePlayers}/{totalPlayers} active today
+            {playersHitTarget > 0 ? ` · ${playersHitTarget} hit target` : ''}
+            {teamAvgTpm > 0 ? ` · ${teamAvgTpm}/min` : ''}
+          </Text>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <Ionicons name="clipboard" size={32} color="#ffb724" />
-          </View>
-          <View style={styles.headerTextContainer}>
-            {coachTeams.length > 1 ? (
-              <TouchableOpacity style={styles.teamSwitcherPill} onPress={() => setSwitcherVisible(true)} activeOpacity={0.7}>
-                <Text style={styles.headerTitle} numberOfLines={1}>{team?.name || 'My Team'}</Text>
-                <Ionicons name="chevron-down" size={16} color="#ffb724" />
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.headerTitle}>{team?.name || 'My Team'}</Text>
-            )}
-            <Text style={styles.headerSubtitle}>
-              {totalPlayers} {totalPlayers === 1 ? 'player' : 'players'} • {activePlayers} active
-            </Text>
-          </View>
-        </View>
-
-        {/* Team Overview Card */}
-        <View style={styles.overviewCard}>
-          <Text style={styles.sectionTitle}>Team Overview</Text>
-
-          <View style={styles.overviewGrid}>
-            <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>📊</Text>
-              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamTodayTouches.toLocaleString()}</Text>
-              <Text style={styles.overviewLabel}>Today</Text>
-            </View>
-            <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>📈</Text>
-              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamWeekTouches.toLocaleString()}</Text>
-              <Text style={styles.overviewLabel}>This Week</Text>
-            </View>
-            <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>🏆</Text>
-              <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{teamTotalTouches.toLocaleString()}</Text>
-              <Text style={styles.overviewLabel}>All Time</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Avg Daily/Player</Text>
-              <Text style={styles.statValue}>{avgDailyTouches.toLocaleString()}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Team Tempo</Text>
-              <Text style={[styles.statValue, { color: getTpmColor(teamAvgTpm) }]}>
-                {teamAvgTpm > 0 ? `${teamAvgTpm}/min` : 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Hit Target Today</Text>
-              <Text style={styles.statValue}>{playersHitTarget}/{totalPlayers}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* AI Training Tips */}
-        {(tips.length > 0 || tipsFetching) && (
-          <View style={styles.tipsCard}>
-            <View style={styles.tipsHeader}>
-              <Text style={styles.tipsTitle}>Training Tips</Text>
-              <TouchableOpacity
-                onPress={() => queryClient.invalidateQueries({ queryKey: ['coaching-tips', profile?.team_id] })}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="refresh-outline" size={18} color="#1f89ee" />
-              </TouchableOpacity>
-            </View>
-            {tipsFetching && tips.length === 0 ? (
-              <ActivityIndicator color="#1f89ee" style={{ marginVertical: 12 }} />
-            ) : (
-              tips.map((tip, i) => (
-                <View key={i}>
-                  {i > 0 && <View style={styles.tipDivider} />}
-                  <View style={styles.tipRow}>
-                    <Text style={styles.tipTitle}>{tip.title}</Text>
-                    <Text style={styles.tipBody}>{tip.body}</Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
+        {/* Week training grid */}
+        {sortedPlayers.length > 0 && (
+          <WeekGrid
+            players={sortedPlayers}
+            sessionMap={sessionMap}
+            weekDates={weekDates}
+            selectedDate={selectedDate}
+            onSelectDate={(date) => setSelectedDate(date || getLocalDate())}
+            onPlayerPress={(playerId) => {
+              const player = sortedPlayers.find((p) => p.id === playerId);
+              if (player) handlePlayerPress(player);
+            }}
+          />
         )}
 
-        {/* Top Performer Card */}
-        {topPerformer && topPerformer.week_touches > 0 && (
-          <View style={styles.topPerformerCard}>
-            <View style={styles.topPerformerHeader}>
-              <Text style={styles.topPerformerEmoji}>⭐</Text>
-              <Text style={styles.topPerformerTitle}>Top Performer This Week</Text>
-            </View>
-            <View style={styles.topPerformerContent}>
-              <Image
-                source={{
-                  uri: topPerformer.avatar_url ||
-                    'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                }}
-                style={styles.topPerformerAvatar}
-              />
-              <View style={styles.topPerformerInfo}>
-                <Text style={styles.topPerformerName}>
-                  {topPerformer.display_name || topPerformer.name}
-                </Text>
-                <Text style={styles.topPerformerStats}>
-                  {topPerformer.week_touches.toLocaleString()} touches • {topPerformer.days_active_this_week} days active
-                </Text>
-              </View>
-              <View style={styles.topPerformerBadge}>
-                <Text style={styles.topPerformerBadgeText}>🔥 {topPerformer.current_streak}</Text>
-              </View>
-            </View>
-          </View>
+        {/* Day summary */}
+        {sortedPlayers.length > 0 && (
+          <SelectedDaySummary
+            players={sortedPlayers}
+            sessionMap={sessionMap}
+            selectedDate={selectedDate}
+          />
         )}
 
-        {/* Player Rankings */}
+        {/* Player list */}
         <View style={styles.playerList}>
-          <Text style={styles.sectionTitle}>Player Rankings</Text>
-
-          {teamPlayers && teamPlayers.length > 0 ? (
-            teamPlayers.map((player) => {
-              const rank = teamPlayers.filter((p) => p.week_touches > player.week_touches).length + 1;
-              const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-
+          {sortedPlayers.length > 0 ? (
+            sortedPlayers.map((player) => {
+              const isExpanded = expandedPlayerId === player.id;
               return (
-                <TouchableOpacity
-                  key={player.id}
-                  style={styles.playerCard}
-                  onPress={() => handlePlayerPress(player)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.playerRow}>
-                    {/* Rank */}
-                    <View style={styles.rankCol}>
-                      {medal ? (
-                        <Text style={styles.medalEmoji}>{medal}</Text>
-                      ) : (
-                        <View style={styles.rankPill}>
-                          <Text style={styles.rankText}>{rank}</Text>
-                        </View>
-                      )}
-                    </View>
-
+                <View key={player.id}>
+                  <TouchableOpacity
+                    style={styles.playerCard}
+                    onPress={() => setExpandedPlayerId(isExpanded ? null : player.id)}
+                    activeOpacity={0.7}
+                  >
                     {/* Avatar */}
                     <Image
                       source={{
-                        uri: player.avatar_url ||
+                        uri:
+                          player.avatar_url ||
                           'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
                       }}
-                      style={styles.playerAvatar}
+                      style={[
+                        styles.playerAvatar,
+                        player.today_touches > 0 && styles.playerAvatarActive,
+                      ]}
                     />
 
-                    {/* Name + meta */}
+                    {/* Name + week pips */}
                     <View style={styles.playerInfo}>
-                      <View style={styles.playerNameRow}>
-                        <Text style={styles.playerName} numberOfLines={1}>
-                          {player.display_name || player.name || 'Player'}
-                        </Text>
-                        {player.current_streak > 0 && (
-                          <View style={styles.streakBadge}>
-                            <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.playerLastActive}>
-                        {formatLastActive(player.last_session_date)}
-                        {player.today_touches > 0 && ` • ${player.today_touches.toLocaleString()} today`}
+                      <Text style={styles.playerName} numberOfLines={1}>
+                        {player.display_name || player.name || 'Player'}
                       </Text>
+                      <View style={styles.weekPips}>
+                        {weekDates.map((date) => {
+                          const touches = sessionMap[player.id]?.[date]?.touches ?? 0;
+                          return (
+                            <View
+                              key={date}
+                              style={[
+                                styles.pip,
+                                touches >= player.daily_target
+                                  ? styles.pipHit
+                                  : touches > 0
+                                  ? styles.pipTrained
+                                  : styles.pipEmpty,
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
                     </View>
 
-                    {/* Stats */}
-                    <View style={styles.playerRightCol}>
-                      <Text style={styles.playerWeekTouches}>{player.week_touches.toLocaleString()}</Text>
-                      <Text style={styles.playerWeekLabel}>this week</Text>
-                      {player.challenges_completed > 0 && (
-                        <Text style={styles.challengeCount}>⚔️ {player.challenges_completed}</Text>
+                    {/* Right: week total + streak */}
+                    <View style={styles.playerRight}>
+                      <Text style={styles.playerWeekTouches}>
+                        {player.week_touches.toLocaleString()}
+                      </Text>
+                      {player.current_streak > 0 && (
+                        <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
                       )}
                     </View>
 
-                    {/* Remove */}
-                    <TouchableOpacity
-                      style={styles.removePlayerBtn}
-                      onPress={(e) => { e.stopPropagation(); handleRemovePlayer(player); }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={22} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
 
-                  <View style={styles.addTouchesHint}>
-                    <Ionicons name="add-circle-outline" size={14} color="#1f89ee" />
-                    <Text style={styles.addTouchesText}>Tap to log touches</Text>
-                  </View>
-                </TouchableOpacity>
+                  {/* Expanded stats row */}
+                  {isExpanded && (
+                    <View style={styles.expandedRow}>
+                      <View style={styles.statChips}>
+                        <View style={styles.statChip}>
+                          <Text style={styles.statChipLabel}>Today</Text>
+                          <Text style={styles.statChipValue}>
+                            {player.today_touches.toLocaleString()}
+                          </Text>
+                        </View>
+                        <View style={styles.statChip}>
+                          <Text style={styles.statChipLabel}>Yesterday</Text>
+                          <Text style={styles.statChipValue}>
+                            {player.yesterday_touches.toLocaleString()}
+                          </Text>
+                        </View>
+                        <View style={styles.statChip}>
+                          <Text style={styles.statChipLabel}>This Week</Text>
+                          <Text style={styles.statChipValue}>
+                            {player.week_touches.toLocaleString()}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.expandedActions}>
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => handlePlayerPress(player)}
+                        >
+                          <Ionicons name="add-circle-outline" size={15} color="#1f89ee" />
+                          <Text style={styles.actionBtnText}>Log</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => handleEditPress(player)}
+                        >
+                          <Ionicons name="pencil-outline" size={15} color="#1f89ee" />
+                          <Text style={styles.actionBtnText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.actionBtnDanger]}
+                          onPress={() => handleRemovePlayer(player)}
+                        >
+                          <Ionicons name="person-remove-outline" size={15} color="#EF4444" />
+                          <Text style={[styles.actionBtnText, styles.actionBtnTextDanger]}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
               );
             })
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color="#D1D5DB" />
               <Text style={styles.emptyStateText}>No players yet</Text>
-              <Text style={styles.emptyStateHint}>
-                Add players from your Profile page
-              </Text>
+              <Text style={styles.emptyStateHint}>Add players from your Profile page</Text>
             </View>
           )}
         </View>
 
-        {/* Needs Attention Section */}
+        {/* Needs attention */}
         {inactivePlayers.length > 0 && (
           <View style={styles.attentionCard}>
             <View style={styles.attentionHeader}>
-              <Ionicons name="alert-circle" size={20} color="#F59E0B" />
+              <Ionicons name="alert-circle" size={18} color="#F59E0B" />
               <Text style={styles.attentionTitle}>Needs Attention</Text>
               <View style={styles.attentionBadge}>
                 <Text style={styles.attentionBadgeText}>{inactivePlayers.length}</Text>
               </View>
             </View>
-            <Text style={styles.attentionSubtitle}>
-              Players who haven't trained in 7+ days
-            </Text>
             <View style={styles.attentionList}>
               {inactivePlayers.slice(0, 3).map((player) => (
                 <TouchableOpacity
@@ -730,6 +732,51 @@ export default function CoachDashboard() {
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* AI tips (collapsible) */}
+        {(tips.length > 0 || tipsFetching) && (
+          <View style={styles.tipsCard}>
+            <TouchableOpacity
+              style={styles.tipsHeader}
+              onPress={() => setTipsExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.tipsTitle}>Training Tips</Text>
+              <View style={styles.tipsHeaderRight}>
+                <TouchableOpacity
+                  onPress={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ['coaching-tips', profile?.team_id],
+                    })
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="refresh-outline" size={16} color="#1f89ee" />
+                </TouchableOpacity>
+                <Ionicons
+                  name={tipsExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#78909C"
+                />
+              </View>
+            </TouchableOpacity>
+            {tipsExpanded && (
+              tipsFetching && tips.length === 0 ? (
+                <ActivityIndicator color="#1f89ee" style={{ marginVertical: 12 }} />
+              ) : (
+                tips.map((tip, i) => (
+                  <View key={i}>
+                    {i > 0 && <View style={styles.tipDivider} />}
+                    <View style={styles.tipRow}>
+                      <Text style={styles.tipTitle}>{tip.title}</Text>
+                      <Text style={styles.tipBody}>{tip.body}</Text>
+                    </View>
+                  </View>
+                ))
+              )
+            )}
           </View>
         )}
       </ScrollView>
@@ -767,20 +814,11 @@ export default function CoachDashboard() {
 
       {/* ADD TOUCHES MODAL */}
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={styles.modalOverlay}
-            onPress={closeModal}
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={styles.modalWrapper}
-            >
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
                   <Ionicons name="football" size={32} color="#1f89ee" />
@@ -909,9 +947,8 @@ export default function CoachDashboard() {
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -944,20 +981,39 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFF',
+    marginBottom: 0,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabItemActive: {
+    borderBottomColor: '#1f89ee',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  tabTextActive: {
+    color: '#1f89ee',
+  },
+
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 165, 0, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 10,
+    backgroundColor: '#F5F7FA',
   },
   headerTextContainer: {
     flex: 1,
@@ -1050,12 +1106,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+  },
+  tipsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   tipsTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#78909C',
   },
   tipDivider: {
     height: 1,
@@ -1079,6 +1139,64 @@ const styles = StyleSheet.create({
 
   removePlayerBtn: {
     paddingLeft: 4,
+  },
+
+  // Expanded stats
+  expandedRow: {
+    paddingHorizontal: 4,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  statChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  statChip: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  statChipLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  statChipValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  expandedActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  actionBtnDanger: {
+    backgroundColor: '#FEF2F2',
+  },
+  actionBtnTextDanger: {
+    color: '#EF4444',
   },
 
   // Overview Card
@@ -1276,110 +1394,68 @@ const styles = StyleSheet.create({
   playerList: {
     marginBottom: 20,
   },
+  // Compact player row
   playerCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 6,
-  },
-  rankCol: {
-    width: 32,
-    alignItems: 'center',
-  },
-  medalEmoji: {
-    fontSize: 22,
-  },
-  rankPill: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#6B7280',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   playerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 2,
     borderColor: '#E5E7EB',
+  },
+  playerAvatarActive: {
+    borderColor: '#31af4d',
   },
   playerInfo: {
     flex: 1,
     minWidth: 0,
-  },
-  playerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   playerName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#1a1a2e',
-    flexShrink: 1,
   },
-  streakBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
+  weekPips: {
+    flexDirection: 'row',
+    gap: 3,
   },
-  streakText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D97706',
+  pip: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  playerLastActive: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    marginTop: 1,
+  pipEmpty: {
+    backgroundColor: '#E5E7EB',
   },
-  playerRightCol: {
+  pipTrained: {
+    backgroundColor: '#A7DEB5',
+  },
+  pipHit: {
+    backgroundColor: '#31af4d',
+  },
+  playerRight: {
     alignItems: 'flex-end',
-    minWidth: 70,
+    gap: 2,
   },
   playerWeekTouches: {
     fontSize: 15,
     fontWeight: '900',
     color: '#1f89ee',
   },
-  playerWeekLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
-  },
-  challengeCount: {
+  streakText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6B7280',
-    marginTop: 2,
+    color: '#D97706',
   },
-  addTouchesHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
+  // Keep for TS compatibility (unused but referenced in old style)
   addTouchesText: {
     fontSize: 12,
     fontWeight: '700',
@@ -1407,19 +1483,18 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'flex-end',
   },
-  modalWrapper: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#FFF',
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 28,
+    paddingBottom: 40,
     width: '100%',
     shadowColor: '#000',
     shadowOpacity: 0.25,

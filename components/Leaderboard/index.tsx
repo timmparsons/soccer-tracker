@@ -1,5 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
+import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
@@ -43,8 +44,18 @@ const Leaderboard = () => {
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined);
 
-  const seasonStartDate = team?.season_start_date ?? null;
+  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+
+  // For coaches, use the selected team; for players, use their own team
+  const effectiveTeamId = profile?.is_coach
+    ? (selectedTeamId ?? profile?.team_id ?? undefined)
+    : (profile?.team_id ?? undefined);
+
+  // Get season start for the effective team
+  const selectedTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
+  const seasonStartDate = selectedTeamData?.season_start_date ?? team?.season_start_date ?? null;
 
   // Last week's Sunday (start of last week)
   const lastWeekStart = useMemo(() => {
@@ -61,7 +72,7 @@ const Leaderboard = () => {
     data: touchesLeaderboard = [],
     isLoading: touchesLoading,
     refetch: refetchTouches,
-  } = useTouchesLeaderboard(profile?.team_id, seasonStartDate);
+  } = useTouchesLeaderboard(effectiveTeamId, seasonStartDate);
 
   // Fetch juggling records
   const {
@@ -69,9 +80,9 @@ const Leaderboard = () => {
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
   } = useQuery({
-    queryKey: ['team-juggling-leaderboard', profile?.team_id, jugglingPeriod, seasonStartDate],
+    queryKey: ['team-juggling-leaderboard', effectiveTeamId, jugglingPeriod, seasonStartDate],
     queryFn: async () => {
-      if (!profile?.team_id) return [];
+      if (!effectiveTeamId) return [];
 
       const today = getLocalDate();
       const todayObj = new Date();
@@ -83,7 +94,7 @@ const Leaderboard = () => {
       const { data: teamMembers, error: membersError } = await supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url')
-        .eq('team_id', profile.team_id)
+        .eq('team_id', effectiveTeamId)
         .eq('is_coach', false);
 
       if (membersError) throw membersError;
@@ -222,6 +233,30 @@ const Leaderboard = () => {
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
       />
+
+      {/* Team picker — coaches with multiple teams only */}
+      {profile?.is_coach && coachTeams.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.teamPickerRow}
+        >
+          {coachTeams.map((t) => {
+            const isActive = t.id === effectiveTeamId;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                style={[styles.teamPill, isActive && styles.teamPillActive]}
+                onPress={() => setSelectedTeamId(t.id)}
+              >
+                <Text style={[styles.teamPillText, isActive && styles.teamPillTextActive]}>
+                  {t.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
@@ -995,5 +1030,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     fontWeight: '500',
+  },
+  teamPickerRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  teamPill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  teamPillActive: {
+    backgroundColor: '#1f89ee',
+  },
+  teamPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  teamPillTextActive: {
+    color: '#FFF',
   },
 });
