@@ -22,9 +22,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface TeamCodeCardProps {
   teamId: string;
   userId: string;
+  onDelete?: (teamId: string, teamName: string) => void;
 }
 
-export default function TeamCodeCard({ teamId, userId }: TeamCodeCardProps) {
+export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
@@ -202,6 +203,16 @@ export default function TeamCodeCard({ teamId, userId }: TeamCodeCardProps) {
             </>
           )}
         </TouchableOpacity>
+
+        {onDelete && (
+          <TouchableOpacity
+            style={styles.deleteTeamBtn}
+            onPress={() => onDelete(teamId, team?.name ?? 'this team')}
+          >
+            <Ionicons name="trash-outline" size={16} color="#D32F2F" />
+            <Text style={styles.deleteTeamBtnText}>Delete Team</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ADD PLAYER MODAL */}
@@ -408,6 +419,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFF',
+  },
+  deleteTeamBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFCDD2',
+    backgroundColor: '#FFF5F5',
+  },
+  deleteTeamBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D32F2F',
   },
   newSeasonDismiss: {
     fontSize: 12,

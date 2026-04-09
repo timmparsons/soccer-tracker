@@ -1,4 +1,3 @@
-import { useViewMode } from '@/app/(tabs)/_layout';
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import BadgeGrid from '@/components/common/BadgeGrid';
@@ -49,7 +48,7 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+  const { data: coachTeams = [], refetch: refetchCoachTeams } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
   const { mutateAsync: updateProfile } = useUpdateProfile(user?.id);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
@@ -199,6 +198,40 @@ const ProfilePage = () => {
           text: 'Yes, Delete Everything',
           style: 'destructive',
           onPress: executeDeleteAccount,
+        },
+      ],
+    );
+  };
+
+  const handleDeleteTeam = (teamId: string, teamName: string) => {
+    Alert.alert(
+      'Delete Team',
+      `This will permanently delete "${teamName}" and remove all players from it. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Team',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error, count } = await supabase
+                .from('teams')
+                .delete({ count: 'exact' })
+                .eq('id', teamId);
+              if (error) throw error;
+              if (count === 0) {
+                Alert.alert('Error', 'Delete was blocked — check Supabase RLS policies for the teams table.');
+                return;
+              }
+              queryClient.invalidateQueries({ queryKey: ['coach-teams', user?.id] });
+              queryClient.invalidateQueries({ queryKey: ['coach-team', teamId] });
+              await Promise.all([refetchProfile(), refetchCoachTeams()]);
+              Alert.alert('Team Deleted', `"${teamName}" has been permanently deleted.`);
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : 'Something went wrong.';
+              Alert.alert('Error', msg);
+            }
+          },
         },
       ],
     );
@@ -420,8 +453,6 @@ const ProfilePage = () => {
       };
     },
   });
-
-  const { viewMode, setViewMode } = useViewMode();
 
   const displayName =
     profile?.name ||
@@ -691,7 +722,7 @@ const ProfilePage = () => {
           {profile?.is_coach && user?.id && (
             <>
               {coachTeams.map((team) => (
-                <TeamCodeCard key={team.id} teamId={team.id} userId={user.id} />
+                <TeamCodeCard key={team.id} teamId={team.id} userId={user.id} onDelete={handleDeleteTeam} />
               ))}
               <TouchableOpacity
                 style={styles.createTeamBtn}
@@ -926,40 +957,6 @@ const ProfilePage = () => {
                   </View>
                 )}
 
-                {/* View Mode Toggle - coaches */}
-                {profile?.is_coach && (
-                  <View style={styles.settingsCard}>
-                    <Text style={styles.settingsTitle}>View</Text>
-                    <TouchableOpacity
-                      style={styles.settingsRow}
-                      onPress={() =>
-                        setViewMode(viewMode === 'coach' ? 'player' : 'coach')
-                      }
-                    >
-                      <View style={styles.settingsRowLeft}>
-                        <View style={styles.settingsIconBg}>
-                          <Ionicons
-                            name={viewMode === 'coach' ? 'clipboard' : 'person'}
-                            size={20}
-                            color='#1f89ee'
-                          />
-                        </View>
-                        <View>
-                          <Text style={styles.settingsLabel}>Current View</Text>
-                          <Text style={styles.settingsValue}>
-                            {viewMode === 'coach'
-                              ? 'Coach Dashboard'
-                              : 'Player View'}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.switchViewText}>
-                        Switch to {viewMode === 'coach' ? 'Player' : 'Coach'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
                 {/* Actions */}
                 <View style={styles.actionsCard}>
                   <TouchableOpacity
@@ -992,6 +989,7 @@ const ProfilePage = () => {
                     <Ionicons name='log-out' size={24} color='#ffb724' />
                     <Text style={styles.actionButtonText}>Sign Out</Text>
                   </TouchableOpacity>
+                  <View style={styles.actionDivider} />
                   <View style={styles.actionDivider} />
                   <TouchableOpacity
                     style={styles.actionButton}
