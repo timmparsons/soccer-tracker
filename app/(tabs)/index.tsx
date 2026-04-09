@@ -14,7 +14,7 @@ export default function Index() {
   }
 
   if (profile?.is_coach) {
-    return <CoachDashboard />;
+    return <CoachDashboard key={profile.team_id} />;
   }
 
   return <HomeScreen />;

@@ -70,6 +70,7 @@ export default function CoachDashboard() {
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDate());
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -279,6 +280,18 @@ export default function CoachDashboard() {
     tipsParams,
   );
 
+  // Sort players: consistency first (days active), then volume
+  // Must be before early returns — rules of hooks
+  const sortedPlayers = useMemo(
+    () =>
+      [...(teamPlayers ?? [])].sort(
+        (a, b) =>
+          b.days_active_this_week - a.days_active_this_week ||
+          b.week_touches - a.week_touches,
+      ),
+    [teamPlayers],
+  );
+
   // Redirect if not a coach
   if (!profile?.is_coach) {
     return (
@@ -299,13 +312,7 @@ export default function CoachDashboard() {
 
   // Calculate comprehensive team stats
   const totalPlayers = teamPlayers?.length || 0;
-  const activePlayers = teamPlayers?.filter((p) => {
-    if (!p.last_session_date) return false;
-    const lastSession = new Date(p.last_session_date);
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    return lastSession > threeDaysAgo;
-  }).length || 0;
+  const activePlayers = teamPlayers?.filter((p) => p.today_touches > 0).length || 0;
 
   const inactivePlayers = teamPlayers?.filter((p) => {
     if (!p.last_session_date) return true;
@@ -512,17 +519,6 @@ export default function CoachDashboard() {
     return '#31af4d';
   };
 
-  // Sort players: consistency first (days active), then volume
-  const sortedPlayers = useMemo(
-    () =>
-      [...(teamPlayers ?? [])].sort(
-        (a, b) =>
-          b.days_active_this_week - a.days_active_this_week ||
-          b.week_touches - a.week_touches,
-      ),
-    [teamPlayers],
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -548,6 +544,13 @@ export default function CoachDashboard() {
             {teamAvgTpm > 0 ? ` · ${teamAvgTpm}/min` : ''}
           </Text>
         </View>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+          <View style={styles.headerAvatarGlow} />
+          <Image
+            source={{ uri: profile?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+            style={styles.headerAvatar}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -566,6 +569,10 @@ export default function CoachDashboard() {
             onPlayerPress={(playerId) => {
               const player = sortedPlayers.find((p) => p.id === playerId);
               if (player) handlePlayerPress(player);
+            }}
+            onCellPress={(playerId, date) => {
+              const player = sortedPlayers.find((p) => p.id === playerId);
+              if (player) setCellInfo({ player, date });
             }}
           />
         )}
@@ -812,6 +819,56 @@ export default function CoachDashboard() {
         </Modal>
       )}
 
+      {/* CELL INFO SHEET */}
+      {cellInfo && (() => {
+        const { player, date } = cellInfo;
+        const touches = sessionMap[player.id]?.[date]?.touches ?? 0;
+        const hitTarget = touches >= player.daily_target;
+        const dateObj = new Date(date + 'T00:00:00');
+        const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        return (
+          <Modal transparent visible animationType="slide" onRequestClose={() => setCellInfo(null)}>
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCellInfo(null)} />
+              <View style={styles.cellInfoSheet}>
+                <View style={styles.cellInfoHeader}>
+                  <Image
+                    source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                    style={styles.cellInfoAvatar}
+                  />
+                  <View>
+                    <Text style={styles.cellInfoName}>{player.display_name || player.name}</Text>
+                    <Text style={styles.cellInfoDate}>{dateLabel}</Text>
+                  </View>
+                </View>
+                <View style={styles.cellInfoStats}>
+                  <View style={styles.cellInfoStat}>
+                    <Text style={styles.cellInfoStatValue}>{touches.toLocaleString()}</Text>
+                    <Text style={styles.cellInfoStatLabel}>Touches</Text>
+                  </View>
+                  <View style={styles.cellInfoStat}>
+                    <Text style={styles.cellInfoStatValue}>{player.daily_target.toLocaleString()}</Text>
+                    <Text style={styles.cellInfoStatLabel}>Target</Text>
+                  </View>
+                  <View style={styles.cellInfoStat}>
+                    <Text style={[styles.cellInfoStatValue, { color: hitTarget ? '#31af4d' : '#EF4444' }]}>
+                      {hitTarget ? '✓' : '✗'}
+                    </Text>
+                    <Text style={styles.cellInfoStatLabel}>{hitTarget ? 'Hit target' : 'Missed'}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.cellInfoEditBtn}
+                  onPress={() => { setCellInfo(null); handleEditPress(player); }}
+                >
+                  <Text style={styles.cellInfoEditText}>Edit Session</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
+
       {/* ADD TOUCHES MODAL */}
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
         <View style={styles.modalOverlay}>
@@ -1010,6 +1067,8 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 10,
@@ -1017,6 +1076,24 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: {
     flex: 1,
+    marginRight: 12,
+  },
+  headerAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
+    borderColor: '#FFF',
+  },
+  headerAvatarGlow: {
+    position: 'absolute',
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderRadius: 32,
+    backgroundColor: '#1f89ee',
+    opacity: 0.25,
   },
   headerTitle: {
     fontSize: 28,
@@ -1621,5 +1698,73 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
+  },
+
+  // Cell info sheet
+  cellInfoSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  cellInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+  },
+  cellInfoAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  cellInfoName: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  cellInfoDate: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  cellInfoStats: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  cellInfoStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cellInfoStatValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  cellInfoStatLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  cellInfoEditBtn: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  cellInfoEditText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6B7280',
   },
 });

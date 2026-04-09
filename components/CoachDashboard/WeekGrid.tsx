@@ -16,6 +16,7 @@ interface WeekGridProps {
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
   onPlayerPress: (playerId: string) => void;
+  onCellPress?: (playerId: string, date: string) => void;
 }
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -27,6 +28,7 @@ export default function WeekGrid({
   selectedDate,
   onSelectDate,
   onPlayerPress,
+  onCellPress,
 }: WeekGridProps) {
   const today = getLocalDate();
 
@@ -91,7 +93,7 @@ export default function WeekGrid({
               const isSelected = date === selectedDate;
 
               return (
-                <View
+                <TouchableOpacity
                   key={date}
                   style={[
                     styles.cell,
@@ -102,6 +104,8 @@ export default function WeekGrid({
                       : styles.cellEmpty,
                     isSelected && styles.cellSelected,
                   ]}
+                  activeOpacity={trained ? 0.6 : 1}
+                  onPress={() => trained && onCellPress?.(player.id, date)}
                 />
               );
             })}

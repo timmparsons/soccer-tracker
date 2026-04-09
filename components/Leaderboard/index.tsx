@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
@@ -14,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -44,18 +46,27 @@ const Leaderboard = () => {
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined);
+  const [teamPickerVisible, setTeamPickerVisible] = useState(false);
+  const [switchingTeam, setSwitchingTeam] = useState(false);
 
   const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
 
-  // For coaches, use the selected team; for players, use their own team
-  const effectiveTeamId = profile?.is_coach
-    ? (selectedTeamId ?? profile?.team_id ?? undefined)
-    : (profile?.team_id ?? undefined);
+  const effectiveTeamId = profile?.team_id ?? undefined;
+  const activeTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
+  const seasonStartDate = activeTeamData?.season_start_date ?? team?.season_start_date ?? null;
+  const displayTeamName = activeTeamData?.name ?? team?.name ?? 'My Team';
 
-  // Get season start for the effective team
-  const selectedTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
-  const seasonStartDate = selectedTeamData?.season_start_date ?? team?.season_start_date ?? null;
+  const handleSwitchTeam = async (teamId: string) => {
+    if (!user?.id || teamId === profile?.team_id) {
+      setTeamPickerVisible(false);
+      return;
+    }
+    setSwitchingTeam(true);
+    await supabase.from('profiles').update({ team_id: teamId }).eq('id', user.id);
+    await refetchProfile();
+    setSwitchingTeam(false);
+    setTeamPickerVisible(false);
+  };
 
   // Last week's Sunday (start of last week)
   const lastWeekStart = useMemo(() => {
@@ -234,29 +245,52 @@ const Leaderboard = () => {
         avatarUrl={profile?.avatar_url}
       />
 
-      {/* Team picker — coaches with multiple teams only */}
+      {/* Team picker — coaches with 2+ teams */}
       {profile?.is_coach && coachTeams.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.teamPickerRow}
+        <TouchableOpacity
+          style={styles.teamPickerPill}
+          onPress={() => setTeamPickerVisible(true)}
+          activeOpacity={0.7}
         >
-          {coachTeams.map((t) => {
-            const isActive = t.id === effectiveTeamId;
-            return (
+          <Text style={styles.teamPickerText}>{displayTeamName}</Text>
+          <Ionicons name="chevron-down" size={14} color="#6B7280" />
+        </TouchableOpacity>
+      )}
+
+      {/* Team picker bottom sheet */}
+      <Modal
+        transparent
+        visible={teamPickerVisible}
+        animationType="slide"
+        onRequestClose={() => setTeamPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setTeamPickerVisible(false)}
+        >
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Select Team</Text>
+            {coachTeams.map((t) => (
               <TouchableOpacity
                 key={t.id}
-                style={[styles.teamPill, isActive && styles.teamPillActive]}
-                onPress={() => setSelectedTeamId(t.id)}
+                style={[styles.pickerRow, t.id === effectiveTeamId && styles.pickerRowActive]}
+                onPress={() => handleSwitchTeam(t.id)}
+                disabled={switchingTeam}
               >
-                <Text style={[styles.teamPillText, isActive && styles.teamPillTextActive]}>
+                <Text style={[styles.pickerRowText, t.id === effectiveTeamId && styles.pickerRowTextActive]}>
                   {t.name}
                 </Text>
+                {switchingTeam && t.id !== effectiveTeamId ? (
+                  <ActivityIndicator size="small" color="#1f89ee" />
+                ) : t.id === effectiveTeamId ? (
+                  <Ionicons name="checkmark" size={18} color="#1f89ee" />
+                ) : null}
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
@@ -1031,27 +1065,61 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
   },
-  teamPickerRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 8,
+  teamPickerPill: {
     flexDirection: 'row',
-  },
-  teamPill: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginHorizontal: 20,
+    marginBottom: 4,
     backgroundColor: '#F3F4F6',
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  teamPillActive: {
-    backgroundColor: '#1f89ee',
-  },
-  teamPillText: {
+  teamPickerText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#6B7280',
   },
-  teamPillTextActive: {
-    color: '#FFF',
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+    gap: 4,
+  },
+  pickerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  pickerRowActive: {
+    backgroundColor: '#EBF4FF',
+  },
+  pickerRowText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  pickerRowTextActive: {
+    color: '#1f89ee',
   },
 });
