@@ -28,6 +28,7 @@ interface PlayerProfileModalProps {
 export default function PlayerProfileModal({ playerId, visible, onClose }: PlayerProfileModalProps) {
   const insets = useSafeAreaInsets();
   const { data: currentUser } = useUser();
+  const { data: currentUserProfile } = useProfile(currentUser?.id);
   const [challengeSetupVisible, setChallengeSetupVisible] = useState(false);
   const { data: profile } = useProfile(playerId ?? undefined);
   const { data: touchStats } = useTouchTracking(playerId ?? undefined);
@@ -104,8 +105,8 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
                 </View>
               </View>
 
-              {/* Challenge button — only shown for other players */}
-              {currentUser && playerId && currentUser.id !== playerId && (
+              {/* Challenge button — only shown for other players, not coaches */}
+              {currentUser && playerId && currentUser.id !== playerId && !currentUserProfile?.is_coach && (
                 <TouchableOpacity
                   style={styles.challengeButton}
                   onPress={() => setChallengeSetupVisible(true)}

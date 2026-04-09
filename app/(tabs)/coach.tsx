@@ -46,7 +46,6 @@ interface PlayerStats {
   week_tpm: number;
   days_active_this_week: number;
   best_juggle: number;
-  challenges_completed: number;
 }
 
 export default function CoachDashboard() {
@@ -129,8 +128,8 @@ export default function CoachDashboard() {
 
       const playerIds = players.map((p) => p.id);
 
-      // Batch fetch all sessions, targets, and challenges in 3 queries
-      const [{ data: allSessionsRaw }, { data: allTargetsRaw }, { data: challengeData }] = await Promise.all([
+      // Batch fetch sessions and targets
+      const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
         supabase
           .from('daily_sessions')
           .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
@@ -140,18 +139,7 @@ export default function CoachDashboard() {
           .from('user_targets')
           .select('user_id, daily_target_touches')
           .in('user_id', playerIds),
-        supabase
-          .from('player_challenges')
-          .select('challenger_id, challenged_id')
-          .or(`challenger_id.in.(${playerIds.join(',')}),challenged_id.in.(${playerIds.join(',')})`)
-          .eq('status', 'completed'),
       ]);
-
-      const challengesByPlayer: Record<string, number> = {};
-      for (const c of challengeData || []) {
-        challengesByPlayer[c.challenger_id] = (challengesByPlayer[c.challenger_id] ?? 0) + 1;
-        challengesByPlayer[c.challenged_id] = (challengesByPlayer[c.challenged_id] ?? 0) + 1;
-      }
 
       // Build lookup maps
       type SessionRow = NonNullable<typeof allSessionsRaw>[number];
@@ -224,7 +212,6 @@ export default function CoachDashboard() {
           week_tpm: weekTpm,
           days_active_this_week: Math.min(uniqueWeekDays, 7),
           best_juggle: bestJuggle,
-          challenges_completed: challengesByPlayer[player.id] ?? 0,
         };
       });
 

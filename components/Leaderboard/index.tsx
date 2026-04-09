@@ -202,6 +202,10 @@ const Leaderboard = () => {
   const showTouchesPodium = scoredPlayers.length >= 1;
   const podiumCount = Math.min(scoredPlayers.length, 3);
 
+  // Dense ranking: ties don't skip positions (1, 1, 2, 2 not 1, 1, 3, 3)
+  const getDenseRank = (score: number, scores: number[]) =>
+    new Set(scores.filter(s => s > score)).size + 1;
+
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
@@ -372,7 +376,7 @@ const Leaderboard = () => {
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
-                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
+                  const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -407,7 +411,7 @@ const Leaderboard = () => {
                 {podiumCount >= 2 && (() => {
                   const p = scoredPlayers[1];
                   const score = getTouchScore(p);
-                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
+                  const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -439,7 +443,7 @@ const Leaderboard = () => {
                 {podiumCount === 3 && (() => {
                   const p = scoredPlayers[0];
                   const score = getTouchScore(p);
-                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
+                  const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -474,7 +478,7 @@ const Leaderboard = () => {
                 {podiumCount >= 3 && (() => {
                   const p = scoredPlayers[2];
                   const score = getTouchScore(p);
-                  const rank = scoredPlayers.filter(q => getTouchScore(q) > score).length + 1;
+                  const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
                   const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
                   return (
                     <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
@@ -509,7 +513,7 @@ const Leaderboard = () => {
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
-                const rank = sortedTouches.filter(p => getTouchScore(p) > score).length + 1;
+                const rank = getDenseRank(score, sortedTouches.map(p => getTouchScore(p)));
                 const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
 
                 return (
@@ -610,7 +614,7 @@ const Leaderboard = () => {
                   {/* 1st Place — left when only 1 or 2, centre when 3 */}
                   {(jPodiumCount === 1 || jPodiumCount === 2) && (() => {
                     const p = jugglingLeaderboard[0];
-                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
                     return (
                       <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                         <View style={styles.crownContainer}>
@@ -630,7 +634,7 @@ const Leaderboard = () => {
                   {/* 2nd Place — right when 2, left when 3 */}
                   {jPodiumCount >= 2 && (() => {
                     const p = jugglingLeaderboard[1];
-                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
                     return (
                       <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                         <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
@@ -647,7 +651,7 @@ const Leaderboard = () => {
                   {/* 1st Place — centre, only when 3 on podium */}
                   {jPodiumCount === 3 && (() => {
                     const p = jugglingLeaderboard[0];
-                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
                     return (
                       <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                         <View style={styles.crownContainer}>
@@ -667,7 +671,7 @@ const Leaderboard = () => {
                   {/* 3rd Place */}
                   {jPodiumCount >= 3 && (() => {
                     const p = jugglingLeaderboard[2];
-                    const rank = jugglingLeaderboard.filter(q => q.high_score > p.high_score).length + 1;
+                    const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
                     return (
                       <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
                         <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
@@ -688,7 +692,7 @@ const Leaderboard = () => {
             <View style={styles.listContainer}>
               {jugglingLeaderboard.slice(Math.min(jugglingLeaderboard.length, 3)).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
-                const rank = jugglingLeaderboard.filter(p => p.high_score > player.high_score).length + 1;
+                const rank = getDenseRank(player.high_score, jugglingLeaderboard.map(p => p.high_score));
 
                 return (
                   <TouchableOpacity
