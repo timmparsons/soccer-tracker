@@ -1,13 +1,15 @@
+import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -22,6 +24,35 @@ const HomeScreen = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
+  const [banner, setBanner] = useState<{ amount: number; note: string | null } | null>(null);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    // Skip the first emission so we don't banner on app open
+    mountedRef.current = false;
+    const timer = setTimeout(() => { mountedRef.current = true; }, 2000);
+
+    const channel = supabase
+      .channel(`coin-awards-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `player_id=eq.${user.id}` },
+        (payload) => {
+          if (!mountedRef.current) return;
+          const { amount, note } = payload.new as { amount: number; note: string | null };
+          setBanner({ amount, note });
+          queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['coin-transactions', user.id] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   const {
     data: touchStats,
@@ -76,6 +107,13 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
+      {banner && (
+        <CoinAwardBanner
+          amount={banner.amount}
+          note={banner.note}
+          onDismiss={() => setBanner(null)}
+        />
+      )}
       <PageHeader
         title={`Hey ${displayName}!`}
         subtitle='Ready to get some touches?'

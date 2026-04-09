@@ -1,4 +1,5 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
+import { useCoinTransactions } from '@/hooks/useCoinTransactions';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import type { Badge } from '@/hooks/useBadges';
@@ -59,6 +60,7 @@ const ProfilePage = () => {
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChampionModal, setShowChampionModal] = useState(false);
+  const { data: coinTransactions = [] } = useCoinTransactions(!profile?.is_coach ? user?.id : undefined);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -829,6 +831,39 @@ const ProfilePage = () => {
                   Soon you&apos;ll be able to spend them on rewards your coach sets up — extra challenges, custom badges, and more.
                 </Text>
               </View>
+
+              {coinTransactions.length > 0 && (
+                <>
+                  <Text style={styles.championHistoryTitle}>History</Text>
+                  <ScrollView
+                    style={styles.championHistoryList}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {coinTransactions.map((tx) => {
+                      const coachName =
+                        tx.coach?.display_name || tx.coach?.name || 'Coach';
+                      const date = new Date(tx.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      });
+                      return (
+                        <View key={tx.id} style={styles.championTxRow}>
+                          <View style={styles.championTxLeft}>
+                            <Text style={styles.championTxAmount}>+{tx.amount}</Text>
+                            <View>
+                              <Text style={styles.championTxNote} numberOfLines={1}>
+                                {tx.note || `Awarded by ${coachName}`}
+                              </Text>
+                              <Text style={styles.championTxDate}>{date} · {coachName}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.championTxTrophy}>🏆</Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -1740,6 +1775,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     lineHeight: 20,
+  },
+  championHistoryTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    alignSelf: 'flex-start',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  championHistoryList: {
+    width: '100%',
+    maxHeight: 200,
+  },
+  championTxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  championTxLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  championTxAmount: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#92400E',
+    minWidth: 36,
+  },
+  championTxNote: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  championTxDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
+  championTxTrophy: {
+    fontSize: 16,
+    marginLeft: 8,
   },
   xpProgressContainer: {
     width: '100%',
