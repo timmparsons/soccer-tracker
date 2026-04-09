@@ -4,6 +4,7 @@ import {
   requestNotificationPermission,
   scheduleInactivityReminders,
 } from '@/lib/notifications';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -294,7 +295,8 @@ export default function RootLayout() {
 
     // Save this device's push token so other users can notify it
     try {
-      const { data: tokenData } = await Notifications.getExpoPushTokenAsync();
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });
       await supabase
         .from('profiles')
         .update({ expo_push_token: tokenData.data })
