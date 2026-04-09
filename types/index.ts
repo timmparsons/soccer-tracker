@@ -1,3 +1,21 @@
+export type CoinTransaction = {
+  id: string;
+  coach_id: string;
+  player_id: string;
+  amount: number;
+  note: string | null;
+  created_at: string;
+};
+
+export type AwardCoinsInput = {
+  coachId: string;
+  playerId: string;
+  amount: number;
+  note: string | null;
+  playerPushToken: string | null;
+  playerName: string;
+};
+
 export type Juggles = {
   id: string;
   user_id: string;

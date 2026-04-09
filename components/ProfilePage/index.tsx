@@ -59,6 +59,7 @@ const ProfilePage = () => {
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showChampionModal, setShowChampionModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -448,6 +449,16 @@ const ProfilePage = () => {
             >
               <Ionicons name='settings-outline' size={22} color='#78909C' />
             </TouchableOpacity>
+            {!profile?.is_coach && (
+              <TouchableOpacity
+                style={styles.championPointsButton}
+                onPress={() => setShowChampionModal(true)}
+              >
+                <Text style={styles.championPointsText}>
+                  🏆 {(profile?.coins ?? 0).toLocaleString()}
+                </Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.avatarContainer}>
               <View style={styles.avatarGlow} />
               <Image
@@ -525,6 +536,7 @@ const ProfilePage = () => {
                   <Text style={styles.roadmapButtonText}>View Level Roadmap</Text>
                   <Ionicons name='chevron-forward' size={16} color='#ffb724' />
                 </TouchableOpacity>
+
               </>
             )}
 
@@ -755,6 +767,40 @@ const ProfilePage = () => {
             season={selectedSeason}
           />
         )}
+
+        {/* Champion Points Modal */}
+        <Modal
+          visible={showChampionModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowChampionModal(false)}
+        >
+          <View style={styles.settingsOverlay}>
+            <View style={[styles.championSheet, { paddingBottom: insets.bottom + 24 }]}>
+              <View style={styles.settingsSheetHandle} />
+              <TouchableOpacity
+                style={styles.settingsSheetClose}
+                onPress={() => setShowChampionModal(false)}
+              >
+                <Ionicons name='close' size={22} color='#78909C' />
+              </TouchableOpacity>
+
+              <Text style={styles.championSheetTitle}>🏆 Champion Points</Text>
+              <Text style={styles.championSheetBalance}>
+                {(profile?.coins ?? 0).toLocaleString()}
+              </Text>
+              <Text style={styles.championSheetSubtitle}>points earned</Text>
+
+              <View style={styles.championComingSoonBox}>
+                <Text style={styles.championComingSoonTitle}>Rewards Shop — Coming Soon</Text>
+                <Text style={styles.championComingSoonBody}>
+                  Your coach awards Champion Points for effort, improvement, and great training days.
+                  Soon you&apos;ll be able to spend them on rewards your coach sets up — extra challenges, custom badges, and more.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Settings Modal */}
         <Modal
@@ -1629,6 +1675,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  championPointsButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF9E6',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  championPointsText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  championSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  championSheetTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  championSheetBalance: {
+    fontSize: 56,
+    fontWeight: '900',
+    color: '#92400E',
+    marginTop: 8,
+  },
+  championSheetSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 24,
+  },
+  championComingSoonBox: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+  },
+  championComingSoonTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 8,
+  },
+  championComingSoonBody: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 20,
   },
   xpProgressContainer: {
     width: '100%',
