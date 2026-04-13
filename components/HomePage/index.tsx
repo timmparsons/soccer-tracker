@@ -2,7 +2,7 @@ import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useProfile } from '@/hooks/useProfile';
-import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
@@ -62,22 +62,26 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
+  const { data: recentSessions = [], refetch: refetchRecent } = useRecentSessions(user?.id, 3);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
+      refetchRecent(),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, refetchRecent]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-    }, [refetchProfile, refetchStats, refetchChallengeStats]),
+      refetchRecent();
+    }, [refetchProfile, refetchStats, refetchChallengeStats, refetchRecent]),
   );
 
   if (statsLoading) {
@@ -93,6 +97,20 @@ const HomeScreen = () => {
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
+  const todayTouches = touchStats?.today_touches || 0;
+  const dailyTarget = touchStats?.daily_target || 1000;
+  const todayPct = Math.min((todayTouches / dailyTarget) * 100, 100);
+  const todayDone = todayTouches >= dailyTarget;
+
+  const formatSessionDate = (dateStr: string) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const d = new Date(dateStr + 'T00:00:00');
+    if (dateStr === today.toISOString().split('T')[0]) return 'Today';
+    if (dateStr === yesterday.toISOString().split('T')[0]) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   const getTpmLabel = (tpm: number) => {
     if (tpm === 0) return 'No data';
@@ -134,7 +152,7 @@ const HomeScreen = () => {
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, styles.statWeek]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#DBEAFE' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
               <Text style={styles.statIcon}>📊</Text>
             </View>
             <Text style={[styles.statValue, { color: '#1f89ee' }]}>
@@ -145,10 +163,10 @@ const HomeScreen = () => {
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#F59E0B' }]}>
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>
               {streak}
             </Text>
             <Text style={styles.statLabel}>Day Streak</Text>
@@ -156,10 +174,10 @@ const HomeScreen = () => {
           </View>
 
           <View style={[styles.statCard, styles.statBest]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FFE4DC' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
               <Text style={styles.statIcon}>⚡</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#ffb724' }]}>
+            <Text style={[styles.statValue, { color: '#1f89ee' }]}>
               {weekTpm}
             </Text>
             <Text style={styles.statLabel}>Touches/Min</Text>
@@ -167,10 +185,10 @@ const HomeScreen = () => {
           </View>
 
           <View style={[styles.statCard, styles.statAvg]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#D1FAE5' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
               <Text style={styles.statIcon}>⚽</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#31af4d' }]}>
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>
               {challengeStreak}
             </Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
@@ -179,6 +197,42 @@ const HomeScreen = () => {
             </Text>
           </View>
         </View>
+
+        {/* TODAY'S PROGRESS */}
+        <View style={styles.todayCard}>
+          <View style={styles.todayHeader}>
+            <Text style={styles.todaySectionLabel}>TODAY'S PROGRESS</Text>
+            {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+          </View>
+          <View style={styles.todayRow}>
+            <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+            <Text style={styles.todayTarget}> / {dailyTarget.toLocaleString()}</Text>
+          </View>
+          <View style={styles.todayBarBg}>
+            <View style={[styles.todayBarFill, { width: `${todayPct}%` as `${number}%` }]} />
+          </View>
+          <Text style={styles.todaySubtext}>
+            {todayDone
+              ? 'Smashed it — keep going if you want more!'
+              : `${(dailyTarget - todayTouches).toLocaleString()} touches to reach your goal`}
+          </Text>
+        </View>
+
+        {/* RECENT SESSIONS */}
+        {recentSessions.length > 0 && (
+          <View style={styles.recentCard}>
+            <Text style={styles.recentLabel}>RECENT SESSIONS</Text>
+            {recentSessions.map((s, i) => (
+              <View key={s.id} style={[styles.recentRow, i < recentSessions.length - 1 && styles.recentRowBorder]}>
+                <View style={styles.recentLeft}>
+                  <Text style={styles.recentDate}>{formatSessionDate(s.date)}</Text>
+                  {s.drill_name && <Text style={styles.recentDrill}>{s.drill_name}</Text>}
+                </View>
+                <Text style={styles.recentTouches}>{s.touches_logged.toLocaleString()}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -218,24 +272,24 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statWeek: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 4,
     borderTopColor: '#1f89ee',
   },
   statStreak: {
-    backgroundColor: '#FFFBF0',
-    borderTopWidth: 4,
-    borderTopColor: '#F59E0B',
-  },
-  statBest: {
-    backgroundColor: '#FFF8F6',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 4,
     borderTopColor: '#ffb724',
   },
-  statAvg: {
-    backgroundColor: '#F0FDF9',
+  statBest: {
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 4,
-    borderTopColor: '#31af4d',
+    borderTopColor: '#1f89ee',
+  },
+  statAvg: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 4,
+    borderTopColor: '#ffb724',
   },
   statIconBg: {
     width: 38,
@@ -265,5 +319,120 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
+  },
+
+  // TODAY'S PROGRESS
+  todayCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  todayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  todaySectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1f89ee',
+    letterSpacing: 1.2,
+  },
+  todayDoneBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#31af4d',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 10,
+  },
+  todayTouches: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  todayTarget: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  todayBarBg: {
+    height: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 4,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  todayBarFill: {
+    height: 8,
+    backgroundColor: '#1f89ee',
+    borderRadius: 4,
+  },
+  todaySubtext: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+
+  // RECENT SESSIONS
+  recentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  recentLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1f89ee',
+    letterSpacing: 1.2,
+    marginBottom: 12,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  recentRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
+  recentLeft: {
+    flex: 1,
+  },
+  recentDate: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  recentDrill: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  recentTouches: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1f89ee',
   },
 });
