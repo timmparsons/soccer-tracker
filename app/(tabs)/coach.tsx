@@ -1,6 +1,7 @@
 import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
+import { useCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
@@ -276,6 +277,9 @@ export default function CoachDashboard() {
   // Coin hooks — must be before early returns
   const { mutateAsync: awardCoins } = useAwardCoins();
   const { data: selectedPlayerCoins = 0 } = usePlayerCoins(selectedPlayer?.id);
+
+  // Coach challenges — must be before early returns
+  const { data: coachChallenges = [] } = useCoachChallenges(user?.id);
 
   // Sort players: consistency first (days active), then volume
   // Must be before early returns — rules of hooks
@@ -695,7 +699,15 @@ export default function CoachDashboard() {
                   </TouchableOpacity>
 
                   {/* Expanded stats row */}
-                  {isExpanded && (
+                  {isExpanded && (() => {
+                    const activeChallenge = coachChallenges.find(
+                      (c) => c.player_id === player.id && c.status === 'active',
+                    );
+                    const recentCompleted = coachChallenges.find(
+                      (c) => c.player_id === player.id && c.status === 'completed' && c.completed_at,
+                    );
+                    const hasActiveChallenge = !!activeChallenge;
+                    return (
                     <View style={styles.expandedRow}>
                       <View style={styles.statChips}>
                         <View style={styles.statChip}>
@@ -717,6 +729,28 @@ export default function CoachDashboard() {
                           </Text>
                         </View>
                       </View>
+
+                      {/* Challenge status strip */}
+                      {activeChallenge && (
+                        <View style={styles.challengeStrip}>
+                          <Ionicons name="flag" size={13} color="#D97706" />
+                          <Text style={styles.challengeStripText}>
+                            {activeChallenge.accepted_at
+                              ? `🏃 ${activeChallenge.touches_target.toLocaleString()} touches — in progress · due ${activeChallenge.due_date}`
+                              : `⏳ ${activeChallenge.touches_target.toLocaleString()} touches — pending accept · due ${activeChallenge.due_date}`}
+                          </Text>
+                        </View>
+                      )}
+                      {!activeChallenge && recentCompleted && (
+                        <View style={[styles.challengeStrip, styles.challengeStripDone]}>
+                          <Ionicons name="checkmark-circle" size={13} color="#31af4d" />
+                          <Text style={[styles.challengeStripText, styles.challengeStripTextDone]}>
+                            ✅ {recentCompleted.touches_target.toLocaleString()} touches — completed{' '}
+                            {new Date(recentCompleted.completed_at!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </Text>
+                        </View>
+                      )}
+
                       <View style={styles.expandedActions}>
                         <TouchableOpacity
                           style={styles.actionBtn}
@@ -733,15 +767,22 @@ export default function CoachDashboard() {
                           <Text style={styles.actionBtnText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={styles.actionBtn}
+                          style={[styles.actionBtn, hasActiveChallenge && styles.actionBtnDisabled]}
                           onPress={() => {
+                            if (hasActiveChallenge) {
+                              Alert.alert(
+                                'Active Challenge',
+                                `${player.display_name || player.name} already has an active challenge. Wait for them to complete it first.`,
+                              );
+                              return;
+                            }
                             setExpandedPlayerId(null);
                             setSelectedPlayer(player);
                             setChallengeModalVisible(true);
                           }}
                         >
-                          <Ionicons name="flag-outline" size={15} color="#1f89ee" />
-                          <Text style={styles.actionBtnText}>Challenge</Text>
+                          <Ionicons name="flag-outline" size={15} color={hasActiveChallenge ? '#B0BEC5' : '#1f89ee'} />
+                          <Text style={[styles.actionBtnText, hasActiveChallenge && styles.actionBtnTextDisabled]}>Challenge</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.actionBtn, styles.actionBtnDanger]}
@@ -752,7 +793,8 @@ export default function CoachDashboard() {
                         </TouchableOpacity>
                       </View>
                     </View>
-                  )}
+                    );
+                  })()}
                 </View>
               );
             })
@@ -1391,6 +1433,34 @@ const styles = StyleSheet.create({
   },
   actionBtnTextDanger: {
     color: '#EF4444',
+  },
+  actionBtnDisabled: {
+    backgroundColor: '#F3F4F6',
+  },
+  actionBtnTextDisabled: {
+    color: '#B0BEC5',
+  },
+  challengeStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  challengeStripDone: {
+    backgroundColor: '#DCFCE7',
+  },
+  challengeStripText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
+    flex: 1,
+  },
+  challengeStripTextDone: {
+    color: '#16a34a',
   },
 
   // Overview Card

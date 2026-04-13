@@ -56,8 +56,7 @@ export function usePlayerChallenges(userId: string | undefined) {
       }
 
       const now = new Date();
-      return (data ?? [])
-        .map((row: Record<string, any>) => ({
+      return ((data ?? []).map((row: Record<string, any>) => ({
           ...row,
           challenger_name: row.challenger?.display_name || row.challenger?.name,
           challenger_avatar: row.challenger?.avatar_url ?? null,
@@ -65,8 +64,8 @@ export function usePlayerChallenges(userId: string | undefined) {
           challenged_name: row.challenged?.display_name || row.challenged?.name,
           challenged_avatar: row.challenged?.avatar_url ?? null,
           challenged_push_token: row.challenged?.expo_push_token ?? null,
-        }))
-        .filter((c: PlayerChallenge) => c.status !== 'pending' || new Date(c.expires_at) > now) as PlayerChallenge[];
+        })) as PlayerChallenge[])
+        .filter((c) => c.status !== 'pending' || new Date(c.expires_at) > now);
     },
   });
 }

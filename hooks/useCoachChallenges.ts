@@ -1,6 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+function sendPush(token: string, title: string, body: string) {
+  supabase.functions
+    .invoke('send-push', { body: { to: token, title, body } })
+    .catch(() => {});
+}
+
 export interface CoachChallenge {
   id: string;
   coach_id: string;
@@ -9,9 +15,12 @@ export interface CoachChallenge {
   touches_target: number;
   due_date: string; // YYYY-MM-DD
   status: 'active' | 'completed' | 'expired';
+  accepted_at: string | null;
+  completed_at: string | null;
   created_at: string;
   player_name?: string;
   player_avatar?: string | null;
+  coach_push_token?: string | null;
 }
 
 export function useCoachChallenges(coachId: string | undefined) {
@@ -43,7 +52,7 @@ export function usePlayerCoachChallenges(playerId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('coach_challenges')
-        .select('*, player:profiles!player_id(name, display_name, avatar_url)')
+        .select('*, player:profiles!player_id(name, display_name, avatar_url), coach:profiles!coach_id(expo_push_token)')
         .eq('player_id', playerId!)
         .in('status', ['active', 'completed'])
         .order('due_date', { ascending: true });
@@ -54,6 +63,7 @@ export function usePlayerCoachChallenges(playerId: string | undefined) {
         ...row,
         player_name: row.player?.display_name || row.player?.name,
         player_avatar: row.player?.avatar_url ?? null,
+        coach_push_token: row.coach?.expo_push_token ?? null,
       })) as CoachChallenge[];
     },
   });
@@ -134,19 +144,88 @@ export function useCancelCoachChallenge() {
   });
 }
 
-export function useCompleteCoachChallenge() {
+export function useAcceptCoachChallenge() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ challengeId }: { challengeId: string; coachId: string; playerId: string }) => {
-      const { error } = await supabase
+    mutationFn: async ({
+      challengeId,
+    }: {
+      challengeId: string;
+      coachId: string;
+      playerId: string;
+      playerName: string;
+      coachPushToken?: string | null;
+    }) => {
+      const { error, data } = await supabase
         .from('coach_challenges')
-        .update({ status: 'completed' })
-        .eq('id', challengeId);
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('id', challengeId)
+        .select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('RLS blocked — player needs UPDATE permission on coach_challenges');
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['coach-challenges', vars.coachId] });
       queryClient.invalidateQueries({ queryKey: ['player-coach-challenges', vars.playerId] });
+      if (vars.coachPushToken) {
+        sendPush(
+          vars.coachPushToken,
+          '✅ Challenge Accepted!',
+          `${vars.playerName} accepted your challenge. They're on it!`,
+        );
+      }
+    },
+  });
+}
+
+export function useCompleteCoachChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      challengeId,
+      playerId,
+      touchesTarget,
+    }: {
+      challengeId: string;
+      coachId: string;
+      playerId: string;
+      playerName: string;
+      touchesTarget: number;
+      coachPushToken?: string | null;
+    }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const [challengeResult, sessionResult] = await Promise.all([
+        supabase
+          .from('coach_challenges')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', challengeId)
+          .select(),
+        supabase
+          .from('daily_sessions')
+          .insert({
+            user_id: playerId,
+            drill_id: null,
+            touches_logged: touchesTarget,
+            duration_minutes: null,
+            date: today,
+          }),
+      ]);
+      if (challengeResult.error) throw challengeResult.error;
+      if (!challengeResult.data || challengeResult.data.length === 0) throw new Error('RLS blocked — player needs UPDATE permission on coach_challenges');
+      if (sessionResult.error) throw sessionResult.error;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['coach-challenges', vars.coachId] });
+      queryClient.invalidateQueries({ queryKey: ['player-coach-challenges', vars.playerId] });
+      queryClient.invalidateQueries({ queryKey: ['touch-tracking', vars.playerId] });
+      queryClient.invalidateQueries({ queryKey: ['recent-sessions', vars.playerId] });
+      if (vars.coachPushToken) {
+        sendPush(
+          vars.coachPushToken,
+          '🏆 Challenge Completed!',
+          `${vars.playerName} completed the ${vars.touchesTarget.toLocaleString()} touch challenge!`,
+        );
+      }
     },
   });
 }

@@ -1,7 +1,7 @@
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
 import TeammatePickerModal from '@/components/modals/TeammatePickerModal';
-import { useCancelCoachChallenge, usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
+import { useAcceptCoachChallenge, useCancelCoachChallenge, useCompleteCoachChallenge, usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import {
   useCancelPlayerChallenge,
   usePlayerChallenges,
@@ -32,14 +32,17 @@ interface Teammate {
 interface ChallengesCardProps {
   userId: string;
   teamId: string | null | undefined;
+  playerName: string;
 }
 
-export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) {
+export default function ChallengesCard({ userId, teamId, playerName }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
   const { mutate: cancelPlayer } = useCancelPlayerChallenge();
   const { mutate: cancelCoach } = useCancelCoachChallenge();
+  const { mutate: acceptCoach } = useAcceptCoachChallenge();
+  const { mutate: completeCoach } = useCompleteCoachChallenge();
 
   const [expanded, setExpanded] = useState(false);
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
@@ -84,25 +87,78 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
                     <Text style={styles.coachRowDetail}>Due {c.due_date}</Text>
                     <View style={styles.coachStatusRow}>
                       <View style={styles.coachBadge}>
-                        <Text style={styles.coachBadgeText}>🎯 Coach Challenge</Text>
+                        <Text style={styles.coachBadgeText}>
+                          {c.accepted_at ? '🏃 In Progress' : '🎯 Coach Challenge'}
+                        </Text>
                       </View>
-                      <TouchableOpacity
-                        onPress={() =>
-                          Alert.alert('Cancel Challenge?', 'This will remove the challenge.', [
-                            { text: 'Keep', style: 'cancel' },
-                            {
-                              text: 'Cancel',
-                              style: 'destructive',
-                              onPress: () => cancelCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id }),
-                            },
-                          ])
-                        }
-                      >
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.coachRowActions}>
+                        {!c.accepted_at ? (
+                          <TouchableOpacity
+                            style={styles.coachInlineBtn}
+                            onPress={() => {
+                              acceptCoach(
+                                {
+                                  challengeId: c.id,
+                                  coachId: c.coach_id,
+                                  playerId: c.player_id,
+                                  playerName,
+                                  coachPushToken: c.coach_push_token,
+                                },
+                                {
+                                  onError: (err) =>
+                                    Alert.alert('Error', err instanceof Error ? err.message : 'Failed to accept challenge'),
+                                },
+                              );
+                            }}
+                          >
+                            <Text style={styles.coachInlineBtnText}>Accept</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={[styles.coachInlineBtn, styles.coachInlineBtnGreen]}
+                            onPress={() =>
+                              Alert.alert(
+                                'Mark as Complete?',
+                                `Confirm you've completed ${c.touches_target.toLocaleString()} touches.`,
+                                [
+                                  { text: 'Not yet', style: 'cancel' },
+                                  {
+                                    text: 'Complete!',
+                                    onPress: () =>
+                                      completeCoach({
+                                        challengeId: c.id,
+                                        coachId: c.coach_id,
+                                        playerId: c.player_id,
+                                        playerName,
+                                        touchesTarget: c.touches_target,
+                                        coachPushToken: c.coach_push_token,
+                                      }),
+                                  },
+                                ],
+                              )
+                            }
+                          >
+                            <Text style={[styles.coachInlineBtnText, styles.coachInlineBtnTextGreen]}>Done</Text>
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                          onPress={() =>
+                            Alert.alert('Cancel Challenge?', 'This will remove the challenge.', [
+                              { text: 'Keep', style: 'cancel' },
+                              {
+                                text: 'Cancel',
+                                style: 'destructive',
+                                onPress: () => cancelCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id }),
+                              },
+                            ])
+                          }
+                        >
+                          <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
-                </View>
               ))}
             </View>
           )}
@@ -470,6 +526,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#D97706',
+  },
+  coachRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  coachInlineBtn: {
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  coachInlineBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  coachInlineBtnGreen: {
+    borderColor: '#31af4d',
+  },
+  coachInlineBtnTextGreen: {
+    color: '#31af4d',
   },
 
   // ROWS (shared)
