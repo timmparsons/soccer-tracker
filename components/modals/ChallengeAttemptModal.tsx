@@ -80,6 +80,7 @@ export default function ChallengeAttemptModal({
   };
 
   const handleSubmit = () => {
+    const isChallenger = currentUserId === challenge.challenger_id;
     completeChallenge(
       {
         challengeId: challenge.id,
@@ -89,6 +90,9 @@ export default function ChallengeAttemptModal({
         timeTakenSeconds: elapsed,
         existingChallengerTime: challenge.challenger_time_seconds,
         existingChallengedTime: challenge.challenged_time_seconds,
+        opponentPushToken: isChallenger
+          ? challenge.challenged_push_token
+          : challenge.challenger_push_token,
       },
       {
         onSuccess: () => onClose(),

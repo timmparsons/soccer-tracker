@@ -1,16 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-async function sendPushToUser(userId: string, title: string, body: string) {
-  const { data } = await supabase
-    .from('profiles')
-    .select('expo_push_token')
-    .eq('id', userId)
-    .single();
-  if (!data?.expo_push_token) return;
-  await supabase.functions.invoke('send-push', {
-    body: { to: data.expo_push_token, title, body },
-  });
+function sendPush(token: string, title: string, body: string) {
+  supabase.functions
+    .invoke('send-push', { body: { to: token, title, body } })
+    .catch(() => {});
 }
 
 export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
@@ -32,8 +26,10 @@ export interface PlayerChallenge {
   created_at: string;
   challenger_name?: string;
   challenger_avatar?: string | null;
+  challenger_push_token?: string | null;
   challenged_name?: string;
   challenged_avatar?: string | null;
+  challenged_push_token?: string | null;
 }
 
 export function usePlayerChallenges(userId: string | undefined) {
@@ -46,8 +42,8 @@ export function usePlayerChallenges(userId: string | undefined) {
         .from('player_challenges')
         .select(`
           *,
-          challenger:profiles!challenger_id(name, display_name, avatar_url),
-          challenged:profiles!challenged_id(name, display_name, avatar_url)
+          challenger:profiles!challenger_id(name, display_name, avatar_url, expo_push_token),
+          challenged:profiles!challenged_id(name, display_name, avatar_url, expo_push_token)
         `)
         .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
         .in('status', ['pending', 'accepted', 'completed'])
@@ -65,8 +61,10 @@ export function usePlayerChallenges(userId: string | undefined) {
           ...row,
           challenger_name: row.challenger?.display_name || row.challenger?.name,
           challenger_avatar: row.challenger?.avatar_url ?? null,
+          challenger_push_token: row.challenger?.expo_push_token ?? null,
           challenged_name: row.challenged?.display_name || row.challenged?.name,
           challenged_avatar: row.challenged?.avatar_url ?? null,
+          challenged_push_token: row.challenged?.expo_push_token ?? null,
         }))
         .filter((c: PlayerChallenge) => c.status !== 'pending' || new Date(c.expires_at) > now) as PlayerChallenge[];
     },
@@ -134,6 +132,7 @@ export function useSendChallenge() {
       challengedId: string;
       touchesTarget: number;
       timeLimitHours: number;
+      challengedPushToken?: string | null;
     }) => {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
@@ -153,11 +152,13 @@ export function useSendChallenge() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
-      sendPushToUser(
-        vars.challengedId,
-        '⚔️ New Challenge!',
-        `You've been challenged to ${vars.touchesTarget} touches. You have 24h to accept.`,
-      );
+      if (vars.challengedPushToken) {
+        sendPush(
+          vars.challengedPushToken,
+          '⚔️ New Challenge!',
+          `You've been challenged to ${vars.touchesTarget} touches. You have 24h to accept.`,
+        );
+      }
     },
   });
 }
@@ -176,6 +177,7 @@ export function useRespondToChallenge() {
       challengerId: string; // used in onSuccess only
       responderId: string;  // used in onSuccess only
       responderName: string;
+      challengerPushToken?: string | null;
     }) => {
       const update: Record<string, string> = { status: accept ? 'accepted' : 'declined' };
       if (accept) {
@@ -191,13 +193,15 @@ export function useRespondToChallenge() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
-      sendPushToUser(
-        vars.challengerId,
-        vars.accept ? '✅ Challenge Accepted!' : '❌ Challenge Declined',
-        vars.accept
-          ? `${vars.responderName} accepted your challenge. Game on!`
-          : `${vars.responderName} declined your challenge.`,
-      );
+      if (vars.challengerPushToken) {
+        sendPush(
+          vars.challengerPushToken,
+          vars.accept ? '✅ Challenge Accepted!' : '❌ Challenge Declined',
+          vars.accept
+            ? `${vars.responderName} accepted your challenge. Game on!`
+            : `${vars.responderName} declined your challenge.`,
+        );
+      }
     },
   });
 }
@@ -250,6 +254,7 @@ export function useCompleteChallenge() {
       timeTakenSeconds: number;
       existingChallengerTime: number | null;
       existingChallengedTime: number | null;
+      opponentPushToken?: string | null;
     }) => {
       const isChallenger = userId === challengerId;
       const update: Record<string, string | number | null> = isChallenger
@@ -286,9 +291,8 @@ export function useCompleteChallenge() {
       const otherTime = vars.userId === vars.challengerId
         ? vars.existingChallengedTime
         : vars.existingChallengerTime;
-      if (otherTime !== null) {
-        const opponentId = vars.userId === vars.challengerId ? vars.challengedId : vars.challengerId;
-        sendPushToUser(opponentId, '🏆 Results are in!', 'Tap to see who won the challenge.');
+      if (otherTime !== null && vars.opponentPushToken) {
+        sendPush(vars.opponentPushToken, '🏆 Results are in!', 'Tap to see who won the challenge.');
       }
     },
   });

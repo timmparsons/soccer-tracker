@@ -21,6 +21,7 @@ interface ChallengeSetupModalProps {
   challengerId: string;
   challengedId: string;
   challengedName: string;
+  challengedPushToken?: string | null;
 }
 
 const TOUCH_PRESETS = [50, 100, 200, 500];
@@ -36,6 +37,7 @@ export default function ChallengeSetupModal({
   challengerId,
   challengedId,
   challengedName,
+  challengedPushToken,
 }: ChallengeSetupModalProps) {
   const insets = useSafeAreaInsets();
   const [selectedTouches, setSelectedTouches] = useState<number>(100);
@@ -55,6 +57,7 @@ export default function ChallengeSetupModal({
         challengedId,
         touchesTarget,
         timeLimitHours: selectedHours,
+        challengedPushToken: challengedPushToken ?? null,
       },
       {
         onSuccess: () => onClose(),

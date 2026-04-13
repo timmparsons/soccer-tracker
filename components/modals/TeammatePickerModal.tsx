@@ -18,6 +18,7 @@ interface Teammate {
   id: string;
   name: string;
   avatar_url: string | null;
+  push_token: string | null;
 }
 
 interface TeammatePickerModalProps {
@@ -42,7 +43,7 @@ export default function TeammatePickerModal({
     queryFn: async (): Promise<Teammate[]> => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, name, display_name, avatar_url')
+        .select('id, name, display_name, avatar_url, expo_push_token')
         .eq('team_id', teamId)
         .eq('is_coach', false)
         .neq('id', currentUserId);
@@ -51,6 +52,7 @@ export default function TeammatePickerModal({
         id: m.id,
         name: m.name || m.display_name || 'Unknown Player',
         avatar_url: m.avatar_url,
+        push_token: m.expo_push_token ?? null,
       }));
     },
     enabled: visible && !!teamId,

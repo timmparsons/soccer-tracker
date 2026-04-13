@@ -26,6 +26,7 @@ interface Teammate {
   id: string;
   name: string;
   avatar_url: string | null;
+  push_token: string | null;
 }
 
 interface ChallengesCardProps {
@@ -130,6 +131,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
                   challengerId: c.challenger_id,
                   responderId: userId,
                   responderName: c.challenged_name ?? '',
+                  challengerPushToken: c.challenger_push_token ?? null,
                 })
               }
               onAttempt={() => setAttemptChallenge(c)}
@@ -177,6 +179,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
           challengerId={userId}
           challengedId={selectedTeammate.id}
           challengedName={selectedTeammate.name}
+          challengedPushToken={selectedTeammate.push_token}
         />
       )}
     </>
