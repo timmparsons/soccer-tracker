@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
+import { getDisplayName } from '@/utils/getDisplayName';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -244,7 +246,7 @@ const Leaderboard = () => {
   return (
     <View style={styles.container}>
       <PageHeader
-        title='Team Leaderboard'
+        title='Compete'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
       />
@@ -332,6 +334,15 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
+        {/* Challenges — players only */}
+        {!profile?.is_coach && user?.id && (
+          <ChallengesCard
+            userId={user.id}
+            teamId={profile?.team_id}
+            playerName={getDisplayName(profile)}
+          />
+        )}
+
         {activeTab === 'touches' ? (
           <>
             {/* Period pills */}

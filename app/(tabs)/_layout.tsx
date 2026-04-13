@@ -10,7 +10,7 @@ import {
   House,
   Play,
   Settings,
-  Trophy,
+  Swords,
 } from 'lucide-react-native';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,8 +49,6 @@ export default function TabLayout() {
     AsyncStorage.setItem('viewMode', mode);
   };
 
-  const isCoachInCoachMode = profile?.is_coach && viewMode === 'coach';
-
   const isPlayer = !profile?.is_coach;
   const { data: coachChallenges } = usePlayerCoachChallenges(isPlayer ? user?.id : undefined);
   const { data: playerChallenges } = usePlayerChallenges(isPlayer ? user?.id : undefined);
@@ -87,8 +85,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
-            tabBarBadge: challengeBadge,
-            tabBarBadgeStyle: { top: -6, right: -8 },
           }}
         />
         <Tabs.Screen
@@ -125,11 +121,13 @@ export default function TabLayout() {
         <Tabs.Screen
           name='leaderboard'
           options={{
-            title: 'Leaderboard',
+            title: 'Compete',
             tabBarIcon: ({ color, size }) => (
-              <Trophy size={size ?? 28} color={color} />
+              <Swords size={size ?? 28} color={color} />
             ),
             href: profile?.team_id ? '/leaderboard' : null,
+            tabBarBadge: challengeBadge,
+            tabBarBadgeStyle: { top: -6, right: -8 },
           }}
         />
         <Tabs.Screen

@@ -1,5 +1,4 @@
 import PageHeader from '@/components/common/PageHeader';
-import VinnieCard from '@/components/common/VinnieCard';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
@@ -522,8 +521,6 @@ const TrainPage = () => {
           )}
         </View>
 
-        {/* Vinnie */}
-        <VinnieCard trainedToday={(touchStats?.today_touches ?? 0) > 0} streak={touchStats?.current_streak ?? 0} />
       </ScrollView>
 
       {/* Timer Modal */}

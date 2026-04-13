@@ -10,6 +10,7 @@ export interface VinnieContext {
   streak: number;
   hour: number;
   dayOfWeek?: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  challengeStreak?: number;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -142,7 +143,7 @@ const MONDAY_MESSAGES: string[] = [
 ];
 
 export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
-  const { trainedToday, streak, hour, dayOfWeek } = ctx;
+  const { trainedToday, streak, hour, dayOfWeek, challengeStreak = 0 } = ctx;
 
   // Monday morning recap — special motivator at the start of the week
   if (dayOfWeek === 1 && !trainedToday && hour < 12) {
@@ -150,15 +151,22 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   }
 
   if (trainedToday) {
-    if (streak >= 30) {
-      return { mood: 'hype', message: `${streak} days straight! You're absolutely elite! 🏆` };
+    // Challenge streak milestones — highest priority
+    if (VINNIE_CHALLENGE_STREAK_MILESTONES.includes(challengeStreak)) {
+      return { mood: 'hype', message: VINNIE_CHALLENGE_STREAK_MESSAGES[challengeStreak] };
     }
-    if (streak >= 14) {
-      return { mood: 'hype', message: `${streak} day streak! You're becoming elite 🔥` };
+
+    // Training streak milestones
+    if (VINNIE_STREAK_MILESTONES.includes(streak)) {
+      return { mood: 'hype', message: VINNIE_STREAK_MESSAGES[streak] };
     }
-    if (streak >= 7) {
-      return { mood: 'happy', message: `${streak} days in a row! Messi would be proud 🔥` };
+
+    // Regular trainer: 25% chance of a skill tip to mix it up
+    if (Math.random() < 0.25) {
+      return { mood: 'encouraging', message: pickRandom(MESSAGES.encouraging) };
     }
+
+    // Standard happy response
     return { mood: 'happy', message: pickRandom(MESSAGES.happy) };
   }
 

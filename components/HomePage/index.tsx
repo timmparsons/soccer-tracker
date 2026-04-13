@@ -1,7 +1,6 @@
 import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useChallengeStats, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -69,18 +68,16 @@ const HomeScreen = () => {
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
-      queryClient.invalidateQueries({ queryKey: ['player-challenges'] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-      queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
-    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]),
+    }, [refetchProfile, refetchStats, refetchChallengeStats]),
   );
 
   if (statsLoading) {
@@ -131,10 +128,8 @@ const HomeScreen = () => {
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}
           streak={streak}
+          challengeStreak={challengeStreak}
         />
-
-        {/* PLAYER CHALLENGES */}
-        {user?.id && <ChallengesCard userId={user.id} teamId={profile?.team_id} playerName={displayName} />}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
