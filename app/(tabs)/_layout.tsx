@@ -1,4 +1,6 @@
+import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useProfile } from '@/hooks/useProfile';
+import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -49,6 +51,16 @@ export default function TabLayout() {
 
   const isCoachInCoachMode = profile?.is_coach && viewMode === 'coach';
 
+  const isPlayer = !profile?.is_coach;
+  const { data: coachChallenges } = usePlayerCoachChallenges(isPlayer ? user?.id : undefined);
+  const { data: playerChallenges } = usePlayerChallenges(isPlayer ? user?.id : undefined);
+
+  const activeCoachChallenges = coachChallenges?.filter((c) => c.status === 'active').length ?? 0;
+  const pendingPlayerChallenges = playerChallenges?.filter(
+    (c) => c.status === 'pending' && c.challenged_id === user?.id,
+  ).length ?? 0;
+  const challengeBadge = activeCoachChallenges + pendingPlayerChallenges || undefined;
+
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
       <Tabs
@@ -75,6 +87,8 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
+            tabBarBadge: challengeBadge,
+            tabBarBadgeStyle: { top: -6, right: -8 },
           }}
         />
         <Tabs.Screen

@@ -56,7 +56,7 @@ export default function ChallengesCard({ userId, teamId }: ChallengesCardProps) 
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0) && styles.containerAlert]}>
         {/* Header — toggles dropdown */}
         <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
           <View style={styles.headerLeft}>
@@ -331,6 +331,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
+  },
+  containerAlert: {
+    borderColor: '#EF4444',
   },
   header: {
     paddingHorizontal: 16,

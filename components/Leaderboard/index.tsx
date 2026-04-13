@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     marginTop: 6,
-    marginBottom: -4,
+    marginBottom: 8,
   },
 
   // PERIOD PILLS
