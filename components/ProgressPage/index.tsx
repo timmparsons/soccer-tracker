@@ -5,6 +5,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';

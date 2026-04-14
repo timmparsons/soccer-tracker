@@ -323,7 +323,7 @@ export default function RootLayout() {
       const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });
       await supabase
         .from('profiles')
-        .update({ expo_push_token: tokenData.data })
+        .update({ expo_push_token: tokenData })
         .eq('id', userId);
     } catch {}
 

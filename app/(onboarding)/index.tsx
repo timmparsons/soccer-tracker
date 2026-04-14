@@ -1,3 +1,4 @@
+import React from 'react';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -279,7 +280,7 @@ export default function OnboardingScreen() {
   const progressPct = totalSteps > 1 ? (stepIndex / (totalSteps - 1)) * 100 : 0;
 
   if (currentStep === 'welcome' || currentStep === 'processing') {
-    return renderStep() as JSX.Element;
+    return renderStep() as React.ReactElement;
   }
 
   return (
@@ -777,7 +778,7 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
           );
         })}
         <View style={{ height: 16 }} />
-        <PrimaryButton label="That's my spot 🎯" onNext={onNext} onPress={onNext} />
+        <PrimaryButton label="That's my spot 🎯" onPress={onNext} />
       </ScrollView>
     </View>
   );
@@ -833,8 +834,8 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
-        <Text style={s.headline}>Create your account</Text>
-        <Text style={s.sub}>Save your progress and join the leaderboard</Text>
+        <Text style={s.title}>Create your account</Text>
+        <Text style={s.subtitle}>Save your progress and join the leaderboard</Text>
 
         <View style={s.signupField}>
           <Text style={s.signupLabel}>Email</Text>
@@ -1017,7 +1018,7 @@ function CoachSocialScreen({ onNext }: { onNext: () => void }) {
         </View>
 
         <View style={{ height: 16 }} />
-        <PrimaryButton label="That's what I want →" onNext={onNext} onPress={onNext} />
+        <PrimaryButton label="That's what I want →" onPress={onNext} />
       </ScrollView>
     </View>
   );
