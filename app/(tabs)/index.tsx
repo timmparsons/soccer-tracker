@@ -1,5 +1,6 @@
 import HomeScreen from '@/components/HomePage';
 import { useProfile } from '@/hooks/useProfile';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useUser } from '@/hooks/useUser';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,8 +9,9 @@ import CoachDashboard from './coach';
 export default function Index() {
   const { data: user, isLoading: userLoading } = useUser();
   const { data: profile, isLoading: profileLoading } = useProfile(user?.id);
+  const { isLoading: subLoading } = useSubscription();
 
-  if (userLoading || profileLoading) {
+  if (userLoading || profileLoading || subLoading) {
     return <View style={styles.blank} />;
   }
 

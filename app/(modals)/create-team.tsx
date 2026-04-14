@@ -1,11 +1,12 @@
 import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,11 +26,38 @@ export default function CreateTeam() {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { isPremium, isLoading: premiumLoading } = useSubscription();
 
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+
+  // Gate: non-premium users go to paywall
+  useEffect(() => {
+    if (!premiumLoading && !isPremium) {
+      router.replace('/(modals)/paywall');
+    }
+  }, [isPremium, premiumLoading, router]);
+
+  // If already on a team, redirect
+  if (profile?.team_id) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <Ionicons name='checkmark-circle' size={64} color='#22c55e' />
+          <Text style={styles.title}>Already on a Team!</Text>
+          <Text style={styles.subtitle}>
+            You&apos;re already part of a team. Leave your current team to create a
+            new one.
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+            <Text style={styles.buttonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const generateTeamCode = () => {
     // Generate 8-character alphanumeric code
