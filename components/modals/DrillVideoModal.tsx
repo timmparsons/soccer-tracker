@@ -49,14 +49,16 @@ const DrillVideoModal = ({ visible, onClose, videoUrl, drillName, description }:
 
         {/* Centred content */}
         <View style={styles.content}>
-          <Video
-            ref={videoRef}
-            source={{ uri: videoUrl }}
-            style={styles.video}
-            resizeMode={ResizeMode.CONTAIN}
-            useNativeControls
-            shouldPlay={visible}
-          />
+          {visible && (
+            <Video
+              ref={videoRef}
+              source={{ uri: videoUrl }}
+              style={styles.video}
+              resizeMode={ResizeMode.CONTAIN}
+              useNativeControls
+              shouldPlay
+            />
+          )}
 
           <View style={styles.meta}>
             <Text style={styles.drillName}>{drillName}</Text>
