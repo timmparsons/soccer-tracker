@@ -2,7 +2,7 @@
   "expo": {
     "name": "Master Touch",
     "slug": "soccer-tracker",
-    "version": "2.2.19",
+    "version": "2.2.20",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
     "scheme": "mastertouch",
@@ -42,7 +42,7 @@
         "expo-image-picker",
         {
           "photosPermission": "The app needs access to your photos for profile pictures.",
-          "cameraPermission": false
+          "cameraPermission": "MasterTouch uses the camera to automatically count your ball touches during practice."
         }
       ],
       [
