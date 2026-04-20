@@ -2,7 +2,7 @@
   "expo": {
     "name": "Master Touch",
     "slug": "soccer-tracker",
-    "version": "2.2.18",
+    "version": "2.2.19",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
     "scheme": "mastertouch",
@@ -14,7 +14,8 @@
       "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "MasterTouch uses the camera to automatically count your ball touches during practice."
+        "NSCameraUsageDescription": "MasterTouch uses the camera to automatically count your ball touches during practice.",
+        "NSLocationWhenInUseUsageDescription": "MasterTouch may use your location to provide relevant training features."
       }
     },
     "android": {
