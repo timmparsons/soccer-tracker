@@ -321,7 +321,7 @@ export const useChallengeStats = (
 
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
-    queryKey: ['today-challenge', userId],
+    queryKey: ['today-challenge', userId, getLocalDate()],
     queryFn: async () => {
       if (!userId) return null;
 
