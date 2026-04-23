@@ -1,4 +1,3 @@
-import CameraTimerScreen from '@/components/TrainPage/CameraTimerScreen';
 import PageHeader from '@/components/common/PageHeader';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
@@ -28,7 +27,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -81,8 +79,6 @@ const TrainPage = () => {
   const [drillFilter, setDrillFilter] = useState<
     'all' | 'beginner' | 'intermediate' | 'advanced'
   >('beginner');
-  const [cameraMode, setCameraMode] = useState(false);
-  const [showCameraTimer, setShowCameraTimer] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -146,13 +142,9 @@ const TrainPage = () => {
       setTimeRemaining(seconds);
       pausedRemainingRef.current = seconds;
       setShowTimerPicker(false);
-      if (cameraMode && Platform.OS !== 'web') {
-        setShowCameraTimer(true);
-      } else {
-        setShowTimerModal(true);
-      }
+      setShowTimerModal(true);
     },
-    [cameraMode],
+    [],
   );
 
   const stopTimer = useCallback(() => {
@@ -283,17 +275,6 @@ const TrainPage = () => {
     } finally {
       setSubmittingScore(false);
     }
-  };
-
-  const handleCameraTimerComplete = (count: number) => {
-    setShowCameraTimer(false);
-    setScoreInput(count > 0 ? String(count) : '');
-    setShowScoreModal(true);
-  };
-
-  const handleCameraTimerCancel = () => {
-    setShowCameraTimer(false);
-    setTimeRemaining(0);
   };
 
   const cancelTimer = () => {
@@ -565,21 +546,6 @@ const TrainPage = () => {
 
       </ScrollView>
 
-      {/* Camera Timer Modal */}
-      <Modal
-        visible={showCameraTimer}
-        animationType='fade'
-        transparent={false}
-        onRequestClose={handleCameraTimerCancel}
-      >
-        <CameraTimerScreen
-          duration={freeTimerDuration}
-          onComplete={handleCameraTimerComplete}
-          onCancel={handleCameraTimerCancel}
-          whistleSound={whistleSoundRef.current}
-        />
-      </Modal>
-
       {/* Timer Modal */}
       <Modal
         visible={showTimerModal}
@@ -753,23 +719,6 @@ const TrainPage = () => {
                 })}
               </View>
 
-              {/* AI Camera Mode toggle — Pro only, native only */}
-              {isPremium && Platform.OS !== 'web' && (
-                <View style={styles.cameraModeRow}>
-                  <View style={styles.cameraModeInfo}>
-                    <Text style={styles.cameraModeTitle}>🤖 AI Count</Text>
-                    <Text style={styles.cameraModeSubtitle}>
-                      Camera auto-counts your touches
-                    </Text>
-                  </View>
-                  <Switch
-                    value={cameraMode}
-                    onValueChange={setCameraMode}
-                    trackColor={{ false: '#E5E7EB', true: '#1f89ee' }}
-                    thumbColor='#FFF'
-                  />
-                </View>
-              )}
 
               <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
                 <View style={styles.customTimerLabelRow}>
@@ -1540,34 +1489,6 @@ const styles = StyleSheet.create({
   timerPickerCancelText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#78909C',
-  },
-
-  // CAMERA MODE TOGGLE
-  cameraModeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0F7FF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BDDEFF',
-  },
-  cameraModeInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  cameraModeTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 2,
-  },
-  cameraModeSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
     color: '#78909C',
   },
 });
