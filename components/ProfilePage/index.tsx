@@ -1,15 +1,18 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
-import { useCoinTransactions } from '@/hooks/useCoinTransactions';
-import { useCoachTeams } from '@/hooks/useCoachTeams';
 import BadgeGrid from '@/components/common/BadgeGrid';
+import PastSeasonModal from '@/components/modals/PastSeasonModal';
+import {
+  useArchivedSeasons,
+  type ArchivedSeason,
+} from '@/hooks/useArchivedSeasons';
 import type { Badge } from '@/hooks/useBadges';
 import {
   useAllBadges,
   useLeaderboardWinCount,
   useUserBadges,
 } from '@/hooks/useBadges';
-import { useArchivedSeasons, type ArchivedSeason } from '@/hooks/useArchivedSeasons';
-import PastSeasonModal from '@/components/modals/PastSeasonModal';
+import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useCoinTransactions } from '@/hooks/useCoinTransactions';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -49,7 +52,9 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { data: coachTeams = [], refetch: refetchCoachTeams } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+  const { data: coachTeams = [], refetch: refetchCoachTeams } = useCoachTeams(
+    profile?.is_coach ? user?.id : undefined,
+  );
   const { mutateAsync: updateProfile } = useUpdateProfile(user?.id);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
@@ -60,7 +65,9 @@ const ProfilePage = () => {
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChampionModal, setShowChampionModal] = useState(false);
-  const { data: coinTransactions = [] } = useCoinTransactions(!profile?.is_coach ? user?.id : undefined);
+  const { data: coinTransactions = [] } = useCoinTransactions(
+    !profile?.is_coach ? user?.id : undefined,
+  );
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -69,7 +76,9 @@ const ProfilePage = () => {
     badge: Badge;
     isEarned: boolean;
   } | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<ArchivedSeason | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<ArchivedSeason | null>(
+    null,
+  );
 
   const { data: archivedSeasons = [] } = useArchivedSeasons(profile?.team_id);
 
@@ -222,15 +231,26 @@ const ProfilePage = () => {
                 .eq('id', teamId);
               if (error) throw error;
               if (count === 0) {
-                Alert.alert('Error', 'Delete was blocked — check Supabase RLS policies for the teams table.');
+                Alert.alert(
+                  'Error',
+                  'Delete was blocked — check Supabase RLS policies for the teams table.',
+                );
                 return;
               }
-              queryClient.invalidateQueries({ queryKey: ['coach-teams', user?.id] });
-              queryClient.invalidateQueries({ queryKey: ['coach-team', teamId] });
+              queryClient.invalidateQueries({
+                queryKey: ['coach-teams', user?.id],
+              });
+              queryClient.invalidateQueries({
+                queryKey: ['coach-team', teamId],
+              });
               await Promise.all([refetchProfile(), refetchCoachTeams()]);
-              Alert.alert('Team Deleted', `"${teamName}" has been permanently deleted.`);
+              Alert.alert(
+                'Team Deleted',
+                `"${teamName}" has been permanently deleted.`,
+              );
             } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : 'Something went wrong.';
+              const msg =
+                err instanceof Error ? err.message : 'Something went wrong.';
               Alert.alert('Error', msg);
             }
           },
@@ -357,7 +377,9 @@ const ProfilePage = () => {
     user?.id,
   );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
-  const { data: challengeRecord = { wins: 0, losses: 0 } } = useChallengeRecord(user?.id);
+  const { data: challengeRecord = { wins: 0, losses: 0 } } = useChallengeRecord(
+    user?.id,
+  );
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
@@ -563,13 +585,16 @@ const ProfilePage = () => {
                 {/* View Roadmap button */}
                 <TouchableOpacity
                   style={styles.roadmapButton}
-                  onPress={() => router.push(`/(modals)/roadmap?level=${level}`)}
+                  onPress={() =>
+                    router.push(`/(modals)/roadmap?level=${level}`)
+                  }
                 >
                   <Ionicons name='map-outline' size={16} color='#ffb724' />
-                  <Text style={styles.roadmapButtonText}>View Level Roadmap</Text>
+                  <Text style={styles.roadmapButtonText}>
+                    View Level Roadmap
+                  </Text>
                   <Ionicons name='chevron-forward' size={16} color='#ffb724' />
                 </TouchableOpacity>
-
               </>
             )}
 
@@ -620,12 +645,18 @@ const ProfilePage = () => {
               {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
                 <View style={styles.challengeRecordRow}>
                   <View style={styles.lifetimeStat}>
-                    <Text style={styles.lifetimeStatValue}>{challengeRecord.wins}</Text>
+                    <Text style={styles.lifetimeStatValue}>
+                      {challengeRecord.wins}
+                    </Text>
                     <Text style={styles.lifetimeStatLabel}>Challenge Wins</Text>
                   </View>
                   <View style={styles.lifetimeStat}>
-                    <Text style={styles.lifetimeStatValue}>{challengeRecord.losses}</Text>
-                    <Text style={styles.lifetimeStatLabel}>Challenge Losses</Text>
+                    <Text style={styles.lifetimeStatValue}>
+                      {challengeRecord.losses}
+                    </Text>
+                    <Text style={styles.lifetimeStatLabel}>
+                      Challenge Losses
+                    </Text>
                   </View>
                 </View>
               )}
@@ -664,74 +695,89 @@ const ProfilePage = () => {
           )}
 
           {/* Training Levels Card - players only */}
-          {!profile?.is_coach && (<View style={styles.levelsCard}>
-            <Text style={styles.levelsTitle}>Training Levels</Text>
-            <Text style={styles.levelsSubtitle}>
-              Bill Beswick&apos;s performance philosophy. Your badge on the
-              leaderboard shows which level your touches put you at.
-            </Text>
+          {!profile?.is_coach && (
+            <View style={styles.levelsCard}>
+              <Text style={styles.levelsTitle}>Training Levels</Text>
+              <Text style={styles.levelsSubtitle}>
+                Bill Beswick&apos;s performance philosophy. Your badge on the
+                leaderboard shows which level your touches put you at.
+              </Text>
 
-            <View style={styles.levelRow}>
-              <View style={[styles.levelDot, { backgroundColor: '#D84315' }]} />
-              <View style={styles.levelInfo}>
-                <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#D84315' }]}>
-                    Train to Dominate
-                  </Text>
-                  <Text style={styles.levelThreshold}>2,500+ touches</Text>
-                </View>
-                <Text style={styles.levelDescription}>
-                  Exceptional athletes whose training ensures winning is
-                  inevitable.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.levelRow}>
-              <View style={[styles.levelDot, { backgroundColor: '#1565C0' }]} />
-              <View style={styles.levelInfo}>
-                <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#1565C0' }]}>
-                    Train to Win
-                  </Text>
-                  <Text style={styles.levelThreshold}>
-                    1,000 – 2,499 touches
+              <View style={styles.levelRow}>
+                <View
+                  style={[styles.levelDot, { backgroundColor: '#D84315' }]}
+                />
+                <View style={styles.levelInfo}>
+                  <View style={styles.levelNameRow}>
+                    <Text style={[styles.levelName, { color: '#D84315' }]}>
+                      Train to Dominate
+                    </Text>
+                    <Text style={styles.levelThreshold}>2,500+ touches</Text>
+                  </View>
+                  <Text style={styles.levelDescription}>
+                    Exceptional athletes whose training ensures winning is
+                    inevitable.
                   </Text>
                 </View>
-                <Text style={styles.levelDescription}>
-                  Athletes committed to winning on match day.
-                </Text>
               </View>
-            </View>
 
-            <View style={[styles.levelRow, { marginBottom: 0 }]}>
-              <View style={[styles.levelDot, { backgroundColor: '#78909C' }]} />
-              <View style={styles.levelInfo}>
-                <View style={styles.levelNameRow}>
-                  <Text style={[styles.levelName, { color: '#78909C' }]}>
-                    Turn Up
+              <View style={styles.levelRow}>
+                <View
+                  style={[styles.levelDot, { backgroundColor: '#1565C0' }]}
+                />
+                <View style={styles.levelInfo}>
+                  <View style={styles.levelNameRow}>
+                    <Text style={[styles.levelName, { color: '#1565C0' }]}>
+                      Train to Win
+                    </Text>
+                    <Text style={styles.levelThreshold}>
+                      1,000 – 2,499 touches
+                    </Text>
+                  </View>
+                  <Text style={styles.levelDescription}>
+                    Athletes committed to winning on match day.
                   </Text>
-                  <Text style={styles.levelThreshold}>Under 1,000 touches</Text>
                 </View>
-                <Text style={styles.levelDescription}>
-                  Athletes who show up and do the required work.
-                </Text>
+              </View>
+
+              <View style={[styles.levelRow, { marginBottom: 0 }]}>
+                <View
+                  style={[styles.levelDot, { backgroundColor: '#78909C' }]}
+                />
+                <View style={styles.levelInfo}>
+                  <View style={styles.levelNameRow}>
+                    <Text style={[styles.levelName, { color: '#78909C' }]}>
+                      Turn Up
+                    </Text>
+                    <Text style={styles.levelThreshold}>
+                      Under 1,000 touches
+                    </Text>
+                  </View>
+                  <Text style={styles.levelDescription}>
+                    Athletes who show up and do the required work.
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>)}
+          )}
 
           {/* Team Cards - coaches only (one per coached team) */}
           {profile?.is_coach && user?.id && (
             <>
               {coachTeams.map((team) => (
-                <TeamCodeCard key={team.id} teamId={team.id} userId={user.id} onDelete={handleDeleteTeam} />
+                <TeamCodeCard
+                  key={team.id}
+                  teamId={team.id}
+                  userId={user.id}
+                  onDelete={handleDeleteTeam}
+                />
               ))}
               <TouchableOpacity
                 style={styles.createTeamBtn}
                 onPress={() => router.push('/(modals)/create-team')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#1f89ee" />
+                <Ionicons name='add-circle-outline' size={20} color='#1f89ee' />
                 <Text style={styles.createTeamBtnText}>Create New Team</Text>
               </TouchableOpacity>
             </>
@@ -763,8 +809,16 @@ const ProfilePage = () => {
             <View style={styles.pastSeasonsCard}>
               <Text style={styles.pastSeasonsTitle}>Past Seasons</Text>
               {archivedSeasons.map((season) => {
-                const start = new Date(season.season_start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                const end = new Date(season.season_end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const start = new Date(
+                  season.season_start_date,
+                ).toLocaleDateString('en-US', {
+                  month: 'short',
+                  year: 'numeric',
+                });
+                const end = new Date(season.season_end_date).toLocaleDateString(
+                  'en-US',
+                  { month: 'short', year: 'numeric' },
+                );
                 const top3 = season.player_standings.slice(0, 3);
                 return (
                   <TouchableOpacity
@@ -774,17 +828,29 @@ const ProfilePage = () => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.pastSeasonLeft}>
-                      <Text style={styles.pastSeasonNumber}>Season {season.season_number}</Text>
-                      <Text style={styles.pastSeasonDates}>{start} – {end}</Text>
+                      <Text style={styles.pastSeasonNumber}>
+                        Season {season.season_number}
+                      </Text>
+                      <Text style={styles.pastSeasonDates}>
+                        {start} – {end}
+                      </Text>
                       {top3.length > 0 && (
                         <Text style={styles.pastSeasonTop} numberOfLines={1}>
-                          {top3.map((p, i) => `${['🥇','🥈','🥉'][i]} ${p.name}`).join('  ')}
+                          {top3
+                            .map((p, i) => `${['🥇', '🥈', '🥉'][i]} ${p.name}`)
+                            .join('  ')}
                         </Text>
                       )}
                     </View>
                     <View style={styles.pastSeasonRight}>
-                      <Text style={styles.pastSeasonLevel}>Lv {season.final_team_level}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#78909C" />
+                      <Text style={styles.pastSeasonLevel}>
+                        Lv {season.final_team_level}
+                      </Text>
+                      <Ionicons
+                        name='chevron-forward'
+                        size={16}
+                        color='#78909C'
+                      />
                     </View>
                   </TouchableOpacity>
                 );
@@ -809,7 +875,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowChampionModal(false)}
         >
           <View style={styles.settingsOverlay}>
-            <View style={[styles.championSheet, { paddingBottom: insets.bottom + 24 }]}>
+            <View
+              style={[
+                styles.championSheet,
+                { paddingBottom: insets.bottom + 24 },
+              ]}
+            >
               <View style={styles.settingsSheetHandle} />
               <TouchableOpacity
                 style={styles.settingsSheetClose}
@@ -825,10 +896,14 @@ const ProfilePage = () => {
               <Text style={styles.championSheetSubtitle}>points earned</Text>
 
               <View style={styles.championComingSoonBox}>
-                <Text style={styles.championComingSoonTitle}>Rewards Shop — Coming Soon</Text>
+                <Text style={styles.championComingSoonTitle}>
+                  Rewards Shop — Coming Soon
+                </Text>
                 <Text style={styles.championComingSoonBody}>
-                  Your coach awards Champion Points for effort, improvement, and great training days.
-                  Soon you&apos;ll be able to spend them on rewards your coach sets up — extra challenges, custom badges, and more.
+                  Your coach awards Champion Points for effort, improvement, and
+                  great training days. Soon you&apos;ll be able to spend them on
+                  rewards your coach sets up — extra challenges, custom badges,
+                  and more.
                 </Text>
               </View>
 
@@ -842,19 +917,29 @@ const ProfilePage = () => {
                     {coinTransactions.map((tx) => {
                       const coachName =
                         tx.coach?.display_name || tx.coach?.name || 'Coach';
-                      const date = new Date(tx.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      });
+                      const date = new Date(tx.created_at).toLocaleDateString(
+                        'en-US',
+                        {
+                          month: 'short',
+                          day: 'numeric',
+                        },
+                      );
                       return (
                         <View key={tx.id} style={styles.championTxRow}>
                           <View style={styles.championTxLeft}>
-                            <Text style={styles.championTxAmount}>+{tx.amount}</Text>
+                            <Text style={styles.championTxAmount}>
+                              +{tx.amount}
+                            </Text>
                             <View>
-                              <Text style={styles.championTxNote} numberOfLines={1}>
+                              <Text
+                                style={styles.championTxNote}
+                                numberOfLines={1}
+                              >
                                 {tx.note || `Awarded by ${coachName}`}
                               </Text>
-                              <Text style={styles.championTxDate}>{date} · {coachName}</Text>
+                              <Text style={styles.championTxDate}>
+                                {date} · {coachName}
+                              </Text>
                             </View>
                           </View>
                           <Text style={styles.championTxTrophy}>🏆</Text>
@@ -1042,7 +1127,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.2.5</Text>
+                <Text style={styles.version}>Version 2.2.22</Text>
               </ScrollView>
             </View>
           </View>
@@ -1059,14 +1144,28 @@ const ProfilePage = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.changePasswordOverlay}
           >
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowChangePasswordModal(false)} />
-            <View style={[styles.changePasswordSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setShowChangePasswordModal(false)}
+            />
+            <View
+              style={[
+                styles.changePasswordSheet,
+                { paddingBottom: insets.bottom + 16 },
+              ]}
+            >
               <View style={styles.sheetHandle} />
-              <TouchableOpacity style={styles.sheetClose} onPress={() => setShowChangePasswordModal(false)}>
+              <TouchableOpacity
+                style={styles.sheetClose}
+                onPress={() => setShowChangePasswordModal(false)}
+              >
                 <Ionicons name='close' size={20} color='#6B7280' />
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>Change Password</Text>
-              <Text style={styles.sheetSubtitle}>Choose a new password for your account</Text>
+              <Text style={styles.sheetSubtitle}>
+                Choose a new password for your account
+              </Text>
 
               <TextInput
                 style={styles.sheetInput}
@@ -1087,14 +1186,19 @@ const ProfilePage = () => {
               />
 
               <TouchableOpacity
-                style={[styles.sheetSaveButton, changingPassword && { opacity: 0.5 }]}
+                style={[
+                  styles.sheetSaveButton,
+                  changingPassword && { opacity: 0.5 },
+                ]}
                 onPress={handleChangePassword}
                 disabled={changingPassword}
               >
                 {changingPassword ? (
                   <ActivityIndicator color='#FFF' />
                 ) : (
-                  <Text style={styles.sheetSaveButtonText}>Update Password</Text>
+                  <Text style={styles.sheetSaveButtonText}>
+                    Update Password
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

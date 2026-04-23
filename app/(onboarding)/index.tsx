@@ -830,7 +830,7 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={s.screen}
+        contentContainerStyle={s.scrollContent}
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
