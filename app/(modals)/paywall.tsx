@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -264,6 +265,16 @@ export default function Paywall() {
           {'\n'}Subscriptions renew automatically. Manage in App Store Settings.
         </Text>
 
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.notion.so/Master-Touch-Privacy-Policy-2e56b6912afb802fa2ebd2ceb9a50b2c')}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalLinkSeparator}>·</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+            <Text style={styles.legalLink}>Terms of Use</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Restore */}
         <TouchableOpacity onPress={handleRestore} disabled={restoring} style={styles.restoreButton}>
           {restoring ? (
@@ -519,6 +530,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     lineHeight: 17,
     marginBottom: 16,
+  },
+
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  legalLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
+    color: '#78909C',
   },
 
   // RESTORE
