@@ -39,15 +39,27 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
 
   const memberIds = teamMembers.map((m) => m.id);
 
-  // No date filter on the query — each stat scopes its own date range in JS.
-  // alltime_best_week needs full history; weekly/lastWeek filter themselves below.
-  const sessionsQuery = supabase
-    .from('daily_sessions')
-    .select('user_id, touches_logged, date')
-    .in('user_id', memberIds);
-
-  const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
-    sessionsQuery,
+  // Split into two queries:
+  // 1. Recent sessions (last 14 days) for today/week/last_week — always small
+  // 2. All sessions with a high explicit limit for alltime_best_week.
+  //    Without an explicit limit, PostgREST silently caps at 1000 rows, which
+  //    causes players with older history to show 0 on the All Time tab.
+  const [
+    { data: recentSessionsRaw },
+    { data: allSessionsRaw },
+    { data: allTargetsRaw },
+  ] = await Promise.all([
+    supabase
+      .from('daily_sessions')
+      .select('user_id, touches_logged, date')
+      .in('user_id', memberIds)
+      .gte('date', lastWeekStart)
+      .lte('date', today),
+    supabase
+      .from('daily_sessions')
+      .select('user_id, touches_logged, date')
+      .in('user_id', memberIds)
+      .limit(50000),
     supabase
       .from('user_targets')
       .select('user_id, daily_target_touches')
@@ -59,29 +71,36 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     targetByMember[t.user_id] = t.daily_target_touches;
   }
 
-  const sessionsByMember: Record<string, { touches_logged: number; date: string }[]> = {};
+  const recentByMember: Record<string, { touches_logged: number; date: string }[]> = {};
+  for (const s of recentSessionsRaw || []) {
+    if (!recentByMember[s.user_id]) recentByMember[s.user_id] = [];
+    recentByMember[s.user_id].push(s);
+  }
+
+  const allByMember: Record<string, { touches_logged: number; date: string }[]> = {};
   for (const s of allSessionsRaw || []) {
-    if (!sessionsByMember[s.user_id]) sessionsByMember[s.user_id] = [];
-    sessionsByMember[s.user_id].push(s);
+    if (!allByMember[s.user_id]) allByMember[s.user_id] = [];
+    allByMember[s.user_id].push(s);
   }
 
   const memberStats: TeamMemberStats[] = teamMembers.map((member) => {
-    const sessions = sessionsByMember[member.id] || [];
+    const recent = recentByMember[member.id] || [];
+    const all = allByMember[member.id] || [];
 
-    const today_touches = sessions
+    const today_touches = recent
       .filter((s) => s.date === today)
       .reduce((sum, s) => sum + s.touches_logged, 0);
 
-    const weekly_touches = sessions
+    const weekly_touches = recent
       .filter((s) => s.date >= weekStartDate && s.date <= today)
       .reduce((sum, s) => sum + s.touches_logged, 0);
 
-    const last_week_touches = sessions
+    const last_week_touches = recent
       .filter((s) => s.date >= lastWeekStart && s.date <= lastWeekEnd)
       .reduce((sum, s) => sum + s.touches_logged, 0);
 
     const weekTotals: Record<string, number> = {};
-    for (const s of sessions) {
+    for (const s of all) {
       const d = new Date(s.date + 'T00:00:00');
       d.setDate(d.getDate() - d.getDay());
       const wk = getLocalDate(d);

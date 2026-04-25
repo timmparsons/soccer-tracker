@@ -68,7 +68,7 @@ export default function CoachDashboard() {
     if (!subLoading && !isCoach) {
       router.replace({ pathname: '/(modals)/paywall', params: { tab: 'coach' } });
     }
-  }, [subLoading, isCoach, router]);
+  }, [subLoading, isCoach]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);

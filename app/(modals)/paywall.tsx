@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Purchases, { PurchasesOffering } from 'react-native-purchases';
 import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 const PRO_FEATURES = [
   { icon: '📊', label: 'Monthly progress charts' },
@@ -104,6 +105,10 @@ export default function Paywall() {
     }
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   const handleRestore = async () => {
     setRestoring(true);
     try {
@@ -132,7 +137,7 @@ export default function Paywall() {
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
         {/* Header */}
         <LinearGradient colors={['#1f89ee', '#1a1a2e']} style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/index')}>
             <Ionicons name='close' size={22} color='rgba(255,255,255,0.8)' />
           </TouchableOpacity>
           <Text style={styles.crown}>👑</Text>
@@ -282,6 +287,10 @@ export default function Paywall() {
           ) : (
             <Text style={styles.restoreText}>Restore Purchases</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
+          <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -560,5 +569,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
     textDecorationLine: 'underline',
+  },
+  signOutButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  signOutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
   },
 });
