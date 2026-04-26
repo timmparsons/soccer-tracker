@@ -1144,7 +1144,6 @@ const ProfilePage = () => {
                 <Text style={styles.version}>Version 2.2.23</Text>
               </ScrollView>
             </View>
-            tt
           </View>
         </Modal>
 
