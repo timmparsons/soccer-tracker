@@ -1077,6 +1077,20 @@ const ProfilePage = () => {
                   </View>
                 )}
 
+                {/* Admin — only visible to admins */}
+                {profile?.is_admin && (
+                  <TouchableOpacity
+                    style={styles.adminButton}
+                    onPress={() => {
+                      setShowSettingsModal(false);
+                      router.push('/(modals)/admin');
+                    }}
+                  >
+                    <Ionicons name='shield-checkmark' size={20} color='#FFF' />
+                    <Text style={styles.adminButtonText}>Admin Dashboard</Text>
+                  </TouchableOpacity>
+                )}
+
                 {/* Actions */}
                 <View style={styles.actionsCard}>
                   <TouchableOpacity
@@ -1768,6 +1782,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    shadowColor: '#1a1a2e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  adminButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 0.3,
   },
 
   // ACTIONS CARD

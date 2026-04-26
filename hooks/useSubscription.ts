@@ -36,6 +36,11 @@ export function useSubscription() {
     return { isPremium, isCoach, isLoading: false };
   }
 
+  // Admins bypass all subscription gates — useful for testing before products are live
+  if (profile?.is_admin === true) {
+    return { isPremium: true, isCoach: true, isLoading: false };
+  }
+
   // is_premium in Supabase profile acts as a grandfather/manual override
   const grandfathered = profile?.is_premium === true;
   const isCoach = data?.isCoach ?? false;
