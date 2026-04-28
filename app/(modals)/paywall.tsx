@@ -201,7 +201,8 @@ export default function Paywall() {
                   {selectedPlan === 'annual' && <View style={styles.planRadioInner} />}
                 </View>
                 <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Annual</Text>
+                  <Text style={styles.planName}>Master Touch Pro — Annual</Text>
+                  <Text style={styles.planDescription}>1-year subscription · Full access to all Pro features</Text>
                   <Text style={styles.planBilling}>{annualPrice} / year</Text>
                 </View>
                 <Text style={styles.planPriceMonthly}>
@@ -210,7 +211,7 @@ export default function Paywall() {
                     : '~$2.92/mo'}
                 </Text>
               </View>
-              <Text style={styles.planTrialNote}>7-day free trial</Text>
+              <Text style={styles.planTrialNote}>7-day free trial, then {annualPrice}/year</Text>
             </TouchableOpacity>
 
             {/* Monthly */}
@@ -224,11 +225,12 @@ export default function Paywall() {
                   {selectedPlan === 'monthly' && <View style={styles.planRadioInner} />}
                 </View>
                 <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Monthly</Text>
+                  <Text style={styles.planName}>Master Touch Pro — Monthly</Text>
+                  <Text style={styles.planDescription}>1-month subscription · Full access to all Pro features</Text>
                   <Text style={styles.planBilling}>{proMonthlyPrice} / month</Text>
                 </View>
               </View>
-              <Text style={styles.planTrialNote}>7-day free trial</Text>
+              <Text style={styles.planTrialNote}>7-day free trial, then {proMonthlyPrice}/month</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -240,11 +242,12 @@ export default function Paywall() {
                   <View style={styles.planRadioInner} />
                 </View>
                 <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Coach Monthly</Text>
+                  <Text style={styles.planName}>Master Touch Coach — Monthly</Text>
+                  <Text style={styles.planDescription}>1-month subscription · Full team management access</Text>
                   <Text style={styles.planBilling}>{coachMonthlyPrice} / month</Text>
                 </View>
               </View>
-              <Text style={styles.planTrialNote}>7-day free trial</Text>
+              <Text style={styles.planTrialNote}>7-day free trial, then {coachMonthlyPrice}/month</Text>
             </View>
           </View>
         )}
@@ -265,9 +268,11 @@ export default function Paywall() {
 
         <Text style={styles.legalText}>
           {activeTab === 'pro' && selectedPlan === 'annual'
-            ? 'Start your 7-day free trial. Cancel anytime before trial ends.'
-            : 'Start your 7-day free trial. Billed monthly. Cancel anytime.'}
-          {'\n'}Subscriptions renew automatically. Manage in App Store Settings.
+            ? `Master Touch Pro — Annual (${annualPrice}/year). After your 7-day free trial, your subscription automatically renews at ${annualPrice}/year unless cancelled at least 24 hours before the renewal date.`
+            : activeTab === 'pro'
+            ? `Master Touch Pro — Monthly (${proMonthlyPrice}/month). After your 7-day free trial, your subscription automatically renews at ${proMonthlyPrice}/month unless cancelled at least 24 hours before the renewal date.`
+            : `Master Touch Coach — Monthly (${coachMonthlyPrice}/month). After your 7-day free trial, your subscription automatically renews at ${coachMonthlyPrice}/month unless cancelled at least 24 hours before the renewal date.`}
+          {'\n'}Manage or cancel anytime in App Store Settings.
         </Text>
 
         <View style={styles.legalLinks}>
@@ -487,6 +492,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     color: '#1a1a2e',
+  },
+  planDescription: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#78909C',
+    marginTop: 2,
+    marginBottom: 1,
   },
   planBilling: {
     fontSize: 13,
