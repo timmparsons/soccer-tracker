@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -65,9 +66,25 @@ const ProfilePage = () => {
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChampionModal, setShowChampionModal] = useState(false);
+  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null>(null);
   const { data: coinTransactions = [] } = useCoinTransactions(
     !profile?.is_coach ? user?.id : undefined,
   );
+
+  useEffect(() => {
+    AsyncStorage.getItem('lastSeenCoinsAt').then((val) => setLastSeenCoinsAt(val));
+  }, []);
+
+  const hasUnreadCoins =
+    coinTransactions.length > 0 &&
+    (lastSeenCoinsAt === null || coinTransactions[0].created_at > lastSeenCoinsAt);
+
+  const openChampionModal = () => {
+    const now = new Date().toISOString();
+    setLastSeenCoinsAt(now);
+    AsyncStorage.setItem('lastSeenCoinsAt', now);
+    setShowChampionModal(true);
+  };
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -507,11 +524,12 @@ const ProfilePage = () => {
             {!profile?.is_coach && (
               <TouchableOpacity
                 style={styles.championPointsButton}
-                onPress={() => setShowChampionModal(true)}
+                onPress={openChampionModal}
               >
                 <Text style={styles.championPointsText}>
                   🏆 {(profile?.coins ?? 0).toLocaleString()}
                 </Text>
+                {hasUnreadCoins && <View style={styles.coinUnreadDot} />}
               </TouchableOpacity>
             )}
             <View style={styles.avatarContainer}>
@@ -1871,6 +1889,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#92400E',
+  },
+  coinUnreadDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFF9E6',
   },
   championSheet: {
     backgroundColor: '#FFF',

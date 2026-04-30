@@ -6,6 +6,7 @@ import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -39,8 +40,9 @@ const HomeScreen = () => {
         { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `player_id=eq.${user.id}` },
         (payload) => {
           if (!mountedRef.current) return;
-          const { amount, note } = payload.new as { amount: number; note: string | null };
+          const { amount, note, created_at } = payload.new as { amount: number; note: string | null; created_at: string };
           setBanner({ amount, note });
+          AsyncStorage.setItem('lastSeenCoinsAt', created_at);
           queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
           queryClient.invalidateQueries({ queryKey: ['coin-transactions', user.id] });
         },
