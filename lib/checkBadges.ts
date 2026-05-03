@@ -62,6 +62,52 @@ export async function checkAndAwardBadges(
     context.durationMinutes !== null && context.durationMinutes >= 30,
   );
 
+  // Sky High badges — 3 consecutive days of new juggling PBs, tiered by final count
+  const missingSkyHigh = ['perf_sky_high_bronze', 'perf_sky_high_silver', 'perf_sky_high_gold']
+    .filter((id) => !earned.has(id));
+
+  if (missingSkyHigh.length > 0) {
+    const { data: juggleSessions } = await supabase
+      .from('daily_sessions')
+      .select('juggle_count, date')
+      .eq('user_id', userId)
+      .not('juggle_count', 'is', null)
+      .gt('juggle_count', 0)
+      .order('date', { ascending: true });
+
+    const dailyMax = new Map<string, number>();
+    for (const s of juggleSessions ?? []) {
+      const cur = dailyMax.get(s.date) ?? 0;
+      if ((s.juggle_count ?? 0) > cur) dailyMax.set(s.date, s.juggle_count!);
+    }
+
+    const days = [...dailyMax.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+    let skyStreak = 0;
+    let skyAllTimePB = 0;
+    let skyPrevDate: string | null = null;
+    let bronzeQ = false, silverQ = false, goldQ = false;
+
+    for (const [date, max] of days) {
+      if (max > skyAllTimePB) {
+        skyStreak =
+          skyPrevDate !== null && dayDiff(skyPrevDate, date) === 1 ? skyStreak + 1 : 1;
+        skyAllTimePB = max;
+        skyPrevDate = date;
+        if (skyStreak >= 3) {
+          if (max >= 20) bronzeQ = true;
+          if (max >= 50) silverQ = true;
+          if (max >= 100) goldQ = true;
+          if (goldQ) break;
+        }
+      }
+    }
+
+    candidate('perf_sky_high_bronze', bronzeQ);
+    candidate('perf_sky_high_silver', silverQ);
+    candidate('perf_sky_high_gold', goldQ);
+  }
+
   // Social badges
   candidate('social_team', context.teamId !== null);
 
@@ -134,6 +180,12 @@ export async function checkAndAwardBadges(
   }
 
   return toAward;
+}
+
+function dayDiff(a: string, b: string): number {
+  return Math.round(
+    (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86_400_000,
+  );
 }
 
 // Called from the leaderboard after data loads to record last week's winner.
