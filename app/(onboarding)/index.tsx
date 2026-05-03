@@ -12,6 +12,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -834,50 +835,72 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
-        <Text style={s.title}>Create your account</Text>
-        <Text style={s.subtitle}>Save your progress and join the leaderboard</Text>
-
-        <View style={s.signupField}>
-          <Text style={s.signupLabel}>Email</Text>
-          <TextInput
-            style={s.signupInput}
-            value={email}
-            onChangeText={onChangeEmail}
-            placeholder='you@example.com'
-            placeholderTextColor='#B0BEC5'
-            autoCapitalize='none'
-            keyboardType='email-address'
-            autoCorrect={false}
-          />
+        <View style={s.signupHeader}>
+          <View style={s.signupLogoCircle}>
+            <Image
+              source={require('../../assets/images/app-logo-transparent.png')}
+              style={s.signupLogo}
+            />
+          </View>
+          <Text style={s.title}>Create your account</Text>
+          <Text style={s.subtitle}>Save your progress and join the leaderboard</Text>
         </View>
 
-        <View style={s.signupField}>
-          <Text style={s.signupLabel}>Password</Text>
-          <TextInput
-            style={s.signupInput}
-            value={password}
-            onChangeText={onChangePassword}
-            placeholder='At least 6 characters'
-            placeholderTextColor='#B0BEC5'
-            secureTextEntry
-          />
+        <View style={s.signupCard}>
+          <View style={s.signupField}>
+            <Text style={s.signupLabel}>Email</Text>
+            <View style={s.signupInputRow}>
+              <Ionicons name='mail-outline' size={20} color='#78909C' />
+              <TextInput
+                style={s.signupInput}
+                value={email}
+                onChangeText={onChangeEmail}
+                placeholder='you@example.com'
+                placeholderTextColor='#B0BEC5'
+                autoCapitalize='none'
+                keyboardType='email-address'
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          <View style={s.signupField}>
+            <Text style={s.signupLabel}>Password</Text>
+            <View style={s.signupInputRow}>
+              <Ionicons name='lock-closed-outline' size={20} color='#78909C' />
+              <TextInput
+                style={s.signupInput}
+                value={password}
+                onChangeText={onChangePassword}
+                placeholder='At least 6 characters'
+                placeholderTextColor='#B0BEC5'
+                secureTextEntry
+              />
+            </View>
+          </View>
+
+          {error && <Text style={s.signupError}>{error}</Text>}
+
+          <TouchableOpacity
+            style={[s.signupBtn, (loading || !email.trim() || !password) && s.signupBtnDisabled]}
+            onPress={handleCreate}
+            disabled={loading || !email.trim() || !password}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color='#1a1a2e' />
+              : <Text style={s.signupBtnText}>Create Account</Text>
+            }
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.signupSignInLink}
+            onPress={() => router.replace('/(auth)')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={s.signupSignInText}>Already have an account? <Text style={{ color: '#1f89ee' }}>Sign in</Text></Text>
+          </TouchableOpacity>
         </View>
-
-        {error && <Text style={s.signupError}>{error}</Text>}
-
-        <PrimaryButton
-          label={loading ? 'Creating account…' : 'Create Account'}
-          onPress={handleCreate}
-          disabled={loading}
-        />
-
-        <TouchableOpacity
-          style={s.signupSignInLink}
-          onPress={() => router.replace('/(auth)')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={s.signupSignInText}>Already have an account? <Text style={{ color: '#1f89ee' }}>Sign in</Text></Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -1203,30 +1226,93 @@ const s = StyleSheet.create({
   },
 
   // SIGN UP SCREEN
+  signupHeader: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  signupLogoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  signupLogo: {
+    width: 64,
+    height: 64,
+  },
+  signupCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
+  },
   signupField: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   signupLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1a1a2e',
-    marginBottom: 6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  signupInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#E8EAF6',
+    paddingHorizontal: 16,
+    gap: 12,
   },
   signupInput: {
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    flex: 1,
+    paddingVertical: 16,
     fontSize: 16,
     color: '#1a1a2e',
-    backgroundColor: '#FAFAFA',
+    fontWeight: '600',
   },
   signupError: {
     color: '#E53935',
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
+  },
+  signupBtn: {
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: '#ffb724',
+    paddingVertical: 18,
+    alignItems: 'center',
+    shadowColor: '#ffb724',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  signupBtnDisabled: {
+    opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  signupBtnText: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    letterSpacing: 0.5,
   },
   signupSignInLink: {
     marginTop: 20,
@@ -1235,6 +1321,7 @@ const s = StyleSheet.create({
   signupSignInText: {
     fontSize: 14,
     color: '#78909C',
+    fontWeight: '600',
   },
 
   // PRIMARY BUTTON
