@@ -211,7 +211,9 @@ export default function RootLayout() {
       }
 
       if (!session && Platform.OS !== 'web') {
-        Purchases.logOut().catch(() => {});
+        Purchases.isAnonymous().then((anon) => {
+          if (!anon) Purchases.logOut().catch(() => {});
+        }).catch(() => {});
       }
       setSession(session);
     });
