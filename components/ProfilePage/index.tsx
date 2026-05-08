@@ -66,7 +66,7 @@ const ProfilePage = () => {
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChampionModal, setShowChampionModal] = useState(false);
-  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null>(null);
+  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null | undefined>(undefined);
   const { data: coinTransactions = [] } = useCoinTransactions(
     !profile?.is_coach ? user?.id : undefined,
   );
@@ -76,6 +76,7 @@ const ProfilePage = () => {
   }, []);
 
   const hasUnreadCoins =
+    lastSeenCoinsAt !== undefined &&
     coinTransactions.length > 0 &&
     (lastSeenCoinsAt === null || coinTransactions[0].created_at > lastSeenCoinsAt);
 
@@ -195,7 +196,7 @@ const ProfilePage = () => {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: 'local' });
         },
       },
     ]);

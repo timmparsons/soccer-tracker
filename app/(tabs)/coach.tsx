@@ -715,8 +715,13 @@ export default function CoachDashboard() {
                     const activeChallenge = coachChallenges.find(
                       (c) => c.player_id === player.id && c.status === 'active',
                     );
+                    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
                     const recentCompleted = coachChallenges.find(
-                      (c) => c.player_id === player.id && c.status === 'completed' && c.completed_at,
+                      (c) =>
+                        c.player_id === player.id &&
+                        c.status === 'completed' &&
+                        c.completed_at &&
+                        new Date(c.completed_at).getTime() > sevenDaysAgo,
                     );
                     const hasActiveChallenge = !!activeChallenge;
                     return (
