@@ -189,17 +189,20 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut({ scope: 'local' });
+  const handleSignOut = () => {
+    setShowSettingsModal(false);
+    setTimeout(() => {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.auth.signOut({ scope: 'local' });
+          },
         },
-      },
-    ]);
+      ]);
+    }, 350);
   };
 
   const handleDeleteAccount = () => {

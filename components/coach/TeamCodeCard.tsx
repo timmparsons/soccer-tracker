@@ -1,4 +1,4 @@
-import { useStartNewSeason } from '@/hooks/useSeasons';
+import { useEndSeason, useStartNewSeason } from '@/hooks/useSeasons';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -36,6 +36,7 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
   const [addPlayerSaving, setAddPlayerSaving] = useState(false);
   const [newSeasonCode, setNewSeasonCode] = useState<string | null>(null);
   const { mutateAsync: startNewSeason, isPending: startingNewSeason } = useStartNewSeason();
+  const { mutateAsync: endSeason, isPending: endingSeason } = useEndSeason();
 
   const { data: team } = useQuery({
     queryKey: ['coach-team', teamId],
@@ -140,6 +141,34 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
     );
   };
 
+  const handleEndSeason = () => {
+    if (!team) return;
+    Alert.alert(
+      'End Season?',
+      `This will archive Season ${team.season_number ?? 1} with final standings, remove all players from the team, and generate a new join code for your new squad.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Season',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { newCode } = await endSeason({
+                teamId: team.id,
+                currentSeasonNumber: team.season_number ?? 1,
+                currentSeasonStartDate: team.season_start_date ?? team.created_at,
+              });
+              setNewSeasonCode(newCode);
+              queryClient.invalidateQueries({ queryKey: ['coach-team', teamId] });
+            } catch {
+              Alert.alert('Error', 'Failed to end season. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <>
       <View style={styles.card}>
@@ -200,6 +229,21 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
             <>
               <Ionicons name="refresh-circle-outline" size={18} color="#1f89ee" />
               <Text style={styles.newSeasonBtnText}>Start New Season</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.endSeasonBtn, endingSeason && styles.newSeasonBtnDisabled]}
+          onPress={handleEndSeason}
+          disabled={endingSeason}
+        >
+          {endingSeason ? (
+            <ActivityIndicator size="small" color="#ffb724" />
+          ) : (
+            <>
+              <Ionicons name="flag-outline" size={18} color="#ffb724" />
+              <Text style={styles.endSeasonBtnText}>End Season</Text>
             </>
           )}
         </TouchableOpacity>
@@ -419,6 +463,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFF',
+  },
+  endSeasonBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+    borderStyle: 'dashed',
+  },
+  endSeasonBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffb724',
   },
   deleteTeamBtn: {
     flexDirection: 'row',

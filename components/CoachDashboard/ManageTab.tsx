@@ -1,6 +1,6 @@
 import { useCoachTeamPlayerCounts } from '@/hooks/useCoachTeamPlayerCounts';
 import { useCoachTeams, type CoachTeam } from '@/hooks/useCoachTeams';
-import { useStartNewSeason } from '@/hooks/useSeasons';
+import { useEndSeason, useStartNewSeason } from '@/hooks/useSeasons';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,7 @@ function TeamCardItem({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { mutateAsync: startNewSeason, isPending: startingNewSeason } = useStartNewSeason();
+  const { mutateAsync: endSeason, isPending: endingSeason } = useEndSeason();
 
   const [expanded, setExpanded] = useState(false);
   const [addPlayerVisible, setAddPlayerVisible] = useState(false);
@@ -172,6 +173,35 @@ function TeamCardItem({
               onArchived();
             } catch {
               Alert.alert('Error', 'Failed to archive team. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleEndSeason = () => {
+    Alert.alert(
+      'End Season?',
+      `This will archive Season ${team.season_number ?? 1} with final standings, remove all players from the team, and generate a new join code for your new squad.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Season',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { newCode, newSeasonNumber } = await endSeason({
+                teamId: team.id,
+                currentSeasonNumber: team.season_number ?? 1,
+                currentSeasonStartDate: team.season_start_date ?? team.created_at,
+              });
+              Alert.alert(
+                `Season ${(team.season_number ?? 1)} Ended`,
+                `Season archived with final standings.\n\nNew code for Season ${newSeasonNumber}:\n\n${newCode}\n\nShare this with your new squad.`,
+              );
+            } catch {
+              Alert.alert('Error', 'Failed to end season. Please try again.');
             }
           },
         },
@@ -336,6 +366,21 @@ function TeamCardItem({
                   <>
                     <Ionicons name="refresh-circle-outline" size={16} color="#1f89ee" />
                     <Text style={styles.newSeasonBtnText}>Start New Season</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.endSeasonBtn, endingSeason && styles.btnDisabled]}
+                onPress={handleEndSeason}
+                disabled={endingSeason}
+              >
+                {endingSeason ? (
+                  <ActivityIndicator size="small" color="#ffb724" />
+                ) : (
+                  <>
+                    <Ionicons name="flag-outline" size={16} color="#ffb724" />
+                    <Text style={styles.endSeasonBtnText}>End Season</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -760,6 +805,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  endSeasonBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+    borderStyle: 'dashed',
+  },
+  endSeasonBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffb724',
   },
   archiveBtn: {
     alignItems: 'center',
