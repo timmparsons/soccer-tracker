@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,34 +20,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Auth() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-
   const [loading, setLoading] = useState(false);
 
-  const toggleMode = () =>
-    setMode((prev) => (prev === 'signin' ? 'signup' : 'signin'));
-
-  // SIGN IN
   const signIn = async () => {
     if (!email || !password) {
       Alert.alert('Missing Fields', 'Please enter your email and password');
       return;
     }
-
     try {
       setLoading(true);
-
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
-
       if (error) throw error;
     } catch (err: any) {
       Alert.alert('Sign In Failed', err.message);
@@ -54,59 +44,17 @@ export default function Auth() {
     }
   };
 
-  // SIGN UP
-  const signUp = async () => {
-    if (!email || !password) {
-      Alert.alert('Missing Fields', 'Please enter your email and password');
-      return;
-    }
-
-    if (!firstName.trim()) {
-      Alert.alert('Missing Name', 'Please enter your first name');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            first_name: firstName.trim(),
-            last_name: lastName.trim() || null,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (!data.user) throw new Error('User creation failed');
-
-      // User is automatically signed in - auth state listener will redirect
-    } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // RESET PASSWORD
   const resetPassword = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       Alert.alert('Enter Email', 'Please enter your email address first');
       return;
     }
-
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        trimmedEmail,
-        {
-          redirectTo: 'mastertouch://',
-        },
-      );
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: 'mastertouch://',
+      });
       if (error) throw error;
       Alert.alert('Check Your Email', 'Password reset link has been sent.');
     } catch (err: any) {
@@ -115,6 +63,12 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  const handleCreateAccount = async () => {
+    await AsyncStorage.removeItem('hasSeenIntro');
+    router.replace('/(onboarding)');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -129,28 +83,17 @@ export default function Auth() {
           {/* HEADER */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Image
-                  source={require('../assets/images/app-logo-transparent.png')}
-                  style={styles.logo}
-                />
-              </View>
+              <Image
+                source={require('../assets/images/app-logo.png')}
+                style={styles.logo}
+              />
             </View>
-
-            <Text style={styles.title}>
-              {mode === 'signin' ? 'Welcome Back!' : 'Join the Team'}
-            </Text>
-
-            <Text style={styles.subtitle}>
-              {mode === 'signin'
-                ? 'Log in to track your progress'
-                : 'Start building your skills today'}
-            </Text>
+            <Text style={styles.title}>Welcome Back!</Text>
+            <Text style={styles.subtitle}>Log in to track your progress</Text>
           </View>
 
           {/* FORM CARD */}
           <View style={styles.card}>
-            {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.inputContainer}>
@@ -167,15 +110,10 @@ export default function Auth() {
               </View>
             </View>
 
-            {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password</Text>
               <View style={styles.inputContainer}>
-                <Ionicons
-                  name='lock-closed-outline'
-                  size={20}
-                  color='#78909C'
-                />
+                <Ionicons name='lock-closed-outline' size={20} color='#78909C' />
                 <TextInput
                   placeholder='Enter your password'
                   secureTextEntry
@@ -188,45 +126,9 @@ export default function Auth() {
               </View>
             </View>
 
-            {/* Sign Up Fields */}
-            {mode === 'signup' && (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>First Name</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name='person-outline' size={20} color='#78909C' />
-                    <TextInput
-                      placeholder='Enter your first name'
-                      autoCapitalize='words'
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      style={styles.input}
-                      placeholderTextColor='#B0BEC5'
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Last Name (Optional)</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name='person-outline' size={20} color='#78909C' />
-                    <TextInput
-                      placeholder='Enter your last name'
-                      autoCapitalize='words'
-                      value={lastName}
-                      onChangeText={setLastName}
-                      style={styles.input}
-                      placeholderTextColor='#B0BEC5'
-                    />
-                  </View>
-                </View>
-              </>
-            )}
-
-            {/* Submit Button */}
             <TouchableOpacity
               style={styles.submitButton}
-              onPress={mode === 'signin' ? signIn : signUp}
+              onPress={signIn}
               disabled={loading}
               activeOpacity={0.8}
             >
@@ -239,34 +141,24 @@ export default function Auth() {
                 {loading ? (
                   <ActivityIndicator color='#FFF' />
                 ) : (
-                  <Text style={styles.submitButtonText}>
-                    {mode === 'signin' ? 'Sign In' : 'Create Account'}
-                  </Text>
+                  <Text style={styles.submitButtonText}>Sign In</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Forgot Password */}
-            {mode === 'signin' && (
-              <TouchableOpacity
-                onPress={resetPassword}
-                style={styles.forgotButton}
-                disabled={loading}
-              >
-                <Text style={styles.forgotLink}>Forgot Password?</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              onPress={resetPassword}
+              style={styles.forgotButton}
+              disabled={loading}
+            >
+              <Text style={styles.forgotLink}>Forgot Password?</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* SWITCH MODE */}
-          <TouchableOpacity onPress={toggleMode} style={styles.switchContainer}>
+          <TouchableOpacity onPress={handleCreateAccount} style={styles.switchContainer}>
             <Text style={styles.switchText}>
-              {mode === 'signin'
-                ? "Don't have an account? "
-                : 'Already have an account? '}
-              <Text style={styles.switchLink}>
-                {mode === 'signin' ? 'Sign Up' : 'Sign In'}
-              </Text>
+              {'New to Master Touch? '}
+              <Text style={styles.switchLink}>Create account</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -289,8 +181,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-
-  // HEADER
   header: {
     alignItems: 'center',
     marginBottom: 32,
@@ -298,22 +188,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 24,
   },
-  logoCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   logo: {
-    width: 70,
-    height: 70,
+    width: 100,
+    height: 100,
+    borderRadius: 22,
   },
   title: {
     fontSize: 32,
@@ -327,8 +205,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-
-  // FORM CARD
   card: {
     backgroundColor: '#FFF',
     borderRadius: 24,
@@ -339,7 +215,6 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
-
   inputGroup: {
     marginBottom: 20,
   },
@@ -367,7 +242,6 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     fontWeight: '600',
   },
-
   submitButton: {
     marginTop: 8,
     borderRadius: 16,
@@ -388,7 +262,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-
   forgotButton: {
     marginTop: 20,
     alignSelf: 'center',
@@ -398,7 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-
   switchContainer: {
     marginTop: 28,
     alignItems: 'center',

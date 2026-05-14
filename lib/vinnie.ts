@@ -11,6 +11,7 @@ export interface VinnieContext {
   hour: number;
   dayOfWeek?: number; // 0=Sun, 1=Mon, ..., 6=Sat
   challengeStreak?: number;
+  skillFocus?: string | null;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -142,8 +143,46 @@ const MONDAY_MESSAGES: string[] = [
   "It's Monday — time to set the tone for the whole week. Train now!",
 ];
 
+const GOAL_MESSAGES: Record<string, string[]> = {
+  firsttouch: [
+    "Work that first touch. One soft cushion and you're already past the press.",
+    "First touch is where games are won and lost. Make yours automatic.",
+    "The best players kill the ball dead before anyone gets near them. That's your job today.",
+  ],
+  juggling: [
+    "Every juggle rep rewires your feet. Get after that personal best.",
+    "Your PB won't beat itself. Ten minutes on the ball and you'll be closer.",
+    "Juggling isn't a trick — it's ball mastery. The pros know that. Now you do too.",
+  ],
+  fitness: [
+    "Match fitness is built session by session, not in the week before the game.",
+    "The player who's still running in the 90th minute wins everything. Train for that.",
+    "Tired legs make bad decisions. Get your sessions in now so you're fresh when it counts.",
+  ],
+  compete: [
+    "Someone on your team is training right now. What are you doing about it?",
+    "Outworking your teammates starts today — not on match day.",
+    "The hardest worker in training becomes the first name on the team sheet. Be that player.",
+  ],
+  recruited: [
+    "Coaches notice who puts in the extra reps. Make sure there are extra reps to notice.",
+    "Your highlights are built in training. Get in the session.",
+    "Standing out isn't luck — it's the work you put in when nobody's watching.",
+  ],
+  habit: [
+    "Habits are built by showing up, not by waiting to feel ready.",
+    "One session today keeps the chain unbroken. Don't be the one who breaks it.",
+    "The best training habit is a simple one: show up every single day.",
+  ],
+};
+
 export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
-  const { trainedToday, streak, hour, dayOfWeek, challengeStreak = 0 } = ctx;
+  const { trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus } = ctx;
+
+  const encouragingPool =
+    skillFocus && GOAL_MESSAGES[skillFocus]
+      ? [...GOAL_MESSAGES[skillFocus], ...MESSAGES.encouraging]
+      : MESSAGES.encouraging;
 
   // Monday morning recap — special motivator at the start of the week
   if (dayOfWeek === 1 && !trainedToday && hour < 12) {
@@ -163,7 +202,7 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
 
     // Regular trainer: 25% chance of a skill tip to mix it up
     if (Math.random() < 0.25) {
-      return { mood: 'encouraging', message: pickRandom(MESSAGES.encouraging) };
+      return { mood: 'encouraging', message: pickRandom(encouragingPool) };
     }
 
     // Standard happy response
@@ -183,7 +222,7 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   if (streak === 0) {
     return { mood: 'firm', message: pickRandom(MESSAGES.firm) };
   }
-  return { mood: 'encouraging', message: pickRandom(MESSAGES.encouraging) };
+  return { mood: 'encouraging', message: pickRandom(encouragingPool) };
 };
 
 export const getVinnieCelebration = (): string =>

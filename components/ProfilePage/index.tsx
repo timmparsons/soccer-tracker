@@ -1,4 +1,13 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
+
+const GOAL_DISPLAY: Record<string, { emoji: string; label: string }> = {
+  firsttouch: { emoji: '🎯', label: 'First touch' },
+  juggling:   { emoji: '⚽', label: 'Juggling' },
+  fitness:    { emoji: '🏃', label: 'Match fitness' },
+  compete:    { emoji: '🔥', label: 'Outwork teammates' },
+  recruited:  { emoji: '🌟', label: 'Get recruited' },
+  habit:      { emoji: '💪', label: 'Build a habit' },
+};
 import BadgeGrid from '@/components/common/BadgeGrid';
 import PastSeasonModal from '@/components/modals/PastSeasonModal';
 import {
@@ -66,6 +75,8 @@ const ProfilePage = () => {
   const [savingName, setSavingName] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChampionModal, setShowChampionModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [savingGoal, setSavingGoal] = useState(false);
   const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null | undefined>(undefined);
   const { data: coinTransactions = [] } = useCoinTransactions(
     !profile?.is_coach ? user?.id : undefined,
@@ -186,6 +197,24 @@ const ProfilePage = () => {
       Alert.alert('Upload Failed', error.message || 'Could not upload image');
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveGoal = async (newGoal: string) => {
+    if (!user?.id) return;
+    setSavingGoal(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ skill_focus: newGoal })
+        .eq('id', user.id);
+      if (error) throw error;
+      await refetchProfile();
+      setShowGoalModal(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save goal. Please try again.');
+    } finally {
+      setSavingGoal(false);
     }
   };
 
@@ -576,6 +605,18 @@ const ProfilePage = () => {
             <Text style={styles.role}>
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
+            {!profile?.is_coach && profile?.skill_focus && GOAL_DISPLAY[profile.skill_focus] && (
+              <TouchableOpacity
+                style={styles.goalChip}
+                onPress={() => setShowGoalModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.goalChipText}>
+                  {GOAL_DISPLAY[profile.skill_focus].emoji} {GOAL_DISPLAY[profile.skill_focus].label}
+                </Text>
+                <Ionicons name='pencil' size={11} color='#1f89ee' />
+              </TouchableOpacity>
+            )}
             {!profile?.is_coach && (
               <>
                 <View style={styles.xpPill}>
@@ -971,6 +1012,57 @@ const ProfilePage = () => {
                   </ScrollView>
                 </>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Goal Edit Modal */}
+        <Modal
+          visible={showGoalModal}
+          animationType='slide'
+          transparent={true}
+          onRequestClose={() => setShowGoalModal(false)}
+        >
+          <View style={styles.settingsOverlay}>
+            <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.settingsSheetHandle} />
+              <TouchableOpacity
+                style={styles.settingsSheetClose}
+                onPress={() => setShowGoalModal(false)}
+              >
+                <Ionicons name='close' size={20} color='#6B7280' />
+              </TouchableOpacity>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.settingsSheetTitle}>Change your focus</Text>
+                {Object.entries(GOAL_DISPLAY).map(([id, { emoji, label }]) => (
+                  <TouchableOpacity
+                    key={id}
+                    style={[
+                      styles.goalOptionRow,
+                      profile?.skill_focus === id && styles.goalOptionRowSelected,
+                    ]}
+                    onPress={() => handleSaveGoal(id)}
+                    disabled={savingGoal}
+                  >
+                    <Text style={styles.goalOptionEmoji}>{emoji}</Text>
+                    <Text style={[
+                      styles.goalOptionLabel,
+                      profile?.skill_focus === id && styles.goalOptionLabelSelected,
+                    ]}>
+                      {label}
+                    </Text>
+                    {profile?.skill_focus === id && (
+                      <Ionicons name='checkmark-circle' size={20} color='#1f89ee' />
+                    )}
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => setShowGoalModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1577,6 +1669,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
     marginBottom: 8,
+  },
+  goalChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EBF4FF',
+    borderWidth: 1,
+    borderColor: '#1f89ee',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  goalChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  goalOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+  },
+  goalOptionRowSelected: {
+    borderColor: '#1f89ee',
+    backgroundColor: '#EBF4FF',
+  },
+  goalOptionEmoji: {
+    fontSize: 20,
+  },
+  goalOptionLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  goalOptionLabelSelected: {
+    color: '#1f89ee',
   },
   targetBadge: {
     flexDirection: 'row',

@@ -1,12 +1,10 @@
-import React from 'react';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,8 +20,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Purchases from 'react-native-purchases';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // TYPES & CONSTANTS
 
@@ -41,17 +39,33 @@ interface OnboardingData {
 }
 
 const PLAYER_STEPS = [
-  'welcome', 'persona', 'goal', 'pain', 'name',
-  'social', 'solution', 'notif', 'processing',
-  'dailygoal', 'demo', 'signup', 'paywall',
+  'welcome',
+  'persona',
+  'goal',
+  'pain',
+  'name',
+  'social',
+  'solution',
+  'notif',
+  'processing',
+  'dailygoal',
+  'demo',
+  'signup',
+  'paywall',
 ] as const;
 
 const COACH_STEPS = [
-  'welcome', 'persona', 'coachgoal', 'coachname',
-  'coachsocial', 'coachnotif', 'coachsignup', 'coachpaywall',
+  'welcome',
+  'persona',
+  'coachgoal',
+  'coachname',
+  'coachsocial',
+  'coachnotif',
+  'coachsignup',
+  'coachpaywall',
 ] as const;
 
-type Step = typeof PLAYER_STEPS[number] | typeof COACH_STEPS[number];
+type Step = (typeof PLAYER_STEPS)[number] | (typeof COACH_STEPS)[number];
 
 const DEMO_PLAYERS = [
   { name: 'Caleb', touches: 42030 },
@@ -62,33 +76,82 @@ const DEMO_PLAYERS = [
 ];
 
 const GOAL_OPTIONS = [
-  { id: 'firsttouch', emoji: '🎯', label: 'First touch', sub: 'Sharper ball control' },
-  { id: 'juggling', emoji: '⚽', label: 'Juggling', sub: 'Beat my personal best' },
-  { id: 'fitness', emoji: '🏃', label: 'Match fitness', sub: 'More in the tank come game day' },
-  { id: 'compete', emoji: '🔥', label: 'Outwork teammates', sub: 'Be the hardest worker' },
-  { id: 'recruited', emoji: '🌟', label: 'Get recruited', sub: 'Stand out to coaches' },
-  { id: 'habit', emoji: '💪', label: 'Build a habit', sub: 'Train consistently, not just match day' },
+  {
+    id: 'firsttouch',
+    emoji: '🎯',
+    label: 'First touch',
+    sub: 'Sharper ball control',
+  },
+  {
+    id: 'juggling',
+    emoji: '⚽',
+    label: 'Juggling',
+    sub: 'Beat my personal best',
+  },
+  {
+    id: 'fitness',
+    emoji: '🏃',
+    label: 'Match fitness',
+    sub: 'More in the tank come game day',
+  },
+  {
+    id: 'compete',
+    emoji: '🔥',
+    label: 'Outwork teammates',
+    sub: 'Be the hardest worker',
+  },
+  {
+    id: 'recruited',
+    emoji: '🌟',
+    label: 'Get recruited',
+    sub: 'Stand out to coaches',
+  },
+  {
+    id: 'habit',
+    emoji: '💪',
+    label: 'Build a habit',
+    sub: 'Train consistently, not just match day',
+  },
 ];
 
 const PAIN_OPTIONS = [
   { id: 'forget', emoji: '😴', label: 'I forget to train on off-days' },
   { id: 'unsure', emoji: '🤷', label: "I don't know what to actually work on" },
-  { id: 'motivation', emoji: '📉', label: 'Hard to stay motivated training alone' },
+  {
+    id: 'motivation',
+    emoji: '📉',
+    label: 'Hard to stay motivated training alone',
+  },
   { id: 'notrack', emoji: '🙈', label: "No way to track what I'm putting in" },
   { id: 'teamonly', emoji: '⏰', label: 'I only train when the team trains' },
   { id: 'random', emoji: '🎲', label: 'My sessions feel random' },
 ];
 
 const COACH_GOAL_OPTIONS = [
-  { id: 'consistent', emoji: '📈', label: 'More consistent training between sessions' },
-  { id: 'visibility', emoji: '👁', label: "See who's putting in the work — without asking" },
-  { id: 'motivate', emoji: '⚡', label: 'Motivate players without constant chasing' },
+  {
+    id: 'consistent',
+    emoji: '📈',
+    label: 'More consistent training between sessions',
+  },
+  {
+    id: 'visibility',
+    emoji: '👁',
+    label: "See who's putting in the work — without asking",
+  },
+  {
+    id: 'motivate',
+    emoji: '⚡',
+    label: 'Motivate players without constant chasing',
+  },
   { id: 'assign', emoji: '📋', label: 'Assign drills and challenges remotely' },
   { id: 'all', emoji: '🏆', label: 'All of the above' },
 ];
 
 const GOAL_OPTIONS_MAP: Record<string, number> = {
-  500: 500, 1000: 1000, 2500: 2500, 5000: 5000,
+  500: 500,
+  1000: 1000,
+  2500: 2500,
+  5000: 5000,
 };
 
 const TRAINING_TYPES = [
@@ -99,20 +162,63 @@ const TRAINING_TYPES = [
 ];
 
 // SOLUTION MAP — maps pain point IDs to feature descriptions
-const SOLUTION_MAP: Record<string, { icon: string; pain: string; fix: string }> = {
-  forget: { icon: '🔔', pain: 'Forgetting to train', fix: 'Daily reminders keep your streak alive — one ping and you\'re out the door' },
-  unsure: { icon: '📋', pain: 'Not knowing what to work on', fix: 'Vinnie your AI coach gives you a drill every day matched to your goal' },
-  motivation: { icon: '🏆', pain: 'Losing motivation alone', fix: 'The leaderboard means your teammates are always watching — even when you\'re not together' },
-  notrack: { icon: '📊', pain: 'No way to track progress', fix: 'Every session logged, every touch counted — your history is always there' },
-  teamonly: { icon: '🔥', pain: 'Only training with the team', fix: 'Daily targets give you something to hit every single day, not just match days' },
-  random: { icon: '🎯', pain: 'Sessions feeling random', fix: 'Today\'s Challenge gives you a structured drill to start with, every morning' },
+const SOLUTION_MAP: Record<
+  string,
+  { icon: string; pain: string; fix: string }
+> = {
+  forget: {
+    icon: '🔔',
+    pain: 'Forgetting to train',
+    fix: "Daily reminders keep your streak alive — one ping and you're out the door",
+  },
+  unsure: {
+    icon: '📋',
+    pain: 'Not knowing what to work on',
+    fix: 'Vinnie your AI coach gives you a drill every day matched to your goal',
+  },
+  motivation: {
+    icon: '🏆',
+    pain: 'Losing motivation alone',
+    fix: "The leaderboard means your teammates are always watching — even when you're not together",
+  },
+  notrack: {
+    icon: '📊',
+    pain: 'No way to track progress',
+    fix: 'Every session logged, every touch counted — your history is always there',
+  },
+  teamonly: {
+    icon: '🔥',
+    pain: 'Only training with the team',
+    fix: 'Daily targets give you something to hit every single day, not just match days',
+  },
+  random: {
+    icon: '🎯',
+    pain: 'Sessions feeling random',
+    fix: "Today's Challenge gives you a structured drill to start with, every morning",
+  },
 };
 
 const DEFAULT_SOLUTIONS = [
-  { icon: '🏆', pain: 'Lack of accountability', fix: 'The leaderboard means your teammates are always watching — even when you\'re not together' },
-  { icon: '🔔', pain: 'Missing training days', fix: 'Daily reminders keep your streak alive — one ping and you\'re out the door' },
-  { icon: '📋', pain: 'Not knowing what to do', fix: 'Vinnie your AI coach gives you a drill every day matched to your goal' },
-  { icon: '📊', pain: 'No way to measure progress', fix: 'Every session logged, every touch counted — your history is always there' },
+  {
+    icon: '🏆',
+    pain: 'Lack of accountability',
+    fix: "The leaderboard means your teammates are always watching — even when you're not together",
+  },
+  {
+    icon: '🔔',
+    pain: 'Missing training days',
+    fix: "Daily reminders keep your streak alive — one ping and you're out the door",
+  },
+  {
+    icon: '📋',
+    pain: 'Not knowing what to do',
+    fix: 'Vinnie your AI coach gives you a drill every day matched to your goal',
+  },
+  {
+    icon: '📊',
+    pain: 'No way to measure progress',
+    fix: 'Every session logged, every touch counted — your history is always there',
+  },
 ];
 
 // MAIN ORCHESTRATOR
@@ -132,7 +238,8 @@ export default function OnboardingScreen() {
     dailyTarget: 1000,
   });
 
-  const steps: readonly Step[] = data.persona === 'coach' ? COACH_STEPS : PLAYER_STEPS;
+  const steps: readonly Step[] =
+    data.persona === 'coach' ? COACH_STEPS : PLAYER_STEPS;
   const currentStep = steps[stepIndex] as Step;
   const totalSteps = steps.length;
 
@@ -157,6 +264,7 @@ export default function OnboardingScreen() {
         name: data.name || null,
         display_name: data.name || null,
         is_coach: data.persona === 'coach',
+        skill_focus: data.goal || null,
       })
       .eq('id', userId);
 
@@ -289,7 +397,11 @@ export default function OnboardingScreen() {
       {showProgress && (
         <View style={s.header}>
           {showBack ? (
-            <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={goBack}
+              style={s.backBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name='chevron-back' size={24} color='#1a1a2e' />
             </TouchableOpacity>
           ) : (
@@ -308,7 +420,15 @@ export default function OnboardingScreen() {
 
 // SHARED COMPONENTS
 
-function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
     <TouchableOpacity
       style={[s.primaryBtn, disabled && s.primaryBtnDisabled]}
@@ -330,8 +450,12 @@ function WelcomeScreen({ onNext }: { onNext: () => void }) {
         <View style={s.welcomeContainer}>
           <View style={s.welcomeTop}>
             <Text style={s.welcomeAppName}>MASTER TOUCH</Text>
-            <Text style={s.welcomeHeadline}>{'Train every day.\nWatch your game change.'}</Text>
-            <Text style={s.welcomeSub}>Log your touches. Build the habit. Climb the leaderboard.</Text>
+            <Text style={s.welcomeHeadline}>
+              {'Train every day.\nWatch your game change.'}
+            </Text>
+            <Text style={s.welcomeSub}>
+              Log your touches. Build the habit. Climb the leaderboard.
+            </Text>
           </View>
 
           {/* Leaderboard preview card */}
@@ -341,13 +465,19 @@ function WelcomeScreen({ onNext }: { onNext: () => void }) {
               <View key={p.name} style={s.leaderPreviewRow}>
                 <Text style={s.leaderPreviewRank}>{['🥇', '🥈', '🥉'][i]}</Text>
                 <Text style={s.leaderPreviewName}>{p.name}</Text>
-                <Text style={s.leaderPreviewTouches}>{p.touches.toLocaleString()}</Text>
+                <Text style={s.leaderPreviewTouches}>
+                  {p.touches.toLocaleString()}
+                </Text>
               </View>
             ))}
           </View>
 
           <View style={s.welcomeBottom}>
-            <TouchableOpacity style={s.welcomeBtn} onPress={onNext} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={s.welcomeBtn}
+              onPress={onNext}
+              activeOpacity={0.85}
+            >
               <Text style={s.welcomeBtnText}>Get Started</Text>
             </TouchableOpacity>
           </View>
@@ -364,14 +494,24 @@ function PersonaScreen({ onSelect }: { onSelect: (p: Persona) => void }) {
     <View style={s.screen}>
       <View style={s.screenContent}>
         <Text style={s.title}>Are you a player or a coach?</Text>
-        <Text style={s.subtitle}>We'll set things up based on your answer.</Text>
+        <Text style={s.subtitle}>
+          We'll set things up based on your answer.
+        </Text>
         <View style={s.personaRow}>
-          <TouchableOpacity style={s.personaCard} onPress={() => onSelect('player')} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={s.personaCard}
+            onPress={() => onSelect('player')}
+            activeOpacity={0.8}
+          >
             <Text style={s.personaEmoji}>⚽</Text>
             <Text style={s.personaLabel}>Player</Text>
             <Text style={s.personaSub}>I want to improve my game</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.personaCard} onPress={() => onSelect('coach')} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={s.personaCard}
+            onPress={() => onSelect('coach')}
+            activeOpacity={0.8}
+          >
             <Text style={s.personaEmoji}>📋</Text>
             <Text style={s.personaLabel}>Coach</Text>
             <Text style={s.personaSub}>I manage a team</Text>
@@ -384,10 +524,21 @@ function PersonaScreen({ onSelect }: { onSelect: (p: Persona) => void }) {
 
 // SCREEN 3 (PLAYER) — GOAL
 
-function GoalScreen({ selected, onSelect, onNext }: { selected: string | null; onSelect: (g: string) => void; onNext: () => void }) {
+function GoalScreen({
+  selected,
+  onSelect,
+  onNext,
+}: {
+  selected: string | null;
+  onSelect: (g: string) => void;
+  onNext: () => void;
+}) {
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>What are you trying to improve?</Text>
         <Text style={s.subtitle}>We'll set you up around this.</Text>
         {GOAL_OPTIONS.map((opt) => (
@@ -399,10 +550,19 @@ function GoalScreen({ selected, onSelect, onNext }: { selected: string | null; o
           >
             <Text style={s.optionEmoji}>{opt.emoji}</Text>
             <View style={s.optionText}>
-              <Text style={[s.optionLabel, selected === opt.id && s.optionLabelSelected]}>{opt.label}</Text>
+              <Text
+                style={[
+                  s.optionLabel,
+                  selected === opt.id && s.optionLabelSelected,
+                ]}
+              >
+                {opt.label}
+              </Text>
               <Text style={s.optionSub}>{opt.sub}</Text>
             </View>
-            {selected === opt.id && <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />}
+            {selected === opt.id && (
+              <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />
+            )}
           </TouchableOpacity>
         ))}
         <View style={{ height: 16 }} />
@@ -414,10 +574,21 @@ function GoalScreen({ selected, onSelect, onNext }: { selected: string | null; o
 
 // SCREEN 4 (PLAYER) — PAIN POINTS
 
-function PainScreen({ selected, onToggle, onNext }: { selected: string[]; onToggle: (p: string) => void; onNext: () => void }) {
+function PainScreen({
+  selected,
+  onToggle,
+  onNext,
+}: {
+  selected: string[];
+  onToggle: (p: string) => void;
+  onNext: () => void;
+}) {
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>What usually gets in the way?</Text>
         <Text style={s.subtitle}>Pick everything that applies.</Text>
         {PAIN_OPTIONS.map((opt) => {
@@ -430,7 +601,15 @@ function PainScreen({ selected, onToggle, onNext }: { selected: string[]; onTogg
               activeOpacity={0.8}
             >
               <Text style={s.optionEmoji}>{opt.emoji}</Text>
-              <Text style={[s.optionLabel, active && s.optionLabelSelected, { flex: 1 }]}>{opt.label}</Text>
+              <Text
+                style={[
+                  s.optionLabel,
+                  active && s.optionLabelSelected,
+                  { flex: 1 },
+                ]}
+              >
+                {opt.label}
+              </Text>
               <Ionicons
                 name={active ? 'checkbox' : 'square-outline'}
                 size={22}
@@ -448,12 +627,33 @@ function PainScreen({ selected, onToggle, onNext }: { selected: string[]; onTogg
 
 // SCREEN 5 (PLAYER) / 4C (COACH) — NAME
 
-function NameScreen({ value, onChange, onNext, isCoach }: { value: string; onChange: (n: string) => void; onNext: () => void; isCoach?: boolean }) {
+function NameScreen({
+  value,
+  onChange,
+  onNext,
+  isCoach,
+}: {
+  value: string;
+  onChange: (n: string) => void;
+  onNext: () => void;
+  isCoach?: boolean;
+}) {
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={s.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={s.screenContent}>
-        <Text style={s.title}>{isCoach ? 'What should your players call you?' : 'What do your teammates call you?'}</Text>
-        <Text style={s.subtitle}>{isCoach ? 'This shows on your coach dashboard.' : 'This is the name that shows on the leaderboard.'}</Text>
+        <Text style={s.title}>
+          {isCoach
+            ? 'What should your players call you?'
+            : 'What do your teammates call you?'}
+        </Text>
+        <Text style={s.subtitle}>
+          {isCoach
+            ? 'This shows on your coach dashboard.'
+            : 'This is the name that shows on the leaderboard.'}
+        </Text>
         <TextInput
           style={s.nameInput}
           value={value}
@@ -467,7 +667,11 @@ function NameScreen({ value, onChange, onNext, isCoach }: { value: string; onCha
         />
       </View>
       <View style={s.bottomPad}>
-        <PrimaryButton label="That's me →" onPress={onNext} disabled={value.trim().length === 0} />
+        <PrimaryButton
+          label="That's me →"
+          onPress={onNext}
+          disabled={value.trim().length === 0}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -478,19 +682,31 @@ function NameScreen({ value, onChange, onNext, isCoach }: { value: string; onCha
 function SocialProofScreen({ onNext }: { onNext: () => void }) {
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>Players are putting up real numbers</Text>
-        <Text style={s.subtitle}>Here's what's possible when you train every day.</Text>
+        <Text style={s.subtitle}>
+          Here's what's possible when you train every day.
+        </Text>
 
         <View style={s.heroStatCard}>
           <Text style={s.heroStatNumber}>42,030</Text>
-          <Text style={s.heroStatLabel}>touches logged by one player in a single week</Text>
+          <Text style={s.heroStatLabel}>
+            touches logged by one player in a single week
+          </Text>
         </View>
 
         <View style={s.testimonialCard}>
-          <Text style={s.testimonialText}>"I went from training twice a week to every single day. The leaderboard did that."</Text>
+          <Text style={s.testimonialText}>
+            "I went from training twice a week to every single day. The
+            leaderboard did that."
+          </Text>
           <View style={s.testimonialFooter}>
-            <View style={s.testimonialAvatar}><Text style={{ fontSize: 18 }}>⚽</Text></View>
+            <View style={s.testimonialAvatar}>
+              <Text style={{ fontSize: 18 }}>⚽</Text>
+            </View>
             <View>
               <Text style={s.testimonialName}>Jake M.</Text>
               <Text style={s.testimonialRole}>U15 Midfielder</Text>
@@ -499,9 +715,14 @@ function SocialProofScreen({ onNext }: { onNext: () => void }) {
         </View>
 
         <View style={s.testimonialCard}>
-          <Text style={s.testimonialText}>"My first touch used to let me down every game. One month of daily reps and it's a completely different story."</Text>
+          <Text style={s.testimonialText}>
+            "My first touch used to let me down every game. One month of daily
+            reps and it's a completely different story."
+          </Text>
           <View style={s.testimonialFooter}>
-            <View style={s.testimonialAvatar}><Text style={{ fontSize: 18 }}>🌟</Text></View>
+            <View style={s.testimonialAvatar}>
+              <Text style={{ fontSize: 18 }}>🌟</Text>
+            </View>
             <View>
               <Text style={s.testimonialName}>Alex T.</Text>
               <Text style={s.testimonialRole}>Forward</Text>
@@ -518,16 +739,32 @@ function SocialProofScreen({ onNext }: { onNext: () => void }) {
 
 // SCREEN 7 (PLAYER) — PERSONALISED SOLUTION
 
-function SolutionScreen({ painPoints, onNext }: { painPoints: string[]; onNext: () => void }) {
-  const items = painPoints.length > 0
-    ? painPoints.slice(0, 4).map((p) => SOLUTION_MAP[p]).filter(Boolean)
-    : DEFAULT_SOLUTIONS;
+function SolutionScreen({
+  painPoints,
+  onNext,
+}: {
+  painPoints: string[];
+  onNext: () => void;
+}) {
+  const items =
+    painPoints.length > 0
+      ? painPoints
+          .slice(0, 4)
+          .map((p) => SOLUTION_MAP[p])
+          .filter(Boolean)
+      : DEFAULT_SOLUTIONS;
 
-  const displayItems = items.length < 3 ? [...items, ...DEFAULT_SOLUTIONS].slice(0, 4) : items.slice(0, 4);
+  const displayItems =
+    items.length < 3
+      ? [...items, ...DEFAULT_SOLUTIONS].slice(0, 4)
+      : items.slice(0, 4);
 
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>{"Here's how we're going to help"}</Text>
         <Text style={s.subtitle}>Based on what you told us.</Text>
         {displayItems.map((item, i) => (
@@ -559,19 +796,27 @@ function NotifScreen({ onNext }: { onNext: () => void }) {
       <View style={s.screenContent}>
         <Text style={s.notifEmoji}>🔔</Text>
         <Text style={s.title}>Never miss a training day</Text>
-        <Text style={s.subtitle}>{"We'll remind you when you haven't hit your target yet."}</Text>
+        <Text style={s.subtitle}>
+          {"We'll remind you when you haven't hit your target yet."}
+        </Text>
         <View style={s.notifBullets}>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>🏆</Text>
-            <Text style={s.notifBulletText}>Stay ahead of teammates on the leaderboard</Text>
+            <Text style={s.notifBulletText}>
+              Stay ahead of teammates on the leaderboard
+            </Text>
           </View>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>🔥</Text>
-            <Text style={s.notifBulletText}>Protect your streak — one miss breaks the chain</Text>
+            <Text style={s.notifBulletText}>
+              Protect your streak — one miss breaks the chain
+            </Text>
           </View>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>📲</Text>
-            <Text style={s.notifBulletText}>Reminders you can actually act on in 10 minutes</Text>
+            <Text style={s.notifBulletText}>
+              Reminders you can actually act on in 10 minutes
+            </Text>
           </View>
         </View>
       </View>
@@ -595,16 +840,34 @@ function ProcessingScreen({ onDone }: { onDone: () => void }) {
     // Ball bounce
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceY, { toValue: -36, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(bounceY, { toValue: 0, duration: 380, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+        Animated.timing(bounceY, {
+          toValue: -36,
+          duration: 380,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceY, {
+          toValue: 0,
+          duration: 380,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
       ]),
     ).start();
 
     // Squash shadow on land
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scaleX, { toValue: 0.6, duration: 380, useNativeDriver: true }),
-        Animated.timing(scaleX, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(scaleX, {
+          toValue: 0.6,
+          duration: 380,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleX, {
+          toValue: 1,
+          duration: 380,
+          useNativeDriver: true,
+        }),
       ]),
     ).start();
 
@@ -615,10 +878,14 @@ function ProcessingScreen({ onDone }: { onDone: () => void }) {
   return (
     <View style={s.processingContainer}>
       <View style={s.processingBall}>
-        <Animated.Text style={[s.processingEmoji, { transform: [{ translateY: bounceY }] }]}>
+        <Animated.Text
+          style={[s.processingEmoji, { transform: [{ translateY: bounceY }] }]}
+        >
           ⚽
         </Animated.Text>
-        <Animated.View style={[s.processingShadow, { transform: [{ scaleX }] }]} />
+        <Animated.View
+          style={[s.processingShadow, { transform: [{ scaleX }] }]}
+        />
       </View>
       <Text style={s.processingText}>Building your training profile...</Text>
     </View>
@@ -634,7 +901,15 @@ const DAILY_GOALS = [
   { value: 5000, label: '5,000', sub: 'Elite mode', emoji: '⭐' },
 ];
 
-function DailyGoalScreen({ selected, onSelect, onNext }: { selected: number; onSelect: (t: number) => void; onNext: () => void }) {
+function DailyGoalScreen({
+  selected,
+  onSelect,
+  onNext,
+}: {
+  selected: number;
+  onSelect: (t: number) => void;
+  onNext: () => void;
+}) {
   return (
     <View style={s.screen}>
       <View style={s.screenContent}>
@@ -649,8 +924,19 @@ function DailyGoalScreen({ selected, onSelect, onNext }: { selected: number; onS
               activeOpacity={0.8}
             >
               <Text style={s.goalEmoji}>{opt.emoji}</Text>
-              <Text style={[s.goalValue, selected === opt.value && s.goalValueSelected]}>{opt.label}</Text>
-              <Text style={[s.goalSub, selected === opt.value && s.goalSubSelected]}>{opt.sub}</Text>
+              <Text
+                style={[
+                  s.goalValue,
+                  selected === opt.value && s.goalValueSelected,
+                ]}
+              >
+                {opt.label}
+              </Text>
+              <Text
+                style={[s.goalSub, selected === opt.value && s.goalSubSelected]}
+              >
+                {opt.sub}
+              </Text>
               {selected === opt.value && (
                 <View style={s.goalCheck}>
                   <Ionicons name='checkmark' size={13} color='#FFF' />
@@ -659,7 +945,10 @@ function DailyGoalScreen({ selected, onSelect, onNext }: { selected: number; onS
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={s.goalHint}>Caleb averages over 6,000 touches a day. Start where feels right — you can always go up.</Text>
+        <Text style={s.goalHint}>
+          Caleb averages over 6,000 touches a day. Start where feels right — you
+          can always go up.
+        </Text>
       </View>
       <View style={s.bottomPad}>
         <PrimaryButton label='Set my target →' onPress={onNext} />
@@ -671,17 +960,23 @@ function DailyGoalScreen({ selected, onSelect, onNext }: { selected: number; onS
 // SCREEN 11 (PLAYER) — APP DEMO
 
 function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
-  const [subStep, setSubStep] = useState<'type' | 'touches' | 'leaderboard'>('type');
+  const [subStep, setSubStep] = useState<'type' | 'touches' | 'leaderboard'>(
+    'type',
+  );
   const [trainingType, setTrainingType] = useState<string | null>(null);
   const [touchInput, setTouchInput] = useState('');
-  const rowAnims = useRef(DEMO_PLAYERS.map(() => new Animated.Value(0))).current;
+  const rowAnims = useRef(
+    DEMO_PLAYERS.map(() => new Animated.Value(0)),
+  ).current;
   const myRowAnim = useRef(new Animated.Value(0)).current;
 
   const myTouches = parseInt(touchInput, 10) || 0;
   const displayName = name.trim() || 'You';
 
-  const allEntries = [...DEMO_PLAYERS, { name: displayName, touches: myTouches, isUser: true }]
-    .sort((a, b) => b.touches - a.touches);
+  const allEntries = [
+    ...DEMO_PLAYERS,
+    { name: displayName, touches: myTouches, isUser: true },
+  ].sort((a, b) => b.touches - a.touches);
   const myRank = allEntries.findIndex((p) => 'isUser' in p) + 1;
 
   const showLeaderboard = () => {
@@ -689,7 +984,9 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
     const anims = [...rowAnims, myRowAnim];
     Animated.stagger(
       120,
-      anims.map((a) => Animated.spring(a, { toValue: 1, useNativeDriver: true, friction: 8 })),
+      anims.map((a) =>
+        Animated.spring(a, { toValue: 1, useNativeDriver: true, friction: 8 }),
+      ),
     ).start();
   };
 
@@ -703,18 +1000,32 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
             {TRAINING_TYPES.map((t) => (
               <TouchableOpacity
                 key={t.id}
-                style={[s.typeCard, trainingType === t.id && s.typeCardSelected]}
+                style={[
+                  s.typeCard,
+                  trainingType === t.id && s.typeCardSelected,
+                ]}
                 onPress={() => setTrainingType(t.id)}
                 activeOpacity={0.8}
               >
                 <Text style={s.typeEmoji}>{t.emoji}</Text>
-                <Text style={[s.typeLabel, trainingType === t.id && s.typeLabelSelected]}>{t.label}</Text>
+                <Text
+                  style={[
+                    s.typeLabel,
+                    trainingType === t.id && s.typeLabelSelected,
+                  ]}
+                >
+                  {t.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
         <View style={s.bottomPad}>
-          <PrimaryButton label='Next →' onPress={() => setSubStep('touches')} disabled={!trainingType} />
+          <PrimaryButton
+            label='Next →'
+            onPress={() => setSubStep('touches')}
+            disabled={!trainingType}
+          />
         </View>
       </View>
     );
@@ -722,10 +1033,15 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
 
   if (subStep === 'touches') {
     return (
-      <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={s.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={s.screenContent}>
           <Text style={s.title}>How many touches?</Text>
-          <Text style={s.subtitle}>A rough estimate is fine — be honest with yourself.</Text>
+          <Text style={s.subtitle}>
+            A rough estimate is fine — be honest with yourself.
+          </Text>
           <TextInput
             style={s.touchCountInput}
             value={touchInput}
@@ -739,7 +1055,11 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
           <Text style={s.touchCountHint}>touches today</Text>
         </View>
         <View style={s.bottomPad}>
-          <PrimaryButton label='See my rank →' onPress={showLeaderboard} disabled={myTouches === 0} />
+          <PrimaryButton
+            label='See my rank →'
+            onPress={showLeaderboard}
+            disabled={myTouches === 0}
+          />
         </View>
       </KeyboardAvoidingView>
     );
@@ -748,12 +1068,17 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
   // Leaderboard reveal
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>You're ranked #{myRank} 🎉</Text>
         <Text style={s.subtitle}>Here's how you stack up this week.</Text>
         {allEntries.map((entry, idx) => {
           const isUser = 'isUser' in entry;
-          const anim = isUser ? myRowAnim : rowAnims[DEMO_PLAYERS.indexOf(entry as typeof DEMO_PLAYERS[0])];
+          const anim = isUser
+            ? myRowAnim
+            : rowAnims[DEMO_PLAYERS.indexOf(entry as (typeof DEMO_PLAYERS)[0])];
           return (
             <Animated.View
               key={entry.name}
@@ -762,15 +1087,26 @@ function DemoScreen({ name, onNext }: { name: string; onNext: () => void }) {
                 isUser && s.demoRowMe,
                 {
                   opacity: anim,
-                  transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+                  transform: [
+                    {
+                      translateX: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [40, 0],
+                      }),
+                    },
+                  ],
                 },
               ]}
             >
               <View style={s.demoRank}>
                 <Text style={s.demoRankText}>{idx + 1}</Text>
               </View>
-              <Text style={[s.demoName, isUser && s.demoNameMe]} numberOfLines={1}>
-                {entry.name}{isUser ? ' (you)' : ''}
+              <Text
+                style={[s.demoName, isUser && s.demoNameMe]}
+                numberOfLines={1}
+              >
+                {entry.name}
+                {isUser ? ' (you)' : ''}
               </Text>
               <Text style={[s.demoTouches, isUser && s.demoTouchesMe]}>
                 {entry.touches.toLocaleString()}
@@ -795,7 +1131,13 @@ interface SignUpScreenProps {
   onNext: () => void;
 }
 
-function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext }: SignUpScreenProps) {
+function SignUpScreen({
+  email,
+  password,
+  onChangeEmail,
+  onChangePassword,
+  onNext,
+}: SignUpScreenProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -816,7 +1158,24 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
         email: email.trim(),
         password,
       });
-      if (signUpError) throw signUpError;
+
+      if (signUpError) {
+        const msg = signUpError.message.toLowerCase();
+        if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('user already')) {
+          // Email exists — try signing in with the same credentials
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (signInError) {
+            setError('That email is already registered. Please check your password.');
+            return;
+          }
+          onNext();
+          return;
+        }
+        throw signUpError;
+      }
       onNext();
     } catch (e: any) {
       setError(e.message ?? 'Sign up failed');
@@ -836,14 +1195,14 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
         showsVerticalScrollIndicator={false}
       >
         <View style={s.signupHeader}>
-          <View style={s.signupLogoCircle}>
-            <Image
-              source={require('../../assets/images/app-logo-transparent.png')}
-              style={s.signupLogo}
-            />
-          </View>
+          <Image
+            source={require('../../assets/images/app-logo.png')}
+            style={s.signupLogo}
+          />
           <Text style={s.title}>Create your account</Text>
-          <Text style={s.subtitle}>Save your progress and join the leaderboard</Text>
+          <Text style={s.subtitle}>
+            Save your progress and join the leaderboard
+          </Text>
         </View>
 
         <View style={s.signupCard}>
@@ -882,15 +1241,19 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
           {error && <Text style={s.signupError}>{error}</Text>}
 
           <TouchableOpacity
-            style={[s.signupBtn, (loading || !email.trim() || !password) && s.signupBtnDisabled]}
+            style={[
+              s.signupBtn,
+              (loading || !email.trim() || !password) && s.signupBtnDisabled,
+            ]}
             onPress={handleCreate}
             disabled={loading || !email.trim() || !password}
             activeOpacity={0.85}
           >
-            {loading
-              ? <ActivityIndicator color='#1a1a2e' />
-              : <Text style={s.signupBtnText}>Create Account</Text>
-            }
+            {loading ? (
+              <ActivityIndicator color='#FFF' />
+            ) : (
+              <Text style={s.signupBtnText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -898,7 +1261,10 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
             onPress={() => router.replace('/(auth)')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={s.signupSignInText}>Already have an account? <Text style={{ color: '#1f89ee' }}>Sign in</Text></Text>
+            <Text style={s.signupSignInText}>
+              Already have an account?{' '}
+              <Text style={{ color: '#1f89ee' }}>Sign in</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -909,16 +1275,22 @@ function SignUpScreen({ email, password, onChangeEmail, onChangePassword, onNext
 // SCREEN 13 (PLAYER) — PAYWALL PLACEHOLDER
 
 function PaywallScreen({ onNext }: { onNext: () => void }) {
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>(
+    'annual',
+  );
   const [purchasing, setPurchasing] = useState(false);
 
   const handlePurchase = async () => {
-    if (Platform.OS === 'web') { onNext(); return; }
+    if (Platform.OS === 'web') {
+      onNext();
+      return;
+    }
     setPurchasing(true);
     try {
       const all = await Purchases.getOfferings();
       const offering = all.current;
-      const pkg = selectedPlan === 'annual' ? offering?.annual : offering?.monthly;
+      const pkg =
+        selectedPlan === 'annual' ? offering?.annual : offering?.monthly;
       if (pkg) {
         await Purchases.purchasePackage(pkg);
       }
@@ -934,14 +1306,24 @@ function PaywallScreen({ onNext }: { onNext: () => void }) {
 
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={s.paywallTitle}>Keep climbing with{'\n'}Master Touch Pro</Text>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={s.paywallTitle}>
+          Keep climbing with{'\n'}Master Touch Pro
+        </Text>
 
         <View style={s.testimonialCard}>
           <Text style={s.starsRow}>⭐⭐⭐⭐⭐</Text>
-          <Text style={s.testimonialText}>"The leaderboard is the reason I train every day now. I can't let my teammates get ahead."</Text>
+          <Text style={s.testimonialText}>
+            "The leaderboard is the reason I train every day now. I can't let my
+            teammates get ahead."
+          </Text>
           <View style={s.testimonialFooter}>
-            <View style={s.testimonialAvatar}><Text style={{ fontSize: 18 }}>🔥</Text></View>
+            <View style={s.testimonialAvatar}>
+              <Text style={{ fontSize: 18 }}>🔥</Text>
+            </View>
             <View>
               <Text style={s.testimonialName}>Marcus D.</Text>
               <Text style={s.testimonialRole}>Centre-back</Text>
@@ -950,7 +1332,13 @@ function PaywallScreen({ onNext }: { onNext: () => void }) {
         </View>
 
         <View style={s.paywallFeatures}>
-          {['Full leaderboard access', 'Unlimited session history', 'Daily challenges & drills', 'AI coach tips from Vinnie', 'All achievements & badges'].map((f) => (
+          {[
+            'Full leaderboard access',
+            'Unlimited session history',
+            'Daily challenges & drills',
+            'AI coach tips from Vinnie',
+            'All achievements & badges',
+          ].map((f) => (
             <View key={f} style={s.paywallFeatureRow}>
               <Ionicons name='checkmark-circle' size={20} color='#31af4d' />
               <Text style={s.paywallFeatureText}>{f}</Text>
@@ -959,30 +1347,56 @@ function PaywallScreen({ onNext }: { onNext: () => void }) {
         </View>
 
         <View style={s.paywallPricing}>
-          <TouchableOpacity style={[s.pricingOption, selectedPlan === 'annual' && s.pricingOptionSelected]} onPress={() => setSelectedPlan('annual')}>
-            <View style={s.pricingBadge}><Text style={s.pricingBadgeText}>BEST VALUE</Text></View>
+          <TouchableOpacity
+            style={[
+              s.pricingOption,
+              selectedPlan === 'annual' && s.pricingOptionSelected,
+            ]}
+            onPress={() => setSelectedPlan('annual')}
+          >
+            <View style={s.pricingBadge}>
+              <Text style={s.pricingBadgeText}>BEST VALUE</Text>
+            </View>
             <Text style={s.pricingPlan}>Annual</Text>
             <Text style={s.pricingAmount}>$34.99 / year</Text>
             <Text style={s.pricingMonthly}>Just $2.92/month</Text>
           </TouchableOpacity>
           <View style={s.pricingDivider} />
-          <TouchableOpacity style={[s.pricingOption, selectedPlan === 'monthly' && s.pricingOptionSelected]} onPress={() => setSelectedPlan('monthly')}>
+          <TouchableOpacity
+            style={[
+              s.pricingOption,
+              selectedPlan === 'monthly' && s.pricingOptionSelected,
+            ]}
+            onPress={() => setSelectedPlan('monthly')}
+          >
             <Text style={s.pricingPlan}>Monthly</Text>
             <Text style={s.pricingAmount}>$4.99 / month</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 16 }} />
-        <TouchableOpacity style={[s.paywallCta, purchasing && { opacity: 0.6 }]} onPress={handlePurchase} activeOpacity={0.85} disabled={purchasing}>
-          {purchasing
-            ? <ActivityIndicator color='#FFF' />
-            : <Text style={s.paywallCtaText}>Start my free 7-day trial</Text>
-          }
+        <TouchableOpacity
+          style={[s.paywallCta, purchasing && { opacity: 0.6 }]}
+          onPress={handlePurchase}
+          activeOpacity={0.85}
+          disabled={purchasing}
+        >
+          {purchasing ? (
+            <ActivityIndicator color='#FFF' />
+          ) : (
+            <Text style={s.paywallCtaText}>Start my free 7-day trial</Text>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity style={s.skipLink} onPress={onNext} disabled={purchasing}>
+        <TouchableOpacity
+          style={s.skipLink}
+          onPress={onNext}
+          disabled={purchasing}
+        >
           <Text style={s.skipLinkText}>Continue without Pro</Text>
         </TouchableOpacity>
-        <Text style={s.paywallDisclaimer}>Cancel anytime · Billed annually · Restore purchases</Text>
+        <Text style={s.paywallDisclaimer}>
+          Cancel anytime · Billed annually · Restore purchases
+        </Text>
       </ScrollView>
     </View>
   );
@@ -990,12 +1404,25 @@ function PaywallScreen({ onNext }: { onNext: () => void }) {
 
 // SCREEN 3C (COACH) — COACH GOAL
 
-function CoachGoalScreen({ selected, onSelect, onNext }: { selected: string | null; onSelect: (g: string) => void; onNext: () => void }) {
+function CoachGoalScreen({
+  selected,
+  onSelect,
+  onNext,
+}: {
+  selected: string | null;
+  onSelect: (g: string) => void;
+  onNext: () => void;
+}) {
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>What do you want for your squad?</Text>
-        <Text style={s.subtitle}>Pick the one that matters most right now.</Text>
+        <Text style={s.subtitle}>
+          Pick the one that matters most right now.
+        </Text>
         {COACH_GOAL_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.id}
@@ -1004,8 +1431,18 @@ function CoachGoalScreen({ selected, onSelect, onNext }: { selected: string | nu
             activeOpacity={0.8}
           >
             <Text style={s.optionEmoji}>{opt.emoji}</Text>
-            <Text style={[s.optionLabel, selected === opt.id && s.optionLabelSelected, { flex: 1 }]}>{opt.label}</Text>
-            {selected === opt.id && <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />}
+            <Text
+              style={[
+                s.optionLabel,
+                selected === opt.id && s.optionLabelSelected,
+                { flex: 1 },
+              ]}
+            >
+              {opt.label}
+            </Text>
+            {selected === opt.id && (
+              <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />
+            )}
           </TouchableOpacity>
         ))}
         <View style={{ height: 16 }} />
@@ -1020,19 +1457,32 @@ function CoachGoalScreen({ selected, onSelect, onNext }: { selected: string | nu
 function CoachSocialScreen({ onNext }: { onNext: () => void }) {
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={s.title}>Coaches are seeing it in the numbers</Text>
-        <Text style={s.subtitle}>Real engagement between sessions — not just match days.</Text>
+        <Text style={s.subtitle}>
+          Real engagement between sessions — not just match days.
+        </Text>
 
         <View style={s.heroStatCard}>
           <Text style={s.heroStatNumber}>42,030</Text>
-          <Text style={s.heroStatLabel}>touches logged by one player in a single week</Text>
+          <Text style={s.heroStatLabel}>
+            touches logged by one player in a single week
+          </Text>
         </View>
 
         <View style={s.testimonialCard}>
-          <Text style={s.testimonialText}>"I had no idea who was putting in extra work between sessions. Now I can see it before I even get to the pitch — and I use it every week."</Text>
+          <Text style={s.testimonialText}>
+            "I had no idea who was putting in extra work between sessions. Now I
+            can see it before I even get to the pitch — and I use it every
+            week."
+          </Text>
           <View style={s.testimonialFooter}>
-            <View style={s.testimonialAvatar}><Text style={{ fontSize: 18 }}>📋</Text></View>
+            <View style={s.testimonialAvatar}>
+              <Text style={{ fontSize: 18 }}>📋</Text>
+            </View>
             <View>
               <Text style={s.testimonialName}>Coach T.</Text>
               <Text style={s.testimonialRole}>Youth Academy Coach</Text>
@@ -1059,20 +1509,30 @@ function CoachNotifScreen({ onNext }: { onNext: () => void }) {
     <View style={s.screen}>
       <View style={s.screenContent}>
         <Text style={s.notifEmoji}>📱</Text>
-        <Text style={s.title}>Know who needs a nudge before the next session</Text>
-        <Text style={s.subtitle}>Stay across your squad without constant messages.</Text>
+        <Text style={s.title}>
+          Know who needs a nudge before the next session
+        </Text>
+        <Text style={s.subtitle}>
+          Stay across your squad without constant messages.
+        </Text>
         <View style={s.notifBullets}>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>👁</Text>
-            <Text style={s.notifBulletText}>{"See who hasn't logged touches this week"}</Text>
+            <Text style={s.notifBulletText}>
+              {"See who hasn't logged touches this week"}
+            </Text>
           </View>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>⚡</Text>
-            <Text style={s.notifBulletText}>Send a challenge directly to a player's phone</Text>
+            <Text style={s.notifBulletText}>
+              Send a challenge directly to a player's phone
+            </Text>
           </View>
           <View style={s.notifBulletRow}>
             <Text style={s.notifBulletIcon}>📊</Text>
-            <Text style={s.notifBulletText}>React before the next session, not after</Text>
+            <Text style={s.notifBulletText}>
+              React before the next session, not after
+            </Text>
           </View>
         </View>
       </View>
@@ -1092,17 +1552,25 @@ function CoachPaywallScreen({ onNext }: { onNext: () => void }) {
   const [purchasing, setPurchasing] = useState(false);
 
   const handlePurchase = async () => {
-    if (Platform.OS === 'web') { onNext(); return; }
+    if (Platform.OS === 'web') {
+      onNext();
+      return;
+    }
     setPurchasing(true);
     try {
-      const all = await Purchases.getOfferings();
-      const pkg = all.all['coach']?.monthly;
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 8000),
+      );
+      const all = await Promise.race([Purchases.getOfferings(), timeout]);
+      const pkg = (all as Awaited<ReturnType<typeof Purchases.getOfferings>>).all['coach']?.monthly;
       if (pkg) {
         await Purchases.purchasePackage(pkg);
       }
       onNext();
     } catch (e: any) {
-      if (!e.userCancelled) {
+      if (e.message === 'timeout') {
+        Alert.alert('Purchase unavailable', 'Could not connect to the store. Please try again or continue without a plan.');
+      } else if (!e.userCancelled) {
         Alert.alert('Purchase failed', e.message ?? 'Something went wrong.');
       }
     } finally {
@@ -1112,9 +1580,14 @@ function CoachPaywallScreen({ onNext }: { onNext: () => void }) {
 
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={s.paywallTitle}>{'One licence.\nYour whole squad.'}</Text>
-        <Text style={s.subtitle}>Every player on your team gets Pro features — included.</Text>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={s.paywallTitle}>{'One license.\nYour whole squad.'}</Text>
+        <Text style={s.subtitle}>
+          Every player on your team gets Pro features — included.
+        </Text>
 
         <View style={s.paywallFeatures}>
           {[
@@ -1133,18 +1606,29 @@ function CoachPaywallScreen({ onNext }: { onNext: () => void }) {
 
         <View style={[s.paywallPricing, { paddingVertical: 24 }]}>
           <Text style={s.pricingPlan}>Coach</Text>
-          <Text style={[s.pricingAmount, { fontSize: 32 }]}>$19.99 / month</Text>
+          <Text style={[s.pricingAmount, { fontSize: 32 }]}>
+            $19.99 / month
+          </Text>
           <Text style={s.pricingMonthly}>Squad licence · cancel anytime</Text>
         </View>
 
         <View style={{ height: 16 }} />
-        <TouchableOpacity style={[s.paywallCta, purchasing && { opacity: 0.6 }]} onPress={handlePurchase} activeOpacity={0.85} disabled={purchasing}>
-          {purchasing
-            ? <ActivityIndicator color='#FFF' />
-            : <Text style={s.paywallCtaText}>Start coaching →</Text>
-          }
+        <TouchableOpacity
+          style={[s.paywallCta, purchasing && { opacity: 0.6 }]}
+          onPress={handlePurchase}
+          activeOpacity={0.85}
+          disabled={purchasing}
+        >
+          {purchasing ? (
+            <ActivityIndicator color='#FFF' />
+          ) : (
+            <Text style={s.paywallCtaText}>Start coaching →</Text>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity style={s.skipLink} onPress={onNext} disabled={purchasing}>
+        <TouchableOpacity
+          style={s.skipLink}
+          onPress={onNext}
+        >
           <Text style={s.skipLinkText}>Continue without Coach plan</Text>
         </TouchableOpacity>
         <Text style={s.paywallDisclaimer}>Restore purchases</Text>
@@ -1230,23 +1714,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  signupLogoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   signupLogo: {
-    width: 64,
-    height: 64,
+    width: 90,
+    height: 90,
+    borderRadius: 20,
+    marginBottom: 20,
   },
   signupCard: {
     backgroundColor: '#FFF',
@@ -1311,7 +1783,7 @@ const s = StyleSheet.create({
   signupBtnText: {
     fontSize: 17,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
     letterSpacing: 0.5,
   },
   signupSignInLink: {
@@ -1903,7 +2375,7 @@ const s = StyleSheet.create({
   paywallCtaText: {
     fontSize: 17,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
   },
   paywallDisclaimer: {
     fontSize: 12,

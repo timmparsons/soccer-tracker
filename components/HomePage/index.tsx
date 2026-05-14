@@ -149,6 +149,7 @@ const HomeScreen = () => {
           trainedToday={(touchStats?.today_touches || 0) > 0}
           streak={streak}
           challengeStreak={challengeStreak}
+          skillFocus={profile?.skill_focus ?? null}
         />
 
         {/* QUICK STATS */}
