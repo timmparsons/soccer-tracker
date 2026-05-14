@@ -1,13 +1,4 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
-
-const GOAL_DISPLAY: Record<string, { emoji: string; label: string }> = {
-  firsttouch: { emoji: '🎯', label: 'First touch' },
-  juggling:   { emoji: '⚽', label: 'Juggling' },
-  fitness:    { emoji: '🏃', label: 'Match fitness' },
-  compete:    { emoji: '🔥', label: 'Outwork teammates' },
-  recruited:  { emoji: '🌟', label: 'Get recruited' },
-  habit:      { emoji: '💪', label: 'Build a habit' },
-};
 import BadgeGrid from '@/components/common/BadgeGrid';
 import PastSeasonModal from '@/components/modals/PastSeasonModal';
 import {
@@ -31,8 +22,8 @@ import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -56,6 +47,15 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+const GOAL_DISPLAY: Record<string, { emoji: string; label: string }> = {
+  firsttouch: { emoji: '🎯', label: 'First touch' },
+  juggling: { emoji: '⚽', label: 'Juggling' },
+  fitness: { emoji: '🏃', label: 'Match fitness' },
+  compete: { emoji: '🔥', label: 'Outwork teammates' },
+  recruited: { emoji: '🌟', label: 'Get recruited' },
+  habit: { emoji: '💪', label: 'Build a habit' },
+};
+
 const ProfilePage = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -77,19 +77,24 @@ const ProfilePage = () => {
   const [showChampionModal, setShowChampionModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [savingGoal, setSavingGoal] = useState(false);
-  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null | undefined>(undefined);
+  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<
+    string | null | undefined
+  >(undefined);
   const { data: coinTransactions = [] } = useCoinTransactions(
     !profile?.is_coach ? user?.id : undefined,
   );
 
   useEffect(() => {
-    AsyncStorage.getItem('lastSeenCoinsAt').then((val) => setLastSeenCoinsAt(val));
+    AsyncStorage.getItem('lastSeenCoinsAt').then((val) =>
+      setLastSeenCoinsAt(val),
+    );
   }, []);
 
   const hasUnreadCoins =
     lastSeenCoinsAt !== undefined &&
     coinTransactions.length > 0 &&
-    (lastSeenCoinsAt === null || coinTransactions[0].created_at > lastSeenCoinsAt);
+    (lastSeenCoinsAt === null ||
+      coinTransactions[0].created_at > lastSeenCoinsAt);
 
   const openChampionModal = () => {
     const now = new Date().toISOString();
@@ -605,18 +610,21 @@ const ProfilePage = () => {
             <Text style={styles.role}>
               {profile?.is_coach ? '⚽ Coach' : '🎯 Player'}
             </Text>
-            {!profile?.is_coach && profile?.skill_focus && GOAL_DISPLAY[profile.skill_focus] && (
-              <TouchableOpacity
-                style={styles.goalChip}
-                onPress={() => setShowGoalModal(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.goalChipText}>
-                  {GOAL_DISPLAY[profile.skill_focus].emoji} {GOAL_DISPLAY[profile.skill_focus].label}
-                </Text>
-                <Ionicons name='pencil' size={11} color='#1f89ee' />
-              </TouchableOpacity>
-            )}
+            {!profile?.is_coach &&
+              profile?.skill_focus &&
+              GOAL_DISPLAY[profile.skill_focus] && (
+                <TouchableOpacity
+                  style={styles.goalChip}
+                  onPress={() => setShowGoalModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.goalChipText}>
+                    {GOAL_DISPLAY[profile.skill_focus].emoji}{' '}
+                    {GOAL_DISPLAY[profile.skill_focus].label}
+                  </Text>
+                  <Ionicons name='pencil' size={11} color='#1f89ee' />
+                </TouchableOpacity>
+              )}
             {!profile?.is_coach && (
               <>
                 <View style={styles.xpPill}>
@@ -1024,7 +1032,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowGoalModal(false)}
         >
           <View style={styles.settingsOverlay}>
-            <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View
+              style={[
+                styles.settingsSheet,
+                { paddingBottom: insets.bottom + 16 },
+              ]}
+            >
               <View style={styles.settingsSheetHandle} />
               <TouchableOpacity
                 style={styles.settingsSheetClose}
@@ -1039,20 +1052,28 @@ const ProfilePage = () => {
                     key={id}
                     style={[
                       styles.goalOptionRow,
-                      profile?.skill_focus === id && styles.goalOptionRowSelected,
+                      profile?.skill_focus === id &&
+                        styles.goalOptionRowSelected,
                     ]}
                     onPress={() => handleSaveGoal(id)}
                     disabled={savingGoal}
                   >
                     <Text style={styles.goalOptionEmoji}>{emoji}</Text>
-                    <Text style={[
-                      styles.goalOptionLabel,
-                      profile?.skill_focus === id && styles.goalOptionLabelSelected,
-                    ]}>
+                    <Text
+                      style={[
+                        styles.goalOptionLabel,
+                        profile?.skill_focus === id &&
+                          styles.goalOptionLabelSelected,
+                      ]}
+                    >
                       {label}
                     </Text>
                     {profile?.skill_focus === id && (
-                      <Ionicons name='checkmark-circle' size={20} color='#1f89ee' />
+                      <Ionicons
+                        name='checkmark-circle'
+                        size={20}
+                        color='#1f89ee'
+                      />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -1255,7 +1276,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.2.23</Text>
+                <Text style={styles.version}>Version 2.3.2</Text>
               </ScrollView>
             </View>
           </View>

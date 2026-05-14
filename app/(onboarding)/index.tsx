@@ -41,15 +41,8 @@ interface OnboardingData {
 const PLAYER_STEPS = [
   'welcome',
   'persona',
-  'goal',
-  'pain',
-  'name',
   'social',
-  'solution',
   'notif',
-  'processing',
-  'dailygoal',
-  'demo',
   'signup',
   'paywall',
 ] as const;
@@ -57,8 +50,6 @@ const PLAYER_STEPS = [
 const COACH_STEPS = [
   'welcome',
   'persona',
-  'coachgoal',
-  'coachname',
   'coachsocial',
   'coachnotif',
   'coachsignup',

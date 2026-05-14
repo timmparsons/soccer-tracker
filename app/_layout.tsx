@@ -270,14 +270,8 @@ export default function RootLayout() {
       if (Platform.OS !== 'web') {
         await Purchases.logIn(sess.user.id);
       }
-      router.replace(
-        profile?.onboarding_completed === true ? '/(tabs)' : '/(onboarding)',
-      );
-      // Only set up notifications for returning users — new users are primed
-      // inside the onboarding flow before the system dialog is triggered.
-      if (profile?.onboarding_completed === true) {
-        setupNotifications(sess.user.id);
-      }
+      router.replace('/(tabs)');
+      setupNotifications(sess.user.id);
     } catch {
       router.replace('/(tabs)');
     } finally {
