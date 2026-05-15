@@ -1,13 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
+import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
-import { getDisplayName } from '@/utils/getDisplayName';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -45,7 +44,7 @@ const Leaderboard = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
@@ -151,6 +150,12 @@ const Leaderboard = () => {
     enabled: !!profile?.team_id,
   });
 
+  const {
+    data: globalLeaderboard = [],
+    isLoading: globalLoading,
+    refetch: refetchGlobal,
+  } = useGlobalLeaderboard();
+
   const isLoading = touchesLoading || jugglingLoading;
 
   // Record last week's winner (idempotent — safe to run every load)
@@ -165,6 +170,7 @@ const Leaderboard = () => {
   const handleRefresh = () => {
     refetchTouches();
     refetchJuggling();
+    refetchGlobal();
   };
 
   // Refetch data when screen comes into focus
@@ -173,7 +179,8 @@ const Leaderboard = () => {
       refetchProfile();
       refetchTouches();
       refetchJuggling();
-    }, [refetchProfile, refetchTouches, refetchJuggling])
+      refetchGlobal();
+    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal])
   );
 
   if (isLoading) {
@@ -334,15 +341,6 @@ const Leaderboard = () => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {/* Challenges — players only */}
-        {!profile?.is_coach && user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-          />
-        )}
-
         {activeTab === 'touches' ? (
           <>
             {/* Period pills */}
@@ -371,6 +369,12 @@ const Leaderboard = () => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('global')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
+              </TouchableOpacity>
             </ScrollView>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
@@ -378,10 +382,54 @@ const Leaderboard = () => {
             {touchesPeriod === 'alltime' && (
               <Text style={styles.resetNote}>Best single week ever</Text>
             )}
+            {touchesPeriod === 'global' && (
+              <Text style={styles.resetNote}>Anonymous · everyone using the app this week</Text>
+            )}
 
+            {/* Global leaderboard — shown instead of team content */}
+            {touchesPeriod === 'global' && (
+              <View style={styles.listContainer}>
+                {globalLeaderboard.length === 0 && !globalLoading && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateTitle}>No Data Yet</Text>
+                    <Text style={styles.emptyStateText}>
+                      Come back once players have logged sessions this week.
+                    </Text>
+                  </View>
+                )}
+                {globalLeaderboard.map((player, index) => {
+                  const isCurrentUser = player.userId === user?.id;
+                  return (
+                    <View
+                      key={player.userId}
+                      style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                    >
+                      <View style={styles.playerLeft}>
+                        <View style={styles.rankContainer}>
+                          <Text style={styles.rankNumber}>{index + 1}</Text>
+                        </View>
+                        <View style={styles.globalAvatarPlaceholder}>
+                          <Ionicons name='person' size={22} color='#B0BEC5' />
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={styles.playerName}>
+                            {player.name}
+                            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.playerRight}>
+                        <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
+                        <Text style={styles.touchesLabel}>touches</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
-            {showTouchesPodium && (
+            {touchesPeriod !== 'global' && showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 1st Place — left when only 2 on podium, centre when 3 */}
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
@@ -520,7 +568,7 @@ const Leaderboard = () => {
             )}
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
-            <View style={styles.listContainer}>
+            {touchesPeriod !== 'global' && <View style={styles.listContainer}>
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
@@ -587,12 +635,12 @@ const Leaderboard = () => {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </View>}
           </>
         ) : (
           <>
             {/* Period pills */}
-            <View style={styles.periodPillRow}>
+            <View style={[styles.periodPillRow, { justifyContent: 'center' }]}>
               <TouchableOpacity
                 style={[styles.periodPill, jugglingPeriod === 'week' && styles.periodPillActive]}
                 onPress={() => setJugglingPeriod('week')}
@@ -818,18 +866,21 @@ const styles = StyleSheet.create({
   periodPillRow: {
     marginBottom: 16,
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   periodPillRowContent: {
+    flexGrow: 1,
     flexDirection: 'row',
-    gap: 8,
-    paddingRight: 4,
+    justifyContent: 'center',
+    gap: 6,
   },
   periodPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: 20,
     backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -840,9 +891,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f89ee',
   },
   periodPillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#78909C',
+    textAlign: 'center',
   },
   periodPillTextActive: {
     color: '#FFF',
@@ -1058,6 +1110,24 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+
+  globalSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  globalAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0F2F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+  },
 
   // EMPTY STATE
   emptyState: {

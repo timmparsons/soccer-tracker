@@ -1,3 +1,4 @@
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
@@ -151,6 +152,15 @@ const HomeScreen = () => {
           challengeStreak={challengeStreak}
           skillFocus={profile?.skill_focus ?? null}
         />
+
+        {/* CHALLENGES */}
+        {!profile?.is_coach && user?.id && (
+          <ChallengesCard
+            userId={user.id}
+            teamId={profile?.team_id}
+            playerName={displayName}
+          />
+        )}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>

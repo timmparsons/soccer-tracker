@@ -55,7 +55,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
   const activeCoachChallenges = coachChallenges.filter((c) => c.status === 'active');
 
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
-  const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 5);
+  const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 3);
   const displayedChallenges = [...activeChallenges, ...completedChallenges];
 
   return (
