@@ -1,13 +1,12 @@
 import PageHeader from '@/components/common/PageHeader';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
-import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -35,13 +33,6 @@ import {
 } from 'react-native';
 
 
-const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
-  beginner: { bg: '#E8F5E9', text: '#388E3C' },
-  intermediate: { bg: '#FFF3E0', text: '#F57C00' },
-  advanced: { bg: '#FFEBEE', text: '#D32F2F' },
-};
-
-
 const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
 
 const TrainPage = () => {
@@ -50,7 +41,6 @@ const TrainPage = () => {
   const { isPremium } = useSubscription();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [drillLibraryOpen, setDrillLibraryOpen] = useState(false);
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   // Timer state
@@ -66,9 +56,6 @@ const TrainPage = () => {
     string | undefined
   >();
   const [challengeName, setChallengeName] = useState<string | undefined>();
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoName, setVideoName] = useState<string>('');
-  const [videoDescription, setVideoDescription] = useState<string>('');
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
@@ -76,9 +63,6 @@ const TrainPage = () => {
   const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
-  const [drillFilter, setDrillFilter] = useState<
-    'all' | 'beginner' | 'intermediate' | 'advanced'
-  >('beginner');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -119,15 +103,14 @@ const TrainPage = () => {
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
-  const { data: drills = [], refetch: refetchDrills } = useDrills();
 
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchDrills()]);
+    await refetch();
     setRefreshing(false);
-  }, [refetch, refetchDrills]);
+  }, [refetch]);
 
   const handleSessionLogged = () => {
     refetch();
@@ -304,17 +287,6 @@ const TrainPage = () => {
   const dailyTarget = touchStats?.daily_target || 1000;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
 
-  const drillsByDifficulty = {
-    beginner: drills.filter((d) => d.difficulty_level === 'beginner'),
-    intermediate: drills.filter((d) => d.difficulty_level === 'intermediate'),
-    advanced: drills.filter((d) => d.difficulty_level === 'advanced'),
-  };
-
-  const visibleLevels =
-    drillFilter === 'all'
-      ? (['beginner', 'intermediate', 'advanced'] as const)
-      : ([drillFilter] as const);
-
   return (
     <View style={styles.container}>
       <PageHeader
@@ -383,6 +355,22 @@ const TrainPage = () => {
         </View>
 
 
+        {/* Drill Library */}
+        <TouchableOpacity
+          style={styles.libraryCard}
+          onPress={() => router.push('/(modals)/drill-library')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.libraryIconBg}>
+            <Ionicons name='book' size={22} color='#1f89ee' />
+          </View>
+          <View style={styles.libraryTextBlock}>
+            <Text style={styles.libraryTitle}>Drill Library</Text>
+            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
+          </View>
+          <Ionicons name='chevron-forward' size={20} color='#78909C' />
+        </TouchableOpacity>
+
         {/* TODAY'S CHALLENGE */}
         {user?.id && (
           <TodayChallengeCard
@@ -397,152 +385,6 @@ const TrainPage = () => {
             }}
           />
         )}
-
-        {/* Drill Library */}
-        <View style={styles.libraryCard}>
-          <TouchableOpacity
-            style={styles.libraryHeader}
-            onPress={() => setDrillLibraryOpen((o) => !o)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Ionicons
-              name={drillLibraryOpen ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color='#78909C'
-            />
-          </TouchableOpacity>
-
-          {drillLibraryOpen && (
-            <>
-              {/* Level filter pills */}
-              <View style={styles.drillFilterRow}>
-                {(['beginner', 'intermediate', 'advanced', 'all'] as const).map(
-                  (level) => (
-                    <TouchableOpacity
-                      key={level}
-                      style={[
-                        styles.drillFilterPill,
-                        drillFilter === level && styles.drillFilterPillActive,
-                        drillFilter === level &&
-                          level !== 'all' && {
-                            backgroundColor: DIFFICULTY_COLORS[level].bg,
-                          },
-                      ]}
-                      onPress={() => setDrillFilter(level)}
-                    >
-                      <Text
-                        style={[
-                          styles.drillFilterPillText,
-                          drillFilter === level && styles.drillFilterPillTextActive,
-                          drillFilter === level &&
-                            level !== 'all' && {
-                              color: DIFFICULTY_COLORS[level].text,
-                            },
-                        ]}
-                      >
-                        {level === 'all'
-                          ? 'All'
-                          : level.charAt(0).toUpperCase() + level.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ),
-                )}
-              </View>
-
-              <Text style={styles.drillHint}>
-                Tap a drill to log a session · Tap{' '}
-                <Text style={styles.drillHintPlay}>▶ Watch</Text> to see the video
-              </Text>
-
-              {visibleLevels.map((level) => {
-            const levelDrills = drillsByDifficulty[level];
-            if (levelDrills.length === 0) return null;
-            const color = DIFFICULTY_COLORS[level];
-            const levelLocked = !isPremium && level !== 'beginner';
-            return (
-              <View key={level} style={styles.difficultySection}>
-                <View style={[styles.difficultyHeader, { backgroundColor: color.bg }]}>
-                  <Text style={[styles.difficultyLabel, { color: color.text }]}>
-                    {level.toUpperCase()}
-                  </Text>
-                  {levelLocked && (
-                    <Ionicons name='lock-closed' size={12} color={color.text} style={{ marginLeft: 6 }} />
-                  )}
-                </View>
-                <View style={styles.drillGrid}>
-                  {levelDrills.map((drill) => (
-                    <View key={drill.id} style={[styles.drillCard, levelLocked && styles.drillCardLocked]}>
-                      {levelLocked ? (
-                        <View style={styles.drillThumbnailPlaceholderNoVideo} />
-                      ) : drill.video_url ? (
-                        <TouchableOpacity
-                          style={styles.drillThumbnailContainer}
-                          onPress={() => {
-                            setVideoUrl(drill.video_url!);
-                            setVideoName(drill.name);
-                            setVideoDescription(drill.description ?? '');
-                          }}
-                          activeOpacity={0.85}
-                        >
-                          {drill.thumbnail_url ? (
-                            <Image
-                              source={{ uri: drill.thumbnail_url }}
-                              style={styles.drillThumbnail}
-                              resizeMode='cover'
-                            />
-                          ) : (
-                            <View style={styles.drillThumbnailPlaceholder} />
-                          )}
-                          <View style={styles.drillPlayOverlay}>
-                            <View style={styles.drillPlayButton}>
-                              <Ionicons name='play' size={14} color='#FFF' />
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={styles.drillThumbnailPlaceholderNoVideo} />
-                      )}
-                      <TouchableOpacity
-                        style={styles.drillTapArea}
-                        onPress={() => {
-                          if (levelLocked) {
-                            router.push('/(modals)/paywall');
-                            return;
-                          }
-                          setChallengeDrillId(drill.id);
-                          setChallengeName(drill.name);
-                          setModalVisible(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.drillName}>{drill.name}</Text>
-                        {drill.description && (
-                          <Text style={styles.drillDescription}>
-                            {drill.description}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                      {levelLocked ? (
-                        <View style={styles.drillLockedBadge}>
-                          <Ionicons name='lock-closed' size={11} color='#78909C' />
-                          <Text style={styles.drillLockedText}>Pro only</Text>
-                        </View>
-                      ) : !drill.video_url ? (
-                        <View style={styles.comingSoonBadge}>
-                          <Ionicons name='videocam-outline' size={11} color='#78909C' />
-                          <Text style={styles.comingSoonText}>Video coming soon</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-                </View>
-              );
-            })}
-            </>
-          )}
-        </View>
 
       </ScrollView>
 
@@ -821,17 +663,6 @@ const TrainPage = () => {
         }}
       />
 
-      {/* Drill Video */}
-      {videoUrl && (
-        <DrillVideoModal
-          visible={!!videoUrl}
-          onClose={() => setVideoUrl(null)}
-          videoUrl={videoUrl}
-          drillName={videoName}
-          description={videoDescription}
-        />
-      )}
-
       {/* Log Session Modal */}
       {user?.id && (
         <LogSessionModal
@@ -1011,172 +842,43 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // DRILL LIBRARY
+  // DRILL LIBRARY TILE
   libraryCard: {
     backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 20,
     marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-  libraryHeader: {
-    flexDirection: 'row',
+  libraryIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F4FD',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
   },
-  drillFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  drillHint: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    marginBottom: 16,
-  },
-  drillHintPlay: {
-    color: '#31af4d',
-    fontWeight: '700',
-  },
-  drillFilterPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#F0F2F5',
-  },
-  drillFilterPillActive: {
-    backgroundColor: '#1f89ee',
-  },
-  drillFilterPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  drillFilterPillTextActive: {
-    color: '#FFF',
+  libraryTextBlock: {
+    flex: 1,
   },
   libraryTitle: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#1a1a2e',
-    marginBottom: 2,
   },
   librarySubtitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#78909C',
-  },
-  difficultySection: {
-    marginBottom: 16,
-  },
-  difficultyHeader: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-  },
-  difficultyLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  drillGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  drillCard: {
-    width: '48%',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  drillThumbnailContainer: {
-    height: 90,
-    width: '100%',
-  },
-  drillThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  drillThumbnailPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#E8F5E9',
-  },
-  drillThumbnailPlaceholderNoVideo: {
-    width: '100%',
-    height: 6,
-    backgroundColor: '#E0E0E0',
-  },
-  drillPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  drillPlayButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#31af4d',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  drillTapArea: {
-    padding: 10,
-  },
-  drillCardLocked: {
-    opacity: 0.5,
-  },
-  drillLockedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
     marginTop: 2,
-  },
-  drillLockedText: {
-    fontSize: 11,
-    color: '#78909C',
-    fontWeight: '700',
-  },
-  drillName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-  drillDescription: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    lineHeight: 17,
-    marginBottom: 4,
-  },
-  comingSoonBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  comingSoonText: {
-    fontSize: 11,
-    color: '#78909C',
-    fontWeight: '600',
   },
 
   // TIMER MODAL
