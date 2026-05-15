@@ -59,6 +59,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
       .from('daily_sessions')
       .select('user_id, touches_logged, date')
       .in('user_id', memberIds)
+      .order('date', { ascending: false })
       .limit(50000),
     supabase
       .from('user_targets')
