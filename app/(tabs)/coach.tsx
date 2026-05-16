@@ -143,12 +143,17 @@ export default function CoachDashboard() {
 
       const playerIds = players.map((p) => p.id);
 
-      // Batch fetch sessions and targets
+      // Batch fetch sessions and targets — go back 120 days to cover any realistic streak
+      const streakWindowStart = new Date();
+      streakWindowStart.setDate(streakWindowStart.getDate() - 120);
+      const streakWindowStartStr = getLocalDate(streakWindowStart);
+
       const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
         supabase
           .from('daily_sessions')
           .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
           .in('user_id', playerIds)
+          .gte('date', streakWindowStartStr)
           .order('created_at', { ascending: false }),
         supabase
           .from('user_targets')
