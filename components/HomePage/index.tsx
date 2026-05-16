@@ -3,6 +3,7 @@ import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useProfile } from '@/hooks/useProfile';
+import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -66,6 +67,7 @@ const HomeScreen = () => {
     useChallengeStats(user?.id, undefined);
 
   const { data: recentSessions = [], refetch: refetchRecent } = useRecentSessions(user?.id, 3);
+  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } = useChallengeRecord(user?.id);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -100,6 +102,7 @@ const HomeScreen = () => {
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
+  const winStreak = challengeRecord.streak;
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const todayPct = Math.min((todayTouches / dailyTarget) * 100, 100);
@@ -152,6 +155,26 @@ const HomeScreen = () => {
           challengeStreak={challengeStreak}
           skillFocus={profile?.skill_focus ?? null}
         />
+
+        {/* TODAY'S PROGRESS */}
+        <View style={[styles.todayCard, { marginBottom: 10 }]}>
+          <View style={styles.todayHeader}>
+            <Text style={styles.todaySectionLabel}>TODAY'S PROGRESS</Text>
+            {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+          </View>
+          <View style={styles.todayRow}>
+            <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+            <Text style={styles.todayTarget}> / {dailyTarget.toLocaleString()}</Text>
+          </View>
+          <View style={styles.todayBarBg}>
+            <View style={[styles.todayBarFill, { width: `${todayPct}%` as `${number}%` }]} />
+          </View>
+          <Text style={styles.todaySubtext}>
+            {todayDone
+              ? 'Smashed it — keep going if you want more!'
+              : `${(dailyTarget - todayTouches).toLocaleString()} touches to reach your goal`}
+          </Text>
+        </View>
 
         {/* CHALLENGES */}
         {!profile?.is_coach && user?.id && (
@@ -209,26 +232,17 @@ const HomeScreen = () => {
               {challengeStreak === 0 ? "Do today's challenge!" : 'Days in a row'}
             </Text>
           </View>
-        </View>
 
-        {/* TODAY'S PROGRESS */}
-        <View style={styles.todayCard}>
-          <View style={styles.todayHeader}>
-            <Text style={styles.todaySectionLabel}>TODAY'S PROGRESS</Text>
-            {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
-          </View>
-          <View style={styles.todayRow}>
-            <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
-            <Text style={styles.todayTarget}> / {dailyTarget.toLocaleString()}</Text>
-          </View>
-          <View style={styles.todayBarBg}>
-            <View style={[styles.todayBarFill, { width: `${todayPct}%` as `${number}%` }]} />
-          </View>
-          <Text style={styles.todaySubtext}>
-            {todayDone
-              ? 'Smashed it — keep going if you want more!'
-              : `${(dailyTarget - todayTouches).toLocaleString()} touches to reach your goal`}
-          </Text>
+          {winStreak > 0 && (
+            <View style={[styles.statCard, styles.statWinStreak]}>
+              <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
+                <Text style={styles.statIcon}>⚔️</Text>
+              </View>
+              <Text style={[styles.statValue, { color: '#ffb724' }]}>{winStreak}</Text>
+              <Text style={styles.statLabel}>1v1 Win Streak</Text>
+              <Text style={styles.statSubtext}>Don't lose it!</Text>
+            </View>
+          )}
         </View>
 
         {/* RECENT SESSIONS */}
@@ -303,6 +317,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 4,
     borderTopColor: '#ffb724',
+  },
+  statWinStreak: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 4,
+    borderTopColor: '#ffb724',
+    width: '100%',
   },
   statIconBg: {
     width: 38,

@@ -77,15 +77,34 @@ export function useChallengeRecord(userId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('player_challenges')
-        .select('winner_id, challenger_id, challenged_id')
+        .select('winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at')
         .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
         .eq('status', 'completed');
 
-      if (error || !data) return { wins: 0, losses: 0 };
+      if (error || !data) return { wins: 0, losses: 0, streak: 0 };
 
       const wins = data.filter((c) => c.winner_id === userId).length;
       const losses = data.length - wins;
-      return { wins, losses };
+
+      const sorted = [...data].sort((a, b) => {
+        const aTime = Math.max(
+          a.challenger_completed_at ? new Date(a.challenger_completed_at).getTime() : 0,
+          a.challenged_completed_at ? new Date(a.challenged_completed_at).getTime() : 0,
+        );
+        const bTime = Math.max(
+          b.challenger_completed_at ? new Date(b.challenger_completed_at).getTime() : 0,
+          b.challenged_completed_at ? new Date(b.challenged_completed_at).getTime() : 0,
+        );
+        return bTime - aTime;
+      });
+
+      let streak = 0;
+      for (const c of sorted) {
+        if (c.winner_id === userId) streak++;
+        else break;
+      }
+
+      return { wins, losses, streak };
     },
   });
 }

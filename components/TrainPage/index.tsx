@@ -56,6 +56,8 @@ const TrainPage = () => {
     string | undefined
   >();
   const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
+  const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
@@ -112,10 +114,12 @@ const TrainPage = () => {
     setRefreshing(false);
   }, [refetch]);
 
-  const handleSessionLogged = () => {
+  const handleSessionLogged = (includesChallengeInvalidation = false) => {
     refetch();
-    queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
+    if (includesChallengeInvalidation) {
+      queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
+    }
   };
 
   // Timer logic
@@ -238,7 +242,7 @@ const TrainPage = () => {
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: user.id,
-        drill_id: null,
+        drill_id: timerChallengeDrillId ?? null,
         touches_logged: score,
         duration_minutes: durationMinutes,
         date: today,
@@ -246,11 +250,14 @@ const TrainPage = () => {
 
       if (error) throw error;
 
+      const wasChallenge = !!timerChallengeDrillId;
       setCelebrationTouches(score);
       setScoreInput('');
       setShowScoreModal(false);
       setFreeTimerDuration(0);
-      handleSessionLogged();
+      setTimerChallengeDrillId(undefined);
+      setTimerChallengeName(undefined);
+      handleSessionLogged(wasChallenge);
       setShowVinnieCelebration(true);
     } catch (error) {
       console.error('Error logging session:', error);
@@ -270,6 +277,8 @@ const TrainPage = () => {
           stopTimer();
           setShowTimerModal(false);
           setTimeRemaining(0);
+          setTimerChallengeDrillId(undefined);
+          setTimerChallengeName(undefined);
         },
       },
     ]);
@@ -377,11 +386,30 @@ const TrainPage = () => {
             userId={user.id}
             totalTouches={touchStats?.total_touches ?? 0}
             onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              setChallengeDrillId(drillId);
-              setChallengeDurationMinutes(durationMinutes);
-              setChallengeName(drillName);
-              setChallengeDifficulty(difficulty);
-              setModalVisible(true);
+              Alert.alert(
+                drillName,
+                'How do you want to log this challenge?',
+                [
+                  {
+                    text: 'Log Manually',
+                    onPress: () => {
+                      setChallengeDrillId(drillId);
+                      setChallengeDurationMinutes(durationMinutes);
+                      setChallengeName(drillName);
+                      setChallengeDifficulty(difficulty);
+                      setModalVisible(true);
+                    },
+                  },
+                  {
+                    text: 'Use Timer',
+                    onPress: () => {
+                      setTimerChallengeDrillId(drillId);
+                      setTimerChallengeName(drillName);
+                      setShowTimerPicker(true);
+                    },
+                  },
+                ],
+              );
             }}
           />
         )}
@@ -399,9 +427,9 @@ const TrainPage = () => {
       >
         <View style={styles.timerModal}>
           <View style={styles.timerContent}>
-            <Text style={styles.timerChallengeName}>Free Practice</Text>
+            <Text style={styles.timerChallengeName}>{timerChallengeName ?? 'Free Practice'}</Text>
             <Text style={styles.timerInstructions}>
-              Get as many touches as you can!
+              {timerChallengeName ? `Timer for: ${timerChallengeName}` : 'Get as many touches as you can!'}
             </Text>
 
             <View style={styles.timerCircle}>
@@ -465,6 +493,11 @@ const TrainPage = () => {
               <View style={styles.scoreModalHeader}>
                 <Text style={styles.scoreModalEmoji}>🎉</Text>
                 <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
+                {timerChallengeName && (
+                  <View style={styles.scoreChallengeBanner}>
+                    <Text style={styles.scoreChallengeBannerText}>Challenge: {timerChallengeName}</Text>
+                  </View>
+                )}
                 <Text style={styles.scoreModalSubtitle}>
                   How many touches did you get?
                 </Text>
@@ -488,6 +521,8 @@ const TrainPage = () => {
                   onPress={() => {
                     setShowScoreModal(false);
                     setScoreInput('');
+                    setTimerChallengeDrillId(undefined);
+                    setTimerChallengeName(undefined);
                   }}
                 >
                   <Text style={styles.skipButtonText}>Skip</Text>
@@ -634,6 +669,8 @@ const TrainPage = () => {
                   setShowTimerPicker(false);
                   setCustomMinutes('');
                   setCustomSeconds('');
+                  setTimerChallengeDrillId(undefined);
+                  setTimerChallengeName(undefined);
                 }}
               >
                 <Text style={styles.timerPickerCancelText}>Cancel</Text>
@@ -991,6 +1028,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
+  },
+  scoreChallengeBanner: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#31af4d',
+    alignSelf: 'stretch',
+  },
+  scoreChallengeBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#388E3C',
   },
   scoreInputContainer: {
     marginBottom: 24,

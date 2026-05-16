@@ -433,7 +433,7 @@ const ProfilePage = () => {
     user?.id,
   );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
-  const { data: challengeRecord = { wins: 0, losses: 0 } } = useChallengeRecord(
+  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } = useChallengeRecord(
     user?.id,
   );
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
@@ -730,6 +730,14 @@ const ProfilePage = () => {
                       Challenge Losses
                     </Text>
                   </View>
+                  {challengeRecord.streak > 0 && (
+                    <View style={styles.lifetimeStat}>
+                      <Text style={styles.lifetimeStatValue}>
+                        🔥 {challengeRecord.streak}
+                      </Text>
+                      <Text style={styles.lifetimeStatLabel}>Win Streak</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
