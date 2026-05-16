@@ -319,6 +319,39 @@ export const useChallengeStats = (
   });
 };
 
+export const useDailyTouchHistory = (userId: string | undefined) => {
+  return useQuery({
+    queryKey: ['daily-touch-history', userId],
+    queryFn: async (): Promise<number[]> => {
+      if (!userId) throw new Error('No user ID');
+
+      const today = new Date();
+      const sixDaysAgo = new Date(today);
+      sixDaysAgo.setDate(today.getDate() - 6);
+      const fromDate = getLocalDate(sixDaysAgo);
+
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('date, touches_logged')
+        .eq('user_id', userId)
+        .gte('date', fromDate)
+        .order('date', { ascending: true });
+
+      const byDate: Record<string, number> = {};
+      for (const s of data || []) {
+        byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
+      }
+
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() - (6 - i));
+        return byDate[getLocalDate(d)] || 0;
+      });
+    },
+    enabled: !!userId,
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['today-challenge', userId, getLocalDate()],

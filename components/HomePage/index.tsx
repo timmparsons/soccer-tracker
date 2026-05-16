@@ -1,10 +1,17 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import CircularProgress from '@/components/common/CircularProgress';
 import CoinAwardBanner from '@/components/common/CoinAwardBanner';
+import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
-import { useChallengeStats, useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import {
+  useChallengeStats,
+  useDailyTouchHistory,
+  useRecentSessions,
+  useTouchTracking,
+} from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
@@ -14,12 +21,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 
 const HomeScreen = () => {
   const { data: user } = useUser();
@@ -68,6 +77,7 @@ const HomeScreen = () => {
 
   const { data: recentSessions = [], refetch: refetchRecent } = useRecentSessions(user?.id, 3);
   const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } = useChallengeRecord(user?.id);
+  const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -157,23 +167,30 @@ const HomeScreen = () => {
         />
 
         {/* TODAY'S PROGRESS */}
-        <View style={[styles.todayCard, { marginBottom: 10 }]}>
+        <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
-            <Text style={styles.todaySectionLabel}>TODAY'S PROGRESS</Text>
+            <Text style={styles.todaySectionLabel}>{"TODAY'S PROGRESS"}</Text>
             {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
           </View>
-          <View style={styles.todayRow}>
-            <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
-            <Text style={styles.todayTarget}> / {dailyTarget.toLocaleString()}</Text>
+          <View style={styles.todayRingRow}>
+            <CircularProgress
+              progress={todayPct / 100}
+              size={120}
+              color={todayDone ? '#31af4d' : '#1f89ee'}
+              trackColor={todayDone ? '#D1FAE5' : '#EFF6FF'}
+            />
+            <View style={styles.todayRingMeta}>
+              <View style={styles.todayCountRow}>
+                <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+                <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
+              </View>
+              <Text style={styles.todaySubtext}>
+                {todayDone
+                  ? 'Smashed it — keep going!'
+                  : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
+              </Text>
+            </View>
           </View>
-          <View style={styles.todayBarBg}>
-            <View style={[styles.todayBarFill, { width: `${todayPct}%` as `${number}%` }]} />
-          </View>
-          <Text style={styles.todaySubtext}>
-            {todayDone
-              ? 'Smashed it — keep going if you want more!'
-              : `${(dailyTarget - todayTouches).toLocaleString()} touches to reach your goal`}
-          </Text>
         </View>
 
         {/* CHALLENGES */}
@@ -196,6 +213,7 @@ const HomeScreen = () => {
             </Text>
             <Text style={styles.statLabel}>This Week</Text>
             <Text style={styles.statSubtext}>Resets Sunday</Text>
+            <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>
@@ -218,6 +236,7 @@ const HomeScreen = () => {
             </Text>
             <Text style={styles.statLabel}>Touches/Min</Text>
             <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
+            <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
 
           <View style={[styles.statCard, styles.statAvg]}>
@@ -240,7 +259,7 @@ const HomeScreen = () => {
               </View>
               <Text style={[styles.statValue, { color: '#ffb724' }]}>{winStreak}</Text>
               <Text style={styles.statLabel}>1v1 Win Streak</Text>
-              <Text style={styles.statSubtext}>Don't lose it!</Text>
+              <Text style={styles.statSubtext}>{"Don't lose it!"}</Text>
             </View>
           )}
         </View>
@@ -248,7 +267,12 @@ const HomeScreen = () => {
         {/* RECENT SESSIONS */}
         {recentSessions.length > 0 && (
           <View style={styles.recentCard}>
-            <Text style={styles.recentLabel}>RECENT SESSIONS</Text>
+            <View style={styles.recentHeader}>
+              <Text style={styles.recentLabel}>RECENT SESSIONS</Text>
+              <Pressable onPress={() => router.push('/(tabs)/progress')}>
+                <Text style={styles.seeAll}>See All</Text>
+              </Pressable>
+            </View>
             {recentSessions.map((s, i) => (
               <View key={s.id} style={[styles.recentRow, i < recentSessions.length - 1 && styles.recentRowBorder]}>
                 <View style={styles.recentLeft}>
@@ -280,6 +304,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    gap: 10,
   },
 
   // STATS GRID (2x2)
@@ -290,8 +315,8 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    padding: 14,
-    borderRadius: 20,
+    padding: 16,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -357,9 +382,8 @@ const styles = StyleSheet.create({
   // TODAY'S PROGRESS
   todayCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 10,
+    borderRadius: 24,
+    padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -370,7 +394,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   todaySectionLabel: {
     fontSize: 11,
@@ -387,35 +411,32 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 10,
   },
-  todayRow: {
+  todayRingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  todayRingMeta: {
+    flex: 1,
+  },
+  todayCountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   todayTouches: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
     color: '#1a1a2e',
   },
   todayTarget: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#78909C',
-  },
-  todayBarBg: {
-    height: 8,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 4,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  todayBarFill: {
-    height: 8,
-    backgroundColor: '#1f89ee',
-    borderRadius: 4,
+    marginLeft: 2,
   },
   todaySubtext: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#78909C',
   },
@@ -423,21 +444,30 @@ const styles = StyleSheet.create({
   // RECENT SESSIONS
   recentCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 16,
-    marginTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   recentLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#1f89ee',
     letterSpacing: 1.2,
-    marginBottom: 12,
+  },
+  seeAll: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   recentRow: {
     flexDirection: 'row',
