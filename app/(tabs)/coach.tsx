@@ -143,18 +143,23 @@ export default function CoachDashboard() {
 
       const playerIds = players.map((p) => p.id);
 
-      // Batch fetch sessions and targets — go back 120 days to cover any realistic streak
+      // Fetch sessions per-player to avoid the 1000-row server cap on batched queries
       const streakWindowStart = new Date();
       streakWindowStart.setDate(streakWindowStart.getDate() - 120);
       const streakWindowStartStr = getLocalDate(streakWindowStart);
 
-      const [{ data: allSessionsRaw }, { data: allTargetsRaw }] = await Promise.all([
-        supabase
-          .from('daily_sessions')
-          .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
-          .in('user_id', playerIds)
-          .gte('date', streakWindowStartStr)
-          .order('created_at', { ascending: false }),
+      const [playerSessionResults, { data: allTargetsRaw }] = await Promise.all([
+        Promise.all(
+          players.map((player) =>
+            supabase
+              .from('daily_sessions')
+              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
+              .eq('user_id', player.id)
+              .gte('date', streakWindowStartStr)
+              .order('date', { ascending: false })
+              .then(({ data }) => ({ playerId: player.id, sessions: data ?? [] }))
+          )
+        ),
         supabase
           .from('user_targets')
           .select('user_id, daily_target_touches')
@@ -162,11 +167,17 @@ export default function CoachDashboard() {
       ]);
 
       // Build lookup maps
-      type SessionRow = NonNullable<typeof allSessionsRaw>[number];
+      type SessionRow = {
+        user_id: string;
+        touches_logged: number;
+        duration_minutes: number | null;
+        date: string;
+        created_at: string;
+        juggle_count: number | null;
+      };
       const sessionsByPlayer: Record<string, SessionRow[]> = {};
-      for (const s of allSessionsRaw || []) {
-        if (!sessionsByPlayer[s.user_id]) sessionsByPlayer[s.user_id] = [];
-        sessionsByPlayer[s.user_id].push(s);
+      for (const { playerId, sessions } of playerSessionResults) {
+        sessionsByPlayer[playerId] = sessions as SessionRow[];
       }
       const targetByPlayer: Record<string, number> = {};
       for (const t of allTargetsRaw || []) {
