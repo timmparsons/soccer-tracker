@@ -92,7 +92,6 @@ export default function PastSeasonModal({ visible, onClose, season }: PastSeason
                 );
               })
             )}
-            <View style={{ height: 24 }} />
           </ScrollView>
         </View>
       </View>
@@ -112,6 +111,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 34,
     maxHeight: '85%',
   },
   handle: {
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   list: {
-    flex: 1,
+    flexShrink: 1,
   },
   empty: {
     fontSize: 13,
