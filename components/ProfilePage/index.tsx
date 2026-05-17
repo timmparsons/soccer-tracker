@@ -433,9 +433,8 @@ const ProfilePage = () => {
     user?.id,
   );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
-  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } = useChallengeRecord(
-    user?.id,
-  );
+  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
+    useChallengeRecord(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
@@ -549,7 +548,7 @@ const ProfilePage = () => {
 
   return (
     <>
-      <View style={{ height: insets.top, backgroundColor: '#F5F7FA' }} />
+      <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
       <SafeAreaView style={styles.container} edges={[]}>
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header */}
@@ -641,10 +640,7 @@ const ProfilePage = () => {
                     <View
                       style={[
                         styles.xpProgressFill,
-                        {
-                          width: `${Math.round(xpProgress * 100)}%`,
-                          backgroundColor: rankBadge.color,
-                        },
+                        { width: `${Math.round(xpProgress * 100)}%` },
                       ]}
                     />
                   </View>
@@ -1285,7 +1281,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.3.5</Text>
+                <Text style={styles.version}>Version 2.4.0</Text>
               </ScrollView>
             </View>
           </View>
@@ -1628,7 +1624,7 @@ export default ProfilePage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 20,
@@ -1638,12 +1634,12 @@ const styles = StyleSheet.create({
   // HEADER
   header: {
     alignItems: 'center',
-    marginBottom: 24,
-    paddingVertical: 20,
+    marginBottom: 16,
+    paddingVertical: 14,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatarGlow: {
     position: 'absolute',
@@ -2021,7 +2017,7 @@ const styles = StyleSheet.create({
   },
   actionDivider: {
     height: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F0F4F8',
     marginHorizontal: 20,
   },
 
@@ -2116,11 +2112,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   championHistoryTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#78909C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#1a1a2e',
     alignSelf: 'flex-start',
     marginTop: 20,
     marginBottom: 8,
@@ -2167,7 +2161,7 @@ const styles = StyleSheet.create({
   xpProgressContainer: {
     width: '100%',
     paddingHorizontal: 4,
-    marginBottom: 16,
+    marginBottom: 10,
     gap: 5,
   },
   xpProgressTrack: {
@@ -2179,6 +2173,7 @@ const styles = StyleSheet.create({
   xpProgressFill: {
     height: '100%',
     borderRadius: 3,
+    backgroundColor: '#1f89ee',
   },
   xpProgressLabel: {
     fontSize: 11,
@@ -2191,8 +2186,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,

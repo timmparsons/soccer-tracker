@@ -423,7 +423,7 @@ export default ProgressPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 20,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#EFF6FF',
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
