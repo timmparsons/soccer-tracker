@@ -319,7 +319,7 @@ const TrainPage = () => {
           <View style={styles.progressSparkle}>
             <Text style={styles.sparkleEmoji}>✨</Text>
           </View>
-          <Text style={styles.progressLabel}>TODAY&apos;S PROGRESS</Text>
+          <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
           <View style={styles.touchesRow}>
             <Text style={styles.touchesValue}>
               {todayTouches.toLocaleString()}
@@ -744,11 +744,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     padding: 20,
@@ -757,10 +757,10 @@ const styles = StyleSheet.create({
   // PROGRESS CARD
   progressCard: {
     backgroundColor: '#1f89ee',
-    paddingVertical: 28,
-    paddingHorizontal: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
     borderRadius: 24,
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
@@ -770,53 +770,52 @@ const styles = StyleSheet.create({
   },
   progressSparkle: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 16,
+    right: 16,
   },
   sparkleEmoji: {
-    fontSize: 28,
+    fontSize: 22,
   },
   progressLabel: {
     fontSize: 13,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginBottom: 16,
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginBottom: 8,
   },
   touchesRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   touchesValue: {
-    fontSize: 54,
+    fontSize: 36,
     fontWeight: '900',
     color: '#FFF',
-    lineHeight: 54,
+    lineHeight: 40,
   },
   touchesDivider: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 8,
+    marginHorizontal: 6,
   },
   touchesTarget: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.7)',
   },
   touchesLabel: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   progressBarContainer: {
-    height: 12,
+    height: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 6,
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   progressBarFill: {
     height: '100%',
@@ -834,13 +833,13 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   logButton: {
     flex: 1,
     backgroundColor: '#1f89ee',
     borderRadius: 16,
-    paddingVertical: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -861,7 +860,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffb724',
     borderRadius: 16,
-    paddingVertical: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -882,10 +881,10 @@ const styles = StyleSheet.create({
   // DRILL LIBRARY TILE
   libraryCard: {
     backgroundColor: '#FFF',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    marginBottom: 20,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,

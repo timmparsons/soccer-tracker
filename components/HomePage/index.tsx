@@ -4,8 +4,8 @@ import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { useProfile } from '@/hooks/useProfile';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
+import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
   useDailyTouchHistory,
@@ -18,6 +18,7 @@ import { getDisplayName } from '@/utils/getDisplayName';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,34 +29,49 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
 
 const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
-  const [banner, setBanner] = useState<{ amount: number; note: string | null } | null>(null);
+  const [banner, setBanner] = useState<{
+    amount: number;
+    note: string | null;
+  } | null>(null);
   const mountedRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
     // Skip the first emission so we don't banner on app open
     mountedRef.current = false;
-    const timer = setTimeout(() => { mountedRef.current = true; }, 2000);
+    const timer = setTimeout(() => {
+      mountedRef.current = true;
+    }, 2000);
 
     const channel = supabase
       .channel(`coin-awards-${user.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `player_id=eq.${user.id}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'coin_transactions',
+          filter: `player_id=eq.${user.id}`,
+        },
         (payload) => {
           if (!mountedRef.current) return;
-          const { amount, note, created_at } = payload.new as { amount: number; note: string | null; created_at: string };
+          const { amount, note, created_at } = payload.new as {
+            amount: number;
+            note: string | null;
+            created_at: string;
+          };
           setBanner({ amount, note });
           AsyncStorage.setItem('lastSeenCoinsAt', created_at);
           queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
-          queryClient.invalidateQueries({ queryKey: ['coin-transactions', user.id] });
+          queryClient.invalidateQueries({
+            queryKey: ['coin-transactions', user.id],
+          });
         },
       )
       .subscribe();
@@ -75,9 +91,13 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
-  const { data: recentSessions = [], refetch: refetchRecent } = useRecentSessions(user?.id, 3);
-  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } = useChallengeRecord(user?.id);
-  const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
+  const { data: recentSessions = [], refetch: refetchRecent } =
+    useRecentSessions(user?.id, 3);
+  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
+    useChallengeRecord(user?.id);
+  const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(
+    user?.id,
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -125,7 +145,11 @@ const HomeScreen = () => {
     const d = new Date(dateStr + 'T00:00:00');
     if (dateStr === today.toISOString().split('T')[0]) return 'Today';
     if (dateStr === yesterday.toISOString().split('T')[0]) return 'Yesterday';
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const getTpmLabel = (tpm: number) => {
@@ -155,7 +179,11 @@ const HomeScreen = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor='#1f89ee'
+          />
         }
       >
         {/* VINNIE */}
@@ -169,20 +197,27 @@ const HomeScreen = () => {
         {/* TODAY'S PROGRESS */}
         <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
-            <Text style={styles.todaySectionLabel}>{"TODAY'S PROGRESS"}</Text>
-            {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+            <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
+            {todayDone && (
+              <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>
+            )}
           </View>
           <View style={styles.todayRingRow}>
             <CircularProgress
               progress={todayPct / 100}
               size={120}
-              color={todayDone ? '#31af4d' : '#1f89ee'}
-              trackColor={todayDone ? '#D1FAE5' : '#EFF6FF'}
+              color={todayDone ? '#ffb724' : '#FFFFFF'}
+              trackColor='rgba(255,255,255,0.2)'
+              labelColor='rgba(255,255,255,0.65)'
             />
             <View style={styles.todayRingMeta}>
               <View style={styles.todayCountRow}>
-                <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
-                <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
+                <Text style={styles.todayTouches}>
+                  {todayTouches.toLocaleString()}
+                </Text>
+                <Text style={styles.todayTarget}>
+                  /{dailyTarget.toLocaleString()}
+                </Text>
               </View>
               <Text style={styles.todaySubtext}>
                 {todayDone
@@ -248,7 +283,9 @@ const HomeScreen = () => {
             </Text>
             <Text style={styles.statLabel}>Challenge Streak</Text>
             <Text style={styles.statSubtext}>
-              {challengeStreak === 0 ? "Do today's challenge!" : 'Days in a row'}
+              {challengeStreak === 0
+                ? "Do today's challenge!"
+                : 'Days in a row'}
             </Text>
           </View>
 
@@ -257,7 +294,9 @@ const HomeScreen = () => {
               <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
                 <Text style={styles.statIcon}>⚔️</Text>
               </View>
-              <Text style={[styles.statValue, { color: '#ffb724' }]}>{winStreak}</Text>
+              <Text style={[styles.statValue, { color: '#ffb724' }]}>
+                {winStreak}
+              </Text>
               <Text style={styles.statLabel}>1v1 Win Streak</Text>
               <Text style={styles.statSubtext}>{"Don't lose it!"}</Text>
             </View>
@@ -268,18 +307,30 @@ const HomeScreen = () => {
         {recentSessions.length > 0 && (
           <View style={styles.recentCard}>
             <View style={styles.recentHeader}>
-              <Text style={styles.recentLabel}>RECENT SESSIONS</Text>
+              <Text style={styles.recentLabel}>Recent Sessions</Text>
               <Pressable onPress={() => router.push('/(tabs)/progress')}>
-                <Text style={styles.seeAll}>See All</Text>
+                <Text style={styles.seeAll}>See all →</Text>
               </Pressable>
             </View>
             {recentSessions.map((s, i) => (
-              <View key={s.id} style={[styles.recentRow, i < recentSessions.length - 1 && styles.recentRowBorder]}>
+              <View
+                key={s.id}
+                style={[
+                  styles.recentRow,
+                  i < recentSessions.length - 1 && styles.recentRowBorder,
+                ]}
+              >
                 <View style={styles.recentLeft}>
-                  <Text style={styles.recentDate}>{formatSessionDate(s.date)}</Text>
-                  {s.drill_name && <Text style={styles.recentDrill}>{s.drill_name}</Text>}
+                  <Text style={styles.recentDate}>
+                    {formatSessionDate(s.date)}
+                  </Text>
+                  {s.drill_name && (
+                    <Text style={styles.recentDrill}>{s.drill_name}</Text>
+                  )}
                 </View>
-                <Text style={styles.recentTouches}>{s.touches_logged.toLocaleString()}</Text>
+                <Text style={styles.recentTouches}>
+                  {s.touches_logged.toLocaleString()}
+                </Text>
               </View>
             ))}
           </View>
@@ -296,11 +347,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     padding: 16,
@@ -381,14 +432,14 @@ const styles = StyleSheet.create({
 
   // TODAY'S PROGRESS
   todayCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1f89ee',
     borderRadius: 24,
     padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#1f89ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   todayHeader: {
     flexDirection: 'row',
@@ -397,16 +448,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   todaySectionLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1f89ee',
-    letterSpacing: 1.2,
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0,
   },
   todayDoneBadge: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#31af4d',
-    backgroundColor: '#D1FAE5',
+    color: '#FFFFFF',
+    backgroundColor: '#31af4d',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -425,20 +476,20 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   todayTouches: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFFFFF',
   },
   todayTarget: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#78909C',
+    color: 'rgba(255,255,255,0.45)',
     marginLeft: 2,
   },
   todaySubtext: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#78909C',
+    color: 'rgba(255,255,255,0.6)',
   },
 
   // RECENT SESSIONS
@@ -459,13 +510,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   recentLabel: {
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#1f89ee',
-    letterSpacing: 1.2,
+    color: '#1a1a2e',
+    letterSpacing: 0,
   },
   seeAll: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
   },

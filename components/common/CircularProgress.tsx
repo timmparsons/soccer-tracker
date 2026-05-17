@@ -7,6 +7,7 @@ interface Props {
   size?: number;
   color?: string;
   trackColor?: string;
+  labelColor?: string;
 }
 
 const CircularProgress = ({
@@ -14,6 +15,7 @@ const CircularProgress = ({
   size = 130,
   color = '#1f89ee',
   trackColor = '#EFF6FF',
+  labelColor = '#78909C',
 }: Props) => {
   const pct = Math.round(Math.min(progress, 1) * 100);
 
@@ -30,7 +32,7 @@ const CircularProgress = ({
       />
       <View style={[styles.centerLabel, { width: size, height: size }]}>
         <Text style={[styles.pct, { color }]}>{pct}%</Text>
-        <Text style={styles.sub}>of goal</Text>
+        <Text style={[styles.sub, { color: labelColor }]}>of goal</Text>
       </View>
     </View>
   );

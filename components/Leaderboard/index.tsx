@@ -807,11 +807,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 20,
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   tab: {
     flex: 1,
@@ -905,8 +905,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
-    marginBottom: 32,
+    marginBottom: 24,
     gap: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 8,
   },
   podiumSpot: {
     alignItems: 'center',
@@ -1106,8 +1111,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#78909C',
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
 

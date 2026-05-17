@@ -33,7 +33,7 @@ const PageHeader = ({
       <View
         style={[
           styles.statusBarBg,
-          { height: insets.top, backgroundColor: '#F5F7FA' },
+          { height: insets.top, backgroundColor: '#FFFFFF' },
         ]}
       />
 
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   headerLeft: {
     flex: 1,

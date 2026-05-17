@@ -549,7 +549,7 @@ const ProfilePage = () => {
 
   return (
     <>
-      <View style={{ height: insets.top, backgroundColor: '#F5F7FA' }} />
+      <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
       <SafeAreaView style={styles.container} edges={[]}>
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header */}
@@ -1628,7 +1628,7 @@ export default ProfilePage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 20,
@@ -2021,7 +2021,7 @@ const styles = StyleSheet.create({
   },
   actionDivider: {
     height: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F0F4F8',
     marginHorizontal: 20,
   },
 
@@ -2116,11 +2116,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   championHistoryTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#78909C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#1a1a2e',
     alignSelf: 'flex-start',
     marginTop: 20,
     marginBottom: 8,
