@@ -5,17 +5,15 @@ import { useMemo } from 'react';
 
 export type DaySessionMap = Record<string, Record<string, { touches: number }>>;
 
-function getIsoWeekDates(): { weekStart: string; weekEnd: string; weekDates: string[] } {
+function getSundayWeekDates(): { weekStart: string; weekEnd: string; weekDates: string[] } {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0=Sun
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay()); // rewind to Sunday
 
   const dates: string[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
     dates.push(getLocalDate(d));
   }
   return { weekStart: dates[0], weekEnd: dates[6], weekDates: dates };
@@ -25,7 +23,7 @@ export function useTeamDailySessions(
   teamId: string | undefined,
   playerIds: string[],
 ) {
-  const { weekStart, weekEnd, weekDates } = useMemo(getIsoWeekDates, []);
+  const { weekStart, weekEnd, weekDates } = useMemo(getSundayWeekDates, []);
   const idsKey = playerIds.slice().sort().join(',');
 
   const { data: sessionMap = {} } = useQuery<DaySessionMap>({

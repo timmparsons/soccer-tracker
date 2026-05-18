@@ -19,7 +19,7 @@ interface WeekGridProps {
   onCellPress?: (playerId: string, date: string) => void;
 }
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function WeekGrid({
   players,
