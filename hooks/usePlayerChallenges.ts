@@ -264,6 +264,7 @@ export function useCompleteChallenge() {
       timeTakenSeconds,
       existingChallengerTime,
       existingChallengedTime,
+      touchesTarget,
     }: {
       challengeId: string;
       userId: string;
@@ -272,6 +273,7 @@ export function useCompleteChallenge() {
       timeTakenSeconds: number;
       existingChallengerTime: number | null;
       existingChallengedTime: number | null;
+      touchesTarget: number;
       opponentPushToken?: string | null;
     }) => {
       const isChallenger = userId === challengerId;
@@ -302,9 +304,22 @@ export function useCompleteChallenge() {
         .update(update)
         .eq('id', challengeId);
       if (error) throw error;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { error: sessionError } = await supabase.from('daily_sessions').insert({
+        user_id: userId,
+        touches_logged: touchesTarget,
+        date: today,
+        drill_id: null,
+        duration_minutes: null,
+        juggle_count: null,
+      });
+      if (sessionError) throw sessionError;
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['touch-tracking', vars.userId] });
+      queryClient.invalidateQueries({ queryKey: ['recent-sessions', vars.userId] });
       // Notify the opponent when both players have now finished
       const otherTime = vars.userId === vars.challengerId
         ? vars.existingChallengedTime

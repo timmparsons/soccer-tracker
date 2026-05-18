@@ -88,6 +88,7 @@ export default function ChallengeAttemptModal({
         challengerId: challenge.challenger_id,
         challengedId: challenge.challenged_id,
         timeTakenSeconds: elapsed,
+        touchesTarget: challenge.touches_target,
         existingChallengerTime: challenge.challenger_time_seconds,
         existingChallengedTime: challenge.challenged_time_seconds,
         opponentPushToken: isChallenger
