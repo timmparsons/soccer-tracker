@@ -42,6 +42,7 @@ const PLAYER_STEPS = [
   'welcome',
   'persona',
   'social',
+  'name',
   'notif',
   'signup',
   'paywall',
@@ -643,7 +644,7 @@ function NameScreen({
         <Text style={s.subtitle}>
           {isCoach
             ? 'This shows on your coach dashboard.'
-            : 'This is the name that shows on the leaderboard.'}
+            : "This shows on the leaderboard. If you're signing up for your child, enter their name."}
         </Text>
         <TextInput
           style={s.nameInput}

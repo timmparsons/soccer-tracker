@@ -1263,25 +1263,20 @@ const ProfilePage = () => {
                     <Ionicons name='log-out' size={24} color='#ffb724' />
                     <Text style={styles.actionButtonText}>Sign Out</Text>
                   </TouchableOpacity>
-                  <View style={styles.actionDivider} />
-                  <View style={styles.actionDivider} />
+                </View>
+
+                <Text style={styles.version}>Version 2.4.3</Text>
+
+                {/* Danger zone */}
+                <View style={styles.dangerCard}>
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={handleDeleteAccount}
                   >
-                    <Ionicons name='trash' size={24} color='#D32F2F' />
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        styles.deleteAccountText,
-                      ]}
-                    >
-                      Delete Account
-                    </Text>
+                    <Ionicons name='trash' size={24} color='#C62828' />
+                    <Text style={styles.deleteAccountText}>Delete Account</Text>
                   </TouchableOpacity>
                 </View>
-
-                <Text style={styles.version}>Version 2.4.1</Text>
               </ScrollView>
             </View>
           </View>
@@ -2013,7 +2008,18 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
   deleteAccountText: {
-    color: '#D32F2F',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#C62828',
+  },
+  dangerCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 24,
+    marginTop: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    overflow: 'hidden',
   },
   actionDivider: {
     height: 1,
