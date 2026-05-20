@@ -1,3 +1,4 @@
+import { GroupChallenge, GroupChallengeParticipant, useCompleteGroupChallenge } from '@/hooks/useGroupChallenges';
 import { PlayerChallenge, useCompleteChallenge } from '@/hooks/usePlayerChallenges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -14,8 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface ChallengeAttemptModalProps {
   visible: boolean;
   onClose: () => void;
-  challenge: PlayerChallenge;
   currentUserId: string;
+  // 1v1 mode
+  challenge?: PlayerChallenge;
+  // Group mode
+  groupChallenge?: GroupChallenge;
 }
 
 function formatTime(seconds: number) {
@@ -27,32 +31,52 @@ function formatTime(seconds: number) {
 export default function ChallengeAttemptModal({
   visible,
   onClose,
-  challenge,
   currentUserId,
+  challenge,
+  groupChallenge,
 }: ChallengeAttemptModalProps) {
   const insets = useSafeAreaInsets();
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [done, setDone] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { mutate: completeChallenge, isPending } = useCompleteChallenge();
+  const { mutate: completeChallenge, isPending: isSinglePending } = useCompleteChallenge();
+  const { mutate: completeGroupChallenge, isPending: isGroupPending } = useCompleteGroupChallenge();
+  const isPending = isSinglePending || isGroupPending;
 
-  const opponentName =
-    currentUserId === challenge.challenger_id
-      ? challenge.challenged_name
-      : challenge.challenger_name;
+  const isGroup = !!groupChallenge;
+  const touchesTarget = isGroup ? groupChallenge!.touches_target : (challenge?.touches_target ?? 0);
 
-  const isChallenger = currentUserId === challenge.challenger_id;
-  const myTime = isChallenger
-    ? challenge.challenger_time_seconds
-    : challenge.challenged_time_seconds;
+  const opponentName = isGroup
+    ? `${groupChallenge!.participants.length - 1} others`
+    : currentUserId === challenge?.challenger_id
+      ? challenge?.challenged_name
+      : challenge?.challenger_name;
 
-  // Already submitted
-  const alreadyDone = myTime !== null;
+  const myParticipant: GroupChallengeParticipant | undefined = isGroup
+    ? groupChallenge!.participants.find((p) => p.user_id === currentUserId)
+    : undefined;
+
+  const alreadyDone = isGroup
+    ? myParticipant?.completed_at !== null && myParticipant?.completed_at !== undefined
+    : (() => {
+        const isChallenger = currentUserId === challenge?.challenger_id;
+        const myTime = isChallenger ? challenge?.challenger_time_seconds : challenge?.challenged_time_seconds;
+        return myTime !== null && myTime !== undefined;
+      })();
+
+  const myTimeDisplay = isGroup
+    ? myParticipant?.time_seconds !== null && myParticipant?.time_seconds !== undefined
+      ? formatTime(myParticipant.time_seconds)
+      : null
+    : (() => {
+        const isChallenger = currentUserId === challenge?.challenger_id;
+        const t = isChallenger ? challenge?.challenger_time_seconds : challenge?.challenged_time_seconds;
+        return t !== null && t !== undefined ? formatTime(t) : null;
+      })();
 
   useEffect(() => {
     if (!visible) {
-      // Reset when modal closes
       setRunning(false);
       setElapsed(0);
       setDone(false);
@@ -61,16 +85,12 @@ export default function ChallengeAttemptModal({
   }, [visible]);
 
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   const startTimer = () => {
     setRunning(true);
-    intervalRef.current = setInterval(() => {
-      setElapsed((s) => s + 1);
-    }, 1000);
+    intervalRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
   };
 
   const stopTimer = () => {
@@ -80,55 +100,65 @@ export default function ChallengeAttemptModal({
   };
 
   const handleSubmit = () => {
-    const isChallenger = currentUserId === challenge.challenger_id;
-    completeChallenge(
-      {
-        challengeId: challenge.id,
-        userId: currentUserId,
-        challengerId: challenge.challenger_id,
-        challengedId: challenge.challenged_id,
-        timeTakenSeconds: elapsed,
-        touchesTarget: challenge.touches_target,
-        existingChallengerTime: challenge.challenger_time_seconds,
-        existingChallengedTime: challenge.challenged_time_seconds,
-        opponentPushToken: isChallenger
-          ? challenge.challenged_push_token
-          : challenge.challenger_push_token,
-      },
-      {
-        onSuccess: () => onClose(),
-      },
-    );
+    if (isGroup) {
+      completeGroupChallenge(
+        {
+          groupChallengeId: groupChallenge!.id,
+          userId: currentUserId,
+          timeTakenSeconds: elapsed,
+          touchesTarget,
+          allParticipants: groupChallenge!.participants,
+        },
+        { onSuccess: () => onClose() },
+      );
+    } else if (challenge) {
+      const isChallenger = currentUserId === challenge.challenger_id;
+      completeChallenge(
+        {
+          challengeId: challenge.id,
+          userId: currentUserId,
+          challengerId: challenge.challenger_id,
+          challengedId: challenge.challenged_id,
+          timeTakenSeconds: elapsed,
+          touchesTarget,
+          existingChallengerTime: challenge.challenger_time_seconds,
+          existingChallengedTime: challenge.challenged_time_seconds,
+          opponentPushToken: isChallenger ? challenge.challenged_push_token : challenge.challenger_push_token,
+        },
+        { onSuccess: () => onClose() },
+      );
+    }
   };
+
+  const headerText = isGroup
+    ? `Group Challenge · ${groupChallenge!.participants.length} players`
+    : `You vs ${opponentName}`;
 
   return (
     <Modal visible={visible} animationType='slide' transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          {/* Handle */}
           <View style={styles.handle} />
 
-          {/* Close */}
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name='close' size={20} color='#6B7280' />
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.vsText}>You vs {opponentName}</Text>
+            <Text style={styles.vsText}>{headerText}</Text>
             <View style={styles.targetPill}>
-              <Text style={styles.targetText}>
-                {challenge.touches_target} touches
-              </Text>
+              <Text style={styles.targetText}>{touchesTarget} touches</Text>
             </View>
           </View>
 
           {alreadyDone ? (
             <View style={styles.waitingContainer}>
               <Text style={styles.waitingEmoji}>⏳</Text>
-              <Text style={styles.waitingTitle}>Your time: {formatTime(myTime!)}</Text>
+              <Text style={styles.waitingTitle}>Your time: {myTimeDisplay}</Text>
               <Text style={styles.waitingSubtitle}>
-                Waiting for {opponentName} to finish…{'\n'}Results will be revealed when they're done.
+                {isGroup
+                  ? 'Waiting for the others to finish…\nResults revealed when everyone is done.'
+                  : `Waiting for ${opponentName} to finish…\nResults will be revealed when they're done.`}
               </Text>
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                 <Text style={styles.closeBtnText}>Close</Text>
@@ -136,44 +166,33 @@ export default function ChallengeAttemptModal({
             </View>
           ) : (
             <>
-              {/* Timer display */}
               <View style={styles.timerContainer}>
                 <Text style={styles.timerLabel}>Your time</Text>
                 <Text style={styles.timerValue}>{formatTime(elapsed)}</Text>
               </View>
 
-              {/* Instructions */}
               {!running && !done && (
                 <View style={styles.instructions}>
                   <Text style={styles.instructionsText}>
-                    Tap Start when you're ready. Complete {challenge.touches_target} touches as fast
-                    as you can, then tap Stop.
+                    Tap Start when you're ready. Complete {touchesTarget} touches as fast as you can,
+                    then tap Stop.
                   </Text>
                 </View>
               )}
 
-              {/* Controls */}
               {!done ? (
                 <TouchableOpacity
                   style={[styles.actionButton, running ? styles.stopButton : styles.startButton]}
                   onPress={running ? stopTimer : startTimer}
                 >
-                  <Ionicons
-                    name={running ? 'stop' : 'play'}
-                    size={22}
-                    color='#FFF'
-                  />
-                  <Text style={styles.actionButtonText}>
-                    {running ? "I'm done!" : 'Start'}
-                  </Text>
+                  <Ionicons name={running ? 'stop' : 'play'} size={22} color='#FFF' />
+                  <Text style={styles.actionButtonText}>{running ? "I'm done!" : 'Start'}</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.doneContainer}>
-                  <Text style={styles.doneText}>
-                    Time: {formatTime(elapsed)}
-                  </Text>
+                  <Text style={styles.doneText}>Time: {formatTime(elapsed)}</Text>
                   <Text style={styles.doneSubtext}>
-                    Happy with that? Submit your result — {opponentName} won't see it until they
+                    Happy with that? Submit your result — your opponents won't see it until they
                     finish too.
                   </Text>
                   <TouchableOpacity
@@ -189,10 +208,7 @@ export default function ChallengeAttemptModal({
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.retryButton}
-                    onPress={() => {
-                      setElapsed(0);
-                      setDone(false);
-                    }}
+                    onPress={() => { setElapsed(0); setDone(false); }}
                   >
                     <Text style={styles.retryButtonText}>Try Again</Text>
                   </TouchableOpacity>
@@ -244,9 +260,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   vsText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: '#1a1a2e',
+    textAlign: 'center',
   },
   targetPill: {
     backgroundColor: '#EFF6FF',

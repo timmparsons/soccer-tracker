@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-interface Teammate {
+export interface Teammate {
   id: string;
   name: string;
   avatar_url: string | null;
@@ -26,7 +26,7 @@ interface TeammatePickerModalProps {
   onClose: () => void;
   teamId: string;
   currentUserId: string;
-  onSelect: (teammate: Teammate) => void;
+  onSelectMultiple: (teammates: Teammate[]) => void;
 }
 
 export default function TeammatePickerModal({
@@ -34,9 +34,14 @@ export default function TeammatePickerModal({
   onClose,
   teamId,
   currentUserId,
-  onSelect,
+  onSelectMultiple,
 }: TeammatePickerModalProps) {
   const insets = useSafeAreaInsets();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!visible) setSelectedIds(new Set());
+  }, [visible]);
 
   const { data: teammates = [], isLoading } = useQuery({
     queryKey: ['teammates', teamId, currentUserId],
@@ -58,6 +63,19 @@ export default function TeammatePickerModal({
     enabled: visible && !!teamId,
   });
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const confirm = () => {
+    onSelectMultiple(teammates.filter((t) => selectedIds.has(t.id)));
+  };
+
   return (
     <Modal visible={visible} animationType='slide' transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -70,8 +88,8 @@ export default function TeammatePickerModal({
 
           <View style={styles.header}>
             <Text style={styles.emoji}>⚔️</Text>
-            <Text style={styles.title}>Challenge a Teammate</Text>
-            <Text style={styles.subtitle}>Pick who you want to go head to head with</Text>
+            <Text style={styles.title}>New Group Challenge</Text>
+            <Text style={styles.subtitle}>Select who you want to compete against</Text>
           </View>
 
           {isLoading ? (
@@ -83,25 +101,47 @@ export default function TeammatePickerModal({
               data={teammates}
               keyExtractor={(t) => t.id}
               style={styles.list}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.row}
-                  onPress={() => onSelect(item)}
-                  activeOpacity={0.7}
-                >
-                  <Image
-                    source={{
-                      uri: item.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.avatar}
-                  />
-                  <Text style={styles.name}>{item.name}</Text>
-                  <Ionicons name='chevron-forward' size={16} color='#9CA3AF' />
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected = selectedIds.has(item.id);
+                return (
+                  <TouchableOpacity
+                    style={[styles.row, isSelected && styles.rowSelected]}
+                    onPress={() => toggleSelection(item.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={{
+                        uri: item.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                      }}
+                      style={styles.avatar}
+                    />
+                    <Text style={[styles.name, isSelected && styles.nameSelected]}>
+                      {item.name}
+                    </Text>
+                    <Ionicons
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={isSelected ? '#1f89ee' : '#D1D5DB'}
+                    />
+                  </TouchableOpacity>
+                );
+              }}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
           )}
+
+          <TouchableOpacity
+            style={[styles.cta, selectedIds.size === 0 && styles.ctaDisabled]}
+            onPress={confirm}
+            disabled={selectedIds.size === 0}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.ctaText}>
+              {selectedIds.size === 0
+                ? 'Select players to continue'
+                : `Start Challenge with ${selectedIds.size} player${selectedIds.size > 1 ? 's' : ''} →`}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -177,7 +217,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 4,
     gap: 12,
+    borderRadius: 12,
+  },
+  rowSelected: {
+    backgroundColor: '#EBF4FF',
+    paddingHorizontal: 8,
   },
   avatar: {
     width: 44,
@@ -191,8 +237,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
   },
+  nameSelected: {
+    color: '#1f89ee',
+  },
   separator: {
     height: 1,
     backgroundColor: '#F3F4F6',
+  },
+  cta: {
+    marginTop: 12,
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  ctaDisabled: {
+    backgroundColor: '#E5E7EB',
+  },
+  ctaText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFF',
   },
 });

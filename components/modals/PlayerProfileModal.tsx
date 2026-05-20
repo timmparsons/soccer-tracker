@@ -54,13 +54,18 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
           {/* Handle */}
           <View style={styles.handle} />
 
-          {currentUser && playerId && currentUser.id !== playerId && (
+          {currentUser && playerId && currentUser.id !== playerId && challengeSetupVisible && currentUserProfile?.team_id && (
             <ChallengeSetupModal
               visible={challengeSetupVisible}
               onClose={() => setChallengeSetupVisible(false)}
-              challengerId={currentUser.id}
-              challengedId={playerId}
-              challengedName={profile?.display_name || profile?.name || 'them'}
+              creatorId={currentUser.id}
+              creatorName={currentUserProfile?.display_name || currentUserProfile?.name || 'Someone'}
+              teamId={currentUserProfile.team_id}
+              participants={[{
+                id: playerId,
+                name: profile?.display_name || profile?.name || 'them',
+                push_token: null,
+              }]}
             />
           )}
 

@@ -1,7 +1,8 @@
 import ChallengeAttemptModal from '@/components/modals/ChallengeAttemptModal';
 import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
-import TeammatePickerModal from '@/components/modals/TeammatePickerModal';
+import TeammatePickerModal, { type Teammate } from '@/components/modals/TeammatePickerModal';
 import { useAcceptCoachChallenge, useCancelCoachChallenge, useCompleteCoachChallenge, usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
+import { type GroupChallenge, useDeleteGroupChallenge, useGroupChallenges } from '@/hooks/useGroupChallenges';
 import {
   useCancelPlayerChallenge,
   usePlayerChallenges,
@@ -10,7 +11,7 @@ import {
 } from '@/hooks/usePlayerChallenges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
 function timeRemaining(isoDate: string) {
@@ -22,13 +23,6 @@ function timeRemaining(isoDate: string) {
   return `${mins}m left`;
 }
 
-interface Teammate {
-  id: string;
-  name: string;
-  avatar_url: string | null;
-  push_token: string | null;
-}
-
 interface ChallengesCardProps {
   userId: string;
   teamId: string | null | undefined;
@@ -38,16 +32,19 @@ interface ChallengesCardProps {
 export default function ChallengesCard({ userId, teamId, playerName }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
+  const { data: groupChallenges = [] } = useGroupChallenges(userId);
   const { mutate: respond } = useRespondToChallenge();
   const { mutate: cancelPlayer } = useCancelPlayerChallenge();
   const { mutate: cancelCoach } = useCancelCoachChallenge();
   const { mutate: acceptCoach } = useAcceptCoachChallenge();
   const { mutate: completeCoach } = useCompleteCoachChallenge();
+  const { mutate: deleteGroup } = useDeleteGroupChallenge();
 
   const [expanded, setExpanded] = useState(false);
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
+  const [attemptGroupChallenge, setAttemptGroupChallenge] = useState<GroupChallenge | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [selectedTeammate, setSelectedTeammate] = useState<Teammate | null>(null);
+  const [challengedPlayers, setChallengedPlayers] = useState<Teammate[]>([]);
 
   const pendingCount = challenges.filter(
     (c) => c.status === 'pending' && c.challenged_id === userId,
@@ -71,7 +68,19 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               </View>
             )}
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+          <View style={styles.headerRight}>
+            {teamId && (
+              <TouchableOpacity
+                style={styles.newChallengeBtn}
+                onPress={() => setShowPicker(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name='add' size={16} color='#1f89ee' />
+                <Text style={styles.newChallengeBtnText}>New</Text>
+              </TouchableOpacity>
+            )}
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+          </View>
         </TouchableOpacity>
 
         {/* Rows — only visible when expanded */}
@@ -162,18 +171,36 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               ))}
             </View>
           )}
-          {displayedChallenges.length === 0 && activeCoachChallenges.length === 0 && (
+          {displayedChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No active challenges</Text>
               {teamId ? (
                 <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge a Teammate</Text>
+                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
                 </TouchableOpacity>
               ) : (
                 <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
               )}
             </View>
           )}
+          {groupChallenges.map((gc) => (
+            <GroupChallengeCard
+              key={gc.id}
+              challenge={gc}
+              userId={userId}
+              onAttempt={() => setAttemptGroupChallenge(gc)}
+              onCancel={() =>
+                Alert.alert('Cancel Group Challenge?', 'This will remove the challenge for everyone.', [
+                  { text: 'Keep', style: 'cancel' },
+                  {
+                    text: 'Cancel',
+                    style: 'destructive',
+                    onPress: () => deleteGroup({ groupChallengeId: gc.id, userId }),
+                  },
+                ])
+              }
+            />
+          ))}
           {displayedChallenges.map((c) => (
             <ChallengeRow
               key={c.id}
@@ -215,30 +242,153 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         />
       )}
 
+      {attemptGroupChallenge && (
+        <ChallengeAttemptModal
+          visible={!!attemptGroupChallenge}
+          onClose={() => setAttemptGroupChallenge(null)}
+          groupChallenge={attemptGroupChallenge}
+          currentUserId={userId}
+        />
+      )}
+
       {teamId && (
         <TeammatePickerModal
           visible={showPicker}
           onClose={() => setShowPicker(false)}
           teamId={teamId}
           currentUserId={userId}
-          onSelect={(teammate) => {
+          onSelectMultiple={(teammates) => {
             setShowPicker(false);
-            setSelectedTeammate(teammate);
+            setChallengedPlayers(teammates);
           }}
         />
       )}
 
-      {selectedTeammate && (
+      {challengedPlayers.length > 0 && teamId && (
         <ChallengeSetupModal
-          visible={!!selectedTeammate}
-          onClose={() => setSelectedTeammate(null)}
-          challengerId={userId}
-          challengedId={selectedTeammate.id}
-          challengedName={selectedTeammate.name}
-          challengedPushToken={selectedTeammate.push_token}
+          visible={challengedPlayers.length > 0}
+          onClose={() => setChallengedPlayers([])}
+          creatorId={userId}
+          creatorName={playerName}
+          teamId={teamId}
+          participants={challengedPlayers}
         />
       )}
     </>
+  );
+}
+
+// GROUP CHALLENGE CARD — visible to all participants
+
+interface GroupChallengeCardProps {
+  challenge: GroupChallenge;
+  userId: string;
+  onAttempt: () => void;
+  onCancel: () => void;
+}
+
+function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: GroupChallengeCardProps) {
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  };
+
+  const allDone = gc.participants.every((p) => p.completed_at !== null);
+  const deadlinePassed = new Date() > new Date(gc.deadline_at);
+  const showResults = allDone || deadlinePassed;
+
+  const myParticipant = gc.participants.find((p) => p.user_id === userId);
+  const iDone = myParticipant?.completed_at !== null && myParticipant?.completed_at !== undefined;
+  const isCreator = gc.created_by === userId;
+
+  const medals = ['🥇', '🥈', '🥉'];
+
+  const rankedParticipants = showResults
+    ? [...gc.participants].sort((a, b) => {
+        if (a.time_seconds === null) return 1;
+        if (b.time_seconds === null) return -1;
+        return a.time_seconds - b.time_seconds;
+      })
+    : null;
+
+  return (
+    <View style={styles.groupRow}>
+      <View style={styles.groupHeader}>
+        <View style={styles.groupHeaderLeft}>
+          <Text style={styles.groupTitle}>⚔️ Group Challenge</Text>
+          <Text style={styles.groupMeta}>
+            {gc.participants.length} players · {gc.touches_target} touches
+          </Text>
+        </View>
+        {!showResults && (
+          <Text style={styles.groupDeadline}>{timeRemaining(gc.deadline_at)}</Text>
+        )}
+      </View>
+
+      {showResults && rankedParticipants ? (
+        <View style={styles.groupResults}>
+          {rankedParticipants.map((p, i) => {
+            const isMe = p.user_id === userId;
+            return (
+              <View key={p.id} style={[styles.groupResultRow, isMe && styles.groupResultRowMe]}>
+                <Text style={styles.groupMedal}>{medals[i] ?? '·'}</Text>
+                <Image
+                  source={{ uri: p.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                  style={styles.groupAvatar}
+                />
+                <Text style={[styles.groupResultName, isMe && styles.groupResultNameMe]}>
+                  {isMe ? 'You' : (p.name ?? 'Player')}
+                </Text>
+                <Text style={styles.groupResultTime}>
+                  {p.time_seconds !== null ? fmt(p.time_seconds) : 'DNF'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.groupParticipants}>
+          {gc.participants.map((p) => {
+            const isMe = p.user_id === userId;
+            const done = p.completed_at !== null;
+            return (
+              <View key={p.id} style={styles.groupParticipantRow}>
+                <Image
+                  source={{ uri: p.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                  style={styles.groupAvatar}
+                />
+                <Text style={[styles.groupParticipantName, isMe && styles.groupParticipantNameMe]}>
+                  {isMe ? 'You' : (p.name ?? 'Player')}
+                </Text>
+                <View style={done ? styles.groupStatusDone : styles.groupStatusPending}>
+                  <Text style={styles.groupStatusText}>{done ? 'Done ✓' : 'Not started'}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {!showResults && (
+        <View style={styles.groupActions}>
+          {!iDone ? (
+            <TouchableOpacity style={styles.goBtn} onPress={onAttempt}>
+              <Text style={styles.goBtnText}>Go!</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.waitingBadge}>
+              <Text style={styles.waitingText}>Waiting for others…</Text>
+            </View>
+          )}
+          {isCreator && (
+            <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
+              <Text style={styles.cancelText}>Cancel Challenge</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -424,6 +574,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     color: '#FFF',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  newChallengeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  newChallengeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   headerSub: {
     fontSize: 12,
@@ -737,4 +906,107 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   timeChipWin: {},
+
+  // GROUP CHALLENGE CARD
+  groupRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    padding: 14,
+    gap: 10,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  groupHeaderLeft: {
+    gap: 2,
+    flex: 1,
+  },
+  groupTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  groupMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  groupDeadline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  groupParticipants: {
+    gap: 8,
+  },
+  groupParticipantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  groupAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+  },
+  groupParticipantName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  groupParticipantNameMe: {
+    color: '#1f89ee',
+  },
+  groupStatusPending: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  groupStatusDone: {
+    backgroundColor: '#D1FAE5',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  groupStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  groupActions: {
+    gap: 6,
+  },
+  groupResults: {
+    gap: 6,
+  },
+  groupResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  groupResultRowMe: {},
+  groupMedal: {
+    fontSize: 16,
+    width: 24,
+  },
+  groupResultName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  groupResultNameMe: {
+    color: '#1f89ee',
+  },
+  groupResultTime: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
 });

@@ -1,4 +1,4 @@
-import { useSendChallenge } from '@/hooks/usePlayerChallenges';
+import { useCreateGroupChallenge } from '@/hooks/useGroupChallenges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -15,13 +15,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+interface Participant {
+  id: string;
+  name: string;
+  push_token: string | null;
+}
+
 interface ChallengeSetupModalProps {
   visible: boolean;
   onClose: () => void;
-  challengerId: string;
-  challengedId: string;
-  challengedName: string;
-  challengedPushToken?: string | null;
+  creatorId: string;
+  creatorName: string;
+  teamId: string;
+  participants: Participant[];
 }
 
 const TOUCH_PRESETS = [50, 100, 200, 500];
@@ -34,34 +40,38 @@ const TIME_OPTIONS = [
 export default function ChallengeSetupModal({
   visible,
   onClose,
-  challengerId,
-  challengedId,
-  challengedName,
-  challengedPushToken,
+  creatorId,
+  creatorName,
+  teamId,
+  participants,
 }: ChallengeSetupModalProps) {
   const insets = useSafeAreaInsets();
   const [selectedTouches, setSelectedTouches] = useState<number>(100);
   const [customTouches, setCustomTouches] = useState('');
   const [isCustom, setIsCustom] = useState(false);
   const [selectedHours, setSelectedHours] = useState(24);
-  const { mutate: sendChallenge, isPending } = useSendChallenge();
+  const { mutate: createGroupChallenge, isPending } = useCreateGroupChallenge();
 
   const touchesTarget = isCustom ? parseInt(customTouches, 10) || 0 : selectedTouches;
   const canSend = touchesTarget > 0 && touchesTarget <= 10000;
 
+  const playerCount = participants.length + 1; // +1 for creator
+  const displayName = participants.length === 1
+    ? participants[0].name
+    : `${participants.length} teammates`;
+
   const handleSend = () => {
-    if (!canSend) return;
-    sendChallenge(
+    if (!canSend || isPending) return;
+    createGroupChallenge(
       {
-        challengerId,
-        challengedId,
+        creatorId,
+        creatorName,
+        teamId,
         touchesTarget,
         timeLimitHours: selectedHours,
-        challengedPushToken: challengedPushToken ?? null,
+        participants: participants.map((p) => ({ id: p.id, push_token: p.push_token })),
       },
-      {
-        onSuccess: () => onClose(),
-      },
+      { onSuccess: () => onClose() },
     );
   };
 
@@ -73,41 +83,29 @@ export default function ChallengeSetupModal({
       >
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
-          {/* Handle */}
           <View style={styles.handle} />
 
-          {/* Close */}
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name='close' size={20} color='#6B7280' />
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.emoji}>⚔️</Text>
-            <Text style={styles.title}>Challenge {challengedName}</Text>
+            <Text style={styles.title}>Challenge {displayName}</Text>
             <Text style={styles.subtitle}>
-              First to hit the target wins. Results hidden until both finish.
+              {playerCount} players · fastest time wins · results hidden until everyone finishes
             </Text>
           </View>
 
-          {/* Touch target */}
           <Text style={styles.sectionLabel}>How many touches?</Text>
           <View style={styles.presetRow}>
             {TOUCH_PRESETS.map((n) => (
               <TouchableOpacity
                 key={n}
                 style={[styles.preset, !isCustom && selectedTouches === n && styles.presetActive]}
-                onPress={() => {
-                  setIsCustom(false);
-                  setSelectedTouches(n);
-                }}
+                onPress={() => { setIsCustom(false); setSelectedTouches(n); }}
               >
-                <Text
-                  style={[
-                    styles.presetText,
-                    !isCustom && selectedTouches === n && styles.presetTextActive,
-                  ]}
-                >
+                <Text style={[styles.presetText, !isCustom && selectedTouches === n && styles.presetTextActive]}>
                   {n}
                 </Text>
               </TouchableOpacity>
@@ -132,8 +130,7 @@ export default function ChallengeSetupModal({
             />
           )}
 
-          {/* Time window */}
-          <Text style={styles.sectionLabel}>How long to complete?</Text>
+          <Text style={styles.sectionLabel}>Time to complete?</Text>
           <View style={styles.timeRow}>
             {TIME_OPTIONS.map((opt) => (
               <TouchableOpacity
@@ -141,27 +138,20 @@ export default function ChallengeSetupModal({
                 style={[styles.timeOption, selectedHours === opt.value && styles.timeOptionActive]}
                 onPress={() => setSelectedHours(opt.value)}
               >
-                <Text
-                  style={[
-                    styles.timeOptionText,
-                    selectedHours === opt.value && styles.timeOptionTextActive,
-                  ]}
-                >
+                <Text style={[styles.timeOptionText, selectedHours === opt.value && styles.timeOptionTextActive]}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Accept window note */}
           <View style={styles.noteRow}>
             <Ionicons name='information-circle-outline' size={14} color='#78909C' />
             <Text style={styles.noteText}>
-              {challengedName} has 24 hours to accept.
+              Results only revealed when everyone finishes or time runs out.
             </Text>
           </View>
 
-          {/* Send button */}
           <TouchableOpacity
             style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
             onPress={handleSend}
@@ -171,7 +161,7 @@ export default function ChallengeSetupModal({
               <ActivityIndicator color='#FFF' />
             ) : (
               <Text style={styles.sendButtonText}>
-                Send Challenge — {touchesTarget > 0 ? touchesTarget : '?'} touches in {selectedHours}h
+                Start Challenge — {touchesTarget > 0 ? touchesTarget : '?'} touches in {selectedHours}h
               </Text>
             )}
           </TouchableOpacity>
@@ -306,6 +296,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#78909C',
+    flex: 1,
   },
   sendButton: {
     backgroundColor: '#1f89ee',
