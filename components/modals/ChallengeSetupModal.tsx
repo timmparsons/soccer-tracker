@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,7 @@ interface Participant {
 interface ChallengeSetupModalProps {
   visible: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   creatorId: string;
   creatorName: string;
   teamId: string;
@@ -40,6 +42,7 @@ const TIME_OPTIONS = [
 export default function ChallengeSetupModal({
   visible,
   onClose,
+  onSuccess,
   creatorId,
   creatorName,
   teamId,
@@ -71,7 +74,15 @@ export default function ChallengeSetupModal({
         timeLimitHours: selectedHours,
         participants: participants.map((p) => ({ id: p.id, push_token: p.push_token })),
       },
-      { onSuccess: () => onClose() },
+      {
+        onSuccess: () => { onClose(); onSuccess?.(); },
+        onError: (err: unknown) => {
+          const msg = err instanceof Error
+            ? err.message
+            : (err as any)?.message ?? JSON.stringify(err);
+          Alert.alert('Failed to create challenge', msg);
+        },
+      },
     );
   };
 

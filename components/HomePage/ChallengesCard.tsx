@@ -259,7 +259,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
           currentUserId={userId}
           onSelectMultiple={(teammates) => {
             setShowPicker(false);
-            setChallengedPlayers(teammates);
+            setTimeout(() => setChallengedPlayers(teammates), 400);
           }}
         />
       )}
@@ -268,6 +268,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         <ChallengeSetupModal
           visible={challengedPlayers.length > 0}
           onClose={() => setChallengedPlayers([])}
+          onSuccess={() => setExpanded(true)}
           creatorId={userId}
           creatorName={playerName}
           teamId={teamId}

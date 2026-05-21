@@ -1,4 +1,5 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
 import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import MiniSparkline from '@/components/common/MiniSparkline';
@@ -143,8 +144,8 @@ const HomeScreen = () => {
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     const d = new Date(dateStr + 'T00:00:00');
-    if (dateStr === today.toISOString().split('T')[0]) return 'Today';
-    if (dateStr === yesterday.toISOString().split('T')[0]) return 'Yesterday';
+    if (dateStr === getLocalDate(today)) return 'Today';
+    if (dateStr === getLocalDate(yesterday)) return 'Yesterday';
     return d.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',

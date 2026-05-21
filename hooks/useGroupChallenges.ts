@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 function sendPush(token: string, title: string, body: string) {
@@ -185,7 +186,7 @@ export function useCompleteGroupChallenge() {
           .eq('id', groupChallengeId);
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDate();
       const { error: sessionError } = await supabase.from('daily_sessions').insert({
         user_id: userId,
         touches_logged: touchesTarget,
