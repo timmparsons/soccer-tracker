@@ -63,7 +63,9 @@ export default function TabLayout() {
 
   const homeBadge = groupChallenges?.filter((gc) => {
     const me = gc.participants.find((p) => p.user_id === user?.id);
-    return gc.status === 'active' && me?.completed_at === null;
+    const deadlinePassed = new Date() > new Date(gc.deadline_at);
+    const allDone = gc.participants.every((p) => p.completed_at !== null);
+    return gc.status === 'active' && !deadlinePassed && !allDone && me?.completed_at === null;
   }).length || undefined;
 
   return (
