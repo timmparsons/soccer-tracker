@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 function sendPush(token: string, title: string, body: string) {
   supabase.functions
@@ -31,6 +32,24 @@ export interface GroupChallenge {
 }
 
 export function useGroupChallenges(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`group-challenges-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_challenge_participants' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['group-challenges', userId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_challenges' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['group-challenges', userId] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, queryClient]);
+
   return useQuery({
     queryKey: ['group-challenges', userId],
     enabled: !!userId,
