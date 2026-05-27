@@ -20,6 +20,7 @@
       }
     },
     "android": {
+      "versionCode": 49,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },

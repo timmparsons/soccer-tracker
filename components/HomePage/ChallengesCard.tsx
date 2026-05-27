@@ -303,6 +303,9 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
   const iDone = myParticipant?.completed_at !== null && myParticipant?.completed_at !== undefined;
   const isCreator = gc.created_by === userId;
 
+  const creatorParticipant = gc.participants.find((p) => p.user_id === gc.created_by);
+  const creatorName = gc.created_by === userId ? 'You' : (creatorParticipant?.name ?? 'Someone');
+
   const medals = ['🥇', '🥈', '🥉'];
 
   const rankedParticipants = showResults
@@ -319,7 +322,7 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
         <View style={styles.groupHeaderLeft}>
           <Text style={styles.groupTitle}>⚔️ Group Challenge</Text>
           <Text style={styles.groupMeta}>
-            {gc.participants.length} players · {gc.touches_target} touches
+            {gc.participants.length} players · {gc.touches_target} touches · by {creatorName}
           </Text>
         </View>
         {!showResults && (
