@@ -50,6 +50,12 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
     (c) => c.status === 'pending' && c.challenged_id === userId,
   ).length;
   const activeCoachChallenges = coachChallenges.filter((c) => c.status === 'active');
+  const hasUnstartedGroupChallenge = groupChallenges.some((gc) => {
+    const deadlinePassed = new Date() > new Date(gc.deadline_at);
+    const allDone = gc.participants.every((p) => p.completed_at !== null);
+    const me = gc.participants.find((p) => p.user_id === userId);
+    return !deadlinePassed && !allDone && me?.completed_at === null;
+  });
 
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
   const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 3);
@@ -57,7 +63,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
 
   return (
     <>
-      <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0) && styles.containerAlert]}>
+      <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0 || hasUnstartedGroupChallenge) && styles.containerAlert]}>
         {/* Header — toggles dropdown */}
         <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
           <View style={styles.headerLeft}>
@@ -316,8 +322,10 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
       })
     : null;
 
+  const needsAction = !iDone && !showResults;
+
   return (
-    <View style={styles.groupRow}>
+    <View style={[styles.groupRow, needsAction && styles.groupRowActive]}>
       <View style={styles.groupHeader}>
         <View style={styles.groupHeaderLeft}>
           <Text style={styles.groupTitle}>⚔️ Group Challenge</Text>
@@ -917,6 +925,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
     padding: 14,
     gap: 10,
+  },
+  groupRowActive: {
+    backgroundColor: '#FFFBEB',
+    borderBottomColor: '#FDE68A',
   },
   groupHeader: {
     flexDirection: 'row',

@@ -1,4 +1,5 @@
 import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
+import { useGroupChallenges } from '@/hooks/useGroupChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
 import { useUser } from '@/hooks/useUser';
@@ -52,12 +53,18 @@ export default function TabLayout() {
   const isPlayer = !profile?.is_coach;
   const { data: coachChallenges } = usePlayerCoachChallenges(isPlayer ? user?.id : undefined);
   const { data: playerChallenges } = usePlayerChallenges(isPlayer ? user?.id : undefined);
+  const { data: groupChallenges } = useGroupChallenges(isPlayer ? user?.id : undefined);
 
   const activeCoachChallenges = coachChallenges?.filter((c) => c.status === 'active').length ?? 0;
   const pendingPlayerChallenges = playerChallenges?.filter(
     (c) => c.status === 'pending' && c.challenged_id === user?.id,
   ).length ?? 0;
   const challengeBadge = activeCoachChallenges + pendingPlayerChallenges || undefined;
+
+  const homeBadge = groupChallenges?.filter((gc) => {
+    const me = gc.participants.find((p) => p.user_id === user?.id);
+    return gc.status === 'active' && me?.completed_at === null;
+  }).length || undefined;
 
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
@@ -85,6 +92,8 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
+            tabBarBadge: homeBadge,
+            tabBarBadgeStyle: { top: -6, right: -8 },
           }}
         />
         <Tabs.Screen
