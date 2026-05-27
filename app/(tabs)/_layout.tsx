@@ -1,7 +1,7 @@
 import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useGroupChallenges } from '@/hooks/useGroupChallenges';
-import { useProfile } from '@/hooks/useProfile';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
+import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,22 +51,37 @@ export default function TabLayout() {
   };
 
   const isPlayer = !profile?.is_coach;
-  const { data: coachChallenges } = usePlayerCoachChallenges(isPlayer ? user?.id : undefined);
-  const { data: playerChallenges } = usePlayerChallenges(isPlayer ? user?.id : undefined);
-  const { data: groupChallenges } = useGroupChallenges(isPlayer ? user?.id : undefined);
+  const { data: coachChallenges } = usePlayerCoachChallenges(
+    isPlayer ? user?.id : undefined,
+  );
+  const { data: playerChallenges } = usePlayerChallenges(
+    isPlayer ? user?.id : undefined,
+  );
+  const { data: groupChallenges } = useGroupChallenges(
+    isPlayer ? user?.id : undefined,
+  );
 
-  const activeCoachChallenges = coachChallenges?.filter((c) => c.status === 'active').length ?? 0;
-  const pendingPlayerChallenges = playerChallenges?.filter(
-    (c) => c.status === 'pending' && c.challenged_id === user?.id,
-  ).length ?? 0;
-  const challengeBadge = activeCoachChallenges + pendingPlayerChallenges || undefined;
+  const activeCoachChallenges =
+    coachChallenges?.filter((c) => c.status === 'active').length ?? 0;
+  const pendingPlayerChallenges =
+    playerChallenges?.filter(
+      (c) => c.status === 'pending' && c.challenged_id === user?.id,
+    ).length ?? 0;
+  const challengeBadge =
+    activeCoachChallenges + pendingPlayerChallenges || undefined;
 
-  const homeBadge = groupChallenges?.filter((gc) => {
+  const hasUnstartedGroupChallenge = groupChallenges?.some((gc) => {
     const me = gc.participants.find((p) => p.user_id === user?.id);
     const deadlinePassed = new Date() > new Date(gc.deadline_at);
     const allDone = gc.participants.every((p) => p.completed_at !== null);
-    return gc.status === 'active' && !deadlinePassed && !allDone && me?.completed_at === null;
-  }).length || undefined;
+    return (
+      gc.status === 'active' &&
+      !deadlinePassed &&
+      !allDone &&
+      me?.completed_at === null
+    );
+  });
+  const homeBadge = hasUnstartedGroupChallenge ? '' : undefined;
 
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
@@ -95,7 +110,16 @@ export default function TabLayout() {
               <House size={size ?? 28} color={color} />
             ),
             tabBarBadge: homeBadge,
-            tabBarBadgeStyle: { top: -6, right: -8 },
+            tabBarBadgeStyle: {
+              top: 0,
+              right: -2,
+              minWidth: 8,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              paddingHorizontal: 0,
+              fontSize: 0,
+            },
           }}
         />
         <Tabs.Screen
