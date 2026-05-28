@@ -12,6 +12,11 @@ export interface VinnieContext {
   dayOfWeek?: number; // 0=Sun, 1=Mon, ..., 6=Sat
   challengeStreak?: number;
   skillFocus?: string | null;
+  todayTouches?: number;
+  dailyTarget?: number;
+  weekTpm?: number;
+  weekSessions?: number;
+  totalTouches?: number;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -136,6 +141,55 @@ export const MOOD_EMOJI: Record<VinnieMood, string> = {
   encouraging: '⚽',
 };
 
+const TPM_SLOW_MESSAGES: string[] = [
+  "Your pace this week is below 30 touches/min — that's warm-up speed. Push faster.",
+  "Slow touches build slow habits. Crank the pace up — aim for 50/min.",
+  "Quality reps at game speed. Your current tempo won't cut it on match day.",
+  "Speed of play starts in training. Get your touches sharper and quicker.",
+];
+
+const TPM_GOOD_MESSAGES: string[] = [
+  "50+ touches a minute — that's game tempo. Keep it there.",
+  "Your pace this week is solid. That speed is the difference maker.",
+  "Game speed training. That's exactly the standard. Don't drop it.",
+  "You're touching the ball at match pace. Most players never get there.",
+];
+
+const TPM_ELITE_MESSAGES: string[] = [
+  "80+ touches a minute?! You're training at elite level. Don't stop.",
+  "That's professional-level tempo. The game will feel slow to you now.",
+  "Your speed of play is elite. Keep it up and defenders won't know what hit them.",
+];
+
+const NEAR_TARGET_MESSAGES: string[] = [
+  "You're close to your target — finish the job. No half measures.",
+  "Almost there. Champions don't stop when they can see the finish line.",
+  "A few more touches and you've nailed your target. Go get it.",
+];
+
+const LOW_SESSIONS_MESSAGES: string[] = [
+  "Halfway through the week and you've barely trained. Pick it up.",
+  "Two sessions this week isn't enough. Show up more.",
+  "The best players train every day. You're falling short this week — fix it.",
+  "Consistency is what separates good players from great ones. Train more this week.",
+];
+
+const BEGINNER_MESSAGES: string[] = [
+  "Every touch counts at this stage. You're building the foundation. Keep going.",
+  "The first 10,000 touches are the hardest. You're earning them right now.",
+  "Ball mastery takes repetition. You're doing the right thing — don't stop.",
+  "Every session makes the ball feel more natural. Trust the process.",
+];
+
+const MILESTONE_MESSAGES: Record<number, string> = {
+  1000: "1,000 touches! The foundation is being laid. Keep stacking them.",
+  5000: "5,000 touches in! You're building real ball familiarity now.",
+  10000: "10,000 touches! You've crossed a serious milestone. Keep climbing.",
+  25000: "25,000 touches — you're in the top tier of dedicated players.",
+  50000: "50,000 touches. FIFTY THOUSAND. That's not luck, that's obsession. Elite.",
+  100000: "100,000 touches. You've done what most players only dream about. Legend.",
+};
+
 const MONDAY_MESSAGES: string[] = [
   "New week, new goals! What are you going to achieve this week? ⚽",
   "Monday! The best players start their week with a session. Let's go!",
@@ -177,12 +231,21 @@ const GOAL_MESSAGES: Record<string, string[]> = {
 };
 
 export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
-  const { trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus } = ctx;
+  const {
+    trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus,
+    todayTouches = 0, dailyTarget = 1000, weekTpm = 0, weekSessions = 0, totalTouches = 0,
+  } = ctx;
 
   const encouragingPool =
     skillFocus && GOAL_MESSAGES[skillFocus]
       ? [...GOAL_MESSAGES[skillFocus], ...MESSAGES.encouraging]
       : MESSAGES.encouraging;
+
+  // Total touches milestones — highest priority regardless of anything else
+  const milestone = [100000, 50000, 25000, 10000, 5000, 1000].find((m) => totalTouches === m);
+  if (milestone) {
+    return { mood: 'hype', message: MILESTONE_MESSAGES[milestone] };
+  }
 
   // Monday morning recap — special motivator at the start of the week
   if (dayOfWeek === 1 && !trainedToday && hour < 12) {
@@ -190,7 +253,7 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   }
 
   if (trainedToday) {
-    // Challenge streak milestones — highest priority
+    // Challenge streak milestones
     if (VINNIE_CHALLENGE_STREAK_MILESTONES.includes(challengeStreak)) {
       return { mood: 'hype', message: VINNIE_CHALLENGE_STREAK_MESSAGES[challengeStreak] };
     }
@@ -200,16 +263,41 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
       return { mood: 'hype', message: VINNIE_STREAK_MESSAGES[streak] };
     }
 
-    // Regular trainer: 25% chance of a skill tip to mix it up
+    // TPM feedback — specific advice based on pace
+    if (weekTpm > 0 && Math.random() < 0.4) {
+      if (weekTpm >= 80) return { mood: 'hype', message: pickRandom(TPM_ELITE_MESSAGES) };
+      if (weekTpm >= 50) return { mood: 'happy', message: pickRandom(TPM_GOOD_MESSAGES) };
+      if (weekTpm < 30) return { mood: 'firm', message: pickRandom(TPM_SLOW_MESSAGES) };
+    }
+
+    // Close to daily target but not there — nudge them over the line
+    const pct = dailyTarget > 0 ? todayTouches / dailyTarget : 0;
+    if (pct >= 0.75 && pct < 1.0) {
+      return { mood: 'encouraging', message: pickRandom(NEAR_TARGET_MESSAGES) };
+    }
+
+    // Beginner encouragement (under 1000 all-time)
+    if (totalTouches < 1000) {
+      return { mood: 'encouraging', message: pickRandom(BEGINNER_MESSAGES) };
+    }
+
+    // 25% chance of a skill tip to mix it up
     if (Math.random() < 0.25) {
       return { mood: 'encouraging', message: pickRandom(encouragingPool) };
     }
 
-    // Standard happy response
     return { mood: 'happy', message: pickRandom(MESSAGES.happy) };
   }
 
-  // Hasn't trained yet
+  // Hasn't trained yet today
+
+  // Mid-week with low session count — push consistency
+  const dayOfWeekNum = dayOfWeek ?? new Date().getDay();
+  if (dayOfWeekNum >= 3 && weekSessions < 2) {
+    return { mood: 'firm', message: pickRandom(LOW_SESSIONS_MESSAGES) };
+  }
+
+  // Streak at risk late in the day
   if (streak > 3 && hour >= 20) {
     return {
       mood: 'anxious',

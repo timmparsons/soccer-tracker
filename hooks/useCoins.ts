@@ -18,6 +18,24 @@ export function usePlayerCoins(playerId: string | undefined) {
   });
 }
 
+export function useCoinTransactions(playerId: string | undefined) {
+  return useQuery({
+    queryKey: ['coin-transactions', playerId],
+    enabled: !!playerId,
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('coin_transactions')
+        .select('id, amount, note, created_at')
+        .eq('player_id', playerId!)
+        .gte('created_at', thirtyDaysAgo)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { id: string; amount: number; note: string | null; created_at: string }[];
+    },
+  });
+}
+
 export function useAwardCoins() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -39,7 +39,7 @@ interface JugglingRecord {
   date_achieved: string;
 }
 
-const Leaderboard = () => {
+const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
@@ -252,11 +252,13 @@ const Leaderboard = () => {
 
   return (
     <View style={styles.container}>
-      <PageHeader
-        title='Compete'
-        showAvatar={true}
-        avatarUrl={profile?.avatar_url}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title='Compete'
+          showAvatar={true}
+          avatarUrl={profile?.avatar_url}
+        />
+      )}
 
       {/* Team picker — coaches with 2+ teams */}
       {profile?.is_coach && coachTeams.length > 1 && (

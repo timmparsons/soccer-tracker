@@ -7,6 +7,11 @@ interface VinnieCardProps {
   streak: number;
   challengeStreak?: number;
   skillFocus?: string | null;
+  todayTouches?: number;
+  dailyTarget?: number;
+  weekTpm?: number;
+  weekSessions?: number;
+  totalTouches?: number;
 }
 
 // Hand display size — tune these if the hand looks too big/small
@@ -25,7 +30,7 @@ const PIVOT_Y = HAND_H / 2;
 // Starting angle offset — positive = clockwise, moves hand away from face
 const HAND_ANGLE_OFFSET = 20;
 
-const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus }: VinnieCardProps) => {
+const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches }: VinnieCardProps) => {
   const now = new Date();
   const hour = now.getHours();
   const dayOfWeek = now.getDay();
@@ -78,9 +83,9 @@ const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus }: V
   });
 
   const { message } = useMemo(
-    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus }),
+    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainedToday, streak, challengeStreak, skillFocus],
+    [trainedToday, streak, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches],
   );
 
   return (

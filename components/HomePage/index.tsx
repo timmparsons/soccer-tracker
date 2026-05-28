@@ -5,6 +5,7 @@ import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
+import { useCoinTransactions } from '@/hooks/useCoins';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import {
@@ -40,7 +41,13 @@ const HomeScreen = () => {
     amount: number;
     note: string | null;
   } | null>(null);
+  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null>(null);
   const mountedRef = useRef(false);
+
+  // Load lastSeenCoinsAt from storage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('lastSeenCoinsAt').then((val) => setLastSeenCoinsAt(val));
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -68,6 +75,7 @@ const HomeScreen = () => {
             created_at: string;
           };
           setBanner({ amount, note });
+          setLastSeenCoinsAt(created_at);
           AsyncStorage.setItem('lastSeenCoinsAt', created_at);
           queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
           queryClient.invalidateQueries({
@@ -99,6 +107,20 @@ const HomeScreen = () => {
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(
     user?.id,
   );
+
+  const { data: coinTransactions = [] } = useCoinTransactions(user?.id);
+  const unseenCoins = coinTransactions.filter(
+    (tx) => !lastSeenCoinsAt || tx.created_at > lastSeenCoinsAt,
+  );
+  const unseenTotal = unseenCoins.reduce((sum, tx) => sum + tx.amount, 0);
+
+  const dismissUnseenCoins = () => {
+    const latest = unseenCoins[0]?.created_at;
+    if (latest) {
+      setLastSeenCoinsAt(latest);
+      AsyncStorage.setItem('lastSeenCoinsAt', latest);
+    }
+  };
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -187,12 +209,37 @@ const HomeScreen = () => {
           />
         }
       >
+        {/* UNSEEN COIN AWARD */}
+        {unseenCoins.length > 0 && (
+          <View style={styles.coinNotice}>
+            <Text style={styles.coinNoticeEmoji}>🏆</Text>
+            <View style={styles.coinNoticeText}>
+              <Text style={styles.coinNoticeTitle}>
+                +{unseenTotal} Champion Point{unseenTotal !== 1 ? 's' : ''} from your coach!
+              </Text>
+              {unseenCoins.length === 1 && unseenCoins[0].note ? (
+                <Text style={styles.coinNoticeNote} numberOfLines={2}>{unseenCoins[0].note}</Text>
+              ) : unseenCoins.length > 1 ? (
+                <Text style={styles.coinNoticeNote}>{unseenCoins.length} awards — check your profile for details</Text>
+              ) : null}
+            </View>
+            <Pressable onPress={dismissUnseenCoins} hitSlop={12}>
+              <Text style={styles.coinNoticeDismiss}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* VINNIE */}
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}
           streak={streak}
           challengeStreak={challengeStreak}
           skillFocus={profile?.skill_focus ?? null}
+          todayTouches={todayTouches}
+          dailyTarget={dailyTarget}
+          weekTpm={weekTpm}
+          weekSessions={touchStats?.this_week_sessions}
+          totalTouches={touchStats?.total_touches}
         />
 
         {/* TODAY'S PROGRESS */}
@@ -357,6 +404,39 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     gap: 10,
+  },
+  coinNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  coinNoticeEmoji: {
+    fontSize: 24,
+  },
+  coinNoticeText: {
+    flex: 1,
+    gap: 2,
+  },
+  coinNoticeTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFE082',
+  },
+  coinNoticeNote: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  coinNoticeDismiss: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '700',
   },
 
   // STATS GRID (2x2)
