@@ -409,12 +409,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#3ab86a',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: '#31af4d',
   },
   coinNoticeEmoji: {
     fontSize: 24,
@@ -426,16 +426,16 @@ const styles = StyleSheet.create({
   coinNoticeTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#FFE082',
+    color: '#FFFFFF',
   },
   coinNoticeNote: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: '#FFFFFF',
   },
   coinNoticeDismiss: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 
