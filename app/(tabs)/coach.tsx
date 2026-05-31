@@ -874,7 +874,7 @@ export default function CoachDashboard() {
               </View>
             </View>
             <View style={styles.attentionList}>
-              {inactivePlayers.slice(0, 3).map((player) => (
+              {inactivePlayers.map((player) => (
                 <TouchableOpacity
                   key={player.id}
                   style={styles.attentionPlayer}
