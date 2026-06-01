@@ -1,5 +1,6 @@
 // components/TeamLevelCard.tsx
 import { useTeam } from '@/hooks/useTeam';
+import { useTeamBadges } from '@/hooks/useTeamBadges';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import {
@@ -8,6 +9,7 @@ import {
   getXpForLevel,
 } from '@/lib/teamUnlockables';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import {
@@ -30,6 +32,7 @@ interface PlayerContribution {
 export function TeamLevelCard() {
   const { data: user } = useUser();
   const { data: team } = useTeam(user?.id);
+  const { data: earnedTeamBadges } = useTeamBadges(team?.id);
   const [modalVisible, setModalVisible] = useState(false);
   const [minimumModalVisible, setMinimumModalVisible] = useState(false);
 
@@ -343,9 +346,32 @@ export function TeamLevelCard() {
           </View>
         )}
 
+        {/* Collective team achievement badges */}
+        {earnedTeamBadges && earnedTeamBadges.length > 0 && (
+          <View style={styles.unlockedSection}>
+            <TouchableOpacity
+              style={styles.sectionTitleRow}
+              onPress={() => router.push('/(modals)/team-badges')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionTitle}>Team Badges</Text>
+              <Text style={styles.seeAllText}>See all →</Text>
+            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {earnedTeamBadges.slice(0, 6).map((item) => (
+                <View key={item.id} style={[styles.unlockedBadge, { borderColor: item.definition.color + '44', borderWidth: 1.5 }]}>
+                  <Text style={styles.unlockedIcon}>{item.definition.icon}</Text>
+                  <Text style={styles.unlockedName}>{item.definition.name}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Level-unlocked badges */}
         {recentBadges.length > 0 && (
           <View style={styles.unlockedSection}>
-            <Text style={styles.sectionTitle}>Team Badges</Text>
+            <Text style={styles.sectionTitle}>Level Rewards</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {recentBadges.map((item, index) => (
                 <View key={index} style={styles.unlockedBadge}>
@@ -726,6 +752,16 @@ const styles = StyleSheet.create({
   },
   unlockedSection: {
     marginBottom: 20,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   unlockedBadge: {
     backgroundColor: '#F5F9FF',

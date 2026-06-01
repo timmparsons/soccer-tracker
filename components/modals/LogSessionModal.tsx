@@ -1,4 +1,5 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
+import { checkTeamBadges } from '@/lib/checkTeamBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -32,12 +33,14 @@ interface LogSessionModalProps {
     isChallenge: boolean,
     drillName?: string,
     earnedBadgeIds?: string[],
+    earnedTeamBadgeIds?: string[],
   ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
   challengeName?: string;
   challengeDifficulty?: string;
   badgeContext?: Omit<BadgeCheckContext, 'jugglesThisSession' | 'durationMinutes'>;
+  teamId?: string | null;
 }
 
 const DRILL_TIPS: Record<string, string> = {
@@ -59,6 +62,7 @@ const LogSessionModal = ({
   challengeName,
   challengeDifficulty,
   badgeContext,
+  teamId,
 }: LogSessionModalProps) => {
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
@@ -126,7 +130,7 @@ const LogSessionModal = ({
       // Reschedule inactivity reminders — reset the 2-day countdown from now
       scheduleInactivityReminders(new Date()).catch(() => {});
 
-      // Check for newly earned badges (fire-and-forget, non-blocking)
+      // Check for newly earned individual badges
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
@@ -135,6 +139,17 @@ const LogSessionModal = ({
           jugglesThisSession: juggleCount > 0 ? juggleCount : null,
           durationMinutes,
         });
+      }
+
+      // Check for newly earned team badges (fire-and-forget)
+      let earnedTeamBadgeIds: string[] = [];
+      if (teamId) {
+        try {
+          const teamBadges = await checkTeamBadges(teamId);
+          earnedTeamBadgeIds = teamBadges.map((b) => b.id);
+        } catch {
+          // Non-blocking — badge check failure never blocks session submit
+        }
       }
 
       // Reset form
@@ -150,6 +165,7 @@ const LogSessionModal = ({
         isChallengeMode,
         challengeName,
         earnedBadgeIds,
+        earnedTeamBadgeIds,
       );
     } catch (error) {
       console.error('Error logging session:', error);

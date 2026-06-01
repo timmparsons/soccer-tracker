@@ -1,4 +1,5 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
 import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
 import CoinAwardBanner from '@/components/common/CoinAwardBanner';
@@ -6,6 +7,8 @@ import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useCoinTransactions } from '@/hooks/useCoins';
+import { getTeamBadgeProgress } from '@/lib/checkTeamBadges';
+import { useQuery } from '@tanstack/react-query';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import {
@@ -109,6 +112,13 @@ const HomeScreen = () => {
   );
 
   const { data: coinTransactions = [] } = useCoinTransactions(user?.id);
+
+  const { data: teamBadgeProgress } = useQuery({
+    queryKey: ['team-badge-progress', profile?.team_id],
+    enabled: !!profile?.team_id,
+    staleTime: 1000 * 60 * 2,
+    queryFn: () => getTeamBadgeProgress(profile!.team_id!),
+  });
   const unseenCoins = coinTransactions.filter(
     (tx) => !lastSeenCoinsAt || tx.created_at > lastSeenCoinsAt,
   );
@@ -227,6 +237,11 @@ const HomeScreen = () => {
               <Text style={styles.coinNoticeDismiss}>✕</Text>
             </Pressable>
           </View>
+        )}
+
+        {/* TEAM BADGE PROGRESS */}
+        {teamBadgeProgress && teamBadgeProgress.playersNeeded > 0 && (
+          <TeamBadgeProgressStrip progress={teamBadgeProgress} />
         )}
 
         {/* VINNIE */}

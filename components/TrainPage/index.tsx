@@ -2,8 +2,10 @@ import PageHeader from '@/components/common/PageHeader';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
+import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
+import { getTeamBadge } from '@/lib/teamBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -62,6 +64,8 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [earnedTeamBadgeIds, setEarnedTeamBadgeIds] = useState<string[]>([]);
+  const [showTeamBadgeModal, setShowTeamBadgeModal] = useState(false);
   const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
@@ -687,16 +691,28 @@ const TrainPage = () => {
         onClose={() => {
           setShowVinnieCelebration(false);
           if (earnedBadges.length) setShowBadgeModal(true);
+          else if (earnedTeamBadgeIds.length) setShowTeamBadgeModal(true);
         }}
       />
 
-      {/* Badge Earned */}
+      {/* Individual Badge Earned */}
       <BadgeEarnedModal
         visible={showBadgeModal}
         badges={allBadges.filter((b) => earnedBadges.includes(b.id))}
         onClose={() => {
           setShowBadgeModal(false);
           setEarnedBadges([]);
+          if (earnedTeamBadgeIds.length) setShowTeamBadgeModal(true);
+        }}
+      />
+
+      {/* Team Badge Earned */}
+      <TeamBadgeEarnedModal
+        visible={showTeamBadgeModal}
+        badges={earnedTeamBadgeIds.map((id) => getTeamBadge(id)).filter((b) => b !== undefined)}
+        onClose={() => {
+          setShowTeamBadgeModal(false);
+          setEarnedTeamBadgeIds([]);
         }}
       />
 
@@ -717,6 +733,7 @@ const TrainPage = () => {
           challengeName={challengeName}
           challengeDurationMinutes={challengeDurationMinutes}
           challengeDifficulty={challengeDifficulty}
+          teamId={profile?.team_id ?? null}
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
             totalTouches: touchStats?.total_touches ?? 0,
@@ -725,10 +742,11 @@ const TrainPage = () => {
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,
           }}
-          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
+          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds, earnedTeamIds) => {
             setCelebrationTouches(tc);
             setShowVinnieCelebration(true);
             if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
+            if (earnedTeamIds?.length) setEarnedTeamBadgeIds(earnedTeamIds);
           }}
         />
       )}
