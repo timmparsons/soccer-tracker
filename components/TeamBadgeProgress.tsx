@@ -1,14 +1,17 @@
-import type { TeamBadgeProgress } from '@/lib/checkTeamBadges';
+import type { WeeklyChallengeStatus } from '@/lib/checkTeamBadges';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface TeamBadgeProgressProps {
-  progress: TeamBadgeProgress;
+  status: WeeklyChallengeStatus;
 }
 
-export default function TeamBadgeProgressStrip({ progress }: TeamBadgeProgressProps) {
-  const pct = Math.min(progress.qualifiedCount / progress.required, 1);
+export default function TeamBadgeProgressStrip({ status }: TeamBadgeProgressProps) {
+  const pct = Math.min(status.qualifiedCount / status.required, 1);
+  const { challenge } = status;
+
+  if (status.achieved) return null;
 
   return (
     <TouchableOpacity
@@ -16,14 +19,12 @@ export default function TeamBadgeProgressStrip({ progress }: TeamBadgeProgressPr
       onPress={() => router.push('/(modals)/team-badges')}
       activeOpacity={0.85}
     >
-      <Text style={styles.emoji}>{progress.icon}</Text>
+      <Text style={styles.emoji}>{challenge.icon}</Text>
       <View style={styles.content}>
         <Text style={styles.title}>
-          <Text style={[styles.count, { color: progress.color }]}>
-            {progress.playersNeeded} teammate{progress.playersNeeded !== 1 ? 's' : ''}
-          </Text>
-          {' '}away from{' '}
-          <Text style={styles.badgeName}>{progress.name}</Text>
+          <Text style={styles.count}>{status.playersNeeded} teammate{status.playersNeeded !== 1 ? 's' : ''}</Text>
+          {' '}away from this week's{' '}
+          <Text style={styles.badgeName}>{challenge.name}</Text>
           {'!'}
         </Text>
         <View style={styles.barTrack}>
@@ -35,7 +36,7 @@ export default function TeamBadgeProgressStrip({ progress }: TeamBadgeProgressPr
           />
         </View>
         <Text style={styles.sub}>
-          {progress.qualifiedCount}/{progress.required} players qualified · Tap to see all badges
+          {status.qualifiedCount}/{status.required} players qualified · Tap to see progress
         </Text>
       </View>
     </TouchableOpacity>
@@ -73,6 +74,7 @@ const styles = StyleSheet.create({
   },
   count: {
     fontWeight: '900',
+    color: '#1f89ee',
   },
   badgeName: {
     fontWeight: '900',

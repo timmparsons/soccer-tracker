@@ -87,7 +87,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Challenges</Text>
+            <Text style={styles.headerTitle}>Teammate Challenges</Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
                 <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
@@ -115,14 +115,9 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         {!expanded && <View style={styles.rows}>
           {topChallenge === null && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No active challenges</Text>
-              {teamId ? (
-                <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
-              )}
+              <Text style={styles.emptyTitle}>
+                {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
+              </Text>
             </View>
           )}
           {topChallenge?.type === 'group' && (
@@ -279,17 +274,16 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
           )}
           {activeChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No active challenges</Text>
-              {teamId ? (
-                <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
-              )}
+              <Text style={styles.emptyTitle}>
+                {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
+              </Text>
             </View>
           )}
-          {groupChallenges.map((gc) => (
+          {groupChallenges.filter((gc) => {
+            const allDone = gc.participants.every((p) => p.completed_at !== null);
+            const deadlinePassed = new Date() > new Date(gc.deadline_at);
+            return !allDone && !deadlinePassed;
+          }).map((gc) => (
             <GroupChallengeCard
               key={gc.id}
               challenge={gc}

@@ -79,3 +79,4 @@ No test framework is configured — there are no tests to run.
 - Don't create new abstractions for one-off operations.
 - Don't push to remote unless explicitly asked.
 - Don't auto-commit — always show the commit message for review first (or commit immediately after completing the task as agreed).
+- Don't use emojis in code, UI strings, or responses unless explicitly asked.

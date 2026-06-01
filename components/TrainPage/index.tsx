@@ -5,7 +5,7 @@ import LogSessionModal from '@/components/modals/LogSessionModal';
 import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
-import { getTeamBadge } from '@/lib/teamBadges';
+import { getCurrentWeekChallenge } from '@/lib/teamBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -709,7 +709,7 @@ const TrainPage = () => {
       {/* Team Badge Earned */}
       <TeamBadgeEarnedModal
         visible={showTeamBadgeModal}
-        badges={earnedTeamBadgeIds.map((id) => getTeamBadge(id)).filter((b) => b !== undefined)}
+        badges={earnedTeamBadgeIds.length > 0 ? [getCurrentWeekChallenge()] : []}
         onClose={() => {
           setShowTeamBadgeModal(false);
           setEarnedTeamBadgeIds([]);

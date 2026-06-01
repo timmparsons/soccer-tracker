@@ -359,9 +359,11 @@ export function TeamLevelCard() {
             </TouchableOpacity>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {earnedTeamBadges.slice(0, 6).map((item) => (
-                <View key={item.id} style={[styles.unlockedBadge, { borderColor: item.definition.color + '44', borderWidth: 1.5 }]}>
-                  <Text style={styles.unlockedIcon}>{item.definition.icon}</Text>
-                  <Text style={styles.unlockedName}>{item.definition.name}</Text>
+                <View key={item.id} style={[styles.unlockedBadge, { borderColor: '#1f89ee44', borderWidth: 1.5 }]}>
+                  <Text style={styles.unlockedIcon}>⚽</Text>
+                  <Text style={styles.unlockedName}>
+                    {item.week_start ? `Wk ${new Date(item.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Squad Goal'}
+                  </Text>
                 </View>
               ))}
             </ScrollView>

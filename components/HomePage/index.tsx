@@ -7,7 +7,7 @@ import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useCoinTransactions } from '@/hooks/useCoins';
-import { getTeamBadgeProgress } from '@/lib/checkTeamBadges';
+import { getWeeklyChallengeStatus } from '@/lib/checkTeamBadges';
 import { useQuery } from '@tanstack/react-query';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
@@ -117,7 +117,7 @@ const HomeScreen = () => {
     queryKey: ['team-badge-progress', profile?.team_id],
     enabled: !!profile?.team_id,
     staleTime: 1000 * 60 * 2,
-    queryFn: () => getTeamBadgeProgress(profile!.team_id!),
+    queryFn: () => getWeeklyChallengeStatus(profile!.team_id!),
   });
   const unseenCoins = coinTransactions.filter(
     (tx) => !lastSeenCoinsAt || tx.created_at > lastSeenCoinsAt,
@@ -240,8 +240,8 @@ const HomeScreen = () => {
         )}
 
         {/* TEAM BADGE PROGRESS */}
-        {teamBadgeProgress && teamBadgeProgress.playersNeeded > 0 && (
-          <TeamBadgeProgressStrip progress={teamBadgeProgress} />
+        {teamBadgeProgress && !teamBadgeProgress.achieved && (
+          <TeamBadgeProgressStrip status={teamBadgeProgress} />
         )}
 
         {/* VINNIE */}

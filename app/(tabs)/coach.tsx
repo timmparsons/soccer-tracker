@@ -6,7 +6,7 @@ import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useTeamBadges } from '@/hooks/useTeamBadges';
 import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
-import { getTeamBadgeProgress } from '@/lib/checkTeamBadges';
+import { getWeeklyChallengeStatus } from '@/lib/checkTeamBadges';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -106,7 +106,7 @@ export default function CoachDashboard() {
     queryKey: ['team-badge-progress', profile?.team_id],
     enabled: !!profile?.team_id,
     staleTime: 1000 * 60 * 2,
-    queryFn: () => getTeamBadgeProgress(profile!.team_id!),
+    queryFn: () => getWeeklyChallengeStatus(profile!.team_id!),
   });
 
   // Get team info
@@ -663,8 +663,8 @@ export default function CoachDashboard() {
         )}
 
         {/* Team badge progress strip */}
-        {teamBadgeProgress && teamBadgeProgress.playersNeeded > 0 && (
-          <TeamBadgeProgressStrip progress={teamBadgeProgress} />
+        {teamBadgeProgress && !teamBadgeProgress.achieved && (
+          <TeamBadgeProgressStrip status={teamBadgeProgress} />
         )}
 
         {/* Earned team badges */}
@@ -677,10 +677,10 @@ export default function CoachDashboard() {
             <Text style={styles.teamBadgesLabel}>Team Badges</Text>
             <View style={styles.teamBadgesList}>
               {earnedTeamBadges.slice(0, 5).map((b) => (
-                <View key={b.id} style={[styles.teamBadgeChip, { borderColor: b.definition.color + '55' }]}>
-                  <Text style={styles.teamBadgeChipIcon}>{b.definition.icon}</Text>
-                  <Text style={[styles.teamBadgeChipName, { color: b.definition.color }]} numberOfLines={1}>
-                    {b.definition.name}
+                <View key={b.id} style={[styles.teamBadgeChip, { borderColor: '#1f89ee55' }]}>
+                  <Text style={styles.teamBadgeChipIcon}>⚽</Text>
+                  <Text style={[styles.teamBadgeChipName, { color: '#1f89ee' }]} numberOfLines={1}>
+                    {b.week_start ? `Wk ${new Date(b.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Squad Goal'}
                   </Text>
                 </View>
               ))}

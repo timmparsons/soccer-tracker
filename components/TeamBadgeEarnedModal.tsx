@@ -9,14 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { TeamBadgeDefinition } from '@/lib/teamBadges';
+import type { WeeklyChallenge } from '@/lib/teamBadges';
 
 const { width } = Dimensions.get('window');
 
 interface TeamBadgeEarnedModalProps {
   visible: boolean;
   onClose: () => void;
-  badges: TeamBadgeDefinition[];
+  badges: WeeklyChallenge[];
 }
 
 export default function TeamBadgeEarnedModal({

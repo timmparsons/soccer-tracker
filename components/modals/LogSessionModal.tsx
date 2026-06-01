@@ -1,5 +1,5 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
-import { checkTeamBadges } from '@/lib/checkTeamBadges';
+import { checkAndAwardWeeklyChallenge } from '@/lib/checkTeamBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -145,10 +145,10 @@ const LogSessionModal = ({
       let earnedTeamBadgeIds: string[] = [];
       if (teamId) {
         try {
-          const teamBadges = await checkTeamBadges(teamId);
-          earnedTeamBadgeIds = teamBadges.map((b) => b.id);
+          const justEarned = await checkAndAwardWeeklyChallenge(teamId);
+          if (justEarned) earnedTeamBadgeIds = ['team_weekly_goal'];
         } catch {
-          // Non-blocking — badge check failure never blocks session submit
+          // Non-blocking
         }
       }
 

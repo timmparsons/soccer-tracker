@@ -1,145 +1,146 @@
-export interface TeamBadgeDefinition {
+export type ChallengeMetric =
+  | 'week_touches'
+  | 'training_days'
+  | 'week_sessions'
+  | 'streak_days'
+  | 'has_juggled'
+  | 'all_in_plus_touches'; // 100% trains + 80% hit touchTarget
+
+export interface WeeklyChallenge {
   id: string;
   name: string;
   icon: string;
   color: string;
   description: string;
-  repeatable: boolean; // true = weekly (Sun–Sat), false = one-time permanent
+  metric: ChallengeMetric;
+  target: number;       // metric value to hit per player
+  touchTarget?: number; // only for all_in_plus_touches
+  thresholdPct: number; // 0.8 = 80%, 1.0 = 100%
 }
 
-export const TEAM_BADGES: TeamBadgeDefinition[] = [
-  // Weekly repeatable
+export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
-    id: 'team_squad_active',
-    name: 'Squad Active',
-    icon: '👟',
+    id: 'squad_goal',
+    name: 'Squad Goal',
+    icon: '⚽',
     color: '#1f89ee',
-    description: '80% of the team trained at least once this week',
-    repeatable: true,
+    description: '80% of the team hit 5,000 touches this week',
+    metric: 'week_touches',
+    target: 5_000,
+    thresholdPct: 0.8,
   },
   {
-    id: 'team_all_in',
+    id: 'all_in',
     name: 'All In',
     icon: '🔥',
     color: '#FF6B35',
-    description: 'The entire team trained this week — nobody left out!',
-    repeatable: true,
+    description: 'Every single player trains at least once this week',
+    metric: 'training_days',
+    target: 1,
+    thresholdPct: 1.0,
   },
   {
-    id: 'team_5k_week',
-    name: '5K Week',
-    icon: '⚡',
+    id: 'showing_up',
+    name: 'Showing Up',
+    icon: '📅',
+    color: '#8B5CF6',
+    description: '80% of the team trains 4 or more days this week',
+    metric: 'training_days',
+    target: 4,
+    thresholdPct: 0.8,
+  },
+  {
+    id: 'hat_trick',
+    name: 'Hat-trick',
+    icon: '🎩',
+    color: '#F59E0B',
+    description: '80% of the team completes 3 or more separate sessions',
+    metric: 'week_sessions',
+    target: 3,
+    thresholdPct: 0.8,
+  },
+  {
+    id: 'streak_squad',
+    name: 'Streak Squad',
+    icon: '',
+    color: '#10B981',
+    description: '80% of the team is on a 3+ day training streak',
+    metric: 'streak_days',
+    target: 3,
+    thresholdPct: 0.8,
+  },
+  {
+    id: 'full_send',
+    name: 'Full Send',
+    icon: '🚀',
     color: '#ffb724',
-    description: '80% of the team logged 5,000+ touches this week',
-    repeatable: true,
+    description: '80% of the team hits 7,500 touches this week',
+    metric: 'week_touches',
+    target: 7_500,
+    thresholdPct: 0.8,
   },
   {
-    id: 'team_10k_week',
+    id: 'five_a_week',
+    name: 'Five-A-Week',
+    icon: '🌟',
+    color: '#6366F1',
+    description: '80% of the team trains 5 or more days this week',
+    metric: 'training_days',
+    target: 5,
+    thresholdPct: 0.8,
+  },
+  {
+    id: 'juggle_nation',
+    name: 'Juggle Nation',
+    icon: '🤹',
+    color: '#31af4d',
+    description: '80% of the team logs at least one juggling session',
+    metric: 'has_juggled',
+    target: 1,
+    thresholdPct: 0.8,
+  },
+  {
+    id: 'monster_week',
     name: 'Monster Week',
     icon: '💥',
     color: '#EF4444',
-    description: '80% of the team logged 10,000+ touches this week',
-    repeatable: true,
+    description: '80% of the team smashes 10,000 touches this week',
+    metric: 'week_touches',
+    target: 10_000,
+    thresholdPct: 0.8,
   },
   {
-    id: 'team_perfect_week',
-    name: 'Perfect Week',
-    icon: '🌟',
-    color: '#8B5CF6',
-    description: '80% of the team trained every single day this week',
-    repeatable: true,
-  },
-  {
-    id: 'team_weekend_warriors',
-    name: 'Weekend Warriors',
-    icon: '🏆',
-    color: '#F59E0B',
-    description: '80% of the team trained on both Saturday and Sunday',
-    repeatable: true,
-  },
-
-  // One-time milestones
-  {
-    id: 'team_streak_squad',
-    name: 'Streak Squad',
-    icon: '🔗',
-    color: '#10B981',
-    description: '80% of the team holds a 3+ day training streak right now',
-    repeatable: false,
-  },
-  {
-    id: 'team_hot_squad',
-    name: 'Hot Squad',
-    icon: '🌡️',
-    color: '#EF4444',
-    description: '80% of the team is on a 7+ day training streak',
-    repeatable: false,
-  },
-  {
-    id: 'team_century_club',
-    name: 'Century Club',
-    icon: '💯',
-    color: '#6366F1',
-    description: '80% of the team has completed 100+ training sessions',
-    repeatable: false,
-  },
-  {
-    id: 'team_50k_club',
-    name: '50K Club',
-    icon: '🎯',
-    color: '#1f89ee',
-    description: '80% of the team has logged 50,000+ touches in total',
-    repeatable: false,
-  },
-  {
-    id: 'team_100k_club',
-    name: '100K Club',
-    icon: '🚀',
-    color: '#8B5CF6',
-    description: '80% of the team has logged 100,000+ touches in total',
-    repeatable: false,
-  },
-  {
-    id: 'team_elite_squad',
-    name: 'Elite Squad',
+    id: 'all_in_again',
+    name: 'All In Again',
     icon: '👑',
-    color: '#F59E0B',
-    description: '80% of the team has reached player level 10 or above',
-    repeatable: false,
-  },
-  {
-    id: 'team_1m_touches',
-    name: 'Touch Machines',
-    icon: '🤖',
-    color: '#10B981',
-    description: 'The team has logged 1,000,000 combined total touches',
-    repeatable: false,
-  },
-
-  // Coach-awarded (manually inserted, never auto-checked)
-  {
-    id: 'team_season_champs',
-    name: 'Season Champions',
-    icon: '🥇',
-    color: '#FFD700',
-    description: 'Awarded by your coach at the end of the season',
-    repeatable: false,
-  },
-  {
-    id: 'team_most_improved',
-    name: 'Most Improved',
-    icon: '📈',
-    color: '#31af4d',
-    description: 'Awarded by your coach for outstanding team improvement',
-    repeatable: false,
+    color: '#EC4899',
+    description: 'Everyone trains + 80% hit 3,000 touches — no one sits out',
+    metric: 'all_in_plus_touches',
+    target: 1,         // everyone must train (training_days ≥ 1)
+    touchTarget: 3_000,
+    thresholdPct: 0.8,
   },
 ];
 
-export function getTeamBadge(id: string): TeamBadgeDefinition | undefined {
-  return TEAM_BADGES.find((b) => b.id === id);
+export interface EarnedWeeklyBadge {
+  id: string;
+  team_id: string;
+  badge_type: string; // challenge id
+  week_start: string; // YYYY-MM-DD (Sunday)
+  earned_at: string;
 }
 
-// The set of badge IDs that are automatically checked (excludes coach-awarded)
-export const AUTO_CHECKED_BADGE_IDS = TEAM_BADGES
-  .filter((b) => !['team_season_champs', 'team_most_improved'].includes(b.id))
-  .map((b) => b.id);
+function getWeekStart(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay());
+  return d.toISOString().slice(0, 10);
+}
+
+export function getCurrentWeekChallenge(): WeeklyChallenge {
+  const weekStart = getWeekStart();
+  // Stable index based on weeks since a fixed epoch (2024-01-07 = first Sunday)
+  const epoch = new Date('2024-01-07T00:00:00').getTime();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const weekIndex = Math.floor((new Date(weekStart).getTime() - epoch) / weekMs);
+  return WEEKLY_CHALLENGES[((weekIndex % WEEKLY_CHALLENGES.length) + WEEKLY_CHALLENGES.length) % WEEKLY_CHALLENGES.length];
+}
