@@ -277,7 +277,7 @@ export default function ChallengesCard({ userId, teamId, playerName, mode = 'all
               ))}
             </View>
           )}
-          {(showPlayerGroup ? activeChallenges.length === 0 && groupChallenges.length === 0 : true) && (showCoach ? activeCoachChallenges.length === 0 : true) && (
+          {topChallenge === null && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>
                 {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
