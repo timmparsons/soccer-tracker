@@ -32,7 +32,6 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -356,18 +355,9 @@ const ProfilePage = () => {
     }
   };
 
-  const handleFeedback = async () => {
-    const email = 'timmparsons85@gmail.com';
-    const subject = 'Master Touch Feedback';
-    const body = `\n\n---\nApp Version: 2.0.0\nUser: ${user?.email || 'Unknown'}`;
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      Linking.openURL(url);
-    } else {
-      Alert.alert('Send Feedback', `Email us at:\n${email}`, [{ text: 'OK' }]);
-    }
+  const handleSuggestions = () => {
+    setShowSettingsModal(false);
+    router.push('/(modals)/suggestions');
   };
 
   const handleJoinTeam = () => {
@@ -1235,14 +1225,14 @@ const ProfilePage = () => {
                   <View style={styles.actionDivider} />
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={handleFeedback}
+                    onPress={handleSuggestions}
                   >
                     <Ionicons
-                      name='chatbubble-ellipses'
+                      name='bulb-outline'
                       size={24}
                       color='#1f89ee'
                     />
-                    <Text style={styles.actionButtonText}>Send Feedback</Text>
+                    <Text style={styles.actionButtonText}>Suggestions</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
                   <TouchableOpacity

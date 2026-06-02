@@ -316,35 +316,37 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'touches' && styles.tabActive]}
-          onPress={() => setActiveTab('touches')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'touches' && styles.tabTextActive,
-            ]}
+      {/* Tabs — juggling only makes sense with teammates */}
+      {!!profile?.team_id && (
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'touches' && styles.tabActive]}
+            onPress={() => setActiveTab('touches')}
           >
-            Touches
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'juggling' && styles.tabActive]}
-          onPress={() => setActiveTab('juggling')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'juggling' && styles.tabTextActive,
-            ]}
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'touches' && styles.tabTextActive,
+              ]}
+            >
+              Touches
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'juggling' && styles.tabActive]}
+            onPress={() => setActiveTab('juggling')}
           >
-            Juggling
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'juggling' && styles.tabTextActive,
+              ]}
+            >
+              Juggling
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -352,7 +354,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {!profile?.is_coach && user?.id && (
+        {!profile?.is_coach && user?.id && !!profile?.team_id && (
           <ChallengesCard
             userId={user.id}
             teamId={profile?.team_id}
@@ -365,30 +367,34 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <>
             {/* Period pills */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodPillRow} contentContainerStyle={styles.periodPillRowContent}>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'today' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('today')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'today' && styles.periodPillTextActive]}>Today</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'week' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('week')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'last_week' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('last_week')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('alltime')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
-              </TouchableOpacity>
+              {!!profile?.team_id && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.periodPill, touchesPeriod === 'today' && styles.periodPillActive]}
+                    onPress={() => setTouchesPeriod('today')}
+                  >
+                    <Text style={[styles.periodPillText, touchesPeriod === 'today' && styles.periodPillTextActive]}>Today</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.periodPill, touchesPeriod === 'week' && styles.periodPillActive]}
+                    onPress={() => setTouchesPeriod('week')}
+                  >
+                    <Text style={[styles.periodPillText, touchesPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.periodPill, touchesPeriod === 'last_week' && styles.periodPillActive]}
+                    onPress={() => setTouchesPeriod('last_week')}
+                  >
+                    <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive]}
+                    onPress={() => setTouchesPeriod('alltime')}
+                  >
+                    <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
+                  </TouchableOpacity>
+                </>
+              )}
               <TouchableOpacity
                 style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive]}
                 onPress={() => setTouchesPeriod('global')}
