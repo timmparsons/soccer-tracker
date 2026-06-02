@@ -1,4 +1,3 @@
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
 import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
@@ -239,11 +238,6 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* TEAM BADGE PROGRESS */}
-        {teamBadgeProgress && !teamBadgeProgress.achieved && (
-          <TeamBadgeProgressStrip status={teamBadgeProgress} />
-        )}
-
         {/* VINNIE */}
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}
@@ -256,6 +250,11 @@ const HomeScreen = () => {
           weekSessions={touchStats?.this_week_sessions}
           totalTouches={touchStats?.total_touches}
         />
+
+        {/* TEAM BADGE PROGRESS */}
+        {teamBadgeProgress && !teamBadgeProgress.achieved && (
+          <TeamBadgeProgressStrip status={teamBadgeProgress} />
+        )}
 
         {/* TODAY'S PROGRESS */}
         <View style={styles.todayCard}>
@@ -291,14 +290,6 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/* CHALLENGES */}
-        {!profile?.is_coach && user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={displayName}
-          />
-        )}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>

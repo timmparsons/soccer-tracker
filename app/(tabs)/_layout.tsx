@@ -61,15 +61,12 @@ export default function TabLayout() {
     isPlayer ? user?.id : undefined,
   );
 
-  const activeCoachChallenges =
+  const activeCoachChallengeCount =
     coachChallenges?.filter((c) => c.status === 'active').length ?? 0;
   const pendingPlayerChallenges =
     playerChallenges?.filter(
       (c) => c.status === 'pending' && c.challenged_id === user?.id,
     ).length ?? 0;
-  const challengeBadge =
-    activeCoachChallenges + pendingPlayerChallenges || undefined;
-
   const hasUnstartedGroupChallenge = groupChallenges?.some((gc) => {
     const me = gc.participants.find((p) => p.user_id === user?.id);
     const deadlinePassed = new Date() > new Date(gc.deadline_at);
@@ -81,7 +78,11 @@ export default function TabLayout() {
       me?.completed_at === null
     );
   });
-  const homeBadge = hasUnstartedGroupChallenge ? '' : undefined;
+
+  // Compete tab: pending 1v1 + unstarted group challenges
+  const challengeBadge = (pendingPlayerChallenges + (hasUnstartedGroupChallenge ? 1 : 0)) || undefined;
+  // Train tab: active coach challenges
+  const trainBadge = activeCoachChallengeCount || undefined;
 
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
@@ -109,17 +110,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
-            tabBarBadge: homeBadge,
-            tabBarBadgeStyle: {
-              top: 0,
-              right: -2,
-              minWidth: 8,
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              paddingHorizontal: 0,
-              fontSize: 0,
-            },
           }}
         />
         <Tabs.Screen
@@ -140,6 +130,8 @@ export default function TabLayout() {
               <Play size={size ?? 28} color={color} />
             ),
             href: profile?.is_coach ? null : '/train',
+            tabBarBadge: trainBadge,
+            tabBarBadgeStyle: { top: -6, right: -8 },
           }}
         />
         <Tabs.Screen

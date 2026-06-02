@@ -1,4 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import { getDisplayName } from '@/utils/getDisplayName';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
@@ -367,6 +369,16 @@ const TrainPage = () => {
           </TouchableOpacity>
         </View>
 
+
+        {/* Coach Challenges */}
+        {user?.id && (
+          <ChallengesCard
+            userId={user.id}
+            teamId={profile?.team_id}
+            playerName={getDisplayName(profile)}
+            mode='coach'
+          />
+        )}
 
         {/* Drill Library */}
         <TouchableOpacity

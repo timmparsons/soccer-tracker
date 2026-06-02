@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getCurrentWeekChallenge, WeeklyChallenge } from '@/lib/teamBadges';
+import { getLocalDate } from '@/utils/getLocalDate';
 
 export interface PlayerProgress {
   id: string;
@@ -23,7 +24,7 @@ export interface WeeklyChallengeStatus {
 function getWeekStart(): string {
   const d = new Date();
   d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
+  return getLocalDate(d);
 }
 
 function getNDaysAgo(n: number): string {

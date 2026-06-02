@@ -27,9 +27,10 @@ interface ChallengesCardProps {
   userId: string;
   teamId: string | null | undefined;
   playerName: string;
+  mode?: 'all' | 'competitive' | 'coach';
 }
 
-export default function ChallengesCard({ userId, teamId, playerName }: ChallengesCardProps) {
+export default function ChallengesCard({ userId, teamId, playerName, mode = 'all' }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
   const { data: groupChallenges = [] } = useGroupChallenges(userId);
@@ -59,27 +60,38 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
 
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
 
+  // Filter by mode
+  const showPlayerGroup = mode !== 'coach';
+  const showCoach = mode !== 'competitive';
+
   // Top-priority challenge to always show: pending incoming > group > coach > outgoing
   const topChallenge = (() => {
-    const incomingPending = challenges.find((c) => c.status === 'pending' && c.challenged_id === userId);
-    if (incomingPending) return { type: 'player' as const, item: incomingPending };
-    const activeGroup = groupChallenges.find((gc) => {
-      const deadlinePassed = new Date() > new Date(gc.deadline_at);
-      const allDone = gc.participants.every((p) => p.completed_at !== null);
-      const me = gc.participants.find((p) => p.user_id === userId);
-      return !deadlinePassed && !allDone && me?.completed_at === null;
-    });
-    if (activeGroup) return { type: 'group' as const, item: activeGroup };
-    if (activeCoachChallenges.length > 0) return { type: 'coach' as const, item: activeCoachChallenges[0] };
-    const outgoing = activeChallenges.find((c) => c.status === 'pending' && c.challenger_id === userId);
-    if (outgoing) return { type: 'player' as const, item: outgoing };
-    const active1v1 = activeChallenges.find((c) => c.status === 'accepted');
-    if (active1v1) return { type: 'player' as const, item: active1v1 };
+    if (showPlayerGroup) {
+      const incomingPending = challenges.find((c) => c.status === 'pending' && c.challenged_id === userId);
+      if (incomingPending) return { type: 'player' as const, item: incomingPending };
+      const activeGroup = groupChallenges.find((gc) => {
+        const deadlinePassed = new Date() > new Date(gc.deadline_at);
+        const allDone = gc.participants.every((p) => p.completed_at !== null);
+        const me = gc.participants.find((p) => p.user_id === userId);
+        return !deadlinePassed && !allDone && me?.completed_at === null;
+      });
+      if (activeGroup) return { type: 'group' as const, item: activeGroup };
+    }
+    if (showCoach && activeCoachChallenges.length > 0) return { type: 'coach' as const, item: activeCoachChallenges[0] };
+    if (showPlayerGroup) {
+      const outgoing = activeChallenges.find((c) => c.status === 'pending' && c.challenger_id === userId);
+      if (outgoing) return { type: 'player' as const, item: outgoing };
+      const active1v1 = activeChallenges.find((c) => c.status === 'accepted');
+      if (active1v1) return { type: 'player' as const, item: active1v1 };
+    }
     return null;
   })();
 
-  const totalActive = activeChallenges.length + activeCoachChallenges.length + groupChallenges.filter((gc) => !new Date() || new Date() < new Date(gc.deadline_at)).length;
-  const extraCount = Math.max(0, totalActive - (topChallenge ? 1 : 0));
+  const visibleActive =
+    (showPlayerGroup ? activeChallenges.length : 0) +
+    (showCoach ? activeCoachChallenges.length : 0) +
+    (showPlayerGroup ? groupChallenges.filter((gc) => new Date() < new Date(gc.deadline_at)).length : 0);
+  const extraCount = Math.max(0, visibleActive - (topChallenge ? 1 : 0));
 
   return (
     <>
@@ -87,7 +99,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Teammate Challenges</Text>
+            <Text style={styles.headerTitle}>{mode === 'coach' ? 'Coach Challenges' : 'Teammate Challenges'}</Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
                 <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
@@ -111,15 +123,8 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
           </View>
         </View>
 
-        {/* Always-visible top challenge */}
-        {!expanded && <View style={styles.rows}>
-          {topChallenge === null && (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>
-                {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
-              </Text>
-            </View>
-          )}
+        {/* Always-visible top challenge — only show if there's something active */}
+        {!expanded && topChallenge !== null && <View style={styles.rows}>
           {topChallenge?.type === 'group' && (
             <GroupChallengeCard
               challenge={topChallenge.item as GroupChallenge}
@@ -187,7 +192,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
         {/* Full expanded view */}
         {expanded && <View style={styles.rows}>
           {/* Coach-assigned challenges */}
-          {activeCoachChallenges.length > 0 && (
+          {showCoach && activeCoachChallenges.length > 0 && (
             <View style={styles.coachSection}>
               <Text style={styles.coachSectionLabel}>Coach Challenges</Text>
               {activeCoachChallenges.map((c) => (
@@ -272,14 +277,14 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               ))}
             </View>
           )}
-          {activeChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0 && (
+          {(showPlayerGroup ? activeChallenges.length === 0 && groupChallenges.length === 0 : true) && (showCoach ? activeCoachChallenges.length === 0 : true) && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>
                 {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
               </Text>
             </View>
           )}
-          {groupChallenges.filter((gc) => {
+          {showPlayerGroup && groupChallenges.filter((gc) => {
             const allDone = gc.participants.every((p) => p.completed_at !== null);
             const deadlinePassed = new Date() > new Date(gc.deadline_at);
             return !allDone && !deadlinePassed;
@@ -301,7 +306,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               }
             />
           ))}
-          {activeChallenges.map((c) => (
+          {showPlayerGroup && activeChallenges.map((c) => (
             <ChallengeRow
               key={c.id}
               challenge={c}

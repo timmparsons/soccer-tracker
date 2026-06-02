@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import { getDisplayName } from '@/utils/getDisplayName';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
@@ -343,6 +345,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
+        {!profile?.is_coach && user?.id && (
+          <ChallengesCard
+            userId={user.id}
+            teamId={profile?.team_id}
+            playerName={getDisplayName(profile)}
+            mode='competitive'
+          />
+        )}
+
         {activeTab === 'touches' ? (
           <>
             {/* Period pills */}

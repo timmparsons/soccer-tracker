@@ -79,7 +79,7 @@ export default function TeamBadgesScreen() {
   const barMax = status ? playerBarMax(status) : challenge.target;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name='close' size={26} color='#1a1a2e' />
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 8,
     gap: 12,
   },
   backButton: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 0,
   },
   sectionLabel: {
     fontSize: 12,
