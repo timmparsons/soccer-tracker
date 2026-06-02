@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -391,14 +392,14 @@ const styles = StyleSheet.create({
   emptyBadges: {
     marginTop: 8,
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     paddingVertical: 28,
     paddingHorizontal: 24,
     gap: 6,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
+    ...Platform.select({ ios: { borderStyle: 'dashed' as const } }),
   },
   emptyLabel: {
     fontSize: 16,
