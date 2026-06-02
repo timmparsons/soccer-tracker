@@ -58,16 +58,36 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
   });
 
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
-  const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 3);
-  const displayedChallenges = [...activeChallenges, ...completedChallenges];
+
+  // Top-priority challenge to always show: pending incoming > group > coach > outgoing
+  const topChallenge = (() => {
+    const incomingPending = challenges.find((c) => c.status === 'pending' && c.challenged_id === userId);
+    if (incomingPending) return { type: 'player' as const, item: incomingPending };
+    const activeGroup = groupChallenges.find((gc) => {
+      const deadlinePassed = new Date() > new Date(gc.deadline_at);
+      const allDone = gc.participants.every((p) => p.completed_at !== null);
+      const me = gc.participants.find((p) => p.user_id === userId);
+      return !deadlinePassed && !allDone && me?.completed_at === null;
+    });
+    if (activeGroup) return { type: 'group' as const, item: activeGroup };
+    if (activeCoachChallenges.length > 0) return { type: 'coach' as const, item: activeCoachChallenges[0] };
+    const outgoing = activeChallenges.find((c) => c.status === 'pending' && c.challenger_id === userId);
+    if (outgoing) return { type: 'player' as const, item: outgoing };
+    const active1v1 = activeChallenges.find((c) => c.status === 'accepted');
+    if (active1v1) return { type: 'player' as const, item: active1v1 };
+    return null;
+  })();
+
+  const totalActive = activeChallenges.length + activeCoachChallenges.length + groupChallenges.filter((gc) => !new Date() || new Date() < new Date(gc.deadline_at)).length;
+  const extraCount = Math.max(0, totalActive - (topChallenge ? 1 : 0));
 
   return (
     <>
       <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0 || hasUnstartedGroupChallenge) && styles.containerAlert]}>
-        {/* Header — toggles dropdown */}
-        <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
+        {/* Header */}
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Challenges</Text>
+            <Text style={styles.headerTitle}>Teammate Challenges</Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
                 <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
@@ -85,11 +105,86 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
                 <Text style={styles.newChallengeBtnText}>New</Text>
               </TouchableOpacity>
             )}
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+            <TouchableOpacity onPress={() => setExpanded((v) => !v)} hitSlop={12}>
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
 
-        {/* Rows — only visible when expanded */}
+        {/* Always-visible top challenge */}
+        {!expanded && <View style={styles.rows}>
+          {topChallenge === null && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>
+                {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
+              </Text>
+            </View>
+          )}
+          {topChallenge?.type === 'group' && (
+            <GroupChallengeCard
+              challenge={topChallenge.item as GroupChallenge}
+              userId={userId}
+              onAttempt={() => setAttemptGroupChallenge(topChallenge.item as GroupChallenge)}
+              onCancel={() =>
+                Alert.alert('Cancel Group Challenge?', 'This will remove the challenge for everyone.', [
+                  { text: 'Keep', style: 'cancel' },
+                  { text: 'Cancel', style: 'destructive', onPress: () => deleteGroup({ groupChallengeId: (topChallenge.item as GroupChallenge).id, userId }) },
+                ])
+              }
+            />
+          )}
+          {topChallenge?.type === 'coach' && (
+            <View style={styles.coachSection}>
+              <Text style={styles.coachSectionLabel}>Coach Challenge</Text>
+              {(() => {
+                const c = topChallenge.item as typeof activeCoachChallenges[0];
+                return (
+                  <View style={styles.coachRow}>
+                    <View style={styles.coachRowLeft}>
+                      <Text style={styles.coachRowTarget}>{c.touches_target.toLocaleString()} touches</Text>
+                      <Text style={styles.coachRowDetail}>Due {c.due_date}</Text>
+                      <View style={styles.coachStatusRow}>
+                        <View style={styles.coachBadge}>
+                          <Text style={styles.coachBadgeText}>{c.accepted_at ? '🏃 In Progress' : '🎯 Coach Challenge'}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.coachRowActions}>
+                        {!c.accepted_at ? (
+                          <TouchableOpacity style={styles.coachInlineBtn} onPress={() => acceptCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id, playerName, coachPushToken: c.coach_push_token }, { onError: (err) => Alert.alert('Error', err instanceof Error ? err.message : 'Failed') })}>
+                            <Text style={styles.coachInlineBtnText}>Accept</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity style={[styles.coachInlineBtn, styles.coachInlineBtnGreen]} onPress={() => Alert.alert('Mark as Complete?', `Confirm you've completed ${c.touches_target.toLocaleString()} touches.`, [{ text: 'Not yet', style: 'cancel' }, { text: 'Complete!', onPress: () => completeCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id, playerName, touchesTarget: c.touches_target, coachPushToken: c.coach_push_token }) }])}>
+                            <Text style={[styles.coachInlineBtnText, styles.coachInlineBtnTextGreen]}>Done</Text>
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity onPress={() => Alert.alert('Cancel Challenge?', 'This will remove the challenge.', [{ text: 'Keep', style: 'cancel' }, { text: 'Cancel', style: 'destructive', onPress: () => cancelCoach({ challengeId: c.id, coachId: c.coach_id, playerId: c.player_id }) }])}>
+                          <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
+            </View>
+          )}
+          {topChallenge?.type === 'player' && (
+            <ChallengeRow
+              challenge={topChallenge.item as PlayerChallenge}
+              userId={userId}
+              onRespond={(accept) => respond({ challengeId: (topChallenge.item as PlayerChallenge).id, accept, timeLimitHours: (topChallenge.item as PlayerChallenge).time_limit_hours, challengerId: (topChallenge.item as PlayerChallenge).challenger_id, responderId: userId, responderName: (topChallenge.item as PlayerChallenge).challenged_name ?? '', challengerPushToken: (topChallenge.item as PlayerChallenge).challenger_push_token ?? null })}
+              onAttempt={() => setAttemptChallenge(topChallenge.item as PlayerChallenge)}
+              onCancel={(expired) => Alert.alert(expired ? 'Delete Challenge?' : 'Cancel Challenge?', expired ? 'This will remove the expired challenge.' : 'This will remove the challenge for both players.', [{ text: 'Keep', style: 'cancel' }, { text: expired ? 'Delete' : 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: (topChallenge.item as PlayerChallenge).id }) }])}
+            />
+          )}
+          {extraCount > 0 && (
+            <TouchableOpacity style={styles.moreRow} onPress={() => setExpanded(true)}>
+              <Text style={styles.moreText}>+{extraCount} more challenge{extraCount !== 1 ? 's' : ''} — tap to expand</Text>
+            </TouchableOpacity>
+          )}
+        </View>}
+
+        {/* Full expanded view */}
         {expanded && <View style={styles.rows}>
           {/* Coach-assigned challenges */}
           {activeCoachChallenges.length > 0 && (
@@ -177,19 +272,18 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               ))}
             </View>
           )}
-          {displayedChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0 && (
+          {activeChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No active challenges</Text>
-              {teamId ? (
-                <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
-              )}
+              <Text style={styles.emptyTitle}>
+                {teamId ? 'No current challenges' : 'Join a team to challenge teammates'}
+              </Text>
             </View>
           )}
-          {groupChallenges.map((gc) => (
+          {groupChallenges.filter((gc) => {
+            const allDone = gc.participants.every((p) => p.completed_at !== null);
+            const deadlinePassed = new Date() > new Date(gc.deadline_at);
+            return !allDone && !deadlinePassed;
+          }).map((gc) => (
             <GroupChallengeCard
               key={gc.id}
               challenge={gc}
@@ -207,7 +301,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               }
             />
           ))}
-          {displayedChallenges.map((c) => (
+          {activeChallenges.map((c) => (
             <ChallengeRow
               key={c.id}
               challenge={c}
@@ -645,6 +739,18 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 
+  moreRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  moreText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
   cancelRow: {
     marginTop: 6,
   },

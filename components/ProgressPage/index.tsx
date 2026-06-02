@@ -3,6 +3,9 @@ import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useGroupChallenges } from '@/hooks/useGroupChallenges';
+import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
+import { Image } from 'react-native';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
@@ -30,6 +33,8 @@ const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const { isPremium } = useSubscription();
+  const { data: groupChallenges = [] } = useGroupChallenges(user?.id);
+  const { data: playerChallenges = [] } = usePlayerChallenges(user?.id);
 
   const router = useRouter();
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
@@ -404,6 +409,71 @@ const ProgressPage = () => {
           )}
         </View>
 
+        {/* Past challenges with teammates */}
+        {(() => {
+          const completedGroups = groupChallenges.filter((gc) => {
+            const allDone = gc.participants.every((p) => p.completed_at !== null);
+            const deadlinePassed = new Date() > new Date(gc.deadline_at);
+            return allDone || deadlinePassed;
+          });
+          const completedPlayer = playerChallenges.filter((c) => c.status === 'completed');
+          if (completedGroups.length === 0 && completedPlayer.length === 0) return null;
+
+          const fmt = (s: number) => {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${m}:${String(sec).padStart(2, '0')}`;
+          };
+
+          return (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Past Challenges</Text>
+
+              {completedGroups.map((gc) => {
+                const ranked = [...gc.participants].sort((a, b) => {
+                  if (a.time_seconds === null) return 1;
+                  if (b.time_seconds === null) return -1;
+                  return a.time_seconds - b.time_seconds;
+                });
+                const medals = ['🥇', '🥈', '🥉'];
+                return (
+                  <View key={gc.id} style={styles.pastChallengeCard}>
+                    <Text style={styles.pastChallengeTitle}>⚔️ Group Challenge — {gc.touches_target.toLocaleString()} touches</Text>
+                    <Text style={styles.pastChallengeMeta}>{gc.participants.length} players · {new Date(gc.deadline_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+                    {ranked.map((p, i) => (
+                      <View key={p.id} style={styles.pastChallengeRow}>
+                        <Text style={styles.pastMedal}>{medals[i] ?? '·'}</Text>
+                        <Image source={{ uri: p.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.pastAvatar} />
+                        <Text style={[styles.pastName, p.user_id === user?.id && styles.pastNameMe]}>
+                          {p.user_id === user?.id ? 'You' : (p.name ?? 'Player')}
+                        </Text>
+                        <Text style={styles.pastTime}>{p.time_seconds !== null ? fmt(p.time_seconds) : 'DNF'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+
+              {completedPlayer.map((c) => {
+                const isChallenger = c.challenger_id === user?.id;
+                const iWon = c.winner_id === user?.id;
+                const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
+                const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
+                const oppTime = isChallenger ? c.challenged_time_seconds : c.challenger_time_seconds;
+                return (
+                  <View key={c.id} style={[styles.pastChallengeCard, iWon && styles.pastChallengeCardWin]}>
+                    <View style={styles.pastChallengeRow}>
+                      <Text style={[styles.pastResult, iWon && styles.pastResultWin]}>{iWon ? '🏆 You won' : `${opponentName} won`}</Text>
+                      <Text style={styles.pastTime}>vs {opponentName}</Text>
+                    </View>
+                    <Text style={styles.pastChallengeMeta}>{c.touches_target.toLocaleString()} touches · You {myTime !== null ? fmt(myTime) : '-'} · Them {oppTime !== null ? fmt(oppTime) : '-'}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })()}
+
       </ScrollView>
 
       {/* Vinnie streak milestone celebration */}
@@ -657,6 +727,72 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FF9800',
     marginTop: 4,
+  },
+
+  // PAST CHALLENGES
+  section: {
+    marginBottom: 16,
+  },
+  pastChallengeCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  pastChallengeCardWin: {
+    borderColor: '#31af4d',
+    backgroundColor: '#F0FDF4',
+  },
+  pastChallengeTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  pastChallengeMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  pastChallengeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pastMedal: {
+    fontSize: 14,
+    width: 20,
+  },
+  pastAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  pastName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  pastNameMe: {
+    color: '#1f89ee',
+  },
+  pastTime: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  pastResult: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  pastResultWin: {
+    color: '#31af4d',
   },
 
 });

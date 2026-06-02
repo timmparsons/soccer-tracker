@@ -365,6 +365,10 @@ export default function RootLayout() {
             name='(modals)/admin'
             options={{ presentation: 'modal' }}
           />
+          <Stack.Screen
+            name='(modals)/team-badges'
+            options={{ presentation: 'modal' }}
+          />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>

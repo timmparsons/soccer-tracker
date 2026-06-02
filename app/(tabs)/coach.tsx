@@ -1,10 +1,12 @@
-import LeaderboardPage from '@/components/Leaderboard';
 import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useTeamBadges } from '@/hooks/useTeamBadges';
+import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
+import { getWeeklyChallengeStatus } from '@/lib/checkTeamBadges';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -63,7 +65,6 @@ export default function CoachDashboard() {
   // Team switcher state
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
-  const [coachView, setCoachView] = useState<'team' | 'leaderboard'>('team');
 
   const paywallShownRef = useRef(false);
 
@@ -98,6 +99,15 @@ export default function CoachDashboard() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editCount, setEditCount] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+
+  // Team badges
+  const { data: earnedTeamBadges } = useTeamBadges(profile?.team_id ?? undefined);
+  const { data: teamBadgeProgress } = useQuery({
+    queryKey: ['team-badge-progress', profile?.team_id],
+    enabled: !!profile?.team_id,
+    staleTime: 1000 * 60 * 2,
+    queryFn: () => getWeeklyChallengeStatus(profile!.team_id!),
+  });
 
   // Get team info
   const { data: team } = useQuery({
@@ -628,27 +638,6 @@ export default function CoachDashboard() {
         </TouchableOpacity>
       </View>
 
-      {/* View toggle */}
-      <View style={styles.viewToggle}>
-        <TouchableOpacity
-          style={[styles.viewToggleBtn, coachView === 'team' && styles.viewToggleBtnActive]}
-          onPress={() => setCoachView('team')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.viewToggleText, coachView === 'team' && styles.viewToggleTextActive]}>Team</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.viewToggleBtn, coachView === 'leaderboard' && styles.viewToggleBtnActive]}
-          onPress={() => setCoachView('leaderboard')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.viewToggleText, coachView === 'leaderboard' && styles.viewToggleTextActive]}>Leaderboard</Text>
-        </TouchableOpacity>
-      </View>
-
-      {coachView === 'leaderboard' ? (
-        <LeaderboardPage hideHeader />
-      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -671,6 +660,35 @@ export default function CoachDashboard() {
               if (player) setCellInfo({ player, date });
             }}
           />
+        )}
+
+        {/* Team badge progress strip */}
+        {teamBadgeProgress && !teamBadgeProgress.achieved && (
+          <TeamBadgeProgressStrip status={teamBadgeProgress} />
+        )}
+
+        {/* Earned team badges */}
+        {earnedTeamBadges && earnedTeamBadges.length > 0 && (
+          <TouchableOpacity
+            style={styles.teamBadgesRow}
+            onPress={() => router.push('/(modals)/team-badges')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.teamBadgesLabel}>Team Badges</Text>
+            <View style={styles.teamBadgesList}>
+              {earnedTeamBadges.slice(0, 5).map((b) => (
+                <View key={b.id} style={[styles.teamBadgeChip, { borderColor: '#1f89ee55' }]}>
+                  <Text style={styles.teamBadgeChipIcon}>⚽</Text>
+                  <Text style={[styles.teamBadgeChipName, { color: '#1f89ee' }]} numberOfLines={1}>
+                    {b.week_start ? `Wk ${new Date(b.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Squad Goal'}
+                  </Text>
+                </View>
+              ))}
+              {earnedTeamBadges.length > 5 && (
+                <Text style={styles.teamBadgesMore}>+{earnedTeamBadges.length - 5} more →</Text>
+              )}
+            </View>
+          </TouchableOpacity>
         )}
 
         {/* Day summary */}
@@ -937,7 +955,6 @@ export default function CoachDashboard() {
           </View>
         )}
       </ScrollView>
-      )}
 
       {/* TEAM SWITCHER MODAL */}
       {coachTeams.length > 1 && (
@@ -1282,35 +1299,49 @@ const styles = StyleSheet.create({
   },
 
   // View toggle
-  viewToggle: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#EBEBEB',
-    borderRadius: 10,
-    padding: 3,
-  },
-  viewToggleBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  viewToggleBtnActive: {
+  teamBadgesRow: {
     backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  viewToggleText: {
-    fontSize: 13,
+  teamBadgesLabel: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
   },
-  viewToggleTextActive: {
-    color: '#1a1a2e',
+  teamBadgesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  teamBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#FAFAFA',
+  },
+  teamBadgeChipIcon: {
+    fontSize: 14,
+  },
+  teamBadgeChipName: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  teamBadgesMore: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
+    alignSelf: 'center',
   },
 
   // Header

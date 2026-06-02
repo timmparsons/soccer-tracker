@@ -156,7 +156,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name='leaderboard'
           options={{
-            title: 'Compete',
+            title: profile?.is_coach ? 'Leaderboard' : 'Compete',
             tabBarIcon: ({ color, size }) => (
               <Swords size={size ?? 28} color={color} />
             ),
