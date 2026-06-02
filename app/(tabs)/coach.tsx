@@ -1084,14 +1084,6 @@ export default function CoachDashboard() {
                       Edit
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalTab, modalTab === 'coins' && styles.modalTabActive]}
-                    onPress={() => setModalTab('coins')}
-                  >
-                    <Text style={[styles.modalTabText, modalTab === 'coins' && styles.modalTabTextActive]}>
-                      🏆 Coins
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 {modalTab === 'log' ? (
@@ -1190,48 +1182,6 @@ export default function CoachDashboard() {
                   </>
                 )}
 
-                {modalTab === 'coins' && (
-                  <>
-                    <View style={styles.coinBalanceRow}>
-                      <Text style={styles.coinBalanceLabel}>Current Balance</Text>
-                      <Text style={styles.coinBalanceValue}>🏆 {selectedPlayerCoins.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Champion Points *</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 5"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="number-pad"
-                        value={coinAmount}
-                        onChangeText={setCoinAmount}
-                      />
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Reason (optional)</Text>
-                      <TextInput
-                        style={[styles.input, styles.inputMultiline]}
-                        placeholder="e.g. Great effort in training today"
-                        placeholderTextColor="#9CA3AF"
-                        value={coinNote}
-                        onChangeText={setCoinNote}
-                        multiline
-                        numberOfLines={2}
-                      />
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.saveButton, awardingCoins && styles.saveButtonDisabled]}
-                      onPress={handleAwardCoins}
-                      disabled={awardingCoins}
-                    >
-                      {awardingCoins ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text style={styles.saveButtonText}>Award Coins</Text>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
 
                 <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
                   <Text style={styles.cancelButtonText}>Cancel</Text>

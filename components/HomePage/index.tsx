@@ -1,11 +1,9 @@
 import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
 import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
-import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { useCoinTransactions } from '@/hooks/useCoins';
 import { getWeeklyChallengeStatus } from '@/lib/checkTeamBadges';
 import { useQuery } from '@tanstack/react-query';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
@@ -39,59 +37,6 @@ const HomeScreen = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
-  const [banner, setBanner] = useState<{
-    amount: number;
-    note: string | null;
-  } | null>(null);
-  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null>(null);
-  const mountedRef = useRef(false);
-
-  // Load lastSeenCoinsAt from storage on mount
-  useEffect(() => {
-    AsyncStorage.getItem('lastSeenCoinsAt').then((val) => setLastSeenCoinsAt(val));
-  }, []);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    // Skip the first emission so we don't banner on app open
-    mountedRef.current = false;
-    const timer = setTimeout(() => {
-      mountedRef.current = true;
-    }, 2000);
-
-    const channel = supabase
-      .channel(`coin-awards-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'coin_transactions',
-          filter: `player_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (!mountedRef.current) return;
-          const { amount, note, created_at } = payload.new as {
-            amount: number;
-            note: string | null;
-            created_at: string;
-          };
-          setBanner({ amount, note });
-          setLastSeenCoinsAt(created_at);
-          AsyncStorage.setItem('lastSeenCoinsAt', created_at);
-          queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
-          queryClient.invalidateQueries({
-            queryKey: ['coin-transactions', user.id],
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, queryClient]);
 
   const {
     data: touchStats,
@@ -110,27 +55,12 @@ const HomeScreen = () => {
     user?.id,
   );
 
-  const { data: coinTransactions = [] } = useCoinTransactions(user?.id);
-
   const { data: teamBadgeProgress } = useQuery({
     queryKey: ['team-badge-progress', profile?.team_id],
     enabled: !!profile?.team_id,
     staleTime: 1000 * 60 * 2,
     queryFn: () => getWeeklyChallengeStatus(profile!.team_id!),
   });
-  const unseenCoins = coinTransactions.filter(
-    (tx) => !lastSeenCoinsAt || tx.created_at > lastSeenCoinsAt,
-  );
-  const unseenTotal = unseenCoins.reduce((sum, tx) => sum + tx.amount, 0);
-
-  const dismissUnseenCoins = () => {
-    const latest = unseenCoins[0]?.created_at;
-    if (latest) {
-      setLastSeenCoinsAt(latest);
-      AsyncStorage.setItem('lastSeenCoinsAt', latest);
-    }
-  };
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -194,13 +124,6 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      {banner && (
-        <CoinAwardBanner
-          amount={banner.amount}
-          note={banner.note}
-          onDismiss={() => setBanner(null)}
-        />
-      )}
       <PageHeader
         title={`Hey ${displayName}!`}
         subtitle='Ready to get some touches?'
@@ -218,26 +141,6 @@ const HomeScreen = () => {
           />
         }
       >
-        {/* UNSEEN COIN AWARD */}
-        {unseenCoins.length > 0 && (
-          <View style={styles.coinNotice}>
-            <Text style={styles.coinNoticeEmoji}>🏆</Text>
-            <View style={styles.coinNoticeText}>
-              <Text style={styles.coinNoticeTitle}>
-                +{unseenTotal} Champion Point{unseenTotal !== 1 ? 's' : ''} from your coach!
-              </Text>
-              {unseenCoins.length === 1 && unseenCoins[0].note ? (
-                <Text style={styles.coinNoticeNote} numberOfLines={2}>{unseenCoins[0].note}</Text>
-              ) : unseenCoins.length > 1 ? (
-                <Text style={styles.coinNoticeNote}>{unseenCoins.length} awards — check your profile for details</Text>
-              ) : null}
-            </View>
-            <Pressable onPress={dismissUnseenCoins} hitSlop={12}>
-              <Text style={styles.coinNoticeDismiss}>✕</Text>
-            </Pressable>
-          </View>
-        )}
-
         {/* VINNIE */}
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}

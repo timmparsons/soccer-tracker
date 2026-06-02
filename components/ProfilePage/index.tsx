@@ -559,17 +559,6 @@ const ProfilePage = () => {
             >
               <Ionicons name='settings-outline' size={22} color='#78909C' />
             </TouchableOpacity>
-            {!profile?.is_coach && (
-              <TouchableOpacity
-                style={styles.championPointsButton}
-                onPress={openChampionModal}
-              >
-                <Text style={styles.championPointsText}>
-                  🏆 {(profile?.coins ?? 0).toLocaleString()}
-                </Text>
-                {hasUnreadCoins && <View style={styles.coinUnreadDot} />}
-              </TouchableOpacity>
-            )}
             <View style={styles.avatarContainer}>
               <View style={styles.avatarGlow} />
               <Image
@@ -943,9 +932,9 @@ const ProfilePage = () => {
           />
         )}
 
-        {/* Champion Points Modal */}
+        {/* Champion Points Modal — hidden until redemption is implemented */}
         <Modal
-          visible={showChampionModal}
+          visible={false}
           animationType='slide'
           transparent={true}
           onRequestClose={() => setShowChampionModal(false)}

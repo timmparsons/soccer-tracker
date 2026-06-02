@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import { getDisplayName } from '@/utils/getDisplayName';
+import { useTimedChallengeLeaderboard, TIMED_OPTIONS } from '@/hooks/useTimedChallengeLeaderboard';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
@@ -46,7 +47,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global'>('today');
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global' | 'timed'>(
+    profile?.team_id ? 'today' : 'global'
+  );
+  const [timedDuration, setTimedDuration] = useState(60);
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
@@ -157,6 +161,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     isLoading: globalLoading,
     refetch: refetchGlobal,
   } = useGlobalLeaderboard();
+
+  const { data: timedLeaderboard = [], isLoading: timedLoading } =
+    useTimedChallengeLeaderboard(touchesPeriod === 'timed' ? timedDuration : 0);
 
   const isLoading = touchesLoading || jugglingLoading;
 
@@ -388,6 +395,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               >
                 <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, touchesPeriod === 'timed' && styles.periodPillActive]}
+                onPress={() => setTouchesPeriod('timed')}
+              >
+                <Text style={[styles.periodPillText, touchesPeriod === 'timed' && styles.periodPillTextActive]}>Timed</Text>
+              </TouchableOpacity>
             </ScrollView>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
@@ -397,6 +410,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             )}
             {touchesPeriod === 'global' && (
               <Text style={styles.resetNote}>Anonymous · everyone using the app this week</Text>
+            )}
+            {touchesPeriod === 'timed' && (
+              <Text style={styles.resetNote}>Best timed session score this week · anonymous</Text>
             )}
 
             {/* Global leaderboard — shown instead of team content */}
@@ -421,9 +437,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                         <View style={styles.rankContainer}>
                           <Text style={styles.rankNumber}>{index + 1}</Text>
                         </View>
-                        <View style={styles.globalAvatarPlaceholder}>
-                          <Ionicons name='person' size={22} color='#B0BEC5' />
-                        </View>
+                        <Image
+                          source={{ uri: player.avatarUrl ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.globalAvatar}
+                        />
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>
                             {player.name}
@@ -441,8 +458,55 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               </View>
             )}
 
+            {/* Timed challenge leaderboard */}
+            {touchesPeriod === 'timed' && (
+              <View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodPillRow} contentContainerStyle={styles.periodPillRowContent}>
+                  {TIMED_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.seconds}
+                      style={[styles.periodPill, timedDuration === opt.seconds && styles.periodPillActive]}
+                      onPress={() => setTimedDuration(opt.seconds)}
+                    >
+                      <Text style={[styles.periodPillText, timedDuration === opt.seconds && styles.periodPillTextActive]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={styles.listContainer}>
+                  {timedLoading && <Text style={styles.resetNote}>Loading...</Text>}
+                  {!timedLoading && timedLeaderboard.length === 0 && (
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyStateTitle}>No scores yet</Text>
+                      <Text style={styles.emptyStateText}>Complete a timed session in the Train tab to appear here.</Text>
+                    </View>
+                  )}
+                  {timedLeaderboard.map((entry) => {
+                    const isMe = entry.userId === user?.id;
+                    return (
+                      <View key={entry.userId} style={[styles.playerRow, isMe && styles.playerRowHighlight]}>
+                        <Text style={styles.playerRank}>{entry.rank}</Text>
+                        <Image
+                          source={{ uri: entry.avatarUrl ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.playerAvatar}
+                        />
+                        <Text style={[styles.playerName, isMe && styles.playerNameMe]} numberOfLines={1}>
+                          {isMe ? 'You' : entry.name}
+                        </Text>
+                        <View style={styles.playerScoreBox}>
+                          <Text style={[styles.playerScore, isMe && styles.playerScoreMe]}>
+                            {entry.touches.toLocaleString()}
+                          </Text>
+                          <Text style={styles.playerScoreLabel}>touches</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
-            {touchesPeriod !== 'global' && showTouchesPodium && (
+            {touchesPeriod !== 'global' && touchesPeriod !== 'timed' && showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 1st Place — left when only 2 on podium, centre when 3 */}
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
@@ -581,7 +645,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             )}
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
-            {touchesPeriod !== 'global' && <View style={styles.listContainer}>
+            {touchesPeriod !== 'global' && touchesPeriod !== 'timed' && <View style={styles.listContainer}>
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
@@ -1134,6 +1198,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  globalAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0F2F5',
+    borderWidth: 2,
+  },
   globalAvatarPlaceholder: {
     width: 48,
     height: 48,
@@ -1222,5 +1293,52 @@ const styles = StyleSheet.create({
   },
   pickerRowTextActive: {
     color: '#1f89ee',
+  },
+
+  // TIMED LEADERBOARD
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  playerRowHighlight: {
+    backgroundColor: '#EFF6FF',
+  },
+  playerRank: {
+    width: 28,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  playerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+  },
+  playerNameMe: {
+    color: '#1f89ee',
+  },
+  playerScore: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    textAlign: 'right',
+  },
+  playerScoreMe: {
+    color: '#1f89ee',
+  },
+  playerScoreBox: {
+    alignItems: 'flex-end',
+  },
+  playerScoreLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
   },
 });

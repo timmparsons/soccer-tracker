@@ -8,6 +8,7 @@ import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { getCurrentWeekChallenge } from '@/lib/teamBadges';
+import { getTimedRank } from '@/hooks/useTimedChallengeLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -62,6 +63,7 @@ const TrainPage = () => {
   const [challengeName, setChallengeName] = useState<string | undefined>();
   const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
   const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
+  const [timedRank, setTimedRank] = useState<number | null>(null);
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
@@ -251,10 +253,17 @@ const TrainPage = () => {
         drill_id: timerChallengeDrillId ?? null,
         touches_logged: score,
         duration_minutes: durationMinutes,
+        is_timed_challenge: true,
+        challenge_duration_seconds: freeTimerDuration,
         date: today,
       });
 
       if (error) throw error;
+
+      // Fetch global rank for this duration (fire-and-forget style)
+      getTimedRank(user.id, freeTimerDuration, score)
+        .then((rank) => setTimedRank(rank))
+        .catch(() => {});
 
       const wasChallenge = !!timerChallengeDrillId;
       setCelebrationTouches(score);
@@ -700,8 +709,10 @@ const TrainPage = () => {
       <VinnieCelebrationModal
         visible={showVinnieCelebration}
         touchCount={celebrationTouches}
+        rankMessage={timedRank !== null ? `#${timedRank} globally this week` : undefined}
         onClose={() => {
           setShowVinnieCelebration(false);
+          setTimedRank(null);
           if (earnedBadges.length) setShowBadgeModal(true);
           else if (earnedTeamBadgeIds.length) setShowTeamBadgeModal(true);
         }}

@@ -19,6 +19,7 @@ interface VinnieCelebrationModalProps {
   isChallenge?: boolean;
   drillName?: string;
   overrideMessage?: string;
+  rankMessage?: string;
 }
 
 const VinnieCelebrationModal = ({
@@ -30,6 +31,7 @@ const VinnieCelebrationModal = ({
   isChallenge,
   drillName,
   overrideMessage,
+  rankMessage,
 }: VinnieCelebrationModalProps) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [message, setMessage] = useState(getVinnieCelebration());
@@ -93,6 +95,11 @@ const VinnieCelebrationModal = ({
               <View style={styles.streakRow}>
                 <Text style={styles.streakFire}>🔥</Text>
                 <Text style={styles.streakText}>{streak} day streak</Text>
+              </View>
+            )}
+            {rankMessage && (
+              <View style={styles.rankRow}>
+                <Text style={styles.rankText}>{rankMessage}</Text>
               </View>
             )}
           </View>
@@ -187,6 +194,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#FF9800',
+  },
+  rankRow: {
+    marginTop: 4,
+    backgroundColor: '#1f89ee',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  rankText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFF',
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#31af4d',

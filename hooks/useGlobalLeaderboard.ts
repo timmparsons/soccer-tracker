@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 export interface GlobalPlayer {
   userId: string;
   name: string;
+  avatarUrl: string | null;
   touches: number;
 }
 
@@ -20,16 +21,17 @@ export function useGlobalLeaderboard() {
     queryKey: ['global-leaderboard', weekStart],
     staleTime: 2 * 60 * 1000,
     queryFn: async (): Promise<GlobalPlayer[]> => {
-      // Fetch this week's sessions for all non-coach players
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, avatar_url')
         .eq('is_coach', false)
         .eq('onboarding_completed', true);
 
       if (!profiles || profiles.length === 0) return [];
 
       const profileIds = profiles.map((p) => p.id);
+      const avatarMap: Record<string, string | null> = {};
+      for (const p of profiles) avatarMap[p.id] = p.avatar_url ?? null;
 
       const { data: sessions } = await supabase
         .from('daily_sessions')
@@ -49,6 +51,7 @@ export function useGlobalLeaderboard() {
         .map(([userId, touches]) => ({
           userId,
           name: getAnonymousName(userId),
+          avatarUrl: avatarMap[userId] ?? null,
           touches,
         }))
         .sort((a, b) => b.touches - a.touches)
