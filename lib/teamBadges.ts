@@ -22,7 +22,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'squad_goal',
     name: 'Squad Goal',
-    icon: '⚽',
+    icon: '',
     color: '#1f89ee',
     description: '80% of the team hit 5,000 touches this week',
     metric: 'week_touches',
@@ -32,7 +32,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'all_in',
     name: 'All In',
-    icon: '🔥',
+    icon: '',
     color: '#FF6B35',
     description: 'Every single player trains at least once this week',
     metric: 'training_days',
@@ -42,7 +42,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'showing_up',
     name: 'Showing Up',
-    icon: '📅',
+    icon: '',
     color: '#8B5CF6',
     description: '80% of the team trains 4 or more days this week',
     metric: 'training_days',
@@ -52,7 +52,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'hat_trick',
     name: 'Hat-trick',
-    icon: '🎩',
+    icon: '',
     color: '#F59E0B',
     description: '80% of the team completes 3 or more separate sessions',
     metric: 'week_sessions',
@@ -71,8 +71,8 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   },
   {
     id: 'full_send',
-    name: 'Full Send',
-    icon: '🚀',
+    name: '75 (Hundred) Hard',
+    icon: '',
     color: '#ffb724',
     description: '80% of the team hits 7,500 touches this week',
     metric: 'week_touches',
@@ -82,7 +82,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'five_a_week',
     name: 'Five-A-Week',
-    icon: '🌟',
+    icon: '',
     color: '#6366F1',
     description: '80% of the team trains 5 or more days this week',
     metric: 'training_days',
@@ -92,7 +92,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'juggle_nation',
     name: 'Juggle Nation',
-    icon: '🤹',
+    icon: '',
     color: '#31af4d',
     description: '80% of the team logs at least one juggling session',
     metric: 'has_juggled',
@@ -102,7 +102,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'monster_week',
     name: 'Monster Week',
-    icon: '💥',
+    icon: '',
     color: '#EF4444',
     description: '80% of the team smashes 10,000 touches this week',
     metric: 'week_touches',
@@ -112,7 +112,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
   {
     id: 'all_in_again',
     name: 'All In Again',
-    icon: '👑',
+    icon: '',
     color: '#EC4899',
     description: 'Everyone trains + 80% hit 3,000 touches — no one sits out',
     metric: 'all_in_plus_touches',
