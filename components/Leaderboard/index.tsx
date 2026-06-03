@@ -13,7 +13,8 @@ import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -43,6 +44,8 @@ interface JugglingRecord {
 }
 
 const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
+  const router = useRouter();
+  const { isPremium } = useSubscription();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
@@ -354,13 +357,22 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {!profile?.is_coach && user?.id && !!profile?.team_id && (
+        {!profile?.is_coach && user?.id && !!profile?.team_id && isPremium && (
           <ChallengesCard
             userId={user.id}
             teamId={profile?.team_id}
             playerName={getDisplayName(profile)}
             mode='competitive'
           />
+        )}
+        {!profile?.is_coach && !!profile?.team_id && !isPremium && (
+          <TouchableOpacity style={styles.lockedCard} onPress={() => router.push('/(modals)/paywall')}>
+            <Ionicons name='lock-closed' size={15} color='#78909C' />
+            <Text style={styles.lockedCardText}>Teammate Challenges</Text>
+            <View style={styles.lockedProBadge}>
+              <Text style={styles.lockedProBadgeText}>PRO</Text>
+            </View>
+          </TouchableOpacity>
         )}
 
         {activeTab === 'touches' ? (
@@ -382,30 +394,30 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     <Text style={[styles.periodPillText, touchesPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.periodPill, touchesPeriod === 'last_week' && styles.periodPillActive]}
-                    onPress={() => setTouchesPeriod('last_week')}
+                    style={[styles.periodPill, touchesPeriod === 'last_week' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
+                    onPress={() => isPremium ? setTouchesPeriod('last_week') : router.push('/(modals)/paywall')}
                   >
-                    <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week</Text>
+                    <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week{!isPremium ? ' 🔒' : ''}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive]}
-                    onPress={() => setTouchesPeriod('alltime')}
+                    style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
+                    onPress={() => isPremium ? setTouchesPeriod('alltime') : router.push('/(modals)/paywall')}
                   >
-                    <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
+                    <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time{!isPremium ? ' 🔒' : ''}</Text>
                   </TouchableOpacity>
                 </>
               )}
               <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('global')}
+                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
+                onPress={() => isPremium ? setTouchesPeriod('global') : router.push('/(modals)/paywall')}
               >
-                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global</Text>
+                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global{!isPremium ? ' 🔒' : ''}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'timed' && styles.periodPillActive]}
-                onPress={() => setTouchesPeriod('timed')}
+                style={[styles.periodPill, touchesPeriod === 'timed' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
+                onPress={() => isPremium ? setTouchesPeriod('timed') : router.push('/(modals)/paywall')}
               >
-                <Text style={[styles.periodPillText, touchesPeriod === 'timed' && styles.periodPillTextActive]}>Timed</Text>
+                <Text style={[styles.periodPillText, touchesPeriod === 'timed' && styles.periodPillTextActive]}>Timed{!isPremium ? ' 🔒' : ''}</Text>
               </TouchableOpacity>
             </ScrollView>
             {touchesPeriod === 'week' && (
@@ -967,6 +979,38 @@ const styles = StyleSheet.create({
   },
   periodPillActive: {
     backgroundColor: '#1f89ee',
+  },
+  periodPillLocked: {
+    opacity: 0.6,
+  },
+  lockedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+  },
+  lockedCardText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#78909C',
+  },
+  lockedProBadge: {
+    backgroundColor: '#ffb724',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  lockedProBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 0.5,
   },
   periodPillText: {
     fontSize: 12,
