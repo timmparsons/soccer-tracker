@@ -24,10 +24,32 @@ export async function awardXp(userId: string, events: XpRow[]) {
     .eq('id', userId)
     .single();
 
+  const newTotal = (profile?.total_xp ?? 0) + totalXp;
+
   await supabase
     .from('profiles')
-    .update({ total_xp: (profile?.total_xp ?? 0) + totalXp })
+    .update({ total_xp: newTotal })
     .eq('id', userId);
+
+  checkAndAwardXpBadges(userId, newTotal).catch(() => {});
+}
+
+async function checkAndAwardXpBadges(userId: string, totalXp: number) {
+  const milestones = [
+    { id: 'xp_100', threshold: 100 },
+    { id: 'xp_500', threshold: 500 },
+    { id: 'xp_1000', threshold: 1_000 },
+    { id: 'xp_5000', threshold: 5_000 },
+    { id: 'xp_10000', threshold: 10_000 },
+  ];
+
+  const toAward = milestones.filter((m) => totalXp >= m.threshold);
+  if (toAward.length === 0) return;
+
+  await supabase.from('user_badges').upsert(
+    toAward.map((m) => ({ user_id: userId, badge_id: m.id })),
+    { onConflict: 'user_id,badge_id', ignoreDuplicates: true },
+  );
 }
 
 export function awardSessionXp(

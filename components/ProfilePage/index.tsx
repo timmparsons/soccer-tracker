@@ -17,6 +17,7 @@ import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUserXpStats } from '@/hooks/useUserXpStats';
+import { useXpLeaderboard } from '@/hooks/useXpLeaderboard';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
@@ -417,6 +418,10 @@ const ProfilePage = () => {
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
   const { data: xpStats } = useUserXpStats(user?.id);
+  const { data: xpLeaderboard = [] } = useXpLeaderboard(profile?.team_id);
+  const teamRank = xpLeaderboard.length > 0
+    ? xpLeaderboard.findIndex((e) => e.id === user?.id) + 1
+    : 0;
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
@@ -608,13 +613,6 @@ const ProfilePage = () => {
               )}
             {!profile?.is_coach && (
               <>
-                <View style={styles.xpPill}>
-                  <Text style={styles.xpPillText}>
-                    Level {level} · {rankName} ·{' '}
-                    {(profile?.total_xp ?? 0).toLocaleString()} XP
-                  </Text>
-                </View>
-
                 {/* XP Progress Bar */}
                 <View style={styles.xpProgressContainer}>
                   <View style={styles.xpProgressTrack}>
@@ -647,15 +645,6 @@ const ProfilePage = () => {
               </>
             )}
 
-            {/* Daily Target Badge - only for players */}
-            {!profile?.is_coach && (
-              <View style={styles.targetBadge}>
-                <Ionicons name='flag' size={20} color='#1f89ee' />
-                <Text style={styles.targetText}>
-                  Daily Target: {dailyTarget.toLocaleString()} touches
-                </Text>
-              </View>
-            )}
           </View>
 
           {/* This Week Card - only for players */}
@@ -674,15 +663,15 @@ const ProfilePage = () => {
                 </View>
                 <View style={styles.lifetimeStat}>
                   <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
-                    {touchStats?.this_week_sessions ?? 0}
+                    {teamRank > 0 ? `#${teamRank}` : '—'}
                   </Text>
-                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Sessions</Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Team Rank</Text>
                 </View>
                 <View style={styles.lifetimeStat}>
                   <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
-                    {(touchStats?.this_week_touches ?? 0).toLocaleString()}
+                    {touchStats?.this_week_sessions ?? 0}
                   </Text>
-                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Touches</Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Sessions</Text>
                 </View>
               </View>
             </View>
@@ -698,6 +687,9 @@ const ProfilePage = () => {
               <View style={styles.bigStatContainer}>
                 <Text style={styles.bigStatValue}>Level {level}</Text>
                 <Text style={styles.bigStatLabel}>{rankName}</Text>
+                <Text style={styles.bigStatXp}>
+                  {(profile?.total_xp ?? 0).toLocaleString()} Total XP
+                </Text>
               </View>
               <View style={styles.lifetimeGrid}>
                 <View style={styles.lifetimeStat}>
@@ -710,13 +702,13 @@ const ProfilePage = () => {
                   <Text style={styles.lifetimeStatValue}>
                     {lifetimeStats?.total_sessions || 0}
                   </Text>
-                  <Text style={styles.lifetimeStatLabel}>Sessions</Text>
+                  <Text style={styles.lifetimeStatLabel}>Training Sessions</Text>
                 </View>
                 <View style={styles.lifetimeStat}>
                   <Text style={styles.lifetimeStatValue}>
                     {lifetimeStats?.days_active || 0}
                   </Text>
-                  <Text style={styles.lifetimeStatLabel}>Days Active</Text>
+                  <Text style={styles.lifetimeStatLabel}>Active Days</Text>
                 </View>
               </View>
               {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
@@ -868,24 +860,56 @@ const ProfilePage = () => {
             </>
           )}
 
-          {/* Badges Card - players only */}
+          {/* Achievements Card - players only */}
           {!profile?.is_coach && (
             <View style={styles.badgesCard}>
               <View style={styles.badgesHeader}>
-                <Text style={styles.badgesTitle}>Badges</Text>
-                <Text style={styles.badgesCount}>
-                  {earnedBadgeIds.size}/{allBadges.length} earned
-                </Text>
+                <Text style={styles.badgesTitle}>Achievements</Text>
+                <View style={styles.badgesCountContainer}>
+                  <Text style={styles.badgesCount}>
+                    {earnedBadgeIds.size}/{allBadges.length} earned
+                  </Text>
+                  <Text style={styles.badgesPct}>
+                    {allBadges.length > 0
+                      ? Math.round((earnedBadgeIds.size / allBadges.length) * 100)
+                      : 0}% complete
+                  </Text>
+                </View>
               </View>
-              <BadgeGrid
-                allBadges={allBadges}
-                earnedIds={earnedBadgeIds}
-                badgeCounts={badgeCounts}
-                dark
-                onBadgePress={(badge, isEarned) =>
-                  setSelectedBadge({ badge, isEarned })
-                }
-              />
+              {[
+                { key: 'streak',      label: 'Streaks',     emoji: '🔥' },
+                { key: 'volume',      label: 'Touches',     emoji: '👆' },
+                { key: 'session',     label: 'Sessions',    emoji: '📝' },
+                { key: 'performance', label: 'Performance', emoji: '🏆' },
+                { key: 'xp',         label: 'XP',          emoji: '⭐' },
+                { key: 'challenge',   label: 'Challenges',  emoji: '⚔️' },
+                { key: 'social',      label: 'Social',      emoji: '👥' },
+                { key: 'drills',      label: 'Drills',      emoji: '🎯' },
+              ].map(({ key, label, emoji }) => {
+                const categoryBadges = allBadges.filter((b) => b.category === key);
+                if (categoryBadges.length === 0) return null;
+                const earnedCount = categoryBadges.filter((b) => earnedBadgeIds.has(b.id)).length;
+                return (
+                  <View key={key} style={styles.achievementCategory}>
+                    <View style={styles.achievementCategoryHeader}>
+                      <Text style={styles.achievementCategoryEmoji}>{emoji}</Text>
+                      <Text style={styles.achievementCategoryLabel}>{label}</Text>
+                      <Text style={styles.achievementCategoryCount}>
+                        {earnedCount}/{categoryBadges.length}
+                      </Text>
+                    </View>
+                    <BadgeGrid
+                      allBadges={categoryBadges}
+                      earnedIds={earnedBadgeIds}
+                      badgeCounts={badgeCounts}
+                      dark
+                      onBadgePress={(badge, isEarned) =>
+                        setSelectedBadge({ badge, isEarned })
+                      }
+                    />
+                  </View>
+                );
+              })}
             </View>
           )}
 
@@ -1813,6 +1837,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.8)',
   },
+  bigStatXp: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.55)',
+    marginTop: 6,
+  },
   lifetimeGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -2419,10 +2449,44 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFF',
   },
+  badgesCountContainer: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   badgesCount: {
     fontSize: 13,
     fontWeight: '700',
     color: '#A78BFA',
+  },
+  badgesPct: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(167, 139, 250, 0.6)',
+  },
+  achievementCategory: {
+    marginTop: 20,
+  },
+  achievementCategoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  achievementCategoryEmoji: {
+    fontSize: 16,
+  },
+  achievementCategoryLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.9)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  achievementCategoryCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
   },
   badgeModalOverlay: {
     flex: 1,
