@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useXpLeaderboard, type XpLeaderboardEntry } from '@/hooks/useXpLeaderboard';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -49,7 +50,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
-  const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
+  const [activeTab, setActiveTab] = useState<'touches' | 'juggling' | 'xp'>('touches');
+  const [xpPeriod, setXpPeriod] = useState<'today' | 'week' | 'alltime'>('week');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global' | 'timed'>(
     profile?.team_id ? 'today' : 'global'
   );
@@ -168,6 +170,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: timedLeaderboard = [], isLoading: timedLoading } =
     useTimedChallengeLeaderboard(touchesPeriod === 'timed' ? timedDuration : 0);
 
+  const {
+    data: xpLeaderboard = [],
+    isLoading: xpLoading,
+    refetch: refetchXp,
+  } = useXpLeaderboard(effectiveTeamId);
+
   const isLoading = touchesLoading || jugglingLoading;
 
   // Record last week's winner (idempotent — safe to run every load)
@@ -183,6 +191,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     refetchTouches();
     refetchJuggling();
     refetchGlobal();
+    refetchXp();
   };
 
   // Refetch data when screen comes into focus
@@ -192,7 +201,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchTouches();
       refetchJuggling();
       refetchGlobal();
-    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal])
+      refetchXp();
+    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal, refetchXp])
   );
 
   if (isLoading) {
@@ -326,12 +336,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             style={[styles.tab, activeTab === 'touches' && styles.tabActive]}
             onPress={() => setActiveTab('touches')}
           >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'touches' && styles.tabTextActive,
-              ]}
-            >
+            <Text style={[styles.tabText, activeTab === 'touches' && styles.tabTextActive]}>
               Touches
             </Text>
           </TouchableOpacity>
@@ -339,13 +344,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             style={[styles.tab, activeTab === 'juggling' && styles.tabActive]}
             onPress={() => setActiveTab('juggling')}
           >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'juggling' && styles.tabTextActive,
-              ]}
-            >
+            <Text style={[styles.tabText, activeTab === 'juggling' && styles.tabTextActive]}>
               Juggling
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'xp' && styles.tabActive]}
+            onPress={() => setActiveTab('xp')}
+          >
+            <Text style={[styles.tabText, activeTab === 'xp' && styles.tabTextActive]}>
+              XP
             </Text>
           </TouchableOpacity>
         </View>
@@ -357,7 +365,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {!profile?.is_coach && user?.id && !!profile?.team_id && isPremium && (
+        {!profile?.is_coach && user?.id && !!profile?.team_id && isPremium && activeTab !== 'xp' && (
           <ChallengesCard
             userId={user.id}
             teamId={profile?.team_id}
@@ -365,7 +373,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             mode='competitive'
           />
         )}
-        {!profile?.is_coach && !!profile?.team_id && !isPremium && (
+        {!profile?.is_coach && !!profile?.team_id && !isPremium && activeTab !== 'xp' && (
           <TouchableOpacity style={styles.lockedCard} onPress={() => router.push('/(modals)/paywall')}>
             <Ionicons name='lock-closed' size={15} color='#78909C' />
             <Text style={styles.lockedCardText}>Teammate Challenges</Text>
@@ -732,7 +740,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               })}
             </View>}
           </>
-        ) : (
+        ) : activeTab === 'juggling' ? (
           <>
             {/* Period pills */}
             <View style={[styles.periodPillRow, { justifyContent: 'center' }]}>
@@ -882,7 +890,142 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               })}
             </View>
           </>
-        )}
+        ) : activeTab === 'xp' ? (
+          <>
+            {/* XP period pills */}
+            <View style={[styles.periodPillRow, { justifyContent: 'center' }]}>
+              <TouchableOpacity
+                style={[styles.periodPill, xpPeriod === 'today' && styles.periodPillActive]}
+                onPress={() => setXpPeriod('today')}
+              >
+                <Text style={[styles.periodPillText, xpPeriod === 'today' && styles.periodPillTextActive]}>Today</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, xpPeriod === 'week' && styles.periodPillActive]}
+                onPress={() => setXpPeriod('week')}
+              >
+                <Text style={[styles.periodPillText, xpPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodPill, xpPeriod === 'alltime' && styles.periodPillActive]}
+                onPress={() => setXpPeriod('alltime')}
+              >
+                <Text style={[styles.periodPillText, xpPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
+              </TouchableOpacity>
+            </View>
+
+            {xpLoading ? (
+              <ActivityIndicator color='#1f89ee' style={{ marginTop: 40 }} />
+            ) : xpLeaderboard.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>No XP Yet</Text>
+                <Text style={styles.emptyStateText}>Log sessions to start earning XP and climbing the leaderboard.</Text>
+              </View>
+            ) : (
+              (() => {
+                const getScore = (e: XpLeaderboardEntry) =>
+                  xpPeriod === 'today' ? e.today_xp : xpPeriod === 'week' ? e.weekly_xp : e.total_xp;
+                const sorted = [...xpLeaderboard].sort((a, b) => getScore(b) - getScore(a));
+                const scoredEntries = sorted.filter(e => getScore(e) > 0);
+                const xpPodiumCount = Math.min(scoredEntries.length, 3);
+
+                return (
+                  <>
+                    {xpPodiumCount >= 1 && (
+                      <View style={styles.podium}>
+                        {/* 1st left when 1 or 2, centre when 3 */}
+                        {(xpPodiumCount === 1 || xpPodiumCount === 2) && (() => {
+                          const p = scoredEntries[0];
+                          const rank = getDenseRank(getScore(p), scoredEntries.map(e => getScore(e)));
+                          return (
+                            <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
+                              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
+                              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                              <Text style={styles.podiumTouches}>{getScore(p).toLocaleString()}</Text>
+                              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
+                            </View>
+                          );
+                        })()}
+                        {xpPodiumCount >= 2 && (() => {
+                          const p = scoredEntries[1];
+                          const rank = getDenseRank(getScore(p), scoredEntries.map(e => getScore(e)));
+                          return (
+                            <View style={styles.podiumSpot}>
+                              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
+                              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                              <Text style={styles.podiumTouches}>{getScore(p).toLocaleString()}</Text>
+                              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
+                            </View>
+                          );
+                        })()}
+                        {xpPodiumCount === 3 && (() => {
+                          const p = scoredEntries[0];
+                          const rank = getDenseRank(getScore(p), scoredEntries.map(e => getScore(e)));
+                          return (
+                            <View style={[styles.podiumSpot, styles.podiumFirst]}>
+                              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
+                              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
+                              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                              <Text style={styles.podiumTouches}>{getScore(p).toLocaleString()}</Text>
+                              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
+                            </View>
+                          );
+                        })()}
+                        {xpPodiumCount >= 3 && (() => {
+                          const p = scoredEntries[2];
+                          const rank = getDenseRank(getScore(p), scoredEntries.map(e => getScore(e)));
+                          return (
+                            <View style={styles.podiumSpot}>
+                              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
+                              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+                              <Text style={styles.podiumTouches}>{getScore(p).toLocaleString()}</Text>
+                              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
+                            </View>
+                          );
+                        })()}
+                      </View>
+                    )}
+                    <View style={styles.listContainer}>
+                      {sorted.slice(xpPodiumCount).map((entry) => {
+                        const isCurrentUser = entry.id === getCurrentUserId();
+                        const score = getScore(entry);
+                        const rank = getDenseRank(score, sorted.map(e => getScore(e)));
+                        return (
+                          <View key={entry.id} style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}>
+                            <View style={styles.playerLeft}>
+                              <View style={styles.rankContainer}><Text style={styles.rankNumber}>{rank}</Text></View>
+                              <Image source={{ uri: entry.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.avatar} />
+                              <View style={styles.playerInfo}>
+                                <Text style={styles.playerName}>
+                                  {entry.name}
+                                  {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                                </Text>
+                                <Text style={styles.todayTouches}>
+                                  {xpPeriod === 'today' && `${entry.weekly_xp.toLocaleString()} this week`}
+                                  {xpPeriod === 'week' && `${entry.today_xp.toLocaleString()} today`}
+                                  {xpPeriod === 'alltime' && `${entry.weekly_xp.toLocaleString()} this week`}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.playerRight}>
+                              <Text style={styles.weeklyTouches}>{score.toLocaleString()}</Text>
+                              <Text style={styles.touchesLabel}>xp</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </>
+                );
+              })()
+            )}
+          </>
+        ) : null}
       </ScrollView>
 
       <PlayerProfileModal

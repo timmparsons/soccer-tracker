@@ -1,5 +1,34 @@
 // lib/xp.ts
 
+export type XpEventType =
+  | 'touches'
+  | 'session_duration'
+  | 'streak_7'
+  | 'streak_14'
+  | 'streak_30'
+  | 'challenge_win'
+  | 'coach_challenge';
+
+export function getTouchXp(touches: number): number {
+  return Math.floor(touches / 100);
+}
+
+export function getSessionDurationXp(durationMinutes: number | null): number {
+  if (!durationMinutes) return 0;
+  if (durationMinutes >= 20) return 40;
+  if (durationMinutes >= 15) return 30;
+  if (durationMinutes >= 10) return 20;
+  if (durationMinutes >= 5) return 10;
+  return 0;
+}
+
+export function getStreakBonus(streakDays: number): { xp: number; type: XpEventType } | null {
+  if (streakDays >= 30) return { xp: 250, type: 'streak_30' };
+  if (streakDays >= 14) return { xp: 100, type: 'streak_14' };
+  if (streakDays >= 7) return { xp: 50, type: 'streak_7' };
+  return null;
+}
+
 export function getLevelFromXp(totalXp: number) {
   const levelThresholds = [
     0,       // Level 1

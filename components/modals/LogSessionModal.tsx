@@ -2,6 +2,7 @@ import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { checkAndAwardWeeklyChallenge } from '@/lib/checkTeamBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { awardSessionXp } from '@/lib/awardXp';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -126,6 +127,15 @@ const LogSessionModal = ({
       });
 
       if (error) throw error;
+
+      // Award XP for this session (fire-and-forget)
+      awardSessionXp(
+        userId,
+        touchCount > 0 ? touchCount : juggleCount,
+        duration ? parseInt(duration) : null,
+        today,
+        badgeContext?.currentStreak ?? 0,
+      ).catch(() => {});
 
       // Reschedule inactivity reminders — reset the 2-day countdown from now
       scheduleInactivityReminders(new Date()).catch(() => {});

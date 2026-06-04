@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { awardChallengeXp } from '@/lib/awardXp';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 function sendPush(token: string, title: string, body: string) {
@@ -315,8 +316,13 @@ export function useCompleteChallenge() {
         juggle_count: null,
       });
       if (sessionError) throw sessionError;
+
+      return { winnerId: update.winner_id as string | undefined };
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
+      if (data?.winnerId) {
+        awardChallengeXp(data.winnerId, vars.challengeId, false).catch(() => {});
+      }
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
       queryClient.invalidateQueries({ queryKey: ['touch-tracking', vars.userId] });
       queryClient.invalidateQueries({ queryKey: ['recent-sessions', vars.userId] });
