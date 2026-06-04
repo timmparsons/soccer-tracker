@@ -15,6 +15,7 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { useUserXpStats } from '@/hooks/useUserXpStats';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,6 +36,7 @@ import {
 const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { data: xpStats } = useUserXpStats(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -198,14 +200,13 @@ const HomeScreen = () => {
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, styles.statWeek]}>
             <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
-              <Text style={styles.statIcon}>📊</Text>
+              <Text style={styles.statIcon}>⭐</Text>
             </View>
             <Text style={[styles.statValue, { color: '#1f89ee' }]}>
-              {weekTouches.toLocaleString()}
+              {(xpStats?.weekly_xp ?? 0).toLocaleString()}
             </Text>
-            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={styles.statLabel}>XP This Week</Text>
             <Text style={styles.statSubtext}>Resets Sunday</Text>
-            <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>

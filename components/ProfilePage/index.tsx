@@ -664,12 +664,16 @@ const ProfilePage = () => {
                 <Text style={styles.lifetimeTitle}>Lifetime Stats</Text>
               </View>
               <View style={styles.bigStatContainer}>
-                <Text style={styles.bigStatValue}>
-                  {(lifetimeStats?.lifetime_touches || 0).toLocaleString()}
-                </Text>
-                <Text style={styles.bigStatLabel}>Total Touches</Text>
+                <Text style={styles.bigStatValue}>Level {level}</Text>
+                <Text style={styles.bigStatLabel}>{rankName}</Text>
               </View>
               <View style={styles.lifetimeGrid}>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {(lifetimeStats?.lifetime_touches || 0).toLocaleString()}
+                  </Text>
+                  <Text style={styles.lifetimeStatLabel}>Total Touches</Text>
+                </View>
                 <View style={styles.lifetimeStat}>
                   <Text style={styles.lifetimeStatValue}>
                     {lifetimeStats?.total_sessions || 0}
@@ -681,12 +685,6 @@ const ProfilePage = () => {
                     {lifetimeStats?.days_active || 0}
                   </Text>
                   <Text style={styles.lifetimeStatLabel}>Days Active</Text>
-                </View>
-                <View style={styles.lifetimeStat}>
-                  <Text style={styles.lifetimeStatValue}>
-                    {(lifetimeStats?.avg_daily_touches || 0).toLocaleString()}
-                  </Text>
-                  <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
                 </View>
               </View>
               {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
