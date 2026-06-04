@@ -16,6 +16,8 @@ import {
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useUserXpStats } from '@/hooks/useUserXpStats';
+import { useXpLeaderboard } from '@/hooks/useXpLeaderboard';
+import DailyChallengeCard from '@/components/HomePage/DailyChallengeCard';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -37,6 +39,10 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: xpStats } = useUserXpStats(user?.id);
+  const { data: xpLeaderboard = [] } = useXpLeaderboard(profile?.team_id);
+  const xpRank = xpLeaderboard.length > 0
+    ? xpLeaderboard.findIndex((e) => e.id === user?.id) + 1
+    : 0;
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -156,9 +162,12 @@ const HomeScreen = () => {
           totalTouches={touchStats?.total_touches}
         />
 
-        {/* TEAM BADGE PROGRESS */}
-        {teamBadgeProgress && !teamBadgeProgress.achieved && (
-          <TeamBadgeProgressStrip status={teamBadgeProgress} />
+        {/* DAILY CHALLENGE */}
+        {user?.id && (
+          <DailyChallengeCard
+            userId={user.id}
+            totalXp={profile?.total_xp ?? 0}
+          />
         )}
 
         {/* TODAY'S PROGRESS */}
@@ -206,7 +215,9 @@ const HomeScreen = () => {
               {(xpStats?.weekly_xp ?? 0).toLocaleString()}
             </Text>
             <Text style={styles.statLabel}>XP This Week</Text>
-            <Text style={styles.statSubtext}>Resets Sunday</Text>
+            <Text style={styles.statSubtext}>
+              {xpRank > 0 ? `#${xpRank} Team Rank` : 'Resets Sunday'}
+            </Text>
           </View>
 
           <View style={[styles.statCard, styles.statStreak]}>

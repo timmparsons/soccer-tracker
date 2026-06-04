@@ -1,7 +1,5 @@
 import PageHeader from '@/components/common/PageHeader';
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
-import { getDisplayName } from '@/utils/getDisplayName';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
+import MissionSection from '@/components/TrainPage/MissionSection';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
@@ -329,63 +327,14 @@ const TrainPage = () => {
           />
         }
       >
-        {/* Today's Progress */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressSparkle}>
-            <Text style={styles.sparkleEmoji}>✨</Text>
-          </View>
-          <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
-          <View style={styles.touchesRow}>
-            <Text style={styles.touchesValue}>
-              {todayTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.touchesDivider}>/</Text>
-            <Text style={styles.touchesTarget}>
-              {dailyTarget.toLocaleString()}
-            </Text>
-          </View>
-          <Text style={styles.touchesLabel}>touches</Text>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-            />
-          </View>
-          <Text style={styles.progressPercentText}>
-            {Math.round(progressPercent)}% Complete
-          </Text>
-        </View>
-
-        {/* Action Buttons Row */}
-        <View style={styles.actionButtonsRow}>
-          {/* Log Session Button */}
-          <TouchableOpacity
-            style={styles.logButton}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='add-circle' size={24} color='#FFF' />
-            <Text style={styles.logButtonText}>LOG SESSION</Text>
-          </TouchableOpacity>
-
-          {/* Start Timer Button */}
-          <TouchableOpacity
-            style={styles.timerButton}
-            onPress={() => setShowTimerPicker(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='timer' size={24} color='#FFF' />
-            <Text style={styles.timerButtonText}>START TIMER</Text>
-          </TouchableOpacity>
-        </View>
-
-
-        {/* Coach Challenges */}
+        {/* TODAY'S MISSION */}
         {user?.id && (
-          <ChallengesCard
+          <MissionSection
             userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-            mode='coach'
+            totalXp={profile?.total_xp ?? 0}
+            todayTouches={todayTouches}
+            dailyTarget={dailyTarget}
+            onComplete={() => refetch()}
           />
         )}
 
@@ -405,39 +354,27 @@ const TrainPage = () => {
           <Ionicons name='chevron-forward' size={20} color='#78909C' />
         </TouchableOpacity>
 
-        {/* TODAY'S CHALLENGE */}
-        {user?.id && (
-          <TodayChallengeCard
-            userId={user.id}
-            totalTouches={touchStats?.total_touches ?? 0}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              Alert.alert(
-                drillName,
-                'How do you want to log this challenge?',
-                [
-                  {
-                    text: 'Log Manually',
-                    onPress: () => {
-                      setChallengeDrillId(drillId);
-                      setChallengeDurationMinutes(durationMinutes);
-                      setChallengeName(drillName);
-                      setChallengeDifficulty(difficulty);
-                      setModalVisible(true);
-                    },
-                  },
-                  {
-                    text: 'Use Timer',
-                    onPress: () => {
-                      setTimerChallengeDrillId(drillId);
-                      setTimerChallengeName(drillName);
-                      setShowTimerPicker(true);
-                    },
-                  },
-                ],
-              );
-            }}
-          />
-        )}
+        {/* Action Buttons Row */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={styles.logButton}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name='add-circle' size={24} color='#FFF' />
+            <Text style={styles.logButtonText}>LOG SESSION</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.timerButton}
+            onPress={() => setShowTimerPicker(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name='timer' size={24} color='#FFF' />
+            <Text style={styles.timerButtonText}>START TIMER</Text>
+          </TouchableOpacity>
+        </View>
+
 
       </ScrollView>
 

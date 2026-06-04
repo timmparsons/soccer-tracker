@@ -50,7 +50,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
-  const [activeTab, setActiveTab] = useState<'touches' | 'juggling' | 'xp'>('touches');
+  const [activeTab, setActiveTab] = useState<'xp' | 'touches' | 'juggling'>('xp');
   const [xpPeriod, setXpPeriod] = useState<'today' | 'week' | 'alltime'>('week');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global' | 'timed'>(
     profile?.team_id ? 'today' : 'global'
@@ -333,6 +333,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       {!!profile?.team_id && (
         <View style={styles.tabsContainer}>
           <TouchableOpacity
+            style={[styles.tab, activeTab === 'xp' && styles.tabActive]}
+            onPress={() => setActiveTab('xp')}
+          >
+            <Text style={[styles.tabText, activeTab === 'xp' && styles.tabTextActive]}>
+              XP
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.tab, activeTab === 'touches' && styles.tabActive]}
             onPress={() => setActiveTab('touches')}
           >
@@ -346,14 +354,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           >
             <Text style={[styles.tabText, activeTab === 'juggling' && styles.tabTextActive]}>
               Juggling
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'xp' && styles.tabActive]}
-            onPress={() => setActiveTab('xp')}
-          >
-            <Text style={[styles.tabText, activeTab === 'xp' && styles.tabTextActive]}>
-              XP
             </Text>
           </TouchableOpacity>
         </View>

@@ -4,19 +4,38 @@ import { getTouchXp, getSessionDurationXp, getStreakBonus } from './xp';
 type XpRow = { event_type: string; xp_amount: number; reference_id?: string };
 
 export async function awardXp(userId: string, events: XpRow[]) {
-  const rows = events
+  const candidates = events
     .filter((e) => e.xp_amount > 0)
     .map((e) => ({ user_id: userId, ...e }));
 
-  if (rows.length === 0) return;
+  if (candidates.length === 0) return;
 
-  const { error } = await supabase.from('xp_events').upsert(rows, {
-    onConflict: 'user_id,event_type,reference_id',
-    ignoreDuplicates: true,
-  });
+  // Pre-check which reference_ids already have events so we don't double-count
+  const withRef = candidates.filter((r) => r.reference_id);
+  const alreadyAwarded = new Set<string>();
+
+  if (withRef.length > 0) {
+    const { data: existing } = await supabase
+      .from('xp_events')
+      .select('event_type, reference_id')
+      .eq('user_id', userId)
+      .in('reference_id', withRef.map((r) => r.reference_id!));
+
+    for (const e of existing ?? []) {
+      alreadyAwarded.add(`${e.event_type}:${e.reference_id}`);
+    }
+  }
+
+  const newRows = candidates.filter(
+    (r) => !r.reference_id || !alreadyAwarded.has(`${r.event_type}:${r.reference_id}`),
+  );
+
+  if (newRows.length === 0) return;
+
+  const { error } = await supabase.from('xp_events').insert(newRows);
   if (error) { console.error('XP award error:', error); return; }
 
-  const totalXp = rows.reduce((sum, r) => sum + r.xp_amount, 0);
+  const totalXp = newRows.reduce((sum, r) => sum + r.xp_amount, 0);
 
   const { data: profile } = await supabase
     .from('profiles')

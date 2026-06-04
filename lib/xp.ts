@@ -115,6 +115,24 @@ export function getRankName(level: number): string {
   return 'Legend';
 }
 
+export type MissionDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'elite';
+
+export function getMissionDifficulty(level: number): MissionDifficulty {
+  if (level >= 21) return 'elite';
+  if (level >= 13) return 'advanced';
+  if (level >= 6) return 'intermediate';
+  return 'beginner';
+}
+
+export function getMissionXp(difficulty: MissionDifficulty): number {
+  switch (difficulty) {
+    case 'elite': return 100;
+    case 'advanced': return 75;
+    case 'intermediate': return 50;
+    case 'beginner': return 25;
+  }
+}
+
 export function getRankBadge(rank: string) {
   switch (rank) {
     case 'Grassroots':

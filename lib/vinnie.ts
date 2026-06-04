@@ -313,8 +313,20 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   return { mood: 'encouraging', message: pickRandom(encouragingPool) };
 };
 
+export const VINNIE_MISSION_CELEBRATIONS: string[] = [
+  "Mission done. That's what academy players do every single day.",
+  "You showed up and put in the work. That's what separates players.",
+  "Mission complete! Now keep your feet moving — more touches await.",
+  "That's how you build a footballer. One mission at a time.",
+  "NAILED IT! The best players do this every day without being told.",
+  "Mission accomplished. Champions don't stop here though.",
+];
+
 export const getVinnieCelebration = (): string =>
   pickRandom(VINNIE_CELEBRATIONS);
 
 export const getVinnieChallengeCelebration = (): string =>
   pickRandom(VINNIE_CHALLENGE_CELEBRATIONS);
+
+export const getVinnieMissionCelebration = (): string =>
+  pickRandom(VINNIE_MISSION_CELEBRATIONS);

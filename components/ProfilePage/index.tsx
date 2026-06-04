@@ -419,6 +419,18 @@ const ProfilePage = () => {
   const { data: touchStats } = useTouchTracking(user?.id);
   const { data: xpStats } = useUserXpStats(user?.id);
   const { data: xpLeaderboard = [] } = useXpLeaderboard(profile?.team_id);
+
+  const { data: missionsCompleted = 0 } = useQuery({
+    queryKey: ['missions-completed', user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('daily_challenge_completions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id);
+      return count ?? 0;
+    },
+    enabled: !!user?.id && !profile?.is_coach,
+  });
   const teamRank = xpLeaderboard.length > 0
     ? xpLeaderboard.findIndex((e) => e.id === user?.id) + 1
     : 0;
@@ -624,8 +636,7 @@ const ProfilePage = () => {
                     />
                   </View>
                   <Text style={styles.xpProgressLabel}>
-                    {xpIntoLevel.toLocaleString()} /{' '}
-                    {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
+                    {(xpForNextLevel - xpIntoLevel).toLocaleString()} XP Until Level {level + 1}
                   </Text>
                 </View>
 
@@ -654,24 +665,30 @@ const ProfilePage = () => {
                 <Text style={styles.lifetimeEmoji}>📅</Text>
                 <Text style={[styles.lifetimeTitle, { color: '#1a1a2e' }]}>This Week</Text>
               </View>
-              <View style={styles.lifetimeGrid}>
-                <View style={styles.lifetimeStat}>
+              <View style={styles.weekGrid}>
+                <View style={styles.weekStat}>
                   <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
                     {(xpStats?.weekly_xp ?? 0).toLocaleString()}
                   </Text>
                   <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>XP Earned</Text>
                 </View>
-                <View style={styles.lifetimeStat}>
+                <View style={styles.weekStat}>
                   <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
                     {teamRank > 0 ? `#${teamRank}` : '—'}
                   </Text>
                   <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Team Rank</Text>
                 </View>
-                <View style={styles.lifetimeStat}>
+                <View style={styles.weekStat}>
                   <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
                     {touchStats?.this_week_sessions ?? 0}
                   </Text>
                   <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Sessions</Text>
+                </View>
+                <View style={styles.weekStat}>
+                  <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
+                    {(touchStats?.this_week_touches ?? 0).toLocaleString()}
+                  </Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Touches</Text>
                 </View>
               </View>
             </View>
@@ -709,6 +726,12 @@ const ProfilePage = () => {
                     {lifetimeStats?.days_active || 0}
                   </Text>
                   <Text style={styles.lifetimeStatLabel}>Active Days</Text>
+                </View>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {missionsCompleted}
+                  </Text>
+                  <Text style={styles.lifetimeStatLabel}>Missions Done</Text>
                 </View>
               </View>
               {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
@@ -1843,9 +1866,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.55)',
     marginTop: 6,
   },
+  weekGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    rowGap: 16,
+  },
+  weekStat: {
+    alignItems: 'center',
+    width: '50%',
+  },
   lifetimeGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
+    rowGap: 16,
   },
   challengeRecordRow: {
     flexDirection: 'row',
@@ -1857,6 +1892,7 @@ const styles = StyleSheet.create({
   },
   lifetimeStat: {
     alignItems: 'center',
+    width: '50%',
   },
   lifetimeStatValue: {
     fontSize: 24,
