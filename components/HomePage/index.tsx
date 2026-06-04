@@ -164,7 +164,7 @@ const HomeScreen = () => {
         {/* TODAY'S PROGRESS */}
         <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
-            <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
+            <Text style={styles.todaySectionLabel}>{"Today's Training"}</Text>
             {todayDone && (
               <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>
             )}

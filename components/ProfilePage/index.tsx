@@ -16,6 +16,7 @@ import { useCoinTransactions } from '@/hooks/useCoinTransactions';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useUserXpStats } from '@/hooks/useUserXpStats';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
@@ -415,6 +416,7 @@ const ProfilePage = () => {
 
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: xpStats } = useUserXpStats(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
@@ -655,6 +657,36 @@ const ProfilePage = () => {
               </View>
             )}
           </View>
+
+          {/* This Week Card - only for players */}
+          {!profile?.is_coach && (
+            <View style={styles.thisWeekCard}>
+              <View style={styles.lifetimeHeader}>
+                <Text style={styles.lifetimeEmoji}>📅</Text>
+                <Text style={[styles.lifetimeTitle, { color: '#1a1a2e' }]}>This Week</Text>
+              </View>
+              <View style={styles.lifetimeGrid}>
+                <View style={styles.lifetimeStat}>
+                  <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
+                    {(xpStats?.weekly_xp ?? 0).toLocaleString()}
+                  </Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>XP Earned</Text>
+                </View>
+                <View style={styles.lifetimeStat}>
+                  <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
+                    {touchStats?.this_week_sessions ?? 0}
+                  </Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Sessions</Text>
+                </View>
+                <View style={styles.lifetimeStat}>
+                  <Text style={[styles.lifetimeStatValue, { color: '#1f89ee' }]}>
+                    {(touchStats?.this_week_touches ?? 0).toLocaleString()}
+                  </Text>
+                  <Text style={[styles.lifetimeStatLabel, { color: '#78909C' }]}>Touches</Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Lifetime Stats Card - only for players */}
           {!profile?.is_coach && (
@@ -1728,6 +1760,19 @@ const styles = StyleSheet.create({
   },
 
   // LIFETIME STATS CARD
+  thisWeekCard: {
+    backgroundColor: '#FFF',
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   lifetimeCard: {
     backgroundColor: '#1f89ee',
     padding: 24,
