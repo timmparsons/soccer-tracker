@@ -51,7 +51,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'xp' | 'touches' | 'juggling'>('xp');
-  const [xpPeriod, setXpPeriod] = useState<'today' | 'week' | 'alltime'>('week');
+  const [xpPeriod, setXpPeriod] = useState<'week' | 'alltime'>('week');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global' | 'timed'>(
     profile?.team_id ? 'today' : 'global'
   );
@@ -895,12 +895,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             {/* XP period pills */}
             <View style={[styles.periodPillRow, { justifyContent: 'center' }]}>
               <TouchableOpacity
-                style={[styles.periodPill, xpPeriod === 'today' && styles.periodPillActive]}
-                onPress={() => setXpPeriod('today')}
-              >
-                <Text style={[styles.periodPillText, xpPeriod === 'today' && styles.periodPillTextActive]}>Today</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
                 style={[styles.periodPill, xpPeriod === 'week' && styles.periodPillActive]}
                 onPress={() => setXpPeriod('week')}
               >
@@ -924,7 +918,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             ) : (
               (() => {
                 const getScore = (e: XpLeaderboardEntry) =>
-                  xpPeriod === 'today' ? e.today_xp : xpPeriod === 'week' ? e.weekly_xp : e.total_xp;
+                  xpPeriod === 'week' ? e.weekly_xp : e.total_xp;
                 const sorted = [...xpLeaderboard].sort((a, b) => getScore(b) - getScore(a));
                 const scoredEntries = sorted.filter(e => getScore(e) > 0);
                 const xpPodiumCount = Math.min(scoredEntries.length, 3);
@@ -1006,8 +1000,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                                   {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                                 </Text>
                                 <Text style={styles.todayTouches}>
-                                  {xpPeriod === 'today' && `${entry.weekly_xp.toLocaleString()} this week`}
-                                  {xpPeriod === 'week' && `${entry.today_xp.toLocaleString()} today`}
+                                  {xpPeriod === 'week' && `${entry.total_xp.toLocaleString()} total`}
                                   {xpPeriod === 'alltime' && `${entry.weekly_xp.toLocaleString()} this week`}
                                 </Text>
                               </View>

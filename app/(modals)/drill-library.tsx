@@ -8,6 +8,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { getLevelFromXp, isDrillUnlocked } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -39,6 +40,12 @@ export default function DrillLibraryScreen() {
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
   const { data: allBadges = [] } = useAllBadges();
 
+  const playerLevel = getLevelFromXp(profile?.total_xp ?? 0).level;
+  const basicDrills = drills.filter((d: any) => (d.drill_type ?? 'basic') === 'basic');
+  const combinationDrills = drills
+    .filter((d: any) => d.drill_type === 'combination')
+    .sort((a: any, b: any) => (a.required_level ?? 1) - (b.required_level ?? 1));
+
   const [drillFilter, setDrillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState('');
@@ -52,9 +59,9 @@ export default function DrillLibraryScreen() {
   const [showBadgeModal, setShowBadgeModal] = useState(false);
 
   const drillsByDifficulty = {
-    beginner: drills.filter((d) => d.difficulty_level === 'beginner'),
-    intermediate: drills.filter((d) => d.difficulty_level === 'intermediate'),
-    advanced: drills.filter((d) => d.difficulty_level === 'advanced'),
+    beginner: basicDrills.filter((d: any) => d.difficulty_level === 'beginner'),
+    intermediate: basicDrills.filter((d: any) => d.difficulty_level === 'intermediate'),
+    advanced: basicDrills.filter((d: any) => d.difficulty_level === 'advanced'),
   };
 
   const visibleLevels =
@@ -193,6 +200,55 @@ export default function DrillLibraryScreen() {
             </View>
           );
         })}
+
+        {/* COMBINATION MOVES */}
+        {combinationDrills.length > 0 && (
+          <View style={styles.combinationSection}>
+            <View style={styles.combinationHeader}>
+              <Text style={styles.combinationTitle}>Combination Moves</Text>
+              <Text style={styles.combinationSubtitle}>Chain skills together like a real player</Text>
+            </View>
+
+            {combinationDrills.map((drill: any) => {
+              const unlocked = isDrillUnlocked(playerLevel, drill.required_level ?? 1);
+              return (
+                <View key={drill.id} style={[styles.comboCard, !unlocked && styles.comboCardLocked]}>
+                  <View style={styles.comboMain}>
+                    <View style={styles.comboInfo}>
+                      <View style={styles.comboNameRow}>
+                        {!unlocked && (
+                          <Ionicons name='lock-closed' size={13} color='#78909C' style={{ marginRight: 5 }} />
+                        )}
+                        <Text style={[styles.comboName, !unlocked && styles.comboNameLocked]}>
+                          {drill.name}
+                        </Text>
+                      </View>
+                      {unlocked && drill.coaching_point ? (
+                        <Text style={styles.comboCoachingPoint}>{drill.coaching_point}</Text>
+                      ) : !unlocked ? (
+                        <Text style={styles.comboUnlockLabel}>Unlocks at Level {drill.required_level}</Text>
+                      ) : null}
+                    </View>
+                    {drill.video_url && unlocked && (
+                      <TouchableOpacity
+                        style={styles.watchBtn}
+                        onPress={() => {
+                          setVideoUrl(drill.video_url);
+                          setVideoName(drill.name);
+                          setVideoDescription(drill.coaching_point ?? '');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name='play-circle' size={18} color='#1f89ee' />
+                        <Text style={styles.watchBtnText}>Watch</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       <VinnieCelebrationModal
@@ -412,5 +468,88 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#78909C',
     fontWeight: '600',
+  },
+
+  // COMBINATION SECTION
+  combinationSection: {
+    marginTop: 8,
+  },
+  combinationHeader: {
+    marginBottom: 12,
+  },
+  combinationTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 3,
+  },
+  combinationSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  comboCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: '#E8EAED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  comboCardLocked: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E8EAED',
+    opacity: 0.7,
+  },
+  comboMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  comboInfo: {
+    flex: 1,
+  },
+  comboNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  comboName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  comboNameLocked: {
+    color: '#78909C',
+  },
+  comboCoachingPoint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 18,
+  },
+  comboUnlockLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  watchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 8,
+  },
+  watchBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
 });

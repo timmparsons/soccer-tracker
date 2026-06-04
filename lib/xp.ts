@@ -115,6 +115,20 @@ export function getRankName(level: number): string {
   return 'Legend';
 }
 
+export function isDrillUnlocked(playerLevel: number, requiredLevel: number): boolean {
+  return playerLevel >= requiredLevel;
+}
+
+export function getNextCombinationUnlock(
+  playerLevel: number,
+  drills: Array<{ required_level: number; name: string; drill_type: string }>,
+): { name: string; required_level: number } | null {
+  const locked = drills
+    .filter((d) => d.drill_type === 'combination' && d.required_level > playerLevel)
+    .sort((a, b) => a.required_level - b.required_level);
+  return locked[0] ?? null;
+}
+
 export type MissionDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'elite';
 
 export function getMissionDifficulty(level: number): MissionDifficulty {
