@@ -16,6 +16,8 @@ import { getLocalDate } from '@/utils/getLocalDate';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useXpLeaderboard, type XpLeaderboardEntry } from '@/hooks/useXpLeaderboard';
+import { useTeamAccountability } from '@/hooks/useTeamAccountability';
+import TeamChallengesCard from '@/components/Leaderboard/TeamChallengesCard';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -29,6 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 
 const getBeswickLevel = (score: number): { label: string; color: string; bg: string } => {
   if (score >= 2500) return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
@@ -175,6 +178,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     isLoading: xpLoading,
     refetch: refetchXp,
   } = useXpLeaderboard(effectiveTeamId);
+
+  const { data: accountabilityChallenges = [] } = useTeamAccountability(
+    !profile?.is_coach ? effectiveTeamId : undefined,
+  );
 
   const isLoading = touchesLoading || jugglingLoading;
 
@@ -365,22 +372,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
       >
-        {!profile?.is_coach && user?.id && !!profile?.team_id && isPremium && activeTab !== 'xp' && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-            mode='competitive'
-          />
-        )}
-        {!profile?.is_coach && !!profile?.team_id && !isPremium && activeTab !== 'xp' && (
-          <TouchableOpacity style={styles.lockedCard} onPress={() => router.push('/(modals)/paywall')}>
-            <Ionicons name='lock-closed' size={15} color='#78909C' />
-            <Text style={styles.lockedCardText}>Teammate Challenges</Text>
-            <View style={styles.lockedProBadge}>
-              <Text style={styles.lockedProBadgeText}>PRO</Text>
-            </View>
-          </TouchableOpacity>
+        {!profile?.is_coach && !!profile?.team_id && accountabilityChallenges.length > 0 && (
+          <TeamChallengesCard challenges={accountabilityChallenges} />
         )}
 
         {activeTab === 'touches' ? (

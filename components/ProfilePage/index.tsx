@@ -432,7 +432,11 @@ const ProfilePage = () => {
     enabled: !!user?.id && !profile?.is_coach,
   });
   const teamRank = xpLeaderboard.length > 0
-    ? xpLeaderboard.findIndex((e) => e.id === user?.id) + 1
+    ? (() => {
+        const me = xpLeaderboard.find((e) => e.id === user?.id);
+        if (!me) return 0;
+        return xpLeaderboard.filter((e) => e.weekly_xp > me.weekly_xp).length + 1;
+      })()
     : 0;
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
