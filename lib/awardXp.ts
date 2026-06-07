@@ -1,5 +1,13 @@
 import { supabase } from '@/lib/supabase';
-import { getTouchXp, getSessionDurationXp, getStreakBonus } from './xp';
+import { getLocalDate } from '@/utils/getLocalDate';
+import {
+  getTouchXp,
+  getSessionDurationXp,
+  getStreakBonus,
+  getAdditionalTrainingXp,
+  ADDITIONAL_TRAINING_DAILY_CAP,
+  TOUCH_XP_DAILY_CAP,
+} from './xp';
 
 type XpRow = { event_type: string; xp_amount: number; reference_id?: string };
 
@@ -79,7 +87,7 @@ export function awardSessionXp(
   streakDays: number,
 ) {
   const events: XpRow[] = [
-    { event_type: 'touches', xp_amount: getTouchXp(touches), reference_id: sessionDate },
+    { event_type: 'touches', xp_amount: Math.min(getTouchXp(touches), TOUCH_XP_DAILY_CAP), reference_id: sessionDate },
     { event_type: 'session_duration', xp_amount: getSessionDurationXp(durationMinutes), reference_id: sessionDate },
   ];
   const streak = getStreakBonus(streakDays);
@@ -95,4 +103,41 @@ export function awardChallengeXp(userId: string, challengeId: string, isCoach: b
     xp_amount: isCoach ? 75 : 25,
     reference_id: challengeId,
   }]);
+}
+
+export async function awardAdditionalTrainingXp(
+  userId: string,
+  category: string,
+  durationMinutes: 5 | 10 | 15,
+): Promise<{ xpAwarded: number }> {
+  const today = getLocalDate();
+  const todayStart = new Date(today + 'T00:00:00').toISOString();
+
+  const { data: todayEvents } = await supabase
+    .from('xp_events')
+    .select('xp_amount')
+    .eq('user_id', userId)
+    .eq('event_type', 'additional_training')
+    .gte('created_at', todayStart);
+
+  const todayTotal = (todayEvents ?? []).reduce((sum, r) => sum + r.xp_amount, 0);
+  const remaining = Math.max(0, ADDITIONAL_TRAINING_DAILY_CAP - todayTotal);
+  const rawXp = getAdditionalTrainingXp(category, durationMinutes);
+  const xpToAward = Math.min(rawXp, remaining);
+
+  const { data: session } = await supabase
+    .from('additional_training_sessions')
+    .insert({ user_id: userId, category, duration_minutes: durationMinutes, xp_awarded: xpToAward })
+    .select('id')
+    .single();
+
+  if (xpToAward > 0 && session?.id) {
+    await awardXp(userId, [{
+      event_type: 'additional_training',
+      xp_amount: xpToAward,
+      reference_id: session.id,
+    }]);
+  }
+
+  return { xpAwarded: xpToAward };
 }

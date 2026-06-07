@@ -7,7 +7,76 @@ export type XpEventType =
   | 'streak_14'
   | 'streak_30'
   | 'challenge_win'
-  | 'coach_challenge';
+  | 'coach_challenge'
+  | 'additional_training';
+
+export const ADDITIONAL_TRAINING_DAILY_CAP = 75;
+export const TOUCH_XP_DAILY_CAP = 25;
+
+export interface AdditionalTrainingCategory {
+  id: string;
+  name: string;
+  description: string;
+  minLevel: number;
+  icon: string;
+  xpRates: { duration: 5 | 10 | 15; xp: number }[];
+}
+
+export const ADDITIONAL_TRAINING_CATEGORIES: AdditionalTrainingCategory[] = [
+  {
+    id: 'dribbling',
+    name: 'Dribbling',
+    description: 'Improve close control and ball carrying.',
+    minLevel: 1,
+    icon: 'football',
+    xpRates: [{ duration: 5, xp: 10 }, { duration: 10, xp: 20 }, { duration: 15, xp: 30 }],
+  },
+  {
+    id: 'weak_foot',
+    name: 'Weak Foot',
+    description: 'Develop a stronger weak foot.',
+    minLevel: 1,
+    icon: 'swap-horizontal',
+    xpRates: [{ duration: 5, xp: 10 }, { duration: 10, xp: 20 }, { duration: 15, xp: 30 }],
+  },
+  {
+    id: 'wall_passing',
+    name: 'Wall Passing',
+    description: 'Improve passing and first touch.',
+    minLevel: 1,
+    icon: 'git-pull-request',
+    xpRates: [{ duration: 5, xp: 10 }, { duration: 10, xp: 20 }, { duration: 15, xp: 30 }],
+  },
+  {
+    id: 'juggling',
+    name: 'Juggling',
+    description: 'Improve coordination and touch.',
+    minLevel: 1,
+    icon: 'refresh-circle',
+    xpRates: [{ duration: 5, xp: 10 }, { duration: 10, xp: 20 }, { duration: 15, xp: 30 }],
+  },
+  {
+    id: 'speed_agility',
+    name: 'Speed & Agility',
+    description: 'Improve foot speed and movement.',
+    minLevel: 1,
+    icon: 'flash',
+    xpRates: [{ duration: 5, xp: 10 }, { duration: 10, xp: 20 }, { duration: 15, xp: 30 }],
+  },
+  {
+    id: 'combination_moves',
+    name: 'Combination Moves',
+    description: 'Combine skills into game-realistic actions.',
+    minLevel: 11,
+    icon: 'git-merge',
+    xpRates: [{ duration: 5, xp: 15 }, { duration: 10, xp: 25 }, { duration: 15, xp: 40 }],
+  },
+];
+
+export function getAdditionalTrainingXp(categoryId: string, durationMinutes: 5 | 10 | 15): number {
+  const category = ADDITIONAL_TRAINING_CATEGORIES.find((c) => c.id === categoryId);
+  return category?.xpRates.find((r) => r.duration === durationMinutes)?.xp ?? 0;
+}
 
 export function getTouchXp(touches: number): number {
   return Math.floor(touches / 100);

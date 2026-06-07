@@ -1,5 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import MissionSection from '@/components/TrainPage/MissionSection';
+import AdditionalTrainingSection from '@/components/TrainPage/AdditionalTrainingSection';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
@@ -338,22 +339,6 @@ const TrainPage = () => {
           />
         )}
 
-        {/* Drill Library */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => router.push('/(modals)/drill-library')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='book' size={22} color='#1f89ee' />
-          </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
-
         {/* Action Buttons Row */}
         <View style={styles.actionButtonsRow}>
           <TouchableOpacity
@@ -374,6 +359,30 @@ const TrainPage = () => {
             <Text style={styles.timerButtonText}>START TIMER</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ADDITIONAL TRAINING */}
+        {user?.id && (
+          <AdditionalTrainingSection
+            userId={user.id}
+            totalXp={profile?.total_xp ?? 0}
+          />
+        )}
+
+        {/* Drill Library */}
+        <TouchableOpacity
+          style={styles.libraryCard}
+          onPress={() => router.push('/(modals)/drill-library')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.libraryIconBg}>
+            <Ionicons name='book' size={22} color='#1f89ee' />
+          </View>
+          <View style={styles.libraryTextBlock}>
+            <Text style={styles.libraryTitle}>Drill Library</Text>
+            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
+          </View>
+          <Ionicons name='chevron-forward' size={20} color='#78909C' />
+        </TouchableOpacity>
 
 
       </ScrollView>
