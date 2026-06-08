@@ -12,7 +12,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking, useFocusDrills, useTodayChallenge } from '@/hooks/useTouchTracking';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { useUser } from '@/hooks/useUser';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,12 +71,24 @@ const TrainPage = () => {
   const [drillVideoUrl, setDrillVideoUrl] = useState<string>('');
   const [drillVideoName, setDrillVideoName] = useState<string>('');
   const [showDrillVideo, setShowDrillVideo] = useState(false);
+  const [checkedDrills, setCheckedDrills] = useState<Set<string>>(new Set());
+  const [isWorkoutExpanded, setIsWorkoutExpanded] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
   const pausedRemainingRef = useRef<number>(0);
   const timerNotificationIdRef = useRef<string | null>(null);
   const whistlePlayedRef = useRef<boolean>(false);
+
+  // Speed challenge state
+  const [speedTarget, setSpeedTarget] = useState<100 | 200 | null>(null);
+  const [speedElapsed, setSpeedElapsed] = useState(0);
+  const [speedRunning, setSpeedRunning] = useState(false);
+  const [showSpeedTimer, setShowSpeedTimer] = useState(false);
+  const [showSpeedResult, setShowSpeedResult] = useState(false);
+  const [submittingSpeed, setSubmittingSpeed] = useState(false);
+  const speedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const speedStartRef = useRef<number>(0);
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
@@ -114,6 +126,38 @@ const TrainPage = () => {
   const todayFocus = getTodayFocus();
   const { data: focusDrills = [] } = useFocusDrills(todayFocus.key);
   const { data: todayChallenge } = useTodayChallenge(user?.id);
+
+  const { data: pb100 = null } = useQuery({
+    queryKey: ['speed-pb', user?.id, 'speed_100'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('challenge_duration_seconds')
+        .eq('user_id', user!.id)
+        .eq('challenge_type', 'speed_100')
+        .order('challenge_duration_seconds', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      return data?.challenge_duration_seconds ?? null;
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: pb200 = null } = useQuery({
+    queryKey: ['speed-pb', user?.id, 'speed_200'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('challenge_duration_seconds')
+        .eq('user_id', user!.id)
+        .eq('challenge_type', 'speed_200')
+        .order('challenge_duration_seconds', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      return data?.challenge_duration_seconds ?? null;
+    },
+    enabled: !!user?.id,
+  });
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -160,6 +204,63 @@ const TrainPage = () => {
     pausedRemainingRef.current = freeTimerDuration;
     setTimeRemaining(freeTimerDuration);
   }, [stopTimer, freeTimerDuration]);
+
+  useEffect(() => {
+    if (speedRunning) {
+      speedStartRef.current = Date.now();
+      speedIntervalRef.current = setInterval(() => {
+        setSpeedElapsed(Math.round((Date.now() - speedStartRef.current) / 1000));
+      }, 500);
+    }
+    return () => {
+      if (speedIntervalRef.current) {
+        clearInterval(speedIntervalRef.current);
+        speedIntervalRef.current = null;
+      }
+    };
+  }, [speedRunning]);
+
+  const startSpeedChallenge = (target: 100 | 200) => {
+    setSpeedTarget(target);
+    setSpeedElapsed(0);
+    setSpeedRunning(true);
+    setShowSpeedTimer(true);
+  };
+
+  const handleSpeedDone = () => {
+    setSpeedRunning(false);
+    setShowSpeedTimer(false);
+    setShowSpeedResult(true);
+  };
+
+  const handleSubmitSpeed = async () => {
+    if (!user?.id || !speedTarget) return;
+    setSubmittingSpeed(true);
+    try {
+      const today = getLocalDate();
+      await supabase.from('daily_sessions').insert({
+        user_id: user.id,
+        touches_logged: speedTarget,
+        duration_minutes: Math.max(1, Math.ceil(speedElapsed / 60)),
+        is_timed_challenge: true,
+        challenge_duration_seconds: speedElapsed,
+        challenge_type: `speed_${speedTarget}`,
+        training_focus: 'dribbling',
+        is_game_speed: true,
+        date: today,
+      });
+      queryClient.invalidateQueries({ queryKey: ['speed-pb', user.id] });
+      handleSessionLogged();
+      setCelebrationTouches(speedTarget);
+      setShowSpeedResult(false);
+      setSpeedElapsed(0);
+      setShowVinnieCelebration(true);
+    } catch {
+      Alert.alert('Error', 'Failed to log session. Please try again.');
+    } finally {
+      setSubmittingSpeed(false);
+    }
+  };
 
   useEffect(() => {
     if (timerRunning) {
@@ -313,6 +414,15 @@ const TrainPage = () => {
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
+  const sessionGoal = Math.max(Math.round((dailyTarget * 0.2) / 50) * 50, 200);
+
+  const toggleDrill = (id: string) => {
+    setCheckedDrills(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -332,42 +442,93 @@ const TrainPage = () => {
           />
         }
       >
-        {/* TODAY'S TRAINING FOCUS */}
-        <TouchableOpacity style={styles.focusCard} onPress={() => { setTimerPickerStep('focus'); setShowTimerPicker(true); }} activeOpacity={0.85}>
-          <Text style={styles.focusSectionLabel}>{"Today's Focus — Tap to Start Timer"}</Text>
-          <Text style={styles.focusTitle}>{todayFocus.displayLabel}</Text>
-          <Text style={styles.focusDescription}>{todayFocus.description}</Text>
-        </TouchableOpacity>
-
-        {/* SUGGESTED DRILLS */}
-        {focusDrills.length > 0 && (
-          <View style={styles.suggestedCard}>
-            <Text style={styles.suggestedLabel}>Suggested Drills</Text>
-            {focusDrills.map((drill) => (
+        {/* WORKOUT CARD */}
+        <View style={styles.workoutCard}>
+          {/* Dark header */}
+          <View style={styles.workoutHeader}>
+            <View style={styles.workoutHeaderTop}>
               <TouchableOpacity
-                key={drill.id}
-                style={styles.suggestedRow}
-                onPress={() => {
-                  if (drill.video_url) {
-                    setDrillVideoUrl(drill.video_url);
-                    setDrillVideoName(drill.name);
-                    setShowDrillVideo(true);
-                  } else {
-                    router.push(`/(modals)/category-drills?focus=${todayFocus.key}` as never);
-                  }
-                }}
+                style={styles.workoutHeaderMain}
+                onPress={() => { setTimerPickerStep('focus'); setShowTimerPicker(true); }}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.workoutHeaderLabel}>{"TODAY'S WORKOUT"}</Text>
+                <Text style={styles.workoutFocusTitle}>{todayFocus.displayLabel}</Text>
+                <Text style={styles.workoutFocusDesc}>{todayFocus.description}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.workoutChevronBtn}
+                onPress={() => setIsWorkoutExpanded(v => !v)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.suggestedDrillName}>{drill.name}</Text>
-                {drill.video_url ? (
-                  <Text style={styles.suggestedWatchLink}>Watch Video</Text>
-                ) : (
-                  <Text style={styles.suggestedWatchLinkMuted}>No video yet</Text>
-                )}
+                <Ionicons
+                  name={isWorkoutExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={22}
+                  color='#FFFFFF'
+                />
               </TouchableOpacity>
-            ))}
+            </View>
+            <TouchableOpacity
+              style={styles.workoutTimerBadge}
+              onPress={() => { setTimerPickerStep('focus'); setShowTimerPicker(true); }}
+              activeOpacity={0.75}
+            >
+              <Ionicons name='timer-outline' size={13} color='rgba(255,255,255,0.7)' />
+              <Text style={styles.workoutTimerText}>Start Timer</Text>
+            </TouchableOpacity>
           </View>
-        )}
+
+          {/* White body */}
+          {isWorkoutExpanded && <View style={styles.workoutBody}>
+            {/* Goal */}
+            <View style={styles.workoutGoalRow}>
+              <Text style={styles.workoutGoalLabel}>Goal</Text>
+              <Text style={styles.workoutGoalValue}>{sessionGoal.toLocaleString()} {todayFocus.displayLabel} touches</Text>
+            </View>
+
+            {/* Drill checklist */}
+            {focusDrills.length > 0 && (
+              <>
+                <Text style={styles.workoutDrillsLabel}>Suggested Drills</Text>
+                {focusDrills.map((drill, index) => {
+                  const isChecked = checkedDrills.has(drill.id);
+                  const isLast = index === focusDrills.length - 1;
+                  return (
+                    <TouchableOpacity
+                      key={drill.id}
+                      style={[styles.workoutDrillRow, !isLast && styles.workoutDrillDivider]}
+                      onPress={() => toggleDrill(drill.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.workoutDrillLeft}>
+                        <Ionicons
+                          name={isChecked ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={22}
+                          color={isChecked ? '#31af4d' : '#B0BEC5'}
+                        />
+                        <Text style={[styles.workoutDrillName, isChecked && styles.workoutDrillDone]}>
+                          {drill.name}
+                        </Text>
+                      </View>
+                      {drill.video_url && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setDrillVideoUrl(drill.video_url!);
+                            setDrillVideoName(drill.name);
+                            setShowDrillVideo(true);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name='play-circle-outline' size={20} color='#1f89ee' />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
+          </View>}
+        </View>
 
         {/* Today's Progress */}
         <View style={styles.progressCard}>
@@ -418,6 +579,36 @@ const TrainPage = () => {
           </TouchableOpacity>
         </View>
 
+
+        {/* SPEED CHALLENGE */}
+        <View style={styles.speedCard}>
+          <View style={styles.speedCardHeader}>
+            <Text style={styles.speedCardLabel}>Speed Challenge</Text>
+            <Text style={styles.speedCardBadge}>KEEP MOVING</Text>
+          </View>
+          <Text style={styles.speedCardDesc}>
+            How fast can you complete the touches? You must be dribbling and moving — no standing still.
+          </Text>
+          <View style={styles.speedOptions}>
+            {([100, 200] as const).map((target) => {
+              const pb = target === 100 ? pb100 : pb200;
+              return (
+                <TouchableOpacity
+                  key={target}
+                  style={styles.speedOption}
+                  onPress={() => startSpeedChallenge(target)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.speedOptionNumber}>{target}</Text>
+                  <Text style={styles.speedOptionLabel}>touches</Text>
+                  {pb !== null && (
+                    <Text style={styles.speedOptionPb}>PB {formatTime(pb)}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* BROWSE TRAINING CATEGORIES */}
         <View style={styles.categoriesCard}>
@@ -821,6 +1012,80 @@ const TrainPage = () => {
         videoUrl={drillVideoUrl}
         drillName={drillVideoName}
       />
+
+      {/* Speed Challenge Timer */}
+      <Modal
+        visible={showSpeedTimer}
+        animationType='slide'
+        statusBarTranslucent={Platform.OS === 'android'}
+        hardwareAccelerated
+        onRequestClose={() => {
+          setSpeedRunning(false);
+          setShowSpeedTimer(false);
+          setSpeedElapsed(0);
+        }}
+      >
+        <View style={styles.speedTimerModal}>
+          <Text style={styles.speedTimerTarget}>{speedTarget} TOUCHES</Text>
+          <Text style={styles.speedTimerReminder}>Keep moving — dribble the whole time!</Text>
+          <View style={styles.speedTimerCircle}>
+            <Text style={styles.speedTimerTime}>{formatTime(speedElapsed)}</Text>
+            <Text style={styles.speedTimerSubtext}>elapsed</Text>
+          </View>
+          <Text style={styles.speedTimerInstruction}>Tap DONE when you hit {speedTarget}</Text>
+          <TouchableOpacity style={styles.speedDoneButton} onPress={handleSpeedDone} activeOpacity={0.85}>
+            <Text style={styles.speedDoneText}>DONE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.speedTimerCancel}
+            onPress={() => {
+              setSpeedRunning(false);
+              setShowSpeedTimer(false);
+              setSpeedElapsed(0);
+            }}
+          >
+            <Text style={styles.speedTimerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Speed Challenge Result */}
+      <Modal
+        visible={showSpeedResult}
+        animationType='fade'
+        transparent
+        onRequestClose={() => { setShowSpeedResult(false); setSpeedElapsed(0); }}
+      >
+        <View style={styles.speedResultOverlay}>
+          <View style={styles.speedResultCard}>
+            <Text style={styles.speedResultEmoji}>🔥</Text>
+            <Text style={styles.speedResultTime}>{formatTime(speedElapsed)}</Text>
+            <Text style={styles.speedResultLabel}>{speedTarget} touches</Text>
+            {(() => {
+              const pb = speedTarget === 100 ? pb100 : pb200;
+              if (pb === null || speedElapsed <= pb) {
+                return <Text style={styles.speedResultNewPb}>New Personal Best!</Text>;
+              }
+              return <Text style={styles.speedResultPb}>PB: {formatTime(pb)}</Text>;
+            })()}
+            <TouchableOpacity
+              style={styles.speedSubmitButton}
+              onPress={handleSubmitSpeed}
+              disabled={submittingSpeed}
+            >
+              {submittingSpeed
+                ? <ActivityIndicator size='small' color='#FFF' />
+                : <Text style={styles.speedSubmitText}>Save Result</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.speedDiscardButton}
+              onPress={() => { setShowSpeedResult(false); setSpeedElapsed(0); }}
+            >
+              <Text style={styles.speedDiscardText}>Discard</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -1335,71 +1600,130 @@ const styles = StyleSheet.create({
     color: '#78909C',
   },
 
-  // TODAY'S FOCUS CARD
-  focusCard: {
-    backgroundColor: '#1a1a2e',
+  // WORKOUT CARD
+  workoutCard: {
     borderRadius: 20,
-    padding: 18,
+    overflow: 'hidden',
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  focusSectionLabel: {
-    fontSize: 12,
+  workoutHeader: {
+    backgroundColor: '#1a1a2e',
+    padding: 18,
+  },
+  workoutHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  workoutHeaderMain: {
+    flex: 1,
+  },
+  workoutHeaderLabel: {
+    fontSize: 11,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 0.6,
+    marginBottom: 6,
   },
-  focusTitle: {
-    fontSize: 24,
+  workoutChevronBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  workoutTimerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  workoutTimerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  workoutFocusTitle: {
+    fontSize: 26,
     fontWeight: '900',
     color: '#FFFFFF',
     marginBottom: 4,
   },
-  focusDescription: {
+  workoutFocusDesc: {
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
   },
-
-  // SUGGESTED DRILLS
-  suggestedCard: {
+  workoutBody: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  suggestedLabel: {
-    fontSize: 14,
+  workoutGoalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+    marginBottom: 14,
+  },
+  workoutGoalLabel: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 12,
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  suggestedRow: {
+  workoutGoalValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  workoutDrillsLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  workoutDrillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
+  },
+  workoutDrillDivider: {
     borderBottomWidth: 1,
     borderBottomColor: '#F0F4F8',
   },
-  suggestedDrillName: {
-    fontSize: 14,
+  workoutDrillLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  workoutDrillName: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
     flex: 1,
   },
-  suggestedWatchLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1f89ee',
+  workoutDrillDone: {
+    textDecorationLine: 'line-through',
+    color: '#B0BEC5',
   },
 
   // BROWSE CATEGORIES
@@ -1489,5 +1813,219 @@ const styles = StyleSheet.create({
   },
   scoreFocusChipTextActive: {
     color: '#1f89ee',
+  },
+
+  // SPEED CHALLENGE CARD
+  speedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8F0FE',
+  },
+  speedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  speedCardLabel: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  speedCardBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffb724',
+    letterSpacing: 0.5,
+    backgroundColor: '#FFF8E7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  speedCardDesc: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  speedOptions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  speedOption: {
+    flex: 1,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  speedOptionNumber: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1f89ee',
+    lineHeight: 36,
+  },
+  speedOptionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  speedOptionPb: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#31af4d',
+    marginTop: 6,
+  },
+
+  // SPEED TIMER MODAL
+  speedTimerModal: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  speedTimerTarget: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#ffb724',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  speedTimerReminder: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    marginBottom: 48,
+  },
+  speedTimerCircle: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 6,
+    borderColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  speedTimerTime: {
+    fontSize: 64,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  speedTimerSubtext: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 4,
+  },
+  speedTimerInstruction: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  speedDoneButton: {
+    backgroundColor: '#31af4d',
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 64,
+    shadowColor: '#31af4d',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: 16,
+  },
+  speedDoneText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 1,
+  },
+  speedTimerCancel: {
+    paddingVertical: 12,
+  },
+  speedTimerCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+  },
+
+  // SPEED RESULT MODAL
+  speedResultOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  speedResultCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  speedResultEmoji: {
+    fontSize: 52,
+    marginBottom: 12,
+  },
+  speedResultTime: {
+    fontSize: 56,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 4,
+  },
+  speedResultLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 16,
+  },
+  speedResultNewPb: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#31af4d',
+    marginBottom: 24,
+  },
+  speedResultPb: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 24,
+  },
+  speedSubmitButton: {
+    backgroundColor: '#31af4d',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  speedSubmitText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  speedDiscardButton: {
+    paddingVertical: 10,
+  },
+  speedDiscardText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B0BEC5',
   },
 });

@@ -3,11 +3,9 @@ import PageHeader from '@/components/common/PageHeader';
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import { FOCUS_LABELS } from '@/lib/trainingFocus';
 import { getDisplayName } from '@/utils/getDisplayName';
-import { useTimedChallengeLeaderboard, TIMED_OPTIONS } from '@/hooks/useTimedChallengeLeaderboard';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
-import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
@@ -51,10 +49,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
   const [activeTab, setActiveTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime' | 'global' | 'timed'>(
-    profile?.team_id ? 'today' : 'global'
-  );
-  const [timedDuration, setTimedDuration] = useState(60);
+  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'speed'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
@@ -161,13 +156,55 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   });
 
   const {
-    data: globalLeaderboard = [],
-    isLoading: globalLoading,
-    refetch: refetchGlobal,
-  } = useGlobalLeaderboard();
+    data: speedLeaderboard = null,
+    isLoading: speedLoading,
+    refetch: refetchSpeed,
+  } = useQuery({
+    queryKey: ['team-speed-leaderboard', effectiveTeamId],
+    queryFn: async () => {
+      if (!effectiveTeamId) return { speed100: [], speed200: [] };
 
-  const { data: timedLeaderboard = [], isLoading: timedLoading } =
-    useTimedChallengeLeaderboard(touchesPeriod === 'timed' ? timedDuration : 0);
+      const { data: teamMembers } = await supabase
+        .from('profiles')
+        .select('id, name, display_name, avatar_url')
+        .eq('team_id', effectiveTeamId)
+        .eq('is_coach', false);
+
+      if (!teamMembers || teamMembers.length === 0) return { speed100: [], speed200: [] };
+
+      const memberIds = teamMembers.map((m) => m.id);
+
+      const { data: speedSessions } = await supabase
+        .from('daily_sessions')
+        .select('user_id, challenge_type, challenge_duration_seconds')
+        .in('user_id', memberIds)
+        .in('challenge_type', ['speed_100', 'speed_200'])
+        .not('challenge_duration_seconds', 'is', null);
+
+      const bests: Record<string, Record<string, number>> = {};
+      for (const s of speedSessions || []) {
+        if (!bests[s.user_id]) bests[s.user_id] = {};
+        const existing = bests[s.user_id][s.challenge_type];
+        if (existing === undefined || s.challenge_duration_seconds < existing) {
+          bests[s.user_id][s.challenge_type] = s.challenge_duration_seconds;
+        }
+      }
+
+      const buildList = (type: string) =>
+        teamMembers
+          .filter((m) => bests[m.id]?.[type] !== undefined)
+          .map((m) => ({
+            id: m.id,
+            name: (m.name || m.display_name || 'Unknown Player') as string,
+            avatar_url: m.avatar_url as string | null,
+            seconds: bests[m.id][type],
+          }))
+          .sort((a, b) => a.seconds - b.seconds);
+
+      return { speed100: buildList('speed_100'), speed200: buildList('speed_200') };
+    },
+    enabled: !!effectiveTeamId && touchesPeriod === 'speed',
+  });
 
   const isLoading = touchesLoading || jugglingLoading;
 
@@ -183,7 +220,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const handleRefresh = () => {
     refetchTouches();
     refetchJuggling();
-    refetchGlobal();
+    refetchSpeed();
   };
 
   // Refetch data when screen comes into focus
@@ -192,8 +229,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchProfile();
       refetchTouches();
       refetchJuggling();
-      refetchGlobal();
-    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal])
+      refetchSpeed();
+    }, [refetchProfile, refetchTouches, refetchJuggling, refetchSpeed])
   );
 
   if (isLoading) {
@@ -208,16 +245,21 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     let diff = 0;
     if (touchesPeriod === 'today') diff = b.today_touches - a.today_touches;
     else if (touchesPeriod === 'week') diff = b.weekly_touches - a.weekly_touches;
-    else if (touchesPeriod === 'last_week') diff = b.last_week_touches - a.last_week_touches;
-    else diff = b.alltime_best_week - a.alltime_best_week;
+    else diff = b.last_week_touches - a.last_week_touches;
     return diff !== 0 ? diff : a.name.localeCompare(b.name);
   });
 
   const getTouchScore = (player: TeamMemberStats) => {
     if (touchesPeriod === 'today') return player.today_touches;
     if (touchesPeriod === 'week') return player.weekly_touches;
-    if (touchesPeriod === 'last_week') return player.last_week_touches;
-    return player.alltime_best_week;
+    return player.last_week_touches;
+  };
+
+  const formatSpeedTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const scoredPlayers = sortedTouches.filter(p => getTouchScore(p) > 0);
@@ -401,131 +443,80 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     <Text style={[styles.periodPillText, touchesPeriod === 'last_week' && styles.periodPillTextActive]}>Last Week{!isPremium ? ' 🔒' : ''}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.periodPill, touchesPeriod === 'alltime' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
-                    onPress={() => isPremium ? setTouchesPeriod('alltime') : router.push('/(modals)/paywall')}
+                    style={[styles.periodPill, touchesPeriod === 'speed' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
+                    onPress={() => isPremium ? setTouchesPeriod('speed') : router.push('/(modals)/paywall')}
                   >
-                    <Text style={[styles.periodPillText, touchesPeriod === 'alltime' && styles.periodPillTextActive]}>All Time{!isPremium ? ' 🔒' : ''}</Text>
+                    <Text style={[styles.periodPillText, touchesPeriod === 'speed' && styles.periodPillTextActive]}>Speed{!isPremium ? ' 🔒' : ''}</Text>
                   </TouchableOpacity>
                 </>
               )}
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'global' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
-                onPress={() => isPremium ? setTouchesPeriod('global') : router.push('/(modals)/paywall')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'global' && styles.periodPillTextActive]}>Global{!isPremium ? ' 🔒' : ''}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, touchesPeriod === 'timed' && styles.periodPillActive, !isPremium && styles.periodPillLocked]}
-                onPress={() => isPremium ? setTouchesPeriod('timed') : router.push('/(modals)/paywall')}
-              >
-                <Text style={[styles.periodPillText, touchesPeriod === 'timed' && styles.periodPillTextActive]}>Timed{!isPremium ? ' 🔒' : ''}</Text>
-              </TouchableOpacity>
             </ScrollView>
             {touchesPeriod === 'week' && (
               <Text style={styles.resetNote}>Resets Sunday</Text>
             )}
-            {touchesPeriod === 'alltime' && (
-              <Text style={styles.resetNote}>Best single week ever</Text>
+            {touchesPeriod === 'speed' && (
+              <Text style={styles.resetNote}>Fastest 100 and 200 touch dribbling runs · team only</Text>
             )}
-            {touchesPeriod === 'global' && (
-              <Text style={styles.resetNote}>Anonymous · everyone using the app this week</Text>
-            )}
-            {touchesPeriod === 'timed' && (
-              <Text style={styles.resetNote}>Best timed session score this week · anonymous</Text>
-            )}
-
-            {/* Global leaderboard — shown instead of team content */}
-            {touchesPeriod === 'global' && (
-              <View style={styles.listContainer}>
-                {globalLeaderboard.length === 0 && !globalLoading && (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>No Data Yet</Text>
-                    <Text style={styles.emptyStateText}>
-                      Come back once players have logged sessions this week.
-                    </Text>
-                  </View>
-                )}
-                {globalLeaderboard.map((player, index) => {
-                  const isCurrentUser = player.userId === user?.id;
-                  return (
-                    <View
-                      key={player.userId}
-                      style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
-                    >
-                      <View style={styles.playerLeft}>
-                        <View style={styles.rankContainer}>
-                          <Text style={styles.rankNumber}>{index + 1}</Text>
-                        </View>
-                        <Image
-                          source={{ uri: player.avatarUrl ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                          style={styles.globalAvatar}
-                        />
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>
-                            {player.name}
-                            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.playerRight}>
-                        <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
-                        <Text style={styles.touchesLabel}>touches</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* Timed challenge leaderboard */}
-            {touchesPeriod === 'timed' && (
+            {/* Speed leaderboard */}
+            {touchesPeriod === 'speed' && (
               <View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodPillRow} contentContainerStyle={styles.periodPillRowContent}>
-                  {TIMED_OPTIONS.map((opt) => (
-                    <TouchableOpacity
-                      key={opt.seconds}
-                      style={[styles.periodPill, timedDuration === opt.seconds && styles.periodPillActive]}
-                      onPress={() => setTimedDuration(opt.seconds)}
-                    >
-                      <Text style={[styles.periodPillText, timedDuration === opt.seconds && styles.periodPillTextActive]}>{opt.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                <View style={styles.listContainer}>
-                  {timedLoading && <Text style={styles.resetNote}>Loading...</Text>}
-                  {!timedLoading && timedLeaderboard.length === 0 && (
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyStateTitle}>No scores yet</Text>
-                      <Text style={styles.emptyStateText}>Complete a timed session in the Train tab to appear here.</Text>
-                    </View>
-                  )}
-                  {timedLeaderboard.map((entry) => {
-                    const isMe = entry.userId === user?.id;
-                    return (
-                      <View key={entry.userId} style={[styles.playerRow, isMe && styles.playerRowHighlight]}>
-                        <Text style={styles.playerRank}>{entry.rank}</Text>
-                        <Image
-                          source={{ uri: entry.avatarUrl ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                          style={styles.playerAvatar}
-                        />
-                        <Text style={[styles.playerName, isMe && styles.playerNameMe]} numberOfLines={1}>
-                          {isMe ? 'You' : entry.name}
-                        </Text>
-                        <View style={styles.playerScoreBox}>
-                          <Text style={[styles.playerScore, isMe && styles.playerScoreMe]}>
-                            {entry.touches.toLocaleString()}
-                          </Text>
-                          <Text style={styles.playerScoreLabel}>touches</Text>
-                        </View>
+                {speedLoading && <Text style={styles.resetNote}>Loading...</Text>}
+                {!speedLoading && speedLeaderboard && (
+                  <>
+                    {[
+                      { key: 'speed100', label: '100 Touches', entries: speedLeaderboard.speed100 },
+                      { key: 'speed200', label: '200 Touches', entries: speedLeaderboard.speed200 },
+                    ].map(({ key, label, entries }) => (
+                      <View key={key} style={styles.speedSection}>
+                        <Text style={styles.speedSectionLabel}>{label}</Text>
+                        {entries.length === 0 ? (
+                          <View style={styles.emptyState}>
+                            <Text style={styles.emptyStateText}>No attempts yet — be the first!</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.listContainer}>
+                            {entries.map((entry, index) => {
+                              const isMe = entry.id === user?.id;
+                              return (
+                                <TouchableOpacity
+                                  key={entry.id}
+                                  style={[styles.playerCard, isMe && styles.currentUserCard]}
+                                  onPress={() => setSelectedPlayerId(entry.id)}
+                                  activeOpacity={0.7}
+                                >
+                                  <View style={styles.playerLeft}>
+                                    <View style={styles.rankContainer}>
+                                      <Text style={styles.rankNumber}>{index + 1}</Text>
+                                    </View>
+                                    <Image
+                                      source={{ uri: entry.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                                      style={styles.avatar}
+                                    />
+                                    <View style={styles.playerInfo}>
+                                      <Text style={styles.playerName}>
+                                        {entry.name}
+                                        {isMe && <Text style={styles.youBadge}> (You)</Text>}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <View style={styles.playerRight}>
+                                    <Text style={styles.weeklyTouches}>{formatSpeedTime(entry.seconds)}</Text>
+                                    <Text style={styles.touchesLabel}>fastest</Text>
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
                       </View>
-                    );
-                  })}
-                </View>
+                    ))}
+                  </>
+                )}
               </View>
             )}
 
             {/* Podium — 1st left, 2nd, 3rd. List starts after podium. */}
-            {touchesPeriod !== 'global' && touchesPeriod !== 'timed' && showTouchesPodium && (
+            {touchesPeriod !== 'speed' && showTouchesPodium && (
               <View style={styles.podium}>
                 {/* 1st Place — left when only 2 on podium, centre when 3 */}
                 {podiumCount === 1 || podiumCount === 2 ? (() => {
@@ -664,7 +655,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             )}
 
             {/* Leaderboard list — starts at #4 when podium is visible */}
-            {touchesPeriod !== 'global' && touchesPeriod !== 'timed' && <View style={styles.listContainer}>
+            {touchesPeriod !== 'speed' && <View style={styles.listContainer}>
               {sortedTouches.slice(podiumCount).map((player) => {
                 const isCurrentUser = player.id === getCurrentUserId();
                 const score = getTouchScore(player);
@@ -709,7 +700,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             {touchesPeriod === 'today' && `${player.today_touches.toLocaleString()} today`}
                             {touchesPeriod === 'week' && `${player.today_touches.toLocaleString()} today`}
                             {touchesPeriod === 'last_week' && `${player.weekly_touches.toLocaleString()} this week`}
-                            {touchesPeriod === 'alltime' && `${player.weekly_touches.toLocaleString()} this week`}
                           </Text>
                         </View>
                         {touchesPeriod === 'today' && player.today_focus && (
@@ -1400,6 +1390,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
+  },
+
+  // SPEED LEADERBOARD
+  speedSection: {
+    marginBottom: 20,
+  },
+  speedSectionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 10,
+    letterSpacing: 0.3,
   },
 
   // TODAY FOCUS CHIP

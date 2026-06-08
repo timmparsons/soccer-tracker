@@ -4,9 +4,6 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useRecentSessions, useTouchTracking, useFocusBreakdown } from '@/hooks/useTouchTracking';
 import { FOCUS_LABELS } from '@/lib/trainingFocus';
-import { useGroupChallenges } from '@/hooks/useGroupChallenges';
-import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
-import { Image } from 'react-native';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
@@ -27,6 +24,15 @@ import { LineChart } from 'react-native-chart-kit';
 
 const screenWidth = Dimensions.get('window').width;
 
+const FOCUS_COLORS: Record<string, string> = {
+  ball_mastery: '#1f89ee',
+  turning: '#F59E0B',
+  juggling: '#8B5CF6',
+  one_v_one: '#31af4d',
+  dribbling: '#EF4444',
+  free_play: '#78909C',
+};
+
 // Track which milestones have been celebrated this app session
 const shownMilestones = new Set<number>();
 
@@ -34,9 +40,6 @@ const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const { isPremium } = useSubscription();
-  const { data: groupChallenges = [] } = useGroupChallenges(user?.id);
-  const { data: playerChallenges = [] } = usePlayerChallenges(user?.id);
-
   const router = useRouter();
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
   const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);
@@ -48,11 +51,9 @@ const ProgressPage = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        queryClient.invalidateQueries({
-          queryKey: ['recent-sessions', user.id],
-        });
+        queryClient.invalidateQueries({ queryKey: ['recent-sessions', user.id] });
         queryClient.invalidateQueries({ queryKey: ['chart-stats', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['quick-stats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['focus-breakdown', user.id] });
       }
     }, [user?.id, queryClient]),
   );
@@ -134,57 +135,21 @@ const ProgressPage = () => {
     },
   });
 
-  // Get quick stats
-  const { data: quickStats } = useQuery({
-    queryKey: ['quick-stats', user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const formatDay = (dateStr: string): string => {
+    const today = getLocalDate();
+    const yesterdayObj = new Date();
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterday = getLocalDate(yesterdayObj);
 
-      const { data: sessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged, duration_minutes, date')
-        .eq('user_id', user!.id)
-        .gte('date', getLocalDate(sevenDaysAgo));
+    if (dateStr === today) return 'Today';
+    if (dateStr === yesterday) return 'Yesterday';
 
-      if (!sessions || sessions.length === 0) {
-        return { bestDay: 0, dailyAvg: 0, daysHitTarget: 0, avgTpm: 0 };
-      }
-
-      // Group by date
-      const byDate: Record<string, number> = {};
-      sessions.forEach((s) => {
-        byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
-      });
-
-      const dailyTotals = Object.values(byDate);
-      const bestDay = Math.max(...dailyTotals, 0);
-      const dailyAvg = Math.round(dailyTotals.reduce((a, b) => a + b, 0) / 7);
-      const daysHitTarget = dailyTotals.filter((t) => t >= 1000).length;
-
-      // Calculate average TPM — only sessions that have a duration recorded
-      const timedSessions = sessions.filter((s) => (s.duration_minutes || 0) > 0);
-      const tpmTouches = timedSessions.reduce((sum, s) => sum + s.touches_logged, 0);
-      const totalMinutes = timedSessions.reduce((sum, s) => sum + s.duration_minutes!, 0);
-      const avgTpm = totalMinutes > 0 ? Math.round(tpmTouches / totalMinutes) : 0;
-
-      return { bestDay, dailyAvg, daysHitTarget, avgTpm };
-    },
-  });
-
-  // Format time ago
-  const formatTimeAgo = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    if (diffDays === 1) return 'Yesterday';
-    return `${diffDays} days ago`;
+    const d = new Date(dateStr + 'T00:00:00');
+    const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) {
+      return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   const chartData = {
@@ -211,40 +176,19 @@ const ProgressPage = () => {
         rightComponent={
           <View style={styles.filterContainer}>
             <TouchableOpacity
-              style={[
-                styles.filterButton,
-                timeFilter === 'week' && styles.filterButtonActive,
-              ]}
+              style={[styles.filterButton, timeFilter === 'week' && styles.filterButtonActive]}
               onPress={() => setTimeFilter('week')}
             >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  timeFilter === 'week' && styles.filterButtonTextActive,
-                ]}
-              >
-                Week
-              </Text>
+              <Text style={[styles.filterButtonText, timeFilter === 'week' && styles.filterButtonTextActive]}>Week</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.filterButton,
-                timeFilter === 'month' && styles.filterButtonActive,
-              ]}
+              style={[styles.filterButton, timeFilter === 'month' && styles.filterButtonActive]}
               onPress={() => {
-                if (!isPremium) {
-                  router.push('/(modals)/paywall');
-                  return;
-                }
+                if (!isPremium) { router.push('/(modals)/paywall'); return; }
                 setTimeFilter('month');
               }}
             >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  timeFilter === 'month' && styles.filterButtonTextActive,
-                ]}
-              >
+              <Text style={[styles.filterButtonText, timeFilter === 'month' && styles.filterButtonTextActive]}>
                 Month{!isPremium ? ' 🔒' : ''}
               </Text>
             </TouchableOpacity>
@@ -253,41 +197,112 @@ const ProgressPage = () => {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Chart Card */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>
-              {timeFilter === 'week' ? 'This Week' : 'This Month'}
-            </Text>
-            <View style={styles.chartLegend}>
-              <View style={styles.legendDot} />
-              <Text style={styles.legendText}>Touches</Text>
-            </View>
-          </View>
 
+        {/* Training Breakdown */}
+        {focusBreakdown.length > 0 && (() => {
+          const total = focusBreakdown.reduce((sum, i) => sum + i.sessions, 0);
+          return (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Training Breakdown</Text>
+              {focusBreakdown
+                .slice()
+                .sort((a, b) => b.sessions - a.sessions)
+                .map(item => {
+                  const pct = total > 0 ? Math.round((item.sessions / total) * 100) : 0;
+                  const color = FOCUS_COLORS[item.key] ?? '#78909C';
+                  return (
+                    <View key={item.key} style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>{item.label}</Text>
+                      <View style={styles.barTrack}>
+                        <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+                      </View>
+                      <Text style={styles.breakdownPct}>{pct}%</Text>
+                    </View>
+                  );
+                })}
+            </View>
+          );
+        })()}
+
+        {/* Touches By Focus */}
+        {focusBreakdown.some(i => i.touches > 0) && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Touches by Focus</Text>
+            {focusBreakdown
+              .filter(i => i.touches > 0)
+              .sort((a, b) => b.touches - a.touches)
+              .map(item => (
+                <View key={item.key} style={styles.touchesRow}>
+                  <View style={styles.touchesLeft}>
+                    <View style={[styles.focusDot, { backgroundColor: FOCUS_COLORS[item.key] ?? '#78909C' }]} />
+                    <Text style={styles.touchesLabel}>{item.label}</Text>
+                  </View>
+                  <Text style={styles.touchesValue}>{item.touches.toLocaleString()}</Text>
+                </View>
+              ))}
+          </View>
+        )}
+
+        {/* Recent Training */}
+        {sessionsLoading ? (
+          <ActivityIndicator size='small' color='#1f89ee' style={{ marginVertical: 20 }} />
+        ) : recentSessions && recentSessions.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Recent Training</Text>
+            {(() => {
+              const list = isPremium ? recentSessions : recentSessions.slice(0, 5);
+              return (
+                <>
+                  {list.map((session, index) => {
+                    const color = FOCUS_COLORS[session.training_focus] ?? '#78909C';
+                    const isLast = index === list.length - 1;
+                    return (
+                      <View key={session.id} style={[styles.sessionRow, !isLast && styles.sessionRowDivider]}>
+                        <View style={styles.sessionRowTop}>
+                          <Text style={styles.sessionDay}>{formatDay(session.date)}</Text>
+                          {session.duration_minutes && (
+                            <Text style={styles.sessionDuration}>{session.duration_minutes} min</Text>
+                          )}
+                        </View>
+                        <View style={[styles.focusPill, { backgroundColor: color + '20' }]}>
+                          <View style={[styles.focusDotSm, { backgroundColor: color }]} />
+                          <Text style={[styles.focusPillText, { color }]}>{FOCUS_LABELS[session.training_focus]}</Text>
+                        </View>
+                        <Text style={styles.sessionTouches}>
+                          {session.touches_logged.toLocaleString()}{' '}
+                          <Text style={styles.sessionTouchesUnit}>touches</Text>
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {!isPremium && recentSessions.length > 5 && (
+                    <TouchableOpacity style={styles.seeMoreBtn} onPress={() => router.push('/(modals)/paywall')}>
+                      <Text style={styles.seeMoreText}>See all sessions · Pro 🔒</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              );
+            })()}
+          </View>
+        ) : null}
+
+        {/* Touches Over Time */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Touches Over Time</Text>
           <LineChart
             data={chartData}
             width={screenWidth - 80}
-            height={220}
+            height={200}
             chartConfig={{
               backgroundColor: '#FFF',
               backgroundGradientFrom: '#FFF',
               backgroundGradientTo: '#FFF',
               decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(43, 159, 255, ${opacity})`,
+              color: (opacity = 1) => `rgba(31, 137, 238, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(120, 144, 156, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#1f89ee',
-              },
-              propsForBackgroundLines: {
-                strokeDasharray: '',
-                stroke: '#F5F7FA',
-              },
+              style: { borderRadius: 16 },
+              propsForDots: { r: '5', strokeWidth: '2', stroke: '#1f89ee' },
+              propsForBackgroundLines: { strokeDasharray: '', stroke: '#F5F7FA' },
             }}
             bezier
             style={styles.chart}
@@ -299,219 +314,6 @@ const ProgressPage = () => {
             withShadow={false}
           />
         </View>
-
-        {/* Quick Stats */}
-        <View style={styles.quickStatsCard}>
-          <Text style={styles.sectionTitle}>This Week</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>📈</Text>
-              <Text style={styles.statValue}>
-                {(quickStats?.bestDay || 0).toLocaleString()}
-              </Text>
-              <Text style={styles.statLabel}>Best Day</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>📊</Text>
-              <Text style={styles.statValue}>
-                {(quickStats?.dailyAvg || 0).toLocaleString()}
-              </Text>
-              <Text style={styles.statLabel}>Daily Avg</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>⚡</Text>
-              <Text style={styles.statValue}>{quickStats?.avgTpm || 0}</Text>
-              <Text style={styles.statLabel}>Tempo</Text>
-            </View>
-          </View>
-          {(quickStats?.avgTpm || 0) > 0 && (
-            <View style={styles.tpmHint}>
-              <Text style={styles.tpmHintText}>
-                {(quickStats?.avgTpm || 0) < 30
-                  ? '💡 Try practicing faster - aim for game speed!'
-                  : (quickStats?.avgTpm || 0) < 50
-                    ? '👍 Good pace! Push for 50+ touches/min'
-                    : (quickStats?.avgTpm || 0) < 80
-                      ? "🔥 Great tempo! You're training at game speed"
-                      : '⚡ Elite intensity! Keep it up!'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Training Breakdown */}
-        {focusBreakdown.length > 0 && (
-          <View style={styles.breakdownCard}>
-            <Text style={styles.sectionTitle}>
-              Training Breakdown
-            </Text>
-            {focusBreakdown.map((item) => (
-              <View key={item.key} style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>{item.label}</Text>
-                <Text style={styles.breakdownValue}>
-                  {item.sessions} {item.sessions === 1 ? 'session' : 'sessions'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Touches By Category */}
-        {focusBreakdown.length > 0 && (
-          <View style={styles.breakdownCard}>
-            <Text style={styles.sectionTitle}>Touches by Focus</Text>
-            {focusBreakdown
-              .filter((item) => item.touches > 0)
-              .sort((a, b) => b.touches - a.touches)
-              .map((item) => (
-                <View key={item.key} style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>{item.label}</Text>
-                  <Text style={styles.breakdownValue}>
-                    {item.touches.toLocaleString()}
-                  </Text>
-                </View>
-              ))}
-          </View>
-        )}
-
-        {/* Session History */}
-        <View style={styles.historyCard}>
-          <View style={styles.historyHeader}>
-            <Text style={styles.sectionTitle}>Recent Sessions</Text>
-            {!isPremium && (
-              <TouchableOpacity
-                onPress={() => router.push('/(modals)/paywall')}
-              >
-                <Text style={styles.viewAllText}>See all · Pro 🔒</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {sessionsLoading ? (
-            <ActivityIndicator
-              size='small'
-              color='#1f89ee'
-              style={{ marginVertical: 20 }}
-            />
-          ) : recentSessions && recentSessions.length > 0 ? (
-            (isPremium ? recentSessions : recentSessions.slice(0, 3)).map(
-              (session) => (
-                <View key={session.id} style={styles.sessionItem}>
-                  <View style={styles.sessionLeft}>
-                    <View style={styles.sessionIconBg}>
-                      <Text style={styles.sessionEmoji}>⚽</Text>
-                    </View>
-                    <View style={styles.sessionInfo}>
-                      <Text style={styles.sessionName}>
-                        {session.drill_name || FOCUS_LABELS[session.training_focus] || 'Free Practice'}
-                      </Text>
-                      <View style={styles.sessionMeta}>
-                        <Text style={styles.sessionTime}>
-                          {formatTimeAgo(session.created_at)}
-                        </Text>
-                        {session.duration_minutes && (
-                          <>
-                            <Text style={styles.sessionDot}>•</Text>
-                            <Text style={styles.sessionDuration}>
-                              {session.duration_minutes} min
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.sessionRight}>
-                    <Text style={styles.sessionTouches}>
-                      {session.touches_logged.toLocaleString()}
-                    </Text>
-                    <Text style={styles.sessionTouchesLabel}>touches</Text>
-                    {session.duration_minutes &&
-                      session.duration_minutes > 0 && (
-                        <Text style={styles.sessionTpm}>
-                          ⚡{' '}
-                          {Math.round(
-                            session.touches_logged / session.duration_minutes,
-                          )}
-                          /min
-                        </Text>
-                      )}
-                  </View>
-                </View>
-              ),
-            )
-          ) : (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: '#78909C', fontWeight: '600' }}>
-                No sessions yet. Start training!
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Past challenges with teammates */}
-        {(() => {
-          const completedGroups = groupChallenges.filter((gc) => {
-            const allDone = gc.participants.every((p) => p.completed_at !== null);
-            const deadlinePassed = new Date() > new Date(gc.deadline_at);
-            return allDone || deadlinePassed;
-          });
-          const completedPlayer = playerChallenges.filter((c) => c.status === 'completed');
-          if (completedGroups.length === 0 && completedPlayer.length === 0) return null;
-
-          const fmt = (s: number) => {
-            const m = Math.floor(s / 60);
-            const sec = s % 60;
-            return `${m}:${String(sec).padStart(2, '0')}`;
-          };
-
-          return (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Past Challenges</Text>
-
-              {completedGroups.map((gc) => {
-                const ranked = [...gc.participants].sort((a, b) => {
-                  if (a.time_seconds === null) return 1;
-                  if (b.time_seconds === null) return -1;
-                  return a.time_seconds - b.time_seconds;
-                });
-                const medals = ['🥇', '🥈', '🥉'];
-                return (
-                  <View key={gc.id} style={styles.pastChallengeCard}>
-                    <Text style={styles.pastChallengeTitle}>⚔️ Group Challenge — {gc.touches_target.toLocaleString()} touches</Text>
-                    <Text style={styles.pastChallengeMeta}>{gc.participants.length} players · {new Date(gc.deadline_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
-                    {ranked.map((p, i) => (
-                      <View key={p.id} style={styles.pastChallengeRow}>
-                        <Text style={styles.pastMedal}>{medals[i] ?? '·'}</Text>
-                        <Image source={{ uri: p.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.pastAvatar} />
-                        <Text style={[styles.pastName, p.user_id === user?.id && styles.pastNameMe]}>
-                          {p.user_id === user?.id ? 'You' : (p.name ?? 'Player')}
-                        </Text>
-                        <Text style={styles.pastTime}>{p.time_seconds !== null ? fmt(p.time_seconds) : 'DNF'}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })}
-
-              {completedPlayer.map((c) => {
-                const isChallenger = c.challenger_id === user?.id;
-                const iWon = c.winner_id === user?.id;
-                const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
-                const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
-                const oppTime = isChallenger ? c.challenged_time_seconds : c.challenger_time_seconds;
-                return (
-                  <View key={c.id} style={[styles.pastChallengeCard, iWon && styles.pastChallengeCardWin]}>
-                    <View style={styles.pastChallengeRow}>
-                      <Text style={[styles.pastResult, iWon && styles.pastResultWin]}>{iWon ? '🏆 You won' : `${opponentName} won`}</Text>
-                      <Text style={styles.pastTime}>vs {opponentName}</Text>
-                    </View>
-                    <Text style={styles.pastChallengeMeta}>{c.touches_target.toLocaleString()} touches · You {myTime !== null ? fmt(myTime) : '-'} · Them {oppTime !== null ? fmt(oppTime) : '-'}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          );
-        })()}
 
       </ScrollView>
 
@@ -532,7 +334,7 @@ export default ProgressPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFBFC',
   },
   content: {
     padding: 20,
@@ -542,25 +344,20 @@ const styles = StyleSheet.create({
   // FILTER
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: '#F0F4F8',
+    borderRadius: 10,
+    padding: 3,
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   filterButtonActive: {
     backgroundColor: '#1f89ee',
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#78909C',
   },
@@ -568,301 +365,156 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 
-  // CHART CARD
-  chartCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#1f89ee',
-  },
-  legendText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-
-  // QUICK STATS
-  quickStatsCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#EFF6FF',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  statEmoji: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78909C',
-    textAlign: 'center',
-  },
-  tpmHint: {
-    marginTop: 16,
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 12,
-  },
-  tpmHintText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1976D2',
-    textAlign: 'center',
-  },
-
-  // SESSION HISTORY
-  historyCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  sessionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F7FA',
-  },
-  sessionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  sessionIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sessionEmoji: {
-    fontSize: 20,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-  sessionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sessionTime: {
-    fontSize: 12,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  sessionDot: {
-    fontSize: 12,
-    color: '#B0BEC5',
-  },
-  sessionDuration: {
-    fontSize: 12,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  sessionRight: {
-    alignItems: 'flex-end',
-  },
-  sessionTouches: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1f89ee',
-    marginBottom: 2,
-  },
-  sessionTouchesLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#78909C',
-    textTransform: 'uppercase',
-  },
-  sessionTpm: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FF9800',
-    marginTop: 4,
-  },
-
-  // PAST CHALLENGES
-  section: {
-    marginBottom: 16,
-  },
-  pastChallengeCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  pastChallengeCardWin: {
-    borderColor: '#31af4d',
-    backgroundColor: '#F0FDF4',
-  },
-  pastChallengeTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  pastChallengeMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  pastChallengeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pastMedal: {
-    fontSize: 14,
-    width: 20,
-  },
-  pastAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  pastName: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-  pastNameMe: {
-    color: '#1f89ee',
-  },
-  pastTime: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  pastResult: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  pastResultWin: {
-    color: '#31af4d',
-  },
-
-  // FOCUS BREAKDOWN
-  breakdownCard: {
+  // SHARED CARD
+  card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 3,
   },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 18,
+  },
+
+  // TRAINING BREAKDOWN
   breakdownRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 14,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    width: 104,
+  },
+  barTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#F0F4F8',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  breakdownPct: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    width: 36,
+    textAlign: 'right',
+  },
+
+  // TOUCHES BY FOCUS
+  touchesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F4F8',
   },
-  breakdownLabel: {
-    fontSize: 14,
+  touchesLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  focusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  touchesLabel: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
   },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '800',
+  touchesValue: {
+    fontSize: 18,
+    fontWeight: '900',
     color: '#1f89ee',
+  },
+
+  // RECENT TRAINING
+  sessionRow: {
+    paddingVertical: 16,
+    gap: 8,
+  },
+  sessionRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
+  sessionRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sessionDay: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sessionDuration: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B0BEC5',
+  },
+  focusPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  focusDotSm: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  focusPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  sessionTouches: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    lineHeight: 32,
+  },
+  sessionTouchesUnit: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  seeMoreBtn: {
+    paddingTop: 16,
+    alignItems: 'center',
+  },
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+
+  // CHART
+  chart: {
+    marginTop: 4,
+    borderRadius: 16,
   },
 
 });

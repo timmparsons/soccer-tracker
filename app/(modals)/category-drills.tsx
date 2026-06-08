@@ -57,6 +57,31 @@ export default function CategoryDrillsScreen() {
         <View style={styles.loading}>
           <ActivityIndicator size='large' color='#1f89ee' />
         </View>
+      ) : focusKey === 'free_play' ? (
+        <View style={styles.freePlayContainer}>
+          <Text style={styles.freePlayHeading}>No rules. Just ball.</Text>
+          <Text style={styles.freePlayBody}>
+            Free Play is your time to experiment. Try something you saw on the pitch, revisit a move you've been working on, or just mess around and see what happens.
+          </Text>
+          <Text style={styles.freePlayBody}>
+            The best players in the world didn't get good by following a plan every single session — they got good because they loved the ball enough to play with it for hours.
+          </Text>
+          <View style={styles.freePlayIdeas}>
+            <Text style={styles.freePlayIdeasLabel}>Some ideas to get you started</Text>
+            {[
+              'String together every move you know back to back',
+              'Set a timer and try to beat your own touch count',
+              'Pick one weak foot drill and do it until it feels natural',
+              'Invent a combination and give it a name',
+              'Watch a skill video then try to replicate it',
+            ].map((idea) => (
+              <View key={idea} style={styles.freePlayIdeaRow}>
+                <Text style={styles.freePlayIdeaDot}>→</Text>
+                <Text style={styles.freePlayIdeaText}>{idea}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
       ) : drills.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No drills yet</Text>
@@ -248,5 +273,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#B0BEC5',
+  },
+
+  // FREE PLAY
+  freePlayContainer: {
+    padding: 24,
+    gap: 16,
+  },
+  freePlayHeading: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  freePlayBody: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4A5568',
+    lineHeight: 24,
+  },
+  freePlayIdeas: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginTop: 4,
+  },
+  freePlayIdeasLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  freePlayIdeaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  freePlayIdeaDot: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1f89ee',
+    marginTop: 1,
+  },
+  freePlayIdeaText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    lineHeight: 20,
   },
 });
