@@ -1,3 +1,4 @@
+import { TRAINING_FOCUS_CATEGORIES, FocusKey, getTodayFocus } from '@/lib/trainingFocus';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
@@ -24,6 +25,7 @@ interface SessionLog {
   touches_logged: number;
   duration_minutes: number | null;
   created_at: string;
+  training_focus: FocusKey;
 }
 
 export const useTouchTracking = (userId: string | undefined) => {
@@ -165,6 +167,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           touches_logged,
           duration_minutes,
           created_at,
+          training_focus,
           drills (name)
         `,
         )
@@ -179,6 +182,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           touches_logged: number;
           duration_minutes: number | null;
           created_at: string;
+          training_focus: string | null;
           drills: { name: string } | null;
         }) => ({
           id: s.id,
@@ -187,6 +191,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           touches_logged: s.touches_logged,
           duration_minutes: s.duration_minutes,
           created_at: s.created_at,
+          training_focus: (s.training_focus ?? 'free_play') as FocusKey,
         }),
       );
     },
@@ -352,14 +357,87 @@ export const useDailyTouchHistory = (userId: string | undefined) => {
   });
 };
 
+export interface FocusBreakdownItem {
+  key: FocusKey;
+  label: string;
+  sessions: number;
+  touches: number;
+}
+
+export const useFocusBreakdown = (userId: string | undefined, period: 'week' | 'month') => {
+  return useQuery({
+    queryKey: ['focus-breakdown', userId, period],
+    queryFn: async (): Promise<FocusBreakdownItem[]> => {
+      if (!userId) throw new Error('No user ID');
+
+      const today = new Date();
+      let startDate: Date;
+      if (period === 'week') {
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - today.getDay()); // back to Sunday
+      } else {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      }
+      const fromDate = getLocalDate(startDate);
+
+      const { data, error } = await supabase
+        .from('daily_sessions')
+        .select('training_focus, touches_logged')
+        .eq('user_id', userId)
+        .gte('date', fromDate);
+
+      if (error) return [];
+
+      const byFocus: Record<string, { sessions: number; touches: number }> = {};
+      for (const session of data ?? []) {
+        const key = ((session as { training_focus?: string }).training_focus ?? 'free_play') as FocusKey;
+        if (!byFocus[key]) byFocus[key] = { sessions: 0, touches: 0 };
+        byFocus[key].sessions++;
+        byFocus[key].touches += (session as { touches_logged: number }).touches_logged;
+      }
+
+      return TRAINING_FOCUS_CATEGORIES
+        .map((cat) => ({
+          key: cat.key,
+          label: cat.label,
+          sessions: byFocus[cat.key]?.sessions ?? 0,
+          touches: byFocus[cat.key]?.touches ?? 0,
+        }))
+        .filter((cat) => cat.sessions > 0);
+    },
+    enabled: !!userId,
+  });
+};
+
+export const useFocusDrills = (focusKey: FocusKey) => {
+  return useQuery({
+    queryKey: ['focus-drills', focusKey],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('drills')
+        .select('id, name, video_url, thumbnail_url, difficulty_level')
+        .eq('focus_category', focusKey)
+        .order('difficulty_level', { ascending: true });
+
+      const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
+      return (data || []).sort((a, b) => {
+        return (
+          (difficultyOrder[a.difficulty_level as keyof typeof difficultyOrder] ?? 99) -
+          (difficultyOrder[b.difficulty_level as keyof typeof difficultyOrder] ?? 99)
+        );
+      });
+    },
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['today-challenge', userId, getLocalDate()],
     queryFn: async () => {
       if (!userId) return null;
 
-      // Fetch drills and user's all-time total touches in parallel
-      const [{ data: drills }, { data: allSessions }] = await Promise.all([
+      // Fetch all drills and user's all-time total touches in parallel
+      const [{ data: allDrills }, { data: allSessions }] = await Promise.all([
         supabase.from('drills').select('*'),
         supabase
           .from('daily_sessions')
@@ -367,7 +445,15 @@ export const useTodayChallenge = (userId: string | undefined) => {
           .eq('user_id', userId),
       ]);
 
-      if (!drills || drills.length === 0) return null;
+      if (!allDrills || allDrills.length === 0) return null;
+
+      // Prefer drills matching today's training focus category
+      const todayFocusKey = getTodayFocus().key;
+      const focusPool = allDrills.filter(
+        (d) => (d as { focus_category?: string }).focus_category === todayFocusKey,
+      );
+      // Fall back to all drills if the category has none yet
+      const categoryPool = focusPool.length > 0 ? focusPool : allDrills;
 
       // Determine difficulty tier from all-time total touches
       // < 10,000  → beginner fundamentals
@@ -382,11 +468,11 @@ export const useTodayChallenge = (userId: string | undefined) => {
             ? 'intermediate'
             : 'beginner';
 
-      // Filter pool to tier (null means all drills)
-      const pool = tier
-        ? drills.filter((d) => d.difficulty_level === tier)
-        : drills;
-      const selectedPool = pool.length > 0 ? pool : drills;
+      // Filter pool to difficulty tier (null means all tiers)
+      const tieredPool = tier
+        ? categoryPool.filter((d) => d.difficulty_level === tier)
+        : categoryPool;
+      const selectedPool = tieredPool.length > 0 ? tieredPool : categoryPool;
 
       // Use the current date as a seed for consistent daily selection
       const today = getLocalDate();

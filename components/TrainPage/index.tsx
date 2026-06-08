@@ -1,7 +1,5 @@
 import PageHeader from '@/components/common/PageHeader';
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
-import { getDisplayName } from '@/utils/getDisplayName';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
+import { getTodayFocus, TRAINING_FOCUS_CATEGORIES, FocusKey } from '@/lib/trainingFocus';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
@@ -11,7 +9,8 @@ import { getCurrentWeekChallenge } from '@/lib/teamBadges';
 import { getTimedRank } from '@/hooks/useTimedChallengeLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useJugglingRecord, useTouchTracking, useFocusDrills, useTodayChallenge } from '@/hooks/useTouchTracking';
+import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -46,8 +45,6 @@ const TrainPage = () => {
   const { isPremium } = useSubscription();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
-  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   // Timer state
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -57,10 +54,6 @@ const TrainPage = () => {
   const [submittingScore, setSubmittingScore] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
-  const [challengeDrillId, setChallengeDrillId] = useState<
-    string | undefined
-  >();
-  const [challengeName, setChallengeName] = useState<string | undefined>();
   const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
   const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
   const [timedRank, setTimedRank] = useState<number | null>(null);
@@ -73,6 +66,11 @@ const TrainPage = () => {
   const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
+  const [timerFocus, setTimerFocus] = useState<FocusKey>(() => getTodayFocus().key);
+  const [timerPickerStep, setTimerPickerStep] = useState<'focus' | 'duration'>('focus');
+  const [drillVideoUrl, setDrillVideoUrl] = useState<string>('');
+  const [drillVideoName, setDrillVideoName] = useState<string>('');
+  const [showDrillVideo, setShowDrillVideo] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const endTimeRef = useRef<number>(0);
@@ -113,6 +111,9 @@ const TrainPage = () => {
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
+  const todayFocus = getTodayFocus();
+  const { data: focusDrills = [] } = useFocusDrills(todayFocus.key);
+  const { data: todayChallenge } = useTodayChallenge(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -204,6 +205,7 @@ const TrainPage = () => {
             whistleSoundRef.current?.replayAsync();
           }
           setShowTimerModal(false);
+          setTimerFocus(getTodayFocus().key);
           setShowScoreModal(true);
         } else {
           pausedRemainingRef.current = remaining;
@@ -255,6 +257,7 @@ const TrainPage = () => {
         duration_minutes: durationMinutes,
         is_timed_challenge: true,
         challenge_duration_seconds: freeTimerDuration,
+        training_focus: timerFocus,
         date: today,
       });
 
@@ -329,6 +332,43 @@ const TrainPage = () => {
           />
         }
       >
+        {/* TODAY'S TRAINING FOCUS */}
+        <TouchableOpacity style={styles.focusCard} onPress={() => { setTimerPickerStep('focus'); setShowTimerPicker(true); }} activeOpacity={0.85}>
+          <Text style={styles.focusSectionLabel}>{"Today's Focus — Tap to Start Timer"}</Text>
+          <Text style={styles.focusTitle}>{todayFocus.displayLabel}</Text>
+          <Text style={styles.focusDescription}>{todayFocus.description}</Text>
+        </TouchableOpacity>
+
+        {/* SUGGESTED DRILLS */}
+        {focusDrills.length > 0 && (
+          <View style={styles.suggestedCard}>
+            <Text style={styles.suggestedLabel}>Suggested Drills</Text>
+            {focusDrills.map((drill) => (
+              <TouchableOpacity
+                key={drill.id}
+                style={styles.suggestedRow}
+                onPress={() => {
+                  if (drill.video_url) {
+                    setDrillVideoUrl(drill.video_url);
+                    setDrillVideoName(drill.name);
+                    setShowDrillVideo(true);
+                  } else {
+                    router.push(`/(modals)/category-drills?focus=${todayFocus.key}` as never);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.suggestedDrillName}>{drill.name}</Text>
+                {drill.video_url ? (
+                  <Text style={styles.suggestedWatchLink}>Watch Video</Text>
+                ) : (
+                  <Text style={styles.suggestedWatchLinkMuted}>No video yet</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Today's Progress */}
         <View style={styles.progressCard}>
           <View style={styles.progressSparkle}>
@@ -370,7 +410,7 @@ const TrainPage = () => {
           {/* Start Timer Button */}
           <TouchableOpacity
             style={styles.timerButton}
-            onPress={() => setShowTimerPicker(true)}
+            onPress={() => { setTimerPickerStep('focus'); setShowTimerPicker(true); }}
             activeOpacity={0.8}
           >
             <Ionicons name='timer' size={24} color='#FFF' />
@@ -379,65 +419,33 @@ const TrainPage = () => {
         </View>
 
 
-        {/* Coach Challenges */}
-        {user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-            mode='coach'
-          />
-        )}
-
-        {/* Drill Library */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => router.push('/(modals)/drill-library')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='book' size={22} color='#1f89ee' />
+        {/* BROWSE TRAINING CATEGORIES */}
+        <View style={styles.categoriesCard}>
+          <Text style={styles.categoriesLabel}>Browse Training Categories</Text>
+          <View style={styles.categoriesGrid}>
+            {TRAINING_FOCUS_CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat.key}
+                style={[
+                  styles.categoryChip,
+                  cat.key === todayFocus.key && styles.categoryChipActive,
+                ]}
+                onPress={() => router.push(`/(modals)/category-drills?focus=${cat.key}` as never)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    cat.key === todayFocus.key && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
+        </View>
 
-        {/* TODAY'S CHALLENGE */}
-        {user?.id && (
-          <TodayChallengeCard
-            userId={user.id}
-            totalTouches={touchStats?.total_touches ?? 0}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              Alert.alert(
-                drillName,
-                'How do you want to log this challenge?',
-                [
-                  {
-                    text: 'Log Manually',
-                    onPress: () => {
-                      setChallengeDrillId(drillId);
-                      setChallengeDurationMinutes(durationMinutes);
-                      setChallengeName(drillName);
-                      setChallengeDifficulty(difficulty);
-                      setModalVisible(true);
-                    },
-                  },
-                  {
-                    text: 'Use Timer',
-                    onPress: () => {
-                      setTimerChallengeDrillId(drillId);
-                      setTimerChallengeName(drillName);
-                      setShowTimerPicker(true);
-                    },
-                  },
-                ],
-              );
-            }}
-          />
-        )}
 
       </ScrollView>
 
@@ -589,117 +597,159 @@ const TrainPage = () => {
         >
           <View style={styles.timerPickerOverlay}>
             <View style={styles.timerPickerContent}>
-              <View style={styles.timerPickerHeader}>
-                <Text style={styles.timerPickerEmoji}>⏱️</Text>
-                <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
-                <Text style={styles.timerPickerSubtitle}>
-                  Choose a duration for your session
-                </Text>
-              </View>
 
-              <View style={styles.timerOptionsGrid}>
-                {TIMER_OPTIONS.map((option) => {
-                  const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
-                  return (
-                    <TouchableOpacity
-                      key={option.seconds}
-                      style={[styles.timerOption, locked && styles.timerOptionLocked]}
-                      onPress={() => {
-                        if (locked) {
-                          router.push('/(modals)/paywall');
-                          return;
-                        }
-                        startFreeTimer(option.seconds);
-                      }}
-                    >
-                      {locked && (
-                        <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.7)' style={{ marginBottom: 2 }} />
-                      )}
-                      <Text style={styles.timerOptionText}>{option.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-
-              <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
-                <View style={styles.customTimerLabelRow}>
-                  <Text style={styles.customTimerLabel}>Custom duration</Text>
-                  {!isPremium && (
-                    <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
-                      <Ionicons name='lock-closed' size={12} color='#78909C' />
-                      <Text style={styles.proLockText}>Pro</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.customTimerRow}>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customMinutes}
-                      onChangeText={setCustomMinutes}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>min</Text>
+              {timerPickerStep === 'focus' ? (
+                <>
+                  <View style={styles.timerPickerHeader}>
+                    <Text style={styles.timerPickerTitle}>What are you working on?</Text>
+                    <Text style={styles.timerPickerSubtitle}>Pick a focus for this session</Text>
                   </View>
-                  <Text style={styles.customTimerSeparator}>:</Text>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customSeconds}
-                      onChangeText={(v) => {
-                        const n = parseInt(v);
-                        if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
-                      }}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>sec</Text>
+
+                  <View style={styles.scoreFocusGrid}>
+                    {TRAINING_FOCUS_CATEGORIES.map((cat) => (
+                      <TouchableOpacity
+                        key={cat.key}
+                        style={[styles.scoreFocusChip, timerFocus === cat.key && styles.scoreFocusChipActive]}
+                        onPress={() => {
+                          setTimerFocus(cat.key);
+                          if (cat.key === 'free_play' && todayChallenge) {
+                            setTimerChallengeDrillId(todayChallenge.id);
+                            setTimerChallengeName(todayChallenge.name);
+                          } else {
+                            setTimerChallengeDrillId(undefined);
+                            setTimerChallengeName(undefined);
+                          }
+                          setTimerPickerStep('duration');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.scoreFocusChipText, timerFocus === cat.key && styles.scoreFocusChipTextActive]}>
+                          {cat.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
+
                   <TouchableOpacity
-                    style={[
-                      styles.customTimerButton,
-                      (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
-                      !isPremium && styles.customTimerButtonDisabled,
-                    ]}
+                    style={styles.timerPickerCancel}
                     onPress={() => {
-                      if (!isPremium) {
-                        router.push('/(modals)/paywall');
-                        return;
-                      }
-                      const mins = parseInt(customMinutes) || 0;
-                      const secs = parseInt(customSeconds) || 0;
-                      const total = mins * 60 + secs;
-                      if (total > 0) {
-                        startFreeTimer(total);
-                        setCustomMinutes('');
-                        setCustomSeconds('');
-                      }
+                      setShowTimerPicker(false);
+                      setTimerChallengeDrillId(undefined);
+                      setTimerChallengeName(undefined);
                     }}
-                    disabled={!isPremium && !customMinutes && !customSeconds}
                   >
-                    <Text style={styles.customTimerButtonText}>Go</Text>
+                    <Text style={styles.timerPickerCancelText}>Cancel</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.timerPickerHeader}>
+                    <Text style={styles.timerPickerEmoji}>⏱️</Text>
+                    <Text style={styles.timerPickerTitle}>How long?</Text>
+                    <Text style={styles.timerPickerSubtitle}>
+                      {TRAINING_FOCUS_CATEGORIES.find((c) => c.key === timerFocus)?.label ?? 'Free Play'}
+                    </Text>
+                  </View>
 
-              <TouchableOpacity
-                style={styles.timerPickerCancel}
-                onPress={() => {
-                  setShowTimerPicker(false);
-                  setCustomMinutes('');
-                  setCustomSeconds('');
-                  setTimerChallengeDrillId(undefined);
-                  setTimerChallengeName(undefined);
-                }}
-              >
-                <Text style={styles.timerPickerCancelText}>Cancel</Text>
-              </TouchableOpacity>
+                  <View style={styles.timerOptionsGrid}>
+                    {TIMER_OPTIONS.map((option) => {
+                      const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
+                      return (
+                        <TouchableOpacity
+                          key={option.seconds}
+                          style={[styles.timerOption, locked && styles.timerOptionLocked]}
+                          onPress={() => {
+                            if (locked) {
+                              router.push('/(modals)/paywall');
+                              return;
+                            }
+                            startFreeTimer(option.seconds);
+                          }}
+                        >
+                          {locked && (
+                            <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.7)' style={{ marginBottom: 2 }} />
+                          )}
+                          <Text style={styles.timerOptionText}>{option.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
+                    <View style={styles.customTimerLabelRow}>
+                      <Text style={styles.customTimerLabel}>Custom duration</Text>
+                      {!isPremium && (
+                        <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
+                          <Ionicons name='lock-closed' size={12} color='#78909C' />
+                          <Text style={styles.proLockText}>Pro</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <View style={styles.customTimerRow}>
+                      <View style={styles.customTimerInputGroup}>
+                        <TextInput
+                          style={styles.customTimerInput}
+                          placeholder='0'
+                          placeholderTextColor='#B0BEC5'
+                          keyboardType='number-pad'
+                          value={customMinutes}
+                          onChangeText={setCustomMinutes}
+                          editable={isPremium}
+                        />
+                        <Text style={styles.customTimerUnit}>min</Text>
+                      </View>
+                      <Text style={styles.customTimerSeparator}>:</Text>
+                      <View style={styles.customTimerInputGroup}>
+                        <TextInput
+                          style={styles.customTimerInput}
+                          placeholder='0'
+                          placeholderTextColor='#B0BEC5'
+                          keyboardType='number-pad'
+                          value={customSeconds}
+                          onChangeText={(v) => {
+                            const n = parseInt(v);
+                            if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
+                          }}
+                          editable={isPremium}
+                        />
+                        <Text style={styles.customTimerUnit}>sec</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.customTimerButton,
+                          (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
+                          !isPremium && styles.customTimerButtonDisabled,
+                        ]}
+                        onPress={() => {
+                          if (!isPremium) {
+                            router.push('/(modals)/paywall');
+                            return;
+                          }
+                          const mins = parseInt(customMinutes) || 0;
+                          const secs = parseInt(customSeconds) || 0;
+                          const total = mins * 60 + secs;
+                          if (total > 0) {
+                            startFreeTimer(total);
+                            setCustomMinutes('');
+                            setCustomSeconds('');
+                          }
+                        }}
+                        disabled={!isPremium && !customMinutes && !customSeconds}
+                      >
+                        <Text style={styles.customTimerButtonText}>Go</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.timerPickerCancel}
+                    onPress={() => setTimerPickerStep('focus')}
+                  >
+                    <Text style={styles.timerPickerCancelText}>Back</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -743,19 +793,9 @@ const TrainPage = () => {
       {user?.id && (
         <LogSessionModal
           visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            setChallengeDrillId(undefined);
-            setChallengeName(undefined);
-            setChallengeDurationMinutes(undefined);
-            setChallengeDifficulty(undefined);
-          }}
+          onClose={() => setModalVisible(false)}
           userId={user.id}
           onSuccess={handleSessionLogged}
-          challengeDrillId={challengeDrillId}
-          challengeName={challengeName}
-          challengeDurationMinutes={challengeDurationMinutes}
-          challengeDifficulty={challengeDifficulty}
           teamId={profile?.team_id ?? null}
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
@@ -773,6 +813,14 @@ const TrainPage = () => {
           }}
         />
       )}
+
+      {/* Drill Video Modal — for suggested drills */}
+      <DrillVideoModal
+        visible={showDrillVideo}
+        onClose={() => setShowDrillVideo(false)}
+        videoUrl={drillVideoUrl}
+        drillName={drillVideoName}
+      />
 
     </View>
   );
@@ -1285,5 +1333,161 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
+  },
+
+  // TODAY'S FOCUS CARD
+  focusCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+  },
+  focusSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  focusTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  focusDescription: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+
+  // SUGGESTED DRILLS
+  suggestedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  suggestedLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  suggestedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
+  suggestedDrillName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    flex: 1,
+  },
+  suggestedWatchLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+
+  // BROWSE CATEGORIES
+  categoriesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  categoriesLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#F0F2F5',
+    borderWidth: 2,
+    borderColor: '#DDE1E7',
+  },
+  categoryChipActive: {
+    backgroundColor: '#1a1a2e',
+    borderColor: '#1a1a2e',
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // DRILL LIST — no-video state
+  suggestedWatchLinkMuted: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B0BEC5',
+  },
+
+  // SCORE MODAL — FOCUS PICKER
+  scoreFocusSection: {
+    marginBottom: 20,
+  },
+  scoreFocusLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 10,
+  },
+  scoreFocusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  scoreFocusChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#F0F2F5',
+    borderWidth: 2,
+    borderColor: '#DDE1E7',
+  },
+  scoreFocusChipActive: {
+    backgroundColor: '#E8F4FF',
+    borderColor: '#1f89ee',
+  },
+  scoreFocusChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  scoreFocusChipTextActive: {
+    color: '#1f89ee',
   },
 });

@@ -2,7 +2,8 @@ import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
-import { useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useRecentSessions, useTouchTracking, useFocusBreakdown } from '@/hooks/useTouchTracking';
+import { FOCUS_LABELS } from '@/lib/trainingFocus';
 import { useGroupChallenges } from '@/hooks/useGroupChallenges';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
 import { Image } from 'react-native';
@@ -59,6 +60,9 @@ const ProgressPage = () => {
   // Get recent sessions
   const { data: recentSessions, isLoading: sessionsLoading } =
     useRecentSessions(user?.id, 10);
+
+  // Get training focus breakdown
+  const { data: focusBreakdown = [] } = useFocusBreakdown(user?.id, timeFilter);
 
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
@@ -335,6 +339,41 @@ const ProgressPage = () => {
           )}
         </View>
 
+        {/* Training Breakdown */}
+        {focusBreakdown.length > 0 && (
+          <View style={styles.breakdownCard}>
+            <Text style={styles.sectionTitle}>
+              Training Breakdown
+            </Text>
+            {focusBreakdown.map((item) => (
+              <View key={item.key} style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>{item.label}</Text>
+                <Text style={styles.breakdownValue}>
+                  {item.sessions} {item.sessions === 1 ? 'session' : 'sessions'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Touches By Category */}
+        {focusBreakdown.length > 0 && (
+          <View style={styles.breakdownCard}>
+            <Text style={styles.sectionTitle}>Touches by Focus</Text>
+            {focusBreakdown
+              .filter((item) => item.touches > 0)
+              .sort((a, b) => b.touches - a.touches)
+              .map((item) => (
+                <View key={item.key} style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>{item.label}</Text>
+                  <Text style={styles.breakdownValue}>
+                    {item.touches.toLocaleString()}
+                  </Text>
+                </View>
+              ))}
+          </View>
+        )}
+
         {/* Session History */}
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
@@ -364,7 +403,7 @@ const ProgressPage = () => {
                     </View>
                     <View style={styles.sessionInfo}>
                       <Text style={styles.sessionName}>
-                        {session.drill_name || 'Free Practice'}
+                        {session.drill_name || FOCUS_LABELS[session.training_focus] || 'Free Practice'}
                       </Text>
                       <View style={styles.sessionMeta}>
                         <Text style={styles.sessionTime}>
@@ -793,6 +832,37 @@ const styles = StyleSheet.create({
   },
   pastResultWin: {
     color: '#31af4d',
+  },
+
+  // FOCUS BREAKDOWN
+  breakdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1f89ee',
   },
 
 });

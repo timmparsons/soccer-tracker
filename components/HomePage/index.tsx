@@ -1,12 +1,9 @@
-import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
 import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { getWeeklyChallengeStatus } from '@/lib/checkTeamBadges';
-import { useQuery } from '@tanstack/react-query';
-import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
+import { getTodayFocus } from '@/lib/trainingFocus';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
@@ -15,13 +12,10 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -29,6 +23,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -36,7 +31,6 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
-  const queryClient = useQueryClient();
 
   const {
     data: touchStats,
@@ -49,18 +43,9 @@ const HomeScreen = () => {
 
   const { data: recentSessions = [], refetch: refetchRecent } =
     useRecentSessions(user?.id, 3);
-  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
-    useChallengeRecord(user?.id);
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(
     user?.id,
   );
-
-  const { data: teamBadgeProgress } = useQuery({
-    queryKey: ['team-badge-progress', profile?.team_id],
-    enabled: !!profile?.team_id,
-    staleTime: 1000 * 60 * 2,
-    queryFn: () => getWeeklyChallengeStatus(profile!.team_id!),
-  });
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -89,12 +74,12 @@ const HomeScreen = () => {
     );
   }
 
+  const todayFocus = getTodayFocus();
   const displayName = getDisplayName(profile);
   const weekTouches = touchStats?.this_week_touches || 0;
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
-  const winStreak = challengeRecord.streak;
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const todayPct = Math.min((todayTouches / dailyTarget) * 100, 100);
@@ -154,10 +139,12 @@ const HomeScreen = () => {
           totalTouches={touchStats?.total_touches}
         />
 
-        {/* TEAM BADGE PROGRESS */}
-        {teamBadgeProgress && !teamBadgeProgress.achieved && (
-          <TeamBadgeProgressStrip status={teamBadgeProgress} />
-        )}
+        {/* TODAY'S TRAINING FOCUS */}
+        <TouchableOpacity style={styles.focusCard} onPress={() => router.push('/(tabs)/train')} activeOpacity={0.85}>
+          <Text style={styles.focusSectionLabel}>{"Today's Focus"}</Text>
+          <Text style={styles.focusTitle}>{todayFocus.displayLabel}</Text>
+          <Text style={styles.focusDescription}>{todayFocus.description}</Text>
+        </TouchableOpacity>
 
         {/* TODAY'S PROGRESS */}
         <View style={styles.todayCard}>
@@ -246,18 +233,6 @@ const HomeScreen = () => {
             </Text>
           </View>
 
-          {winStreak > 0 && (
-            <View style={[styles.statCard, styles.statWinStreak]}>
-              <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
-                <Text style={styles.statIcon}>⚔️</Text>
-              </View>
-              <Text style={[styles.statValue, { color: '#ffb724' }]}>
-                {winStreak}
-              </Text>
-              <Text style={styles.statLabel}>1v1 Win Streak</Text>
-              <Text style={styles.statSubtext}>{"Don't lose it!"}</Text>
-            </View>
-          )}
         </View>
 
         {/* RECENT SESSIONS */}
@@ -538,5 +513,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     color: '#1f89ee',
+  },
+
+  // TODAY'S TRAINING FOCUS
+  focusCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  focusSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  focusTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 4,
+  },
+  focusDescription: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 10,
+  },
+  focusDrillList: {
+    gap: 4,
+  },
+  focusDrillItem: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a2e',
   },
 });

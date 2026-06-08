@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import { FOCUS_LABELS } from '@/lib/trainingFocus';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { useTimedChallengeLeaderboard, TIMED_OPTIONS } from '@/hooks/useTimedChallengeLeaderboard';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
@@ -711,6 +712,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             {touchesPeriod === 'alltime' && `${player.weekly_touches.toLocaleString()} this week`}
                           </Text>
                         </View>
+                        {touchesPeriod === 'today' && player.today_focus && (
+                          <View style={styles.focusChip}>
+                            <Text style={styles.focusChipText}>
+                              {FOCUS_LABELS[player.today_focus]}
+                              {player.today_duration_minutes ? ` · ${player.today_duration_minutes}m` : ''}
+                              {player.today_is_game_speed ? ' ⚡' : ''}
+                            </Text>
+                          </View>
+                        )}
                         {level && (
                           <View style={[styles.beswickBadge, { backgroundColor: level.bg, alignSelf: 'flex-start' }]}>
                             <Text style={[styles.beswickBadgeText, { color: level.color }]}>
@@ -1389,6 +1399,21 @@ const styles = StyleSheet.create({
   playerScoreLabel: {
     fontSize: 11,
     fontWeight: '600',
+    color: '#78909C',
+  },
+
+  // TODAY FOCUS CHIP
+  focusChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F0F4F8',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  focusChipText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#78909C',
   },
 });

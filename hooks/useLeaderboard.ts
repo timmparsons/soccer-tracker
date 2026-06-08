@@ -1,3 +1,4 @@
+import { FocusKey } from '@/lib/trainingFocus';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
@@ -8,6 +9,9 @@ export interface TeamMemberStats {
   avatar_url: string | null;
   weekly_touches: number;
   today_touches: number;
+  today_focus: FocusKey | null;
+  today_duration_minutes: number | null;
+  today_is_game_speed: boolean;
   last_week_touches: number;
   alltime_best_week: number;
   daily_target: number;
@@ -51,7 +55,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
   ] = await Promise.all([
     supabase
       .from('daily_sessions')
-      .select('user_id, touches_logged, date')
+      .select('user_id, touches_logged, date, training_focus, duration_minutes, is_game_speed')
       .in('user_id', memberIds)
       .gte('date', lastWeekStart)
       .lte('date', today),
@@ -72,7 +76,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     targetByMember[t.user_id] = t.daily_target_touches;
   }
 
-  const recentByMember: Record<string, { touches_logged: number; date: string }[]> = {};
+  const recentByMember: Record<string, { touches_logged: number; date: string; training_focus?: string; duration_minutes?: number | null; is_game_speed?: boolean }[]> = {};
   for (const s of recentSessionsRaw || []) {
     if (!recentByMember[s.user_id]) recentByMember[s.user_id] = [];
     recentByMember[s.user_id].push(s);
@@ -88,9 +92,12 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     const recent = recentByMember[member.id] || [];
     const all = allByMember[member.id] || [];
 
-    const today_touches = recent
-      .filter((s) => s.date === today)
-      .reduce((sum, s) => sum + s.touches_logged, 0);
+    const todaySessions = recent.filter((s) => s.date === today);
+    const today_touches = todaySessions.reduce((sum, s) => sum + s.touches_logged, 0);
+    const today_focus = (todaySessions[0]?.training_focus ?? null) as FocusKey | null;
+    const todayTotalMinutes = todaySessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
+    const today_duration_minutes = todayTotalMinutes > 0 ? todayTotalMinutes : null;
+    const today_is_game_speed = todaySessions.some((s) => s.is_game_speed === true);
 
     const weekly_touches = recent
       .filter((s) => s.date >= weekStartDate && s.date <= today)
@@ -117,6 +124,9 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
       name: member.name || member.display_name || 'Unknown Player',
       avatar_url: member.avatar_url,
       today_touches,
+      today_focus,
+      today_duration_minutes,
+      today_is_game_speed,
       weekly_touches,
       last_week_touches,
       alltime_best_week,
