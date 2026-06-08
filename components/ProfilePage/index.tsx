@@ -1227,11 +1227,7 @@ const ProfilePage = () => {
                     style={styles.actionButton}
                     onPress={handleSuggestions}
                   >
-                    <Ionicons
-                      name='bulb-outline'
-                      size={24}
-                      color='#1f89ee'
-                    />
+                    <Ionicons name='bulb-outline' size={24} color='#1f89ee' />
                     <Text style={styles.actionButtonText}>Suggestions</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
@@ -1244,7 +1240,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 2.4.9</Text>
+                <Text style={styles.version}>Version 3.0.1</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>
