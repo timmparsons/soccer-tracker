@@ -362,7 +362,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             userId={user.id}
             teamId={profile?.team_id}
             playerName={getDisplayName(profile)}
-            mode='competitive'
           />
         )}
         {!profile?.is_coach && !!profile?.team_id && !isPremium && (

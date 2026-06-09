@@ -352,6 +352,56 @@ export const useDailyTouchHistory = (userId: string | undefined) => {
   });
 };
 
+export interface WeeklyTouchBucket {
+  label: string; // e.g. "Apr 6"
+  touches: number;
+}
+
+export const useWeeklyTouchHistory = (userId: string | undefined) => {
+  return useQuery({
+    queryKey: ['weekly-touch-history', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<WeeklyTouchBucket[]> => {
+      if (!userId) throw new Error('No user ID');
+
+      const today = new Date();
+      // Go back 12 full weeks (84 days)
+      const from = new Date(today);
+      from.setDate(today.getDate() - 83);
+      const fromStr = getLocalDate(from);
+
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('date, touches_logged')
+        .eq('user_id', userId)
+        .gte('date', fromStr)
+        .order('date', { ascending: true });
+
+      // Bucket into Sun-Sat weeks
+      const byWeek: Record<string, number> = {};
+      for (const row of data || []) {
+        const d = new Date(row.date + 'T00:00:00');
+        const sunday = new Date(d);
+        sunday.setDate(d.getDate() - d.getDay());
+        const key = getLocalDate(sunday);
+        byWeek[key] = (byWeek[key] || 0) + row.touches_logged;
+      }
+
+      // Build 12 buckets (newest last)
+      const buckets: WeeklyTouchBucket[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() - today.getDay() - i * 7);
+        const key = getLocalDate(sunday);
+        const label = sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        buckets.push({ label, touches: byWeek[key] || 0 });
+      }
+      return buckets;
+    },
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['today-challenge', userId, getLocalDate()],

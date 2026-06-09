@@ -145,24 +145,36 @@ export function useSendChallenge() {
       challengedId,
       touchesTarget,
       timeLimitHours,
+      drillId,
+      challengerTimeSeconds,
     }: {
       challengerId: string;
       challengedId: string;
       touchesTarget: number;
       timeLimitHours: number;
       challengedPushToken?: string | null;
+      drillId?: string | null;
+      drillName?: string;
+      challengerTimeSeconds?: number | null;
+      teamId?: string | null;
     }) => {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const insert: Record<string, unknown> = {
+        challenger_id: challengerId,
+        challenged_id: challengedId,
+        touches_target: touchesTarget,
+        time_limit_hours: timeLimitHours,
+        status: 'pending',
+        expires_at: expiresAt,
+      };
+      if (drillId) insert.drill_id = drillId;
+      if (challengerTimeSeconds != null) {
+        insert.challenger_time_seconds = challengerTimeSeconds;
+        insert.challenger_completed_at = new Date().toISOString();
+      }
       const { data, error } = await supabase
         .from('player_challenges')
-        .insert({
-          challenger_id: challengerId,
-          challenged_id: challengedId,
-          touches_target: touchesTarget,
-          time_limit_hours: timeLimitHours,
-          status: 'pending',
-          expires_at: expiresAt,
-        })
+        .insert(insert)
         .select()
         .single();
       if (error) throw error;
@@ -170,12 +182,12 @@ export function useSendChallenge() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['player-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['feed-events'] });
       if (vars.challengedPushToken) {
-        sendPush(
-          vars.challengedPushToken,
-          '⚔️ New Challenge!',
-          `You've been challenged to ${vars.touchesTarget} touches. You have 24h to accept.`,
-        );
+        const msg = vars.drillName
+          ? `${vars.drillName} · ${vars.touchesTarget} touches. Beat their time!`
+          : `You've been challenged to ${vars.touchesTarget} touches. You have 24h to accept.`;
+        sendPush(vars.challengedPushToken, '⚔️ New Challenge!', msg);
       }
     },
   });

@@ -118,6 +118,7 @@ export function useCreateGroupChallenge() {
       timeLimitHours,
       participants,
       creatorName,
+      participantNames,
     }: {
       creatorId: string;
       teamId: string;
@@ -125,6 +126,7 @@ export function useCreateGroupChallenge() {
       timeLimitHours: number;
       participants: Array<{ id: string; push_token: string | null }>;
       creatorName: string;
+      participantNames: string[];
     }) => {
       const deadlineAt = new Date(Date.now() + timeLimitHours * 60 * 60 * 1000).toISOString();
 
@@ -150,10 +152,25 @@ export function useCreateGroupChallenge() {
 
       if (participantError) throw participantError;
 
+      // Post feed event — all participant names in payload
+      void (async () => {
+        await supabase.from('feed_events').insert({
+          team_id: teamId,
+          actor_id: creatorId,
+          event_type: 'group_challenge_sent',
+          payload: {
+            touches_target: touchesTarget,
+            participant_names: participantNames,
+            total_participants: allUserIds.length,
+          },
+        });
+      })();
+
       return { challenge, participants, creatorName, touchesTarget, timeLimitHours };
     },
     onSuccess: (result, vars) => {
       queryClient.invalidateQueries({ queryKey: ['group-challenges', vars.creatorId] });
+      queryClient.invalidateQueries({ queryKey: ['feed-events'] });
       result.participants.forEach((p) => {
         if (p.push_token) {
           sendPush(
@@ -176,12 +193,14 @@ export function useCompleteGroupChallenge() {
       timeTakenSeconds,
       touchesTarget,
       allParticipants,
+      teamId,
     }: {
       groupChallengeId: string;
       userId: string;
       timeTakenSeconds: number;
       touchesTarget: number;
       allParticipants: GroupChallengeParticipant[];
+      teamId: string;
     }) => {
       const now = new Date().toISOString();
 
@@ -216,12 +235,35 @@ export function useCompleteGroupChallenge() {
       });
       if (sessionError) throw sessionError;
 
+      // Rank = number of others who finished before me + 1
+      const rank = updatedParticipants.filter(
+        (p) => p.user_id !== userId && p.completed_at !== null,
+      ).length + 1;
+
+      const participantNames = allParticipants.map((p) => p.name ?? 'Unknown');
+
+      void (async () => {
+        await supabase.from('feed_events').insert({
+          team_id: teamId,
+          actor_id: userId,
+          event_type: 'group_challenge_completed',
+          payload: {
+            touches_target: touchesTarget,
+            time_seconds: timeTakenSeconds,
+            participant_names: participantNames,
+            total_participants: allParticipants.length,
+            rank,
+          },
+        });
+      })();
+
       return { allDone, allParticipants, userId };
     },
     onSuccess: (result, vars) => {
       queryClient.invalidateQueries({ queryKey: ['group-challenges', vars.userId] });
       queryClient.invalidateQueries({ queryKey: ['touch-tracking', vars.userId] });
       queryClient.invalidateQueries({ queryKey: ['recent-sessions', vars.userId] });
+      queryClient.invalidateQueries({ queryKey: ['feed-events'] });
       if (result.allDone) {
         result.allParticipants
           .filter((p) => p.user_id !== result.userId && p.push_token)

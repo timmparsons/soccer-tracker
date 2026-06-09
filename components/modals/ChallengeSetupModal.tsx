@@ -73,6 +73,7 @@ export default function ChallengeSetupModal({
         touchesTarget,
         timeLimitHours: selectedHours,
         participants: participants.map((p) => ({ id: p.id, push_token: p.push_token })),
+        participantNames: participants.map((p) => p.name),
       },
       {
         onSuccess: () => { onClose(); onSuccess?.(); },

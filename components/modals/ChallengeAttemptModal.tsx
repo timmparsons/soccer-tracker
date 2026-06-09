@@ -108,6 +108,7 @@ export default function ChallengeAttemptModal({
           timeTakenSeconds: elapsed,
           touchesTarget,
           allParticipants: groupChallenge!.participants,
+          teamId: groupChallenge!.team_id,
         },
         { onSuccess: () => onClose() },
       );

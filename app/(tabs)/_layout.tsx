@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs } from 'expo-router';
 import {
-  ChartSpline,
   House,
   Play,
   Settings,
   Swords,
+  Trophy,
 } from 'lucide-react-native';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -113,16 +113,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name='progress'
-          options={{
-            title: 'Progress',
-            tabBarIcon: ({ color, size }) => (
-              <ChartSpline size={size ?? 28} color={color} />
-            ),
-            href: profile?.is_coach ? null : '/progress',
-          }}
-        />
-        <Tabs.Screen
           name='train'
           options={{
             title: 'Train',
@@ -135,26 +125,42 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name='challenges'
+          options={{
+            title: 'Challenges',
+            tabBarIcon: ({ color, size }) => (
+              <Swords size={size ?? 28} color={color} />
+            ),
+            href: profile?.is_coach ? null : '/challenges',
+            tabBarBadge: challengeBadge,
+            tabBarBadgeStyle: { top: -6, right: -8 },
+          }}
+        />
+        <Tabs.Screen
           name='coach'
           options={{
             title: 'Coach',
             tabBarIcon: ({ color }) => (
               <Ionicons name='clipboard' size={24} color={color} />
             ),
-            // Always hidden from tab bar (index.tsx renders it)
             href: null,
           }}
         />
         <Tabs.Screen
           name='leaderboard'
           options={{
-            title: profile?.is_coach ? 'Leaderboard' : 'Compete',
+            title: 'Leaderboards',
             tabBarIcon: ({ color, size }) => (
-              <Swords size={size ?? 28} color={color} />
+              <Trophy size={size ?? 28} color={color} />
             ),
             href: '/leaderboard',
-            tabBarBadge: challengeBadge,
-            tabBarBadgeStyle: { top: -6, right: -8 },
+          }}
+        />
+        <Tabs.Screen
+          name='progress'
+          options={{
+            title: 'Progress',
+            href: null,
           }}
         />
         <Tabs.Screen

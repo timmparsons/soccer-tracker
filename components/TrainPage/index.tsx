@@ -1,1289 +1,1343 @@
 import PageHeader from '@/components/common/PageHeader';
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
-import { getDisplayName } from '@/utils/getDisplayName';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
-import TeamBadgeEarnedModal from '@/components/TeamBadgeEarnedModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import { useDrillPersonalBests, useSaveDrillAttempt } from '@/hooks/useDrillAttempts';
+import { useDrillLeaderboard } from '@/hooks/useDrillLeaderboard';
 import { useAllBadges } from '@/hooks/useBadges';
-import { getCurrentWeekChallenge } from '@/lib/teamBadges';
-import { getTimedRank } from '@/hooks/useTimedChallengeLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
-import { useSubscription } from '@/hooks/useSubscription';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useSendChallenge } from '@/hooks/usePlayerChallenges';
+import { useDrills, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 import { useUser } from '@/hooks/useUser';
-import { useQueryClient } from '@tanstack/react-query';
+import { checkAndAwardBadges } from '@/lib/checkBadges';
+import { checkAndAwardWeeklyChallenge } from '@/lib/checkTeamBadges';
+import { createFeedEvent } from '@/lib/feedEvents';
 import { supabase } from '@/lib/supabase';
-import { getLocalDate } from '@/utils/getLocalDate';
-import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatTime } from '@/utils/formatTime';
+import { getDisplayName } from '@/utils/getDisplayName';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
+  Image,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  Vibration,
   View,
 } from 'react-native';
 
+interface Drill {
+  id: string;
+  name: string;
+  difficulty_level: string;
+  description?: string | null;
+  video_url?: string | null;
+  thumbnail_url?: string | null;
+}
 
-const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
+const CATEGORY_NAMES: Record<string, string> = {
+  beginner: 'Ball Mastery',
+  intermediate: 'Turns & Control',
+  advanced: 'Skill Moves',
+};
+
+const TOUCH_TARGETS = [100, 200, 300, 500];
+
+// DRILL CARD
+
+function DrillCard({
+  drill,
+  personalBest,
+  teamRank,
+  onStart,
+}: {
+  drill: Drill;
+  personalBest: number | null;
+  teamRank: number | null;
+  onStart: () => void;
+}) {
+  return (
+    <View style={styles.drillCard}>
+      {drill.thumbnail_url ? (
+        <Image source={{ uri: drill.thumbnail_url }} style={styles.drillThumb} />
+      ) : (
+        <View style={[styles.drillThumb, styles.drillThumbPlaceholder]}>
+          <View style={styles.playTriangle} />
+        </View>
+      )}
+      <View style={styles.drillInfo}>
+        <Text style={styles.drillName}>{drill.name}</Text>
+        <View style={styles.drillMeta}>
+          {personalBest != null ? (
+            <Text style={styles.drillPb}>PB {formatTime(personalBest)}</Text>
+          ) : (
+            <Text style={styles.drillNoPb}>No attempts yet</Text>
+          )}
+          {teamRank != null && (
+            <Text style={styles.drillRank}>#{teamRank} on team</Text>
+          )}
+        </View>
+      </View>
+      <TouchableOpacity style={styles.startBtn} onPress={onStart} activeOpacity={0.8}>
+        <Text style={styles.startBtnText}>START</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// DRILL LEADERBOARD ENTRY (mini, used in detail view)
+
+function LeaderboardSnippet({
+  drillId,
+  target,
+  teamId,
+  userId,
+}: {
+  drillId: string;
+  target: number;
+  teamId: string | undefined;
+  userId: string;
+}) {
+  const { data: board = [] } = useDrillLeaderboard(drillId, target, teamId);
+  if (!board.length) return null;
+  const top3 = board.slice(0, 3);
+
+  return (
+    <View style={styles.miniBoard}>
+      {top3.map((e) => (
+        <View key={e.user_id} style={[styles.miniBoardRow, e.user_id === userId && styles.miniBoardRowMe]}>
+          <Text style={styles.miniBoardRank}>#{e.rank}</Text>
+          <Text style={styles.miniBoardName} numberOfLines={1}>{e.user_id === userId ? 'You' : e.name}</Text>
+          <Text style={styles.miniBoardTime}>{formatTime(e.best_time)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// MAIN COMPONENT
+
+type ModalStep = 'detail' | 'timer' | 'results' | 'challenge-picker';
 
 const TrainPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const { isPremium } = useSubscription();
-  const router = useRouter();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
-  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
+  const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: drills = [], isLoading: drillsLoading, refetch: refetchDrills } = useDrills();
+  const { data: personalBests = [], refetch: refetchPBs } = useDrillPersonalBests(user?.id);
+  const { data: allBadges = [] } = useAllBadges();
+  const { mutateAsync: saveDrillAttempt } = useSaveDrillAttempt();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Drill modal state
+  const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<number>(100);
+  const [modalStep, setModalStep] = useState<ModalStep>('detail');
+
   // Timer state
-  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const accumulatedMsRef = useRef<number>(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [showScoreModal, setShowScoreModal] = useState(false);
-  const [scoreInput, setScoreInput] = useState('');
-  const [submittingScore, setSubmittingScore] = useState(false);
-  const [freeTimerDuration, setFreeTimerDuration] = useState(0);
-  const [showTimerPicker, setShowTimerPicker] = useState(false);
-  const [challengeDrillId, setChallengeDrillId] = useState<
-    string | undefined
-  >();
-  const [challengeName, setChallengeName] = useState<string | undefined>();
-  const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
-  const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
-  const [timedRank, setTimedRank] = useState<number | null>(null);
-  const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
+  const [timerStarted, setTimerStarted] = useState(false);
+
+  // Results state
+  const [resultTime, setResultTime] = useState(0);
+  const [resultIsPb, setResultIsPb] = useState(false);
+  const [resultPrevBest, setResultPrevBest] = useState<number | null>(null);
+
+  // Legacy modals
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [showVinnie, setShowVinnie] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
-  const [earnedTeamBadgeIds, setEarnedTeamBadgeIds] = useState<string[]>([]);
-  const [showTeamBadgeModal, setShowTeamBadgeModal] = useState(false);
-  const { data: allBadges = [] } = useAllBadges();
-  const [customMinutes, setCustomMinutes] = useState('');
-  const [customSeconds, setCustomSeconds] = useState('');
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const whistleSoundRef = useRef<Audio.Sound | null>(null);
-  const endTimeRef = useRef<number>(0);
-  const pausedRemainingRef = useRef<number>(0);
-  const timerNotificationIdRef = useRef<string | null>(null);
-  const whistlePlayedRef = useRef<boolean>(false);
-
-  const TIMER_OPTIONS = [
-    { label: '30 sec', seconds: 30 },
-    { label: '1 min', seconds: 60 },
-    { label: '2 min', seconds: 120 },
-    { label: '3 min', seconds: 180 },
-    { label: '5 min', seconds: 300 },
-    { label: '10 min', seconds: 600 },
-  ];
-
-  // Load timer sounds + set up Android notification channel
-  useEffect(() => {
-    Audio.Sound.createAsync(
-      require('@/assets/sounds/fulltime_whistle.mp3'),
-    ).then(({ sound }) => {
-      whistleSoundRef.current = sound;
-    });
-
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('timer', {
-        name: 'Training Timer',
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: 'fulltime_whistle.wav',
-      }).catch(() => {});
-    }
-
-    return () => {
-      whistleSoundRef.current?.unloadAsync();
-    };
-  }, []);
-
-  const queryClient = useQueryClient();
-  const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
-  const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
-
-  const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetchDrills(), refetchPBs()]);
     setRefreshing(false);
-  }, [refetch]);
-
-  const handleSessionLogged = (includesChallengeInvalidation = false) => {
-    refetch();
-    if (includesChallengeInvalidation) {
-      queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['today-challenge'] });
-    }
-  };
-
-  // Timer logic
-  const startFreeTimer = useCallback(
-    (seconds: number) => {
-      setFreeTimerDuration(seconds);
-      setTimeRemaining(seconds);
-      pausedRemainingRef.current = seconds;
-      setShowTimerPicker(false);
-      setShowTimerModal(true);
-    },
-    [],
-  );
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setTimerRunning(false);
-  }, []);
-
-  const pauseResumeTimer = useCallback(() => {
-    setTimerRunning((prev) => !prev);
-  }, []);
-
-  const resetTimer = useCallback(() => {
-    stopTimer();
-    pausedRemainingRef.current = freeTimerDuration;
-    setTimeRemaining(freeTimerDuration);
-  }, [stopTimer, freeTimerDuration]);
+  }, [refetchDrills, refetchPBs]);
 
   useEffect(() => {
     if (timerRunning) {
-      // Compute absolute end time from current remaining — survives phone sleep
-      endTimeRef.current = Date.now() + pausedRemainingRef.current * 1000;
-      whistlePlayedRef.current = false;
-
-      // Schedule an OS-level notification so the alarm fires even if phone sleeps
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Time's up! ⚽",
-          body: 'Your training session is complete. Log your touches!',
-          // No sound here — in-app replayAsync() handles it when the app is foregrounded.
-          // The notification only fires if the phone sleeps mid-session (no in-app sound needed then).
-          ...(Platform.OS === 'android' && { channelId: 'timer' }),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(endTimeRef.current),
-        },
-      })
-        .then((id) => {
-          timerNotificationIdRef.current = id;
-        })
-        .catch(() => {});
-
       timerRef.current = setInterval(() => {
-        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
-        if (remaining <= 0) {
-          // Phone was awake — cancel the notification before it fires
-          if (timerNotificationIdRef.current) {
-            Notifications.cancelScheduledNotificationAsync(
-              timerNotificationIdRef.current,
-            ).catch(() => {});
-            timerNotificationIdRef.current = null;
-          }
-          pausedRemainingRef.current = 0;
-          setTimeRemaining(0);
-          stopTimer();
-          if (!whistlePlayedRef.current) {
-            whistlePlayedRef.current = true;
-            Vibration.vibrate([0, 500, 200, 500]);
-            whistleSoundRef.current?.replayAsync();
-          }
-          setShowTimerModal(false);
-          setShowScoreModal(true);
-        } else {
-          pausedRemainingRef.current = remaining;
-          setTimeRemaining(remaining);
-        }
-      }, 500);
+        setElapsedMs(accumulatedMsRef.current + (Date.now() - startTimeRef.current));
+      }, 100);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
     }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [timerRunning]);
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      // Cancel the scheduled notification when paused or stopped
-      if (timerNotificationIdRef.current) {
-        Notifications.cancelScheduledNotificationAsync(
-          timerNotificationIdRef.current,
-        ).catch(() => {});
-        timerNotificationIdRef.current = null;
-      }
-    };
-  }, [timerRunning, stopTimer]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleStartDrill = (drill: Drill) => {
+    setSelectedDrill(drill);
+    setSelectedTarget(100);
+    setModalStep('detail');
+    setElapsedMs(0);
+    setTimerRunning(false);
+    setTimerStarted(false);
   };
 
-  const handleSubmitScore = async () => {
-    const score = parseInt(scoreInput);
-    if (!score || score <= 0) {
-      Alert.alert('Invalid Score', 'Please enter a valid number');
-      return;
-    }
+  const handleBeginTimer = () => {
+    accumulatedMsRef.current = 0;
+    setElapsedMs(0);
+    setTimerRunning(false);
+    setTimerStarted(false);
+    setModalStep('timer');
+  };
 
-    if (!user?.id) return;
+  const handleStartTimer = () => {
+    accumulatedMsRef.current = 0;
+    startTimeRef.current = Date.now();
+    setTimerStarted(true);
+    setTimerRunning(true);
+  };
 
-    setSubmittingScore(true);
-
-    try {
-      const today = getLocalDate();
-      const durationMinutes = Math.ceil(freeTimerDuration / 60);
-
-      const { error } = await supabase.from('daily_sessions').insert({
-        user_id: user.id,
-        drill_id: timerChallengeDrillId ?? null,
-        touches_logged: score,
-        duration_minutes: durationMinutes,
-        is_timed_challenge: true,
-        challenge_duration_seconds: freeTimerDuration,
-        date: today,
-      });
-
-      if (error) throw error;
-
-      // Fetch global rank for this duration (fire-and-forget style)
-      getTimedRank(user.id, freeTimerDuration, score)
-        .then((rank) => setTimedRank(rank))
-        .catch(() => {});
-
-      const wasChallenge = !!timerChallengeDrillId;
-      setCelebrationTouches(score);
-      setScoreInput('');
-      setShowScoreModal(false);
-      setFreeTimerDuration(0);
-      setTimerChallengeDrillId(undefined);
-      setTimerChallengeName(undefined);
-      handleSessionLogged(wasChallenge);
-      setShowVinnieCelebration(true);
-    } catch (error) {
-      console.error('Error logging session:', error);
-      Alert.alert('Error', 'Failed to save your score. Please try again.');
-    } finally {
-      setSubmittingScore(false);
+  const handleToggleTimer = () => {
+    if (timerRunning) {
+      accumulatedMsRef.current = accumulatedMsRef.current + (Date.now() - startTimeRef.current);
+      setTimerRunning(false);
+    } else {
+      startTimeRef.current = Date.now();
+      setTimerRunning(true);
     }
   };
 
-  const cancelTimer = () => {
-    Alert.alert('Stop Timer?', 'Are you sure you want to stop the timer?', [
-      { text: 'Keep Going', style: 'cancel' },
-      {
-        text: 'Stop',
-        style: 'destructive',
-        onPress: () => {
-          stopTimer();
-          setShowTimerModal(false);
-          setTimeRemaining(0);
-          setTimerChallengeDrillId(undefined);
-          setTimerChallengeName(undefined);
-        },
-      },
-    ]);
+  const handleDone = () => {
+    const finalMs = timerRunning
+      ? accumulatedMsRef.current + (Date.now() - startTimeRef.current)
+      : elapsedMs;
+    setTimerRunning(false);
+    setElapsedMs(finalMs);
+    handleSaveAttempt(finalMs / 1000);
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#1f89ee' />
-      </View>
+  const handleSaveAttempt = async (timeSeconds: number) => {
+    if (!user?.id || !selectedDrill) return;
+
+    const prevBest = personalBests.find(
+      (pb) => pb.drill_id === selectedDrill.id && pb.touches_target === selectedTarget,
     );
-  }
 
-  const todayTouches = touchStats?.today_touches || 0;
-  const dailyTarget = touchStats?.daily_target || 1000;
-  const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
+    let isPersonalBest = false;
+    try {
+      const result = await saveDrillAttempt({
+        userId: user.id,
+        drillId: selectedDrill.id,
+        drillName: selectedDrill.name,
+        touchesTarget: selectedTarget,
+        timeSeconds,
+        teamId: profile?.team_id ?? null,
+      });
+      isPersonalBest = result.isPersonalBest;
+
+      if (touchStats && user.id) {
+        const newBadges = await checkAndAwardBadges(user.id, {
+          totalSessions: touchStats.total_sessions + 1,
+          totalTouches: touchStats.total_touches + selectedTarget,
+          currentStreak: touchStats.current_streak,
+          jugglesThisSession: null,
+          previousJugglePB: 0,
+          durationMinutes: Math.max(1, Math.round(timeSeconds / 60)),
+          sessionsThisWeek: touchStats.this_week_sessions + 1,
+          teamId: profile?.team_id ?? null,
+        });
+        if (newBadges.length) {
+          setEarnedBadges(newBadges);
+          setShowBadgeModal(true);
+          // Post feed events for each earned badge
+          if (profile?.team_id) {
+            const { data: badgeRows } = await supabase
+              .from('badges')
+              .select('id, name')
+              .in('id', newBadges);
+            for (const b of badgeRows ?? []) {
+              void createFeedEvent(profile.team_id, user.id, 'badge_earned', { badge_id: b.id, badge_name: b.name });
+            }
+          }
+        }
+        if (profile?.team_id) {
+          await checkAndAwardWeeklyChallenge(profile.team_id);
+        }
+      }
+    } catch {
+      // DB tables not migrated yet — still show results screen
+    }
+
+    setResultTime(timeSeconds);
+    setResultIsPb(isPersonalBest);
+    setResultPrevBest(prevBest?.best_time ?? null);
+    setModalStep('results');
+  };
+
+  const handleCloseModal = () => {
+    setSelectedDrill(null);
+    setElapsedMs(0);
+    setTimerRunning(false);
+    setTimerStarted(false);
+  };
+
+  const handleSessionLogged = () => {
+    queryClient.invalidateQueries({ queryKey: ['touch-tracking', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['challenge-stats'] });
+  };
+
+  // Group drills by difficulty
+  const categories = (['beginner', 'intermediate', 'advanced'] as const).filter(
+    (d) => drills.some((dr) => dr.difficulty_level === d),
+  );
+
+  const elapsedSeconds = elapsedMs / 1000;
+  const displayName = getDisplayName(profile);
 
   return (
     <View style={styles.container}>
       <PageHeader
-        title='Train'
-        showAvatar={true}
+        title="Train"
+        subtitle={displayName}
+        showAvatar
         avatarUrl={profile?.avatar_url}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor='#1f89ee'
-          />
-        }
-      >
-        {/* Today's Progress */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressSparkle}>
-            <Text style={styles.sparkleEmoji}>✨</Text>
-          </View>
-          <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
-          <View style={styles.touchesRow}>
-            <Text style={styles.touchesValue}>
-              {todayTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.touchesDivider}>/</Text>
-            <Text style={styles.touchesTarget}>
-              {dailyTarget.toLocaleString()}
-            </Text>
-          </View>
-          <Text style={styles.touchesLabel}>touches</Text>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-            />
-          </View>
-          <Text style={styles.progressPercentText}>
-            {Math.round(progressPercent)}% Complete
-          </Text>
+      {drillsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1f89ee" />
         </View>
-
-        {/* Action Buttons Row */}
-        <View style={styles.actionButtonsRow}>
-          {/* Log Session Button */}
-          <TouchableOpacity
-            style={styles.logButton}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='add-circle' size={24} color='#FFF' />
-            <Text style={styles.logButtonText}>LOG SESSION</Text>
-          </TouchableOpacity>
-
-          {/* Start Timer Button */}
-          <TouchableOpacity
-            style={styles.timerButton}
-            onPress={() => setShowTimerPicker(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='timer' size={24} color='#FFF' />
-            <Text style={styles.timerButtonText}>START TIMER</Text>
-          </TouchableOpacity>
-        </View>
-
-
-        {/* Coach Challenges */}
-        {user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-            mode='coach'
-          />
-        )}
-
-        {/* Drill Library */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => router.push('/(modals)/drill-library')}
-          activeOpacity={0.8}
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1f89ee" />
+          }
         >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='book' size={22} color='#1f89ee' />
-          </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
-
-        {/* TODAY'S CHALLENGE */}
-        {user?.id && (
-          <TodayChallengeCard
-            userId={user.id}
-            totalTouches={touchStats?.total_touches ?? 0}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              Alert.alert(
-                drillName,
-                'How do you want to log this challenge?',
-                [
-                  {
-                    text: 'Log Manually',
-                    onPress: () => {
-                      setChallengeDrillId(drillId);
-                      setChallengeDurationMinutes(durationMinutes);
-                      setChallengeName(drillName);
-                      setChallengeDifficulty(difficulty);
-                      setModalVisible(true);
-                    },
-                  },
-                  {
-                    text: 'Use Timer',
-                    onPress: () => {
-                      setTimerChallengeDrillId(drillId);
-                      setTimerChallengeName(drillName);
-                      setShowTimerPicker(true);
-                    },
-                  },
-                ],
-              );
-            }}
-          />
-        )}
-
-      </ScrollView>
-
-      {/* Timer Modal */}
-      <Modal
-        visible={showTimerModal}
-        animationType='fade'
-        transparent={false}
-        statusBarTranslucent={Platform.OS === 'android'}
-        hardwareAccelerated
-        onRequestClose={cancelTimer}
-      >
-        <View style={styles.timerModal}>
-          <View style={styles.timerContent}>
-            <Text style={styles.timerChallengeName}>{timerChallengeName ?? 'Free Practice'}</Text>
-            <Text style={styles.timerInstructions}>
-              {timerChallengeName ? `Timer for: ${timerChallengeName}` : 'Get as many touches as you can!'}
-            </Text>
-
-            <View style={styles.timerCircle}>
-              <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
-              <Text style={styles.timerSubtext}>
-                {timerRunning ? 'remaining' : 'paused'}
-              </Text>
-            </View>
-
-            <View style={styles.timerControlButtons}>
-              <TouchableOpacity
-                style={styles.timerSecondaryButton}
-                onPress={resetTimer}
-              >
-                <Ionicons
-                  name='refresh'
-                  size={20}
-                  color='rgba(255,255,255,0.8)'
-                />
-                <Text style={styles.timerSecondaryText}>Reset</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.timerStartPauseButton}
-                onPress={pauseResumeTimer}
-              >
-                <Ionicons
-                  name={timerRunning ? 'pause' : 'play'}
-                  size={30}
-                  color='#1f89ee'
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.timerSecondaryButton}
-                onPress={cancelTimer}
-              >
-                <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
-                <Text style={styles.timerSecondaryText}>Stop</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Score Entry Modal */}
-      <Modal
-        visible={showScoreModal}
-        animationType='slide'
-        transparent={true}
-        statusBarTranslucent={Platform.OS === 'android'}
-        hardwareAccelerated
-        onRequestClose={() => setShowScoreModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.scoreModalOverlay}>
-            <View style={styles.scoreModalContent}>
-              <View style={styles.scoreModalHeader}>
-                <Text style={styles.scoreModalEmoji}>🎉</Text>
-                <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
-                {timerChallengeName && (
-                  <View style={styles.scoreChallengeBanner}>
-                    <Text style={styles.scoreChallengeBannerText}>Challenge: {timerChallengeName}</Text>
-                  </View>
-                )}
-                <Text style={styles.scoreModalSubtitle}>
-                  How many touches did you get?
-                </Text>
-              </View>
-
-              <View style={styles.scoreInputContainer}>
-                <TextInput
-                  style={styles.scoreInput}
-                  placeholder='Enter your score'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  value={scoreInput}
-                  onChangeText={setScoreInput}
-                  autoFocus={true}
-                />
-              </View>
-
-              <View style={styles.scoreModalButtons}>
-                <TouchableOpacity
-                  style={styles.skipButton}
-                  onPress={() => {
-                    setShowScoreModal(false);
-                    setScoreInput('');
-                    setTimerChallengeDrillId(undefined);
-                    setTimerChallengeName(undefined);
-                  }}
-                >
-                  <Text style={styles.skipButtonText}>Skip</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.saveScoreButton,
-                    (!scoreInput || submittingScore) &&
-                      styles.saveScoreButtonDisabled,
-                  ]}
-                  onPress={handleSubmitScore}
-                  disabled={!scoreInput || submittingScore}
-                >
-                  {submittingScore ? (
-                    <ActivityIndicator size='small' color='#FFF' />
-                  ) : (
-                    <Text style={styles.saveScoreButtonText}>Save Score</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Timer Picker Modal */}
-      <Modal
-        visible={showTimerPicker}
-        animationType='slide'
-        transparent={true}
-        statusBarTranslucent={Platform.OS === 'android'}
-        hardwareAccelerated
-        onRequestClose={() => setShowTimerPicker(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.timerPickerOverlay}>
-            <View style={styles.timerPickerContent}>
-              <View style={styles.timerPickerHeader}>
-                <Text style={styles.timerPickerEmoji}>⏱️</Text>
-                <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
-                <Text style={styles.timerPickerSubtitle}>
-                  Choose a duration for your session
-                </Text>
-              </View>
-
-              <View style={styles.timerOptionsGrid}>
-                {TIMER_OPTIONS.map((option) => {
-                  const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
+          {categories.map((difficulty) => {
+            const categoryDrills = drills.filter((d) => d.difficulty_level === difficulty);
+            return (
+              <View key={difficulty} style={styles.categorySection}>
+                <Text style={styles.categoryTitle}>{CATEGORY_NAMES[difficulty]}</Text>
+                {categoryDrills.map((drill) => {
+                  const pb = personalBests.find(
+                    (p) => p.drill_id === drill.id && p.touches_target === 100,
+                  );
                   return (
-                    <TouchableOpacity
-                      key={option.seconds}
-                      style={[styles.timerOption, locked && styles.timerOptionLocked]}
-                      onPress={() => {
-                        if (locked) {
-                          router.push('/(modals)/paywall');
-                          return;
-                        }
-                        startFreeTimer(option.seconds);
-                      }}
-                    >
-                      {locked && (
-                        <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.7)' style={{ marginBottom: 2 }} />
-                      )}
-                      <Text style={styles.timerOptionText}>{option.label}</Text>
-                    </TouchableOpacity>
+                    <DrillCard
+                      key={drill.id}
+                      drill={drill}
+                      personalBest={pb?.best_time ?? null}
+                      teamRank={null}
+                      onStart={() => handleStartDrill(drill)}
+                    />
                   );
                 })}
               </View>
+            );
+          })}
 
-
-              <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
-                <View style={styles.customTimerLabelRow}>
-                  <Text style={styles.customTimerLabel}>Custom duration</Text>
-                  {!isPremium && (
-                    <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
-                      <Ionicons name='lock-closed' size={12} color='#78909C' />
-                      <Text style={styles.proLockText}>Pro</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.customTimerRow}>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customMinutes}
-                      onChangeText={setCustomMinutes}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>min</Text>
-                  </View>
-                  <Text style={styles.customTimerSeparator}>:</Text>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customSeconds}
-                      onChangeText={(v) => {
-                        const n = parseInt(v);
-                        if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
-                      }}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>sec</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.customTimerButton,
-                      (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
-                      !isPremium && styles.customTimerButtonDisabled,
-                    ]}
-                    onPress={() => {
-                      if (!isPremium) {
-                        router.push('/(modals)/paywall');
-                        return;
-                      }
-                      const mins = parseInt(customMinutes) || 0;
-                      const secs = parseInt(customSeconds) || 0;
-                      const total = mins * 60 + secs;
-                      if (total > 0) {
-                        startFreeTimer(total);
-                        setCustomMinutes('');
-                        setCustomSeconds('');
-                      }
-                    }}
-                    disabled={!isPremium && !customMinutes && !customSeconds}
-                  >
-                    <Text style={styles.customTimerButtonText}>Go</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.timerPickerCancel}
-                onPress={() => {
-                  setShowTimerPicker(false);
-                  setCustomMinutes('');
-                  setCustomSeconds('');
-                  setTimerChallengeDrillId(undefined);
-                  setTimerChallengeName(undefined);
-                }}
-              >
-                <Text style={styles.timerPickerCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Vinnie Celebration */}
-      <VinnieCelebrationModal
-        visible={showVinnieCelebration}
-        touchCount={celebrationTouches}
-        rankMessage={timedRank !== null ? `#${timedRank} globally this week` : undefined}
-        onClose={() => {
-          setShowVinnieCelebration(false);
-          setTimedRank(null);
-          if (earnedBadges.length) setShowBadgeModal(true);
-          else if (earnedTeamBadgeIds.length) setShowTeamBadgeModal(true);
-        }}
-      />
-
-      {/* Individual Badge Earned */}
-      <BadgeEarnedModal
-        visible={showBadgeModal}
-        badges={allBadges.filter((b) => earnedBadges.includes(b.id))}
-        onClose={() => {
-          setShowBadgeModal(false);
-          setEarnedBadges([]);
-          if (earnedTeamBadgeIds.length) setShowTeamBadgeModal(true);
-        }}
-      />
-
-      {/* Team Badge Earned */}
-      <TeamBadgeEarnedModal
-        visible={showTeamBadgeModal}
-        badges={earnedTeamBadgeIds.length > 0 ? [getCurrentWeekChallenge()] : []}
-        onClose={() => {
-          setShowTeamBadgeModal(false);
-          setEarnedTeamBadgeIds([]);
-        }}
-      />
-
-      {/* Log Session Modal */}
-      {user?.id && (
-        <LogSessionModal
-          visible={modalVisible}
-          onClose={() => {
-            setModalVisible(false);
-            setChallengeDrillId(undefined);
-            setChallengeName(undefined);
-            setChallengeDurationMinutes(undefined);
-            setChallengeDifficulty(undefined);
-          }}
-          userId={user.id}
-          onSuccess={handleSessionLogged}
-          challengeDrillId={challengeDrillId}
-          challengeName={challengeName}
-          challengeDurationMinutes={challengeDurationMinutes}
-          challengeDifficulty={challengeDifficulty}
-          teamId={profile?.team_id ?? null}
-          badgeContext={{
-            totalSessions: touchStats?.total_sessions ?? 0,
-            totalTouches: touchStats?.total_touches ?? 0,
-            currentStreak: touchStats?.current_streak ?? 0,
-            previousJugglePB: jugglePB,
-            sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
-            teamId: profile?.team_id ?? null,
-          }}
-          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds, earnedTeamIds) => {
-            setCelebrationTouches(tc);
-            setShowVinnieCelebration(true);
-            if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
-            if (earnedTeamIds?.length) setEarnedTeamBadgeIds(earnedTeamIds);
-          }}
-        />
+          <TouchableOpacity style={styles.logButton} onPress={() => setShowLogModal(true)}>
+            <Text style={styles.logButtonText}>Log Session Manually</Text>
+          </TouchableOpacity>
+        </ScrollView>
       )}
 
+      {/* DRILL MODAL (detail → timer → results) */}
+      <Modal
+        visible={!!selectedDrill}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContainer}>
+          {selectedDrill && modalStep === 'detail' && (
+            <DrillDetailView
+              drill={selectedDrill}
+              selectedTarget={selectedTarget}
+              onTargetChange={setSelectedTarget}
+              onStart={handleBeginTimer}
+              onClose={handleCloseModal}
+              userId={user?.id ?? ''}
+              teamId={profile?.team_id ?? undefined}
+              personalBests={personalBests}
+            />
+          )}
+
+          {selectedDrill && modalStep === 'timer' && (
+            <TimerView
+              drillName={selectedDrill.name}
+              touchesTarget={selectedTarget}
+              elapsedSeconds={elapsedSeconds}
+              isStarted={timerStarted}
+              isRunning={timerRunning}
+              onStart={handleStartTimer}
+              onToggle={handleToggleTimer}
+              onDone={handleDone}
+              onClose={handleCloseModal}
+            />
+          )}
+
+          {selectedDrill && modalStep === 'results' && (
+            <ResultsView
+              drillName={selectedDrill.name}
+              drillId={selectedDrill.id}
+              touchesTarget={selectedTarget}
+              timeSeconds={resultTime}
+              isPb={resultIsPb}
+              prevBest={resultPrevBest}
+              teamId={profile?.team_id ?? undefined}
+              userId={user?.id ?? ''}
+              onClose={handleCloseModal}
+              onTrainAgain={() => {
+                setElapsedMs(0);
+                setTimerRunning(false);
+                setTimerStarted(false);
+                setModalStep('detail');
+              }}
+              onChallenge={() => setModalStep('challenge-picker')}
+            />
+          )}
+
+          {selectedDrill && modalStep === 'challenge-picker' && (
+            <ChallengePickerView
+              drillId={selectedDrill.id}
+              drillName={selectedDrill.name}
+              touchesTarget={selectedTarget}
+              timeSeconds={resultTime}
+              teamId={profile?.team_id ?? ''}
+              currentUserId={user?.id ?? ''}
+              onBack={() => setModalStep('results')}
+              onDone={handleCloseModal}
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* LEGACY MODALS */}
+      <LogSessionModal
+        visible={showLogModal}
+        onClose={() => setShowLogModal(false)}
+        userId={user?.id ?? ''}
+        onSuccess={handleSessionLogged}
+        onSessionLogged={(_touches, _isChallenge, _drillName, badgeIds, teamBadgeIds) => {
+          if (badgeIds?.length) {
+            setEarnedBadges(badgeIds);
+            setShowBadgeModal(true);
+          }
+          setCelebrationTouches(_touches);
+          setShowVinnie(true);
+        }}
+        badgeContext={touchStats ? {
+          totalSessions: touchStats.total_sessions,
+          totalTouches: touchStats.total_touches,
+          currentStreak: touchStats.current_streak,
+          previousJugglePB: 0,
+          sessionsThisWeek: touchStats.this_week_sessions,
+          teamId: profile?.team_id ?? null,
+        } : undefined}
+        teamId={profile?.team_id ?? null}
+      />
+
+      <VinnieCelebrationModal
+        visible={showVinnie}
+        onClose={() => setShowVinnie(false)}
+        touchCount={celebrationTouches ?? 0}
+        streak={touchStats?.current_streak ?? 0}
+        isChallenge={false}
+      />
+
+      <BadgeEarnedModal
+        visible={showBadgeModal}
+        onClose={() => setShowBadgeModal(false)}
+        badges={allBadges.filter((b) => earnedBadges.includes(b.id))}
+      />
     </View>
   );
 };
 
+// SUB-VIEWS (defined outside main component to avoid re-renders)
+
+function DrillDetailView({
+  drill,
+  selectedTarget,
+  onTargetChange,
+  onStart,
+  onClose,
+  userId,
+  teamId,
+  personalBests,
+}: {
+  drill: Drill;
+  selectedTarget: number;
+  onTargetChange: (t: number) => void;
+  onStart: () => void;
+  onClose: () => void;
+  userId: string;
+  teamId: string | undefined;
+  personalBests: ReturnType<typeof useDrillPersonalBests>['data'];
+}) {
+  const pb = (personalBests ?? []).find(
+    (p) => p.drill_id === drill.id && p.touches_target === selectedTarget,
+  );
+
+  return (
+    <View style={styles.detailContainer}>
+      <View style={styles.detailHeader}>
+        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+          <Text style={styles.closeBtnText}>✕</Text>
+        </TouchableOpacity>
+        <Text style={styles.detailTitle}>{drill.name}</Text>
+        <View style={{ width: 32 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.detailScroll}>
+        {drill.thumbnail_url ? (
+          <Image source={{ uri: drill.thumbnail_url }} style={styles.detailImage} />
+        ) : (
+          <View style={[styles.detailImage, styles.detailImagePlaceholder]}>
+            <View style={styles.playTriangleLg} />
+          </View>
+        )}
+
+        {drill.description ? (
+          <Text style={styles.detailDescription}>{drill.description}</Text>
+        ) : null}
+
+        <Text style={styles.targetLabel}>Choose your target</Text>
+        <View style={styles.targetRow}>
+          {TOUCH_TARGETS.map((t) => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.targetBtn, selectedTarget === t && styles.targetBtnSelected]}
+              onPress={() => onTargetChange(t)}
+            >
+              <Text style={[styles.targetBtnText, selectedTarget === t && styles.targetBtnTextSelected]}>
+                {t}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {pb && (
+          <View style={styles.pbRow}>
+            <Text style={styles.pbLabel}>Your best</Text>
+            <Text style={styles.pbValue}>{formatTime(pb.best_time)}</Text>
+          </View>
+        )}
+
+        <LeaderboardSnippet
+          drillId={drill.id}
+          target={selectedTarget}
+          teamId={teamId}
+          userId={userId}
+        />
+      </ScrollView>
+
+      <View style={styles.detailFooter}>
+        <TouchableOpacity style={styles.bigStartBtn} onPress={onStart} activeOpacity={0.85}>
+          <Text style={styles.bigStartBtnText}>START DRILL</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function TimerView({
+  drillName,
+  touchesTarget,
+  elapsedSeconds,
+  isStarted,
+  isRunning,
+  onStart,
+  onToggle,
+  onDone,
+  onClose,
+}: {
+  drillName: string;
+  touchesTarget: number;
+  elapsedSeconds: number;
+  isStarted: boolean;
+  isRunning: boolean;
+  onStart: () => void;
+  onToggle: () => void;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const mins = Math.floor(elapsedSeconds / 60);
+  const secs = elapsedSeconds % 60;
+  const display = `${mins.toString().padStart(2, '0')}:${secs.toFixed(1).padStart(4, '0')}`;
+
+  return (
+    <View style={styles.timerContainer}>
+      <TouchableOpacity style={styles.timerCloseBtn} onPress={onClose} hitSlop={12}>
+        <Text style={styles.timerCloseBtnText}>✕</Text>
+      </TouchableOpacity>
+      <Text style={styles.timerDrillName}>{drillName}</Text>
+      <Text style={styles.timerTarget}>Complete {touchesTarget} touches</Text>
+      <Text style={[styles.timerDisplay, (!isStarted || !isRunning) && styles.timerDisplayPaused]}>
+        {display}
+      </Text>
+      {!isStarted ? (
+        <TouchableOpacity style={styles.startBtn} onPress={onStart} activeOpacity={0.85}>
+          <Text style={styles.startBtnText}>START</Text>
+        </TouchableOpacity>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={[styles.toggleBtn, isRunning ? styles.toggleBtnPause : styles.toggleBtnResume]}
+            onPress={onToggle}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.toggleBtnText}>{isRunning ? 'PAUSE' : 'RESUME'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.doneBtn} onPress={onDone} activeOpacity={0.85}>
+            <Text style={styles.doneBtnText}>DONE</Text>
+          </TouchableOpacity>
+        </>
+      )}
+      {!isStarted && (
+        <Text style={styles.timerReadyHint}>Get in position, then tap START</Text>
+      )}
+    </View>
+  );
+}
+
+function ResultsView({
+  drillName,
+  drillId,
+  touchesTarget,
+  timeSeconds,
+  isPb,
+  prevBest,
+  teamId,
+  userId,
+  onClose,
+  onTrainAgain,
+  onChallenge,
+}: {
+  drillName: string;
+  drillId: string;
+  touchesTarget: number;
+  timeSeconds: number;
+  isPb: boolean;
+  prevBest: number | null;
+  teamId: string | undefined;
+  userId: string;
+  onClose: () => void;
+  onTrainAgain: () => void;
+  onChallenge: () => void;
+}) {
+  const diff = prevBest != null && !isPb ? timeSeconds - prevBest : null;
+
+  return (
+    <View style={styles.resultsContainer}>
+      <Text style={styles.resultsTime}>{formatTime(timeSeconds)}</Text>
+
+      {isPb ? (
+        <View style={styles.pbBanner}>
+          <Text style={styles.pbBannerText}>NEW PERSONAL BEST</Text>
+        </View>
+      ) : diff != null ? (
+        <Text style={styles.resultsSlower}>{formatTime(diff)} slower than your best</Text>
+      ) : null}
+
+      {teamId && (
+        <View style={styles.resultsLeaderboard}>
+          <LeaderboardSnippet drillId={drillId} target={touchesTarget} teamId={teamId} userId={userId} />
+        </View>
+      )}
+
+      <Text style={styles.resultsShared}>Your result was shared with your team.</Text>
+
+      <View style={styles.resultsActions}>
+        <TouchableOpacity style={styles.resultsActionPrimary} onPress={onTrainAgain}>
+          <Text style={styles.resultsActionPrimaryText}>Train Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.resultsActionSecondary} onPress={onChallenge}>
+          <Text style={styles.resultsActionSecondaryText}>Challenge Teammate</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.resultsActionSecondary} onPress={onClose}>
+          <Text style={styles.resultsActionSecondaryText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function ChallengePickerView({
+  drillId,
+  drillName,
+  touchesTarget,
+  timeSeconds,
+  teamId,
+  currentUserId,
+  onBack,
+  onDone,
+}: {
+  drillId: string;
+  drillName: string;
+  touchesTarget: number;
+  timeSeconds: number;
+  teamId: string;
+  currentUserId: string;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const { data: players = [] } = useTeamPlayers(teamId);
+  const { mutateAsync: sendChallenge } = useSendChallenge();
+  const [sentIds, setSentIds] = useState<string[]>([]);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  const teammates = players.filter((p) => p.id !== currentUserId);
+
+  const handleChallenge = async (player: (typeof players)[number]) => {
+    if (sendingId || sentIds.includes(player.id)) return;
+    setSendingId(player.id);
+    try {
+      await sendChallenge({
+        challengerId: currentUserId,
+        challengedId: player.id,
+        touchesTarget,
+        timeLimitHours: 24,
+        drillId,
+        drillName,
+        challengerTimeSeconds: timeSeconds,
+        challengedPushToken: player.expo_push_token ?? null,
+      });
+      setSentIds((prev) => [...prev, player.id]);
+    } catch {
+      // ignore — show nothing on failure
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  return (
+    <View style={styles.pickerContainer}>
+      <View style={styles.pickerHeader}>
+        <TouchableOpacity onPress={onBack} style={styles.pickerBack}>
+          <Text style={styles.pickerBackText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.pickerTitle}>Challenge a Teammate</Text>
+      </View>
+      <View style={styles.pickerContext}>
+        <Text style={styles.pickerContextText}>
+          {drillName} · {touchesTarget} touches
+        </Text>
+        <Text style={styles.pickerContextTime}>{formatTime(timeSeconds)}</Text>
+      </View>
+      <ScrollView style={styles.pickerList} contentContainerStyle={{ paddingBottom: 32 }}>
+        {teammates.length === 0 && (
+          <Text style={styles.pickerEmpty}>No teammates to challenge yet.</Text>
+        )}
+        {teammates.map((player) => {
+          const isSent = sentIds.includes(player.id);
+          const isSending = sendingId === player.id;
+          const name = player.display_name || player.name || 'Teammate';
+          return (
+            <View key={player.id} style={styles.pickerRow}>
+              <Image
+                source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                style={styles.pickerAvatar}
+              />
+              <Text style={styles.pickerName} numberOfLines={1}>{name}</Text>
+              <TouchableOpacity
+                style={[styles.pickerBtn, isSent && styles.pickerBtnSent]}
+                onPress={() => handleChallenge(player)}
+                disabled={isSent || !!sendingId}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pickerBtnText, isSent && styles.pickerBtnTextSent]}>
+                  {isSending ? '...' : isSent ? 'Sent ✓' : 'Challenge'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+      </ScrollView>
+      {sentIds.length > 0 && (
+        <TouchableOpacity style={styles.pickerDoneBtn} onPress={onDone}>
+          <Text style={styles.pickerDoneBtnText}>Done</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default TrainPage;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 40,
+    gap: 20,
   },
 
-  // PROGRESS CARD
-  progressCard: {
-    backgroundColor: '#1f89ee',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#1f89ee',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-    position: 'relative',
+  // CATEGORY
+  categorySection: {
+    gap: 10,
   },
-  progressSparkle: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-  sparkleEmoji: {
-    fontSize: 22,
-  },
-  progressLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.75)',
-    marginBottom: 8,
-  },
-  touchesRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 2,
-  },
-  touchesValue: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#FFF',
-    lineHeight: 40,
-  },
-  touchesDivider: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 6,
-  },
-  touchesTarget: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  touchesLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 12,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#FFD54F',
-    borderRadius: 6,
-  },
-  progressPercentText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFD54F',
-    textAlign: 'center',
-  },
-
-  // ACTION BUTTONS ROW
-  actionButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  logButton: {
-    flex: 1,
-    backgroundColor: '#1f89ee',
-    borderRadius: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#1f89ee',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  logButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  timerButton: {
-    flex: 1,
-    backgroundColor: '#ffb724',
-    borderRadius: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#ffb724',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  timerButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-
-  // DRILL LIBRARY TILE
-  libraryCard: {
-    backgroundColor: '#FFF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  libraryIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E8F4FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  libraryTextBlock: {
-    flex: 1,
-  },
-  libraryTitle: {
+  categoryTitle: {
     fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+
+  // DRILL CARD
+  drillCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  drillThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+  },
+  drillThumbPlaceholder: {
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 9,
+    borderBottomWidth: 9,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#1f89ee',
+    marginLeft: 3,
+  },
+  playTriangleLg: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 20,
+    borderBottomWidth: 20,
+    borderLeftWidth: 36,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#1f89ee',
+    marginLeft: 6,
+    opacity: 0.7,
+  },
+  drillInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  drillName: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
   },
-  librarySubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#78909C',
-    marginTop: 2,
-  },
-
-  // TIMER MODAL
-  timerModal: {
-    flex: 1,
-    backgroundColor: '#1f89ee',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timerContent: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  timerChallengeName: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  timerInstructions: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 40,
-  },
-  timerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 40,
-    borderWidth: 6,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  timerText: {
-    fontSize: 64,
-    fontWeight: '900',
-    color: '#FFF',
-  },
-  timerSubtext: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 8,
-  },
-  timerControlButtons: {
+  drillMeta: {
     flexDirection: 'row',
+    gap: 10,
     alignItems: 'center',
-    gap: 24,
   },
-  timerStartPauseButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  timerSecondaryButton: {
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  timerSecondaryText: {
+  drillPb: {
     fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: '#1f89ee',
   },
-
-  // SCORE MODAL
-  scoreModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  scoreModalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 28,
-    width: '100%',
-    maxWidth: 340,
-  },
-  scoreModalHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  scoreModalEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  scoreModalTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  scoreModalSubtitle: {
-    fontSize: 16,
+  drillNoPb: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#78909C',
-    textAlign: 'center',
+    color: '#B0BEC5',
   },
-  scoreChallengeBanner: {
-    backgroundColor: '#E8F5E9',
+  drillRank: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  startBtn: {
+    backgroundColor: '#1f89ee',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 8,
-    marginBottom: 4,
-    borderLeftWidth: 3,
-    borderLeftColor: '#31af4d',
-    alignSelf: 'stretch',
   },
-  scoreChallengeBannerText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#388E3C',
-  },
-  scoreInputContainer: {
-    marginBottom: 24,
-  },
-  scoreInput: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 16,
-    padding: 18,
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    textAlign: 'center',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-  },
-  scoreModalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  skipButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: '#F5F7FA',
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  saveScoreButton: {
-    flex: 2,
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: '#4CAF50',
-    alignItems: 'center',
-  },
-  saveScoreButtonDisabled: {
-    backgroundColor: '#B0BEC5',
-  },
-  saveScoreButtonText: {
-    fontSize: 16,
+  startBtnText: {
+    fontSize: 12,
     fontWeight: '900',
-    color: '#FFF',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 
-  // TIMER PICKER MODAL
-  timerPickerOverlay: {
+  // LOG BUTTON
+  logButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  logButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+    textDecorationLine: 'underline',
+  },
+
+  // MODAL
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#F5F7FA',
+  },
+
+  // DETAIL VIEW
+  detailContainer: {
+    flex: 1,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F7FA',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
-  timerPickerContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 28,
-    width: '100%',
-    maxWidth: 340,
+  closeBtnText: {
+    fontSize: 16,
+    color: '#78909C',
+    fontWeight: '700',
   },
-  timerPickerHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  timerPickerEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  timerPickerTitle: {
-    fontSize: 24,
+  detailTitle: {
+    fontSize: 18,
     fontWeight: '900',
     color: '#1a1a2e',
-    marginBottom: 8,
   },
-  timerPickerSubtitle: {
-    fontSize: 15,
+  detailScroll: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 100,
+  },
+  detailImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+  },
+  detailImagePlaceholder: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailDescription: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#78909C',
-    textAlign: 'center',
+    lineHeight: 20,
   },
-  timerOptionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  timerOption: {
-    width: '30%',
-    backgroundColor: '#4CAF50',
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  timerOptionText: {
-    fontSize: 16,
+  targetLabel: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#FFF',
+    color: '#1a1a2e',
   },
-  customTimerSection: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 20,
-    marginBottom: 16,
-  },
-  timerOptionLocked: {
-    backgroundColor: '#B0BEC5',
-    shadowColor: '#B0BEC5',
-  },
-  customTimerSectionLocked: {
-    opacity: 0.6,
-  },
-  customTimerLabelRow: {
+  targetRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
   },
-  proLockBadge: {
-    flexDirection: 'row',
+  targetBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F5F7FA',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
-  proLockText: {
-    fontSize: 11,
+  targetBtnSelected: {
+    borderColor: '#1f89ee',
+    backgroundColor: '#EFF6FF',
+  },
+  targetBtnText: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#78909C',
   },
-  customTimerLabel: {
+  targetBtnTextSelected: {
+    color: '#1f89ee',
+  },
+  pbRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+  },
+  pbLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: '#78909C',
   },
-  customTimerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  pbValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1f89ee',
+  },
+  detailFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: '#F5F7FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  bigStartBtn: {
+    backgroundColor: '#31af4d',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  bigStartBtnText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+
+  // LEADERBOARD SNIPPET
+  miniBoard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
     gap: 8,
   },
-  customTimerInputGroup: {
-    flex: 1,
+  miniBoardRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
-  customTimerInput: {
-    width: '100%',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    textAlign: 'center',
+  miniBoardRowMe: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    marginHorizontal: -6,
   },
-  customTimerUnit: {
-    fontSize: 12,
+  miniBoardRank: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#78909C',
+    width: 28,
   },
-  customTimerSeparator: {
-    fontSize: 22,
-    fontWeight: '900',
+  miniBoardName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
     color: '#1a1a2e',
-    marginTop: 14,
-    marginBottom: 18,
   },
-  customTimerButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-    borderRadius: 14,
+  miniBoardTime: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1f89ee',
+  },
+
+  // TIMER VIEW
+  timerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    padding: 24,
+    gap: 16,
   },
-  customTimerButtonDisabled: {
-    backgroundColor: '#B0BEC5',
+  timerDrillName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
-  customTimerButtonText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFF',
+  timerTarget: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
   },
-  timerPickerCancel: {
+  timerDisplay: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    fontVariant: ['tabular-nums'],
+  },
+  timerDisplayPaused: {
+    color: 'rgba(255,255,255,0.4)',
+  },
+  toggleBtn: {
+    borderRadius: 20,
+    paddingHorizontal: 48,
+    paddingVertical: 18,
+    marginTop: 16,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  toggleBtnPause: {
+    backgroundColor: '#ffb724',
+  },
+  toggleBtnResume: {
+    backgroundColor: '#1f89ee',
+  },
+  toggleBtnText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  doneBtn: {
+    backgroundColor: '#31af4d',
+    borderRadius: 16,
+    paddingHorizontal: 36,
+    paddingVertical: 14,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  doneBtnText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+
+  // RESULTS VIEW
+  resultsContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 16,
+    backgroundColor: '#F5F7FA',
+  },
+  resultsTime: {
+    fontSize: 64,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    letterSpacing: -2,
+  },
+  pbBanner: {
+    backgroundColor: '#31af4d',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  pbBannerText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  resultsSlower: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  resultsLeaderboard: {
+    width: '100%',
+  },
+  resultsShared: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B0BEC5',
+  },
+  resultsActions: {
+    width: '100%',
+    gap: 10,
+    marginTop: 8,
+  },
+  resultsActionPrimary: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  timerPickerCancelText: {
+  resultsActionPrimaryText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  resultsActionSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  resultsActionSecondaryText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+
+  // TIMER — close button
+  timerCloseBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerCloseBtnText: {
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // TIMER — ready hint
+  timerReadyHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.35)',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  // CHALLENGE PICKER
+  pickerContainer: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  pickerBack: {
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  pickerBackText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  pickerContext: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerContextText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#78909C',
+  },
+  pickerContextTime: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1f89ee',
+  },
+  pickerList: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  pickerEmpty: {
+    textAlign: 'center',
+    color: '#78909C',
+    fontWeight: '600',
+    fontSize: 14,
+    paddingTop: 32,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pickerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E5E7EB',
+  },
+  pickerName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  pickerBtn: {
+    backgroundColor: '#1f89ee',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  pickerBtnSent: {
+    backgroundColor: '#31af4d',
+  },
+  pickerBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  pickerBtnTextSent: {
+    color: '#FFFFFF',
+  },
+  pickerDoneBtn: {
+    margin: 16,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  pickerDoneBtnText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 });

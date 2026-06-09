@@ -15,7 +15,7 @@ import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoinTransactions } from '@/hooks/useCoinTransactions';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useJugglingRecord, useTouchTracking, useWeeklyTouchHistory } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
@@ -45,6 +45,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { Dimensions } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const GOAL_DISPLAY: Record<string, { emoji: string; label: string }> = {
   firsttouch: { emoji: '🎯', label: 'First touch' },
@@ -529,6 +533,7 @@ const ProfilePage = () => {
     (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
+  const { data: weeklyHistory = [] } = useWeeklyTouchHistory(user?.id);
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
     profile?.total_xp ?? 0,
   );
@@ -715,6 +720,40 @@ const ProfilePage = () => {
                   )}
                 </View>
               )}
+            </View>
+          )}
+
+          {/* 12-week activity chart — players only */}
+          {!profile?.is_coach && weeklyHistory.length > 0 && (
+            <View style={styles.chartCard}>
+              <Text style={styles.chartTitle}>Past 12 Weeks</Text>
+              <Text style={styles.chartSubtitle}>touches per week</Text>
+              <LineChart
+                data={{
+                  labels: weeklyHistory
+                    .filter((_, i) => i % 3 === 0)
+                    .map((b) => b.label.split(' ')[0]),
+                  datasets: [{ data: weeklyHistory.map((b) => b.touches) }],
+                }}
+                width={SCREEN_WIDTH - 32}
+                height={180}
+                chartConfig={{
+                  backgroundColor: '#FFFFFF',
+                  backgroundGradientFrom: '#FFFFFF',
+                  backgroundGradientTo: '#FFFFFF',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(31,137,238,${opacity})`,
+                  labelColor: () => '#B0BEC5',
+                  propsForDots: { r: '4', strokeWidth: '2', stroke: '#1f89ee' },
+                  propsForBackgroundLines: { stroke: '#F0F4F8', strokeDasharray: '' },
+                }}
+                bezier
+                withShadow={false}
+                withInnerLines={true}
+                withOuterLines={false}
+                withVerticalLines={false}
+                style={{ borderRadius: 16, marginLeft: -8 }}
+              />
             </View>
           )}
 
@@ -2744,5 +2783,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  chartCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingTop: 20,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    paddingHorizontal: 12,
+  },
+  chartSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B0BEC5',
+    paddingHorizontal: 12,
+    marginTop: 2,
+    marginBottom: 4,
   },
 });
