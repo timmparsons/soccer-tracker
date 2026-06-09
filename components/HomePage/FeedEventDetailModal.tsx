@@ -339,9 +339,11 @@ export default function FeedEventDetailModal({ event, teamId, onClose }: Props) 
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={[styles.accentBar, { backgroundColor: color }]} />
 
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
-            <Ionicons name='close' size={20} color='#6B7280' />
-          </TouchableOpacity>
+          <View style={styles.closeRow}>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
+              <Ionicons name='close' size={20} color='#6B7280' />
+            </TouchableOpacity>
+          </View>
 
           {/* Actor header */}
           <View style={styles.actorRow}>
@@ -384,24 +386,26 @@ const styles = StyleSheet.create({
     height: 4,
     width: '100%',
   },
+  closeRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
   closeBtn: {
-    position: 'absolute',
-    top: 16,
-    right: 20,
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
   actorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 8,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',

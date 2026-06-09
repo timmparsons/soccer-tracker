@@ -135,7 +135,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
             title='Group Challenge'
             subtitle={subtitle}
             urgent={iNeedToGo}
-            defaultOpen={iNeedToGo}
+            defaultOpen={false}
           >
             <GroupChallengeDetail
               gc={gc}

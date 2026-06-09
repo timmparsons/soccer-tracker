@@ -1,16 +1,12 @@
 import PageHeader from '@/components/common/PageHeader';
-import { useDrillLeaderboard } from '@/hooks/useDrillLeaderboard';
+import { useDrillLeaderboard, type DrillLeaderboardEntry } from '@/hooks/useDrillLeaderboard';
 import { useFeedEvents, FeedEvent } from '@/hooks/useFeedEvents';
 import { useProfile } from '@/hooks/useProfile';
 import { useTeam } from '@/hooks/useTeam';
-import { useTouchTracking, useChallengeStats } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useWeeklyChallenge, getWeeklyChallengeDaysRemaining } from '@/hooks/useWeeklyChallenge';
-import { useDrillPersonalBests } from '@/hooks/useDrillAttempts';
-import { useChallengeOfTheDay, type ChallengeOfTheDay } from '@/hooks/useChallengeOfTheDay';
 import { formatTime } from '@/utils/formatTime';
 import { getDisplayName } from '@/utils/getDisplayName';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -159,19 +155,18 @@ function FeedCard({ event, currentUserId, onPress }: { event: FeedEvent; current
 
 function WeeklyChallengeCard({
   challenge,
-  myBestTime,
-  leaderTime,
-  myRank,
+  leaderboard,
+  currentUserId,
 }: {
   challenge: NonNullable<ReturnType<typeof useWeeklyChallenge>['data']>;
-  myBestTime: number | null;
-  leaderTime: number | null;
-  myRank: number | null;
+  leaderboard: DrillLeaderboardEntry[];
+  currentUserId: string;
 }) {
   const daysLeft = getWeeklyChallengeDaysRemaining(challenge.end_date);
+  const displayEntries = leaderboard.slice(0, 5);
 
   return (
-    <Pressable style={styles.weeklyCard} onPress={() => router.push('/(tabs)/train')}>
+    <Pressable style={styles.weeklyCard} onPress={() => router.push({ pathname: '/(tabs)/train', params: { drillId: challenge.drill_id } })}>
       <View style={styles.weeklyHeader}>
         <Text style={styles.weeklyLabel}>WEEKLY CHALLENGE</Text>
         <Text style={styles.weeklyDays}>
@@ -181,92 +176,30 @@ function WeeklyChallengeCard({
       <Text style={styles.weeklyDrill}>
         {challenge.touches_target} {challenge.drill_name}
       </Text>
-      <View style={styles.weeklyStats}>
-        {myRank != null && (
-          <View style={styles.weeklyStat}>
-            <Text style={styles.weeklyStatValue}>#{myRank}</Text>
-            <Text style={styles.weeklyStatLabel}>Your Rank</Text>
-          </View>
-        )}
-        {myBestTime != null && (
-          <View style={styles.weeklyStat}>
-            <Text style={styles.weeklyStatValue}>{formatTime(myBestTime)}</Text>
-            <Text style={styles.weeklyStatLabel}>Your Best</Text>
-          </View>
-        )}
-        {leaderTime != null && (
-          <View style={styles.weeklyStat}>
-            <Text style={[styles.weeklyStatValue, { color: '#ffb724' }]}>{formatTime(leaderTime)}</Text>
-            <Text style={styles.weeklyStatLabel}>Leader</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.weeklyButton}>
-        <Text style={styles.weeklyButtonText}>TRAIN NOW</Text>
-      </View>
-    </Pressable>
-  );
-}
-
-// CHALLENGE OF THE DAY CARD
-
-function ChallengeOfTheDayCard({
-  cotd,
-  currentUserId,
-}: {
-  cotd: ChallengeOfTheDay;
-  currentUserId: string;
-}) {
-  const top3 = cotd.entries.slice(0, 3);
-  const completed = cotd.entries.length;
-  const iDone = cotd.entries.some((e) => e.user_id === currentUserId);
-
-  return (
-    <Pressable
-      style={styles.cotdCard}
-      onPress={() => router.push({ pathname: '/(tabs)/train', params: { drillId: cotd.drill_id } })}
-    >
-      <View style={styles.cotdHeader}>
-        <Text style={styles.cotdLabel}>CHALLENGE OF THE DAY</Text>
-        {iDone && (
-          <View style={styles.cotdDonePill}>
-            <Text style={styles.cotdDoneText}>Done ✓</Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.cotdDrill}>
-        {cotd.touches_target} {cotd.drill_name}
-      </Text>
-
-      {top3.length > 0 ? (
-        <View style={styles.cotdBoard}>
-          {top3.map((e, i) => {
-            const isMe = e.user_id === currentUserId;
-            const medals = ['🥇', '🥈', '🥉'];
+      {displayEntries.length > 0 ? (
+        <View style={styles.weeklyLeaderboard}>
+          {displayEntries.map((entry) => {
+            const isMe = entry.user_id === currentUserId;
             return (
-              <View key={e.user_id} style={styles.cotdRow}>
-                <Text style={styles.cotdMedal}>{medals[i]}</Text>
-                <Image
-                  source={{ uri: e.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                  style={styles.cotdAvatar}
-                />
-                <Text style={[styles.cotdName, isMe && styles.cotdNameMe]} numberOfLines={1}>
-                  {isMe ? 'You' : e.name}
+              <View key={entry.user_id} style={[styles.weeklyRow, isMe && styles.weeklyRowMe]}>
+                <Text style={[styles.weeklyRowRank, isMe && styles.weeklyRowValueMe]}>
+                  {entry.rank}.
                 </Text>
-                <Text style={styles.cotdTime}>{formatTime(e.time_seconds)}</Text>
+                <Text style={[styles.weeklyRowName, isMe && styles.weeklyRowValueMe]} numberOfLines={1}>
+                  {isMe ? 'You' : entry.name}
+                </Text>
+                <Text style={[styles.weeklyRowTime, isMe && styles.weeklyRowValueMe]}>
+                  {formatTime(entry.best_time)}
+                </Text>
               </View>
             );
           })}
-          {completed > 3 && (
-            <Text style={styles.cotdMore}>+{completed - 3} more completed</Text>
-          )}
         </View>
       ) : (
-        <Text style={styles.cotdEmpty}>No one has done it yet — be first!</Text>
+        <Text style={styles.weeklyEmpty}>No times yet — be first!</Text>
       )}
-
-      <View style={styles.cotdButton}>
-        <Text style={styles.cotdButtonText}>{iDone ? 'BEAT YOUR TIME' : 'TRAIN NOW'}</Text>
+      <View style={styles.weeklyButton}>
+        <Text style={styles.weeklyButtonText}>TRAIN NOW</Text>
       </View>
     </Pressable>
   );
@@ -278,12 +211,8 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const { data: team } = useTeam(user?.id);
-  const { data: stats } = useTouchTracking(user?.id);
   const { data: feedEvents = [], isLoading, refetch: refetchFeed } = useFeedEvents(profile?.team_id ?? undefined);
   const { data: weeklyChallenge } = useWeeklyChallenge(profile?.team_id ?? undefined);
-  const { data: cotd } = useChallengeOfTheDay(profile?.team_id ?? undefined);
-  const { data: challengeStats } = useChallengeStats(user?.id, cotd?.drill_id ?? null);
-  const { data: personalBests = [] } = useDrillPersonalBests(user?.id);
   const { data: leaderboard = [] } = useDrillLeaderboard(
     weeklyChallenge?.drill_id,
     weeklyChallenge?.touches_target ?? 100,
@@ -299,67 +228,22 @@ const HomeScreen = () => {
       refetchProfile(),
       refetchFeed(),
       queryClient.invalidateQueries({ queryKey: ['weekly-challenge'] }),
-      queryClient.invalidateQueries({ queryKey: ['touch-tracking', user?.id] }),
+      queryClient.invalidateQueries({ queryKey: ['drill-leaderboard'] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchFeed, queryClient, user?.id]);
-
-  const myPB = weeklyChallenge
-    ? personalBests.find(
-        (pb) =>
-          pb.drill_id === weeklyChallenge.drill_id &&
-          pb.touches_target === weeklyChallenge.touches_target,
-      )
-    : null;
-
-  const myRank = weeklyChallenge && user?.id
-    ? (leaderboard.find((e) => e.user_id === user.id)?.rank ?? null)
-    : null;
-
-  const leaderEntry = leaderboard[0];
+  }, [refetchProfile, refetchFeed, queryClient]);
 
   const displayName = getDisplayName(profile);
   const teamName = team?.name;
   const firstName = displayName.split(' ')[0];
 
-  const todayPct = stats
-    ? Math.min((stats.today_touches / stats.daily_target) * 100, 100)
-    : 0;
-
   const listHeader = (
     <>
-      <View style={styles.statsRow}>
-        <LinearGradient colors={['#1f89ee', '#0d5fba']} style={styles.statCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={styles.statIcon}>⚡</Text>
-          <Text style={styles.statValue}>{stats?.today_touches ?? 0}</Text>
-          <Text style={styles.statUnit}>touches</Text>
-          <Text style={styles.statLabel}>TODAY</Text>
-          <View style={styles.statBar}>
-            <View style={[styles.statBarFill, { width: `${todayPct}%` as any }]} />
-          </View>
-        </LinearGradient>
-        <LinearGradient colors={['#ff6b35', '#ffb724']} style={styles.statCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={styles.statIcon}>🔥</Text>
-          <Text style={styles.statValue}>{challengeStats?.challengeStreak ?? 0}</Text>
-          <Text style={styles.statUnit}>days</Text>
-          <Text style={styles.statLabel}>CHALLENGE STREAK</Text>
-        </LinearGradient>
-        <LinearGradient colors={['#7c3aed', '#1f89ee']} style={styles.statCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={styles.statIcon}>⭐</Text>
-          <Text style={styles.statValue}>{stats?.this_week_touches ?? 0}</Text>
-          <Text style={styles.statUnit}>touches</Text>
-          <Text style={styles.statLabel}>THIS WEEK</Text>
-        </LinearGradient>
-      </View>
-      {cotd && (
-        <ChallengeOfTheDayCard cotd={cotd} currentUserId={user?.id ?? ''} />
-      )}
       {weeklyChallenge && (
         <WeeklyChallengeCard
           challenge={weeklyChallenge}
-          myBestTime={myPB?.best_time ?? null}
-          leaderTime={leaderEntry?.best_time ?? null}
-          myRank={myRank}
+          leaderboard={leaderboard}
+          currentUserId={user?.id ?? ''}
         />
       )}
       {feedEvents.length > 0 && (
@@ -445,157 +329,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  // CHALLENGE OF THE DAY
-  cotdCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  cotdHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  cotdLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ffb724',
-    letterSpacing: 1,
-  },
-  cotdDonePill: {
-    backgroundColor: 'rgba(49,175,77,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  cotdDoneText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#31af4d',
-  },
-  cotdDrill: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginBottom: 14,
-  },
-  cotdBoard: {
-    gap: 8,
-    marginBottom: 14,
-  },
-  cotdRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cotdMedal: {
-    fontSize: 14,
-    width: 20,
-  },
-  cotdAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#2d2d4e',
-  },
-  cotdName: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.85)',
-  },
-  cotdNameMe: {
-    color: '#1f89ee',
-  },
-  cotdTime: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  cotdMore: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
-    marginTop: 2,
-  },
-  cotdEmpty: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
-    marginBottom: 14,
-  },
-  cotdButton: {
-    backgroundColor: '#ffb724',
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  cotdButtonText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    letterSpacing: 0.5,
-  },
-
-  // STATS ROW
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 20,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    gap: 1,
-  },
-  statIcon: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  statUnit: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statBar: {
-    marginTop: 10,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  statBarFill: {
-    height: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-  },
-
   // WEEKLY CHALLENGE
   weeklyCard: {
     backgroundColor: '#1f89ee',
@@ -631,23 +364,46 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 14,
   },
-  weeklyStats: {
-    flexDirection: 'row',
-    gap: 20,
+  weeklyLeaderboard: {
+    gap: 6,
     marginBottom: 14,
   },
-  weeklyStat: {
-    gap: 2,
+  weeklyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
-  weeklyStatValue: {
-    fontSize: 18,
+  weeklyRowMe: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  weeklyRowRank: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    width: 20,
+  },
+  weeklyRowName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+  },
+  weeklyRowTime: {
+    fontSize: 14,
     fontWeight: '900',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  weeklyRowValueMe: {
     color: '#FFFFFF',
   },
-  weeklyStatLabel: {
-    fontSize: 11,
+  weeklyEmpty: {
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 14,
   },
   weeklyButton: {
     backgroundColor: '#FFFFFF',

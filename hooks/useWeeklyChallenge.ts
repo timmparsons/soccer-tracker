@@ -32,6 +32,37 @@ export function getWeeklyChallengeDaysRemaining(endDate: string): number {
   return Math.max(0, diff);
 }
 
+function weekOfYear(): number {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  return Math.floor((now.getTime() - start.getTime()) / (7 * 86_400_000));
+}
+
+async function autoPickWeeklyChallenge(teamId: string): Promise<WeeklyChallenge | null> {
+  const { data: drills } = await supabase
+    .from('drills')
+    .select('id, name')
+    .in('difficulty_level', ['beginner', 'intermediate'])
+    .order('name', { ascending: true });
+
+  if (!drills?.length) return null;
+
+  const drill = drills[weekOfYear() % drills.length] as { id: string; name: string };
+  const { start, end } = getWeekBounds();
+
+  return {
+    id: `auto-${drill.id}`,
+    team_id: teamId,
+    coach_id: '',
+    drill_id: drill.id,
+    drill_name: drill.name,
+    touches_target: 100,
+    start_date: start,
+    end_date: end,
+    created_at: new Date().toISOString(),
+  };
+}
+
 export function useWeeklyChallenge(teamId: string | undefined) {
   return useQuery({
     queryKey: ['weekly-challenge', teamId],
@@ -49,21 +80,24 @@ export function useWeeklyChallenge(teamId: string | undefined) {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data) return null;
+      if (!error && data) {
+        const row = data as Record<string, unknown>;
+        const drill = row.drills as Record<string, string> | null;
+        return {
+          id: row.id as string,
+          team_id: row.team_id as string,
+          coach_id: row.coach_id as string,
+          drill_id: row.drill_id as string,
+          drill_name: drill?.name ?? 'Drill',
+          touches_target: row.touches_target as number,
+          start_date: row.start_date as string,
+          end_date: row.end_date as string,
+          created_at: row.created_at as string,
+        };
+      }
 
-      const row = data as Record<string, unknown>;
-      const drill = row.drills as Record<string, string> | null;
-      return {
-        id: row.id as string,
-        team_id: row.team_id as string,
-        coach_id: row.coach_id as string,
-        drill_id: row.drill_id as string,
-        drill_name: drill?.name ?? 'Drill',
-        touches_target: row.touches_target as number,
-        start_date: row.start_date as string,
-        end_date: row.end_date as string,
-        created_at: row.created_at as string,
-      };
+      // No coach-set challenge this week — auto-pick a drill by week number
+      return autoPickWeeklyChallenge(teamId!);
     },
   });
 }

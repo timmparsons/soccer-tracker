@@ -4,6 +4,7 @@ import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useDrillPersonalBests, useSaveDrillAttempt } from '@/hooks/useDrillAttempts';
 import { useDrillLeaderboard } from '@/hooks/useDrillLeaderboard';
+import { useChallengeOfTheDay, type ChallengeOfTheDay } from '@/hooks/useChallengeOfTheDay';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSendChallenge } from '@/hooks/usePlayerChallenges';
@@ -23,6 +24,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -120,6 +122,157 @@ function LeaderboardSnippet({
   );
 }
 
+// CHALLENGE OF THE DAY CARD
+
+const trainStyles = StyleSheet.create({
+  cotdCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  cotdHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  cotdLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffb724',
+    letterSpacing: 1,
+  },
+  cotdDonePill: {
+    backgroundColor: 'rgba(49,175,77,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  cotdDoneText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#31af4d',
+  },
+  cotdDrill: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 14,
+  },
+  cotdBoard: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  cotdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cotdMedal: {
+    fontSize: 14,
+    width: 20,
+  },
+  cotdAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#2d2d4e',
+  },
+  cotdName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+  },
+  cotdNameMe: {
+    color: '#1f89ee',
+  },
+  cotdTime: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+  },
+  cotdEmpty: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    marginBottom: 14,
+  },
+  cotdButton: {
+    backgroundColor: '#ffb724',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  cotdButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    letterSpacing: 0.5,
+  },
+});
+
+function CotdCard({
+  cotd,
+  currentUserId,
+  onTrain,
+}: {
+  cotd: ChallengeOfTheDay;
+  currentUserId: string;
+  onTrain: () => void;
+}) {
+  const top3 = cotd.entries.slice(0, 3);
+  const iDone = cotd.entries.some((e) => e.user_id === currentUserId);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  return (
+    <Pressable style={trainStyles.cotdCard} onPress={onTrain}>
+      <View style={trainStyles.cotdHeader}>
+        <Text style={trainStyles.cotdLabel}>CHALLENGE OF THE DAY</Text>
+        {iDone && (
+          <View style={trainStyles.cotdDonePill}>
+            <Text style={trainStyles.cotdDoneText}>Done</Text>
+          </View>
+        )}
+      </View>
+      <Text style={trainStyles.cotdDrill}>
+        {cotd.touches_target} {cotd.drill_name}
+      </Text>
+      {top3.length > 0 ? (
+        <View style={trainStyles.cotdBoard}>
+          {top3.map((e, i) => {
+            const isMe = e.user_id === currentUserId;
+            return (
+              <View key={e.user_id} style={trainStyles.cotdRow}>
+                <Text style={trainStyles.cotdMedal}>{medals[i]}</Text>
+                <Image
+                  source={{ uri: e.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                  style={trainStyles.cotdAvatar}
+                />
+                <Text style={[trainStyles.cotdName, isMe && trainStyles.cotdNameMe]} numberOfLines={1}>
+                  {isMe ? 'You' : e.name}
+                </Text>
+                <Text style={trainStyles.cotdTime}>{formatTime(e.time_seconds)}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <Text style={trainStyles.cotdEmpty}>No one has done it yet — be first!</Text>
+      )}
+      <View style={trainStyles.cotdButton}>
+        <Text style={trainStyles.cotdButtonText}>{iDone ? 'BEAT YOUR TIME' : 'TRAIN NOW'}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 // MAIN COMPONENT
 
 type ModalStep = 'detail' | 'timer' | 'results' | 'challenge-picker';
@@ -132,6 +285,7 @@ const TrainPage = () => {
   const { data: personalBests = [], refetch: refetchPBs } = useDrillPersonalBests(user?.id);
   const { data: allBadges = [] } = useAllBadges();
   const { mutateAsync: saveDrillAttempt } = useSaveDrillAttempt();
+  const { data: cotd } = useChallengeOfTheDay(profile?.team_id ?? undefined);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -203,6 +357,19 @@ const TrainPage = () => {
     setElapsedMs(0);
     setTimerRunning(false);
     setTimerStarted(false);
+  };
+
+  const handleCotdTrain = () => {
+    if (!cotd) return;
+    const drill = drills.find((d) => d.id === cotd.drill_id);
+    if (!drill) return;
+    setSelectedDrill(drill);
+    setSelectedTarget(cotd.touches_target);
+    accumulatedMsRef.current = 0;
+    setElapsedMs(0);
+    setTimerRunning(false);
+    setTimerStarted(false);
+    setModalStep('timer');
   };
 
   const handleBeginTimer = () => {
@@ -337,6 +504,13 @@ const TrainPage = () => {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1f89ee" />
           }
         >
+          {cotd && (
+            <CotdCard
+              cotd={cotd}
+              currentUserId={user?.id ?? ''}
+              onTrain={handleCotdTrain}
+            />
+          )}
           {categories.map((difficulty) => {
             const categoryDrills = drills.filter((d) => d.difficulty_level === difficulty);
             return (
