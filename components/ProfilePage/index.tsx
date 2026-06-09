@@ -693,27 +693,31 @@ const ProfilePage = () => {
                   </Text>
                   <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
                 </View>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeStatValue}>
+                    {touchStats?.current_streak ?? 0}
+                  </Text>
+                  <Text style={styles.lifetimeStatLabel}>Day Streak</Text>
+                </View>
               </View>
               {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
                 <View style={styles.challengeRecordRow}>
-                  <View style={styles.lifetimeStat}>
+                  <View style={styles.lifetimeStatInline}>
                     <Text style={styles.lifetimeStatValue}>
                       {challengeRecord.wins}
                     </Text>
                     <Text style={styles.lifetimeStatLabel}>Challenge Wins</Text>
                   </View>
-                  <View style={styles.lifetimeStat}>
+                  <View style={styles.lifetimeStatInline}>
                     <Text style={styles.lifetimeStatValue}>
                       {challengeRecord.losses}
                     </Text>
-                    <Text style={styles.lifetimeStatLabel}>
-                      Challenge Losses
-                    </Text>
+                    <Text style={styles.lifetimeStatLabel}>Challenge Losses</Text>
                   </View>
                   {challengeRecord.streak > 0 && (
-                    <View style={styles.lifetimeStat}>
+                    <View style={styles.lifetimeStatInline}>
                       <Text style={styles.lifetimeStatValue}>
-                        🔥 {challengeRecord.streak}
+                        {challengeRecord.streak}
                       </Text>
                       <Text style={styles.lifetimeStatLabel}>Win Streak</Text>
                     </View>
@@ -1811,7 +1815,8 @@ const styles = StyleSheet.create({
   },
   lifetimeGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    rowGap: 16,
   },
   challengeRecordRow: {
     flexDirection: 'row',
@@ -1820,8 +1825,14 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    flexWrap: 'nowrap',
   },
   lifetimeStat: {
+    width: '50%',
+    alignItems: 'center',
+  },
+  lifetimeStatInline: {
+    flex: 1,
     alignItems: 'center',
   },
   lifetimeStatValue: {

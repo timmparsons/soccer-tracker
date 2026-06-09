@@ -18,16 +18,13 @@ export function useTeamPlayers(teamId: string | undefined) {
       if (profileError) throw profileError;
       if (!profiles || profiles.length === 0) return [];
 
-      // Get juggle stats for all these players
+      // Get juggle stats for all these players (non-fatal if missing)
       const userIds = profiles.map((p) => p.id);
-      const { data: juggles, error: jugglesError } = await supabase
+      const { data: juggles } = await supabase
         .from('juggles')
         .select('*')
         .in('user_id', userIds);
 
-      if (jugglesError) throw jugglesError;
-
-      // Combine profiles with their stats
       return profiles.map((profile) => ({
         ...profile,
         stats: juggles?.find((j) => j.user_id === profile.id) || null,

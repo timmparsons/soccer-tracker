@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { formatTime } from '@/utils/formatTime';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -158,6 +159,25 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+
+  const { drillId: paramDrillId } = useLocalSearchParams<{ drillId?: string }>();
+  const autoOpenedRef = useRef<string | null>(null);
+
+  // Auto-open timer when navigated from Challenge of the Day
+  useEffect(() => {
+    if (!paramDrillId || !drills.length) return;
+    if (autoOpenedRef.current === paramDrillId) return;
+    const drill = drills.find((d) => d.id === paramDrillId);
+    if (!drill) return;
+    autoOpenedRef.current = paramDrillId;
+    setSelectedDrill(drill);
+    setSelectedTarget(100);
+    accumulatedMsRef.current = 0;
+    setElapsedMs(0);
+    setTimerRunning(false);
+    setTimerStarted(false);
+    setModalStep('timer');
+  }, [paramDrillId, drills]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
