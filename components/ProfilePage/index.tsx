@@ -20,7 +20,6 @@ import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
-import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -534,13 +533,6 @@ const ProfilePage = () => {
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
   const { data: weeklyHistory = [] } = useWeeklyTouchHistory(user?.id);
-  const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
-    profile?.total_xp ?? 0,
-  );
-  const rankName = getRankName(level);
-  const rankBadge = getRankBadge(rankName);
-  const xpProgress = xpForNextLevel > 0 ? xpIntoLevel / xpForNextLevel : 1;
-
   return (
     <>
       <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
@@ -609,46 +601,6 @@ const ProfilePage = () => {
                   <Ionicons name='pencil' size={11} color='#1f89ee' />
                 </TouchableOpacity>
               )}
-            {!profile?.is_coach && (
-              <>
-                <View style={styles.xpPill}>
-                  <Text style={styles.xpPillText}>
-                    Level {level} · {rankName} ·{' '}
-                    {(profile?.total_xp ?? 0).toLocaleString()} XP
-                  </Text>
-                </View>
-
-                {/* XP Progress Bar */}
-                <View style={styles.xpProgressContainer}>
-                  <View style={styles.xpProgressTrack}>
-                    <View
-                      style={[
-                        styles.xpProgressFill,
-                        { width: `${Math.round(xpProgress * 100)}%` },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.xpProgressLabel}>
-                    {xpIntoLevel.toLocaleString()} /{' '}
-                    {xpForNextLevel.toLocaleString()} XP to Level {level + 1}
-                  </Text>
-                </View>
-
-                {/* View Roadmap button */}
-                <TouchableOpacity
-                  style={styles.roadmapButton}
-                  onPress={() =>
-                    router.push(`/(modals)/roadmap?level=${level}`)
-                  }
-                >
-                  <Ionicons name='map-outline' size={16} color='#ffb724' />
-                  <Text style={styles.roadmapButtonText}>
-                    View Level Roadmap
-                  </Text>
-                  <Ionicons name='chevron-forward' size={16} color='#ffb724' />
-                </TouchableOpacity>
-              </>
-            )}
 
             {/* Daily Target Badge - only for players */}
             {!profile?.is_coach && (

@@ -277,7 +277,7 @@ function ChallengeOfTheDayCard({
 const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { data: team } = useTeam(profile?.team_id ?? undefined);
+  const { data: team } = useTeam(user?.id);
   const { data: stats } = useTouchTracking(user?.id);
   const { data: feedEvents = [], isLoading, refetch: refetchFeed } = useFeedEvents(profile?.team_id ?? undefined);
   const { data: weeklyChallenge } = useWeeklyChallenge(profile?.team_id ?? undefined);
@@ -320,9 +320,6 @@ const HomeScreen = () => {
 
   const displayName = getDisplayName(profile);
   const teamName = team?.name;
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = displayName.split(' ')[0];
 
   const todayPct = stats
@@ -331,7 +328,6 @@ const HomeScreen = () => {
 
   const listHeader = (
     <>
-      <Text style={styles.greeting}>{greeting}, {firstName}</Text>
       <View style={styles.statsRow}>
         <LinearGradient colors={['#1f89ee', '#0d5fba']} style={styles.statCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
           <Text style={styles.statIcon}>⚡</Text>
@@ -389,8 +385,8 @@ const HomeScreen = () => {
     return (
       <View style={styles.container}>
         <PageHeader
-          title={displayName}
-          subtitle={teamName}
+          title={`Hey ${firstName}!`}
+          subtitle={teamName ?? 'Ready to get some touches?'}
           showAvatar
           avatarUrl={profile?.avatar_url}
         />
@@ -404,8 +400,8 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       <PageHeader
-        title={displayName}
-        subtitle={teamName}
+        title={`Hey ${firstName}!`}
+        subtitle={teamName ?? 'Ready to get some touches?'}
         showAvatar
         avatarUrl={profile?.avatar_url}
       />
@@ -447,13 +443,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
     paddingBottom: 32,
-  },
-
-  greeting: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 14,
   },
 
   // CHALLENGE OF THE DAY
