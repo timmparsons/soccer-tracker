@@ -1,5 +1,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
+import GameSpeedModal from '@/components/modals/GameSpeedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useDrillPersonalBests, useSaveDrillAttempt } from '@/hooks/useDrillAttempts';
@@ -76,7 +77,7 @@ function DrillCard({
         <Text style={styles.drillName}>{drill.name}</Text>
         <View style={styles.drillMeta}>
           {personalBest != null ? (
-            <Text style={styles.drillPb}>PB {formatTime(personalBest)}</Text>
+            <Text style={styles.drillPb}>Best: {formatTime(personalBest)} · 100 touches</Text>
           ) : (
             <Text style={styles.drillNoPb}>No attempts yet</Text>
           )}
@@ -309,6 +310,7 @@ const TrainPage = () => {
 
   // Legacy modals
   const [showLogModal, setShowLogModal] = useState(false);
+  const [showGameSpeed, setShowGameSpeed] = useState(false);
   const [showVinnie, setShowVinnie] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
@@ -534,6 +536,19 @@ const TrainPage = () => {
             );
           })}
 
+          {/* GAME SPEED DRIBBLE */}
+          <View style={styles.gameSpeedCard}>
+            <View style={styles.gameSpeedInfo}>
+              <Text style={styles.gameSpeedTitle}>Game Speed Dribble</Text>
+              <Text style={styles.gameSpeedSubtitle}>
+                Dribble at full game pace. Count realistic touches in 1, 2, or 3 minutes.
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.gameSpeedBtn} onPress={() => setShowGameSpeed(true)} activeOpacity={0.8}>
+              <Text style={styles.gameSpeedBtnText}>START</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity style={styles.logButton} onPress={() => setShowLogModal(true)}>
             <Text style={styles.logButtonText}>Log Session Manually</Text>
           </TouchableOpacity>
@@ -648,6 +663,12 @@ const TrainPage = () => {
         visible={showBadgeModal}
         onClose={() => setShowBadgeModal(false)}
         badges={allBadges.filter((b) => earnedBadges.includes(b.id))}
+      />
+
+      <GameSpeedModal
+        visible={showGameSpeed}
+        userId={user?.id ?? ''}
+        onClose={() => setShowGameSpeed(false)}
       />
     </View>
   );
@@ -1080,6 +1101,47 @@ const styles = StyleSheet.create({
   },
 
   // LOG BUTTON
+  gameSpeedCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  gameSpeedInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  gameSpeedTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  gameSpeedSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: 17,
+  },
+  gameSpeedBtn: {
+    backgroundColor: '#ffb724',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  gameSpeedBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    letterSpacing: 0.5,
+  },
   logButton: {
     alignSelf: 'center',
     paddingVertical: 12,
