@@ -2,7 +2,6 @@ import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
-import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useTeamBadges } from '@/hooks/useTeamBadges';
 import TeamBadgeProgressStrip from '@/components/TeamBadgeProgress';
@@ -13,7 +12,17 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { FOCUS_LABELS, FocusKey } from '@/lib/trainingFocus';
 import { getLocalDate } from '@/utils/getLocalDate';
+
+const FOCUS_COLORS: Record<string, string> = {
+  ball_mastery: '#1f89ee',
+  turning: '#F59E0B',
+  juggling: '#8B5CF6',
+  one_v_one: '#31af4d',
+  dribbling: '#EF4444',
+  free_play: '#78909C',
+};
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -52,6 +61,7 @@ interface PlayerStats {
   week_tpm: number;
   days_active_this_week: number;
   best_juggle: number;
+  today_focus: string | null;
 }
 
 export default function CoachDashboard() {
@@ -79,7 +89,7 @@ export default function CoachDashboard() {
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalTab, setModalTab] = useState<'log' | 'edit' | 'coins'>('log');
+  const [modalTab, setModalTab] = useState<'log' | 'edit'>('log');
   const [touchCount, setTouchCount] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -88,9 +98,6 @@ export default function CoachDashboard() {
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
-  const [coinAmount, setCoinAmount] = useState('');
-  const [coinNote, setCoinNote] = useState('');
-  const [awardingCoins, setAwardingCoins] = useState(false);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
 
   // Edit session state
@@ -165,7 +172,7 @@ export default function CoachDashboard() {
           players.map((player) =>
             supabase
               .from('daily_sessions')
-              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
+              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count, training_focus')
               .eq('user_id', player.id)
               .gte('date', streakWindowStartStr)
               .order('date', { ascending: false })
@@ -186,6 +193,7 @@ export default function CoachDashboard() {
         date: string;
         created_at: string;
         juggle_count: number | null;
+        training_focus: string | null;
       };
       const sessionsByPlayer: Record<string, SessionRow[]> = {};
       for (const { playerId, sessions } of playerSessionResults) {
@@ -218,6 +226,11 @@ export default function CoachDashboard() {
           const jc = s.juggle_count ?? 0;
           return jc > max ? jc : max;
         }, 0);
+
+        const todayFocus = allSessions
+          .filter((s) => s.date === today && s.training_focus)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          ?.training_focus ?? null;
 
         // Calculate streak (fixed: use local midnight to avoid UTC offset issues)
         const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
@@ -255,6 +268,7 @@ export default function CoachDashboard() {
           week_tpm: weekTpm,
           days_active_this_week: Math.min(uniqueWeekDays, 7),
           best_juggle: bestJuggle,
+          today_focus: todayFocus,
         };
       });
 
@@ -313,10 +327,6 @@ export default function CoachDashboard() {
     profile?.team_id ?? undefined,
     tipsParams,
   );
-
-  // Coin hooks — must be before early returns
-  const { mutateAsync: awardCoins } = useAwardCoins();
-  const { data: selectedPlayerCoins = 0 } = usePlayerCoins(selectedPlayer?.id);
 
   // Coach challenges — must be before early returns
   const { data: coachChallenges = [] } = useCoachChallenges(user?.id);
@@ -381,6 +391,8 @@ export default function CoachDashboard() {
   // Top performer this week
   const topPerformer = teamPlayers && teamPlayers.length > 0 ? teamPlayers[0] : null;
 
+  const streakCount = teamPlayers?.filter((p) => p.current_streak > 0).length || 0;
+
   // Handle opening modal for a player
   const handlePlayerPress = (player: PlayerStats) => {
     setSelectedPlayer(player);
@@ -390,49 +402,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
-    setCoinAmount('');
-    setCoinNote('');
     setModalVisible(true);
-  };
-
-  const handleAwardCoins = async () => {
-    const amount = parseInt(coinAmount, 10);
-    if (!amount || amount <= 0 || isNaN(amount)) {
-      Alert.alert('Invalid Amount', 'Please enter a valid coin amount.');
-      return;
-    }
-    if (!selectedPlayer || !user?.id) return;
-
-    setAwardingCoins(true);
-    try {
-      const { data: playerProfile } = await supabase
-        .from('profiles')
-        .select('expo_push_token')
-        .eq('id', selectedPlayer.id)
-        .single();
-
-      await awardCoins({
-        coachId: user.id,
-        playerId: selectedPlayer.id,
-        amount,
-        note: coinNote.trim() || null,
-        playerPushToken: playerProfile?.expo_push_token ?? null,
-        playerName: selectedPlayer.display_name || selectedPlayer.name,
-      });
-
-      Alert.alert(
-        'Points Awarded! 🏆',
-        `${amount} Champion Point${amount !== 1 ? 's' : ''} sent to ${selectedPlayer.display_name || selectedPlayer.name}`
-      );
-      setCoinAmount('');
-      setCoinNote('');
-      setModalVisible(false);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      Alert.alert('Error', msg || 'Failed to award coins. Please try again.');
-    } finally {
-      setAwardingCoins(false);
-    }
   };
 
   const handleEditPress = (player: PlayerStats) => {
@@ -492,8 +462,6 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
-    setCoinAmount('');
-    setCoinNote('');
   };
 
   // Handle saving touches for a player
@@ -643,6 +611,47 @@ export default function CoachDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        {/* Team pulse card */}
+        {totalPlayers > 0 && (
+          <View style={styles.pulseCard}>
+            <Text style={styles.pulseSectionLabel}>TODAY</Text>
+            <View style={styles.pulseRow}>
+              <View style={styles.pulseStat}>
+                <Text style={styles.pulseStatValue}>{activePlayers}/{totalPlayers}</Text>
+                <Text style={styles.pulseStatLabel}>trained</Text>
+              </View>
+              <View style={styles.pulseDividerV} />
+              <View style={styles.pulseStat}>
+                <Text style={styles.pulseStatValue}>{playersHitTarget}</Text>
+                <Text style={styles.pulseStatLabel}>hit target</Text>
+              </View>
+              <View style={styles.pulseDividerV} />
+              <View style={styles.pulseStat}>
+                <Text style={styles.pulseStatValue}>{teamTodayTouches.toLocaleString()}</Text>
+                <Text style={styles.pulseStatLabel}>touches</Text>
+              </View>
+            </View>
+            <View style={styles.pulseDividerH} />
+            <Text style={styles.pulseSectionLabel}>THIS WEEK</Text>
+            <View style={styles.pulseRow}>
+              <View style={styles.pulseStat}>
+                <Text style={styles.pulseStatValue}>{teamWeekTouches.toLocaleString()}</Text>
+                <Text style={styles.pulseStatLabel}>total touches</Text>
+              </View>
+              <View style={styles.pulseDividerV} />
+              <View style={styles.pulseStat}>
+                <Text style={styles.pulseStatValue}>{avgWeekTouches.toLocaleString()}</Text>
+                <Text style={styles.pulseStatLabel}>avg / player</Text>
+              </View>
+              <View style={styles.pulseDividerV} />
+              <View style={styles.pulseStat}>
+                <Text style={[styles.pulseStatValue, streakCount > 0 && { color: '#D97706' }]}>{streakCount}</Text>
+                <Text style={styles.pulseStatLabel}>on a streak</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Week training grid */}
         {sortedPlayers.length > 0 && (
           <WeekGrid
@@ -700,6 +709,17 @@ export default function CoachDashboard() {
           />
         )}
 
+        {/* Top performer strip */}
+        {topPerformer && topPerformer.week_touches > 0 && (
+          <View style={styles.topStrip}>
+            <Ionicons name="trophy" size={14} color="#D97706" />
+            <Text style={styles.topStripText} numberOfLines={1}>
+              <Text style={styles.topStripName}>{topPerformer.display_name || topPerformer.name}</Text>
+              {' leads this week — '}{topPerformer.week_touches.toLocaleString()} touches
+            </Text>
+          </View>
+        )}
+
         {/* Player list */}
         <View style={styles.playerList}>
           {sortedPlayers.length > 0 ? (
@@ -725,28 +745,37 @@ export default function CoachDashboard() {
                       ]}
                     />
 
-                    {/* Name + week pips */}
+                    {/* Name + week pips + focus */}
                     <View style={styles.playerInfo}>
                       <Text style={styles.playerName} numberOfLines={1}>
                         {player.display_name || player.name || 'Player'}
                       </Text>
-                      <View style={styles.weekPips}>
-                        {weekDates.map((date) => {
-                          const touches = sessionMap[player.id]?.[date]?.touches ?? 0;
-                          return (
-                            <View
-                              key={date}
-                              style={[
-                                styles.pip,
-                                touches >= player.daily_target
-                                  ? styles.pipHit
-                                  : touches > 0
-                                  ? styles.pipTrained
-                                  : styles.pipEmpty,
-                              ]}
-                            />
-                          );
-                        })}
+                      <View style={styles.playerSubRow}>
+                        <View style={styles.weekPips}>
+                          {weekDates.map((date) => {
+                            const touches = sessionMap[player.id]?.[date]?.touches ?? 0;
+                            return (
+                              <View
+                                key={date}
+                                style={[
+                                  styles.pip,
+                                  touches >= player.daily_target
+                                    ? styles.pipHit
+                                    : touches > 0
+                                    ? styles.pipTrained
+                                    : styles.pipEmpty,
+                                ]}
+                              />
+                            );
+                          })}
+                        </View>
+                        {player.today_focus && (
+                          <View style={[styles.focusPill, { backgroundColor: FOCUS_COLORS[player.today_focus] + '20' }]}>
+                            <Text style={[styles.focusPillText, { color: FOCUS_COLORS[player.today_focus] }]}>
+                              {FOCUS_LABELS[player.today_focus as FocusKey]}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
@@ -2025,31 +2054,95 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // Coins tab
-  coinBalanceRow: {
+  // Team pulse card
+  pulseCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  pulseSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  pulseRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  pulseStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pulseStatValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  pulseStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  pulseDividerV: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#F0F4F8',
+  },
+  pulseDividerH: {
+    height: 1,
+    backgroundColor: '#F0F4F8',
+    marginVertical: 14,
+  },
+
+  // Top performer strip
+  topStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     backgroundColor: '#FFF9E6',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: '#FDE68A',
   },
-  coinBalanceLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+  topStripText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
     color: '#92400E',
   },
-  coinBalanceValue: {
-    fontSize: 18,
+  topStripName: {
     fontWeight: '900',
     color: '#92400E',
   },
-  inputMultiline: {
-    height: 72,
-    textAlignVertical: 'top',
+
+  // Focus pill
+  playerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
   },
+  focusPill: {
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  focusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
 });
