@@ -25,6 +25,8 @@ export interface FeedEventPayload {
   badge_name?: string;
   rank?: number;
   challenge_id?: string;
+  touches_count?: number;
+  duration_minutes?: number | null;
 }
 
 export async function createFeedEvent(

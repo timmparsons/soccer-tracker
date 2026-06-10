@@ -668,6 +668,7 @@ const TrainPage = () => {
       <GameSpeedModal
         visible={showGameSpeed}
         userId={user?.id ?? ''}
+        teamId={profile?.team_id}
         onClose={() => setShowGameSpeed(false)}
       />
     </View>

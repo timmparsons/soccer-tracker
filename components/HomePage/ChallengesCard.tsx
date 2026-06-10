@@ -8,7 +8,9 @@ import {
   useRespondToChallenge,
   type PlayerChallenge,
 } from '@/hooks/usePlayerChallenges';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -64,9 +66,13 @@ function ChallengeShell({
   );
 }
 
+const DAILY_GOAL_MINUTES = 15;
+
 export default function ChallengesCard({ userId, teamId, playerName }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: groupChallenges = [] } = useGroupChallenges(userId);
+  const { data: touchStats } = useTouchTracking(userId);
+  const todayMinutes = touchStats?.today_minutes ?? 0;
   const { mutate: respond } = useRespondToChallenge();
   const { mutate: cancelPlayer } = useCancelPlayerChallenge();
   const { mutate: deleteGroup } = useDeleteGroupChallenge();
@@ -176,6 +182,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
             <ChallengeDetail
               c={c}
               userId={userId}
+              todayMinutes={todayMinutes}
               onRespond={(accept) =>
                 respond({
                   challengeId: c.id,
@@ -361,25 +368,50 @@ function GroupChallengeDetail({ gc, userId, onAttempt, onCancel }: GroupChalleng
 interface ChallengeDetailProps {
   c: PlayerChallenge;
   userId: string;
+  todayMinutes: number;
   onRespond: (accept: boolean) => void;
   onAttempt: () => void;
   onCancel: (expired?: boolean) => void;
 }
 
-function ChallengeDetail({ c, userId, onRespond, onAttempt, onCancel }: ChallengeDetailProps) {
+function ChallengeDetail({ c, userId, todayMinutes, onRespond, onAttempt, onCancel }: ChallengeDetailProps) {
   const isChallenger = c.challenger_id === userId;
   const opponentName = isChallenger ? c.challenged_name : c.challenger_name;
   const myTime = isChallenger ? c.challenger_time_seconds : c.challenged_time_seconds;
   const opponentTime = isChallenger ? c.challenged_time_seconds : c.challenger_time_seconds;
+  const goalMet = todayMinutes >= DAILY_GOAL_MINUTES;
+  const goalPct = Math.min(todayMinutes / DAILY_GOAL_MINUTES, 1);
 
   if (c.status === 'pending' && !isChallenger) {
     return (
       <View style={styles.detailBody}>
         <Text style={styles.detailMeta}>{c.touches_target} touches · {c.time_limit_hours}h window</Text>
         <Text style={styles.timerText}>{timeRemaining(c.expires_at)} to accept</Text>
+
+        {!goalMet && (
+          <View style={styles.nudgeBox}>
+            <View style={styles.nudgeProgressRow}>
+              <Text style={styles.nudgeProgressLabel}>Today's training</Text>
+              <Text style={styles.nudgeProgressValue}>{todayMinutes} / {DAILY_GOAL_MINUTES} min</Text>
+            </View>
+            <View style={styles.nudgeTrack}>
+              <View style={[styles.nudgeFill, { width: `${goalPct * 100}%` as any }]} />
+            </View>
+            <Text style={styles.nudgeStat}>
+              Players who hit today's goal win more challenges. Train first?
+            </Text>
+            <TouchableOpacity
+              style={styles.trainNowBtn}
+              onPress={() => router.push('/(tabs)/train')}
+            >
+              <Text style={styles.trainNowBtnText}>Train Now</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.incomingActions}>
           <TouchableOpacity style={styles.acceptBtn} onPress={() => onRespond(true)}>
-            <Text style={styles.acceptBtnText}>Accept Challenge</Text>
+            <Text style={styles.acceptBtnText}>{goalMet ? 'Accept Challenge' : 'Accept Anyway'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.declineBtn} onPress={() => onRespond(false)}>
             <Text style={styles.declineBtnText}>Decline</Text>
@@ -681,6 +713,58 @@ const styles = StyleSheet.create({
   },
 
   // Incoming 1v1 actions
+  nudgeBox: {
+    backgroundColor: '#FFF8EC',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#FFE4A0',
+  },
+  nudgeProgressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  nudgeProgressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  nudgeProgressValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  nudgeTrack: {
+    height: 6,
+    backgroundColor: '#FDE68A',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  nudgeFill: {
+    height: 6,
+    backgroundColor: '#ffb724',
+    borderRadius: 3,
+  },
+  nudgeStat: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    lineHeight: 17,
+  },
+  trainNowBtn: {
+    backgroundColor: '#ffb724',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  trainNowBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
   incomingActions: {
     flexDirection: 'row',
     gap: 8,

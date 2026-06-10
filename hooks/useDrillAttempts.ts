@@ -1,3 +1,4 @@
+import { checkAndAwardDrillTiers } from '@/lib/checkDrillTiers';
 import { createFeedEvent } from '@/lib/feedEvents';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -118,6 +119,11 @@ export function useSaveDrillAttempt() {
         date: today,
         duration_minutes: Math.max(1, Math.round(timeSeconds / 60)),
       });
+
+      // Check drill tier badges when a new PB is set
+      if (isPersonalBest) {
+        await checkAndAwardDrillTiers(userId, drillId, drillName, touchesTarget, timeSeconds, teamId);
+      }
 
       // Create feed event if team member
       if (teamId) {

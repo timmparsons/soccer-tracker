@@ -1,3 +1,4 @@
+import { createFeedEvent } from '@/lib/feedEvents';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import React, { useEffect, useRef, useState } from 'react';
@@ -25,10 +26,11 @@ const DURATIONS = [
 interface Props {
   visible: boolean;
   userId: string;
+  teamId: string | null | undefined;
   onClose: () => void;
 }
 
-export default function GameSpeedModal({ visible, userId, onClose }: Props) {
+export default function GameSpeedModal({ visible, userId, teamId, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('pick');
   const [selectedMinutes, setSelectedMinutes] = useState(1);
@@ -112,6 +114,14 @@ export default function GameSpeedModal({ visible, userId, onClose }: Props) {
       duration_minutes: completedFull ? selectedMinutes : null,
       date: getLocalDate(),
     });
+
+    if (teamId) {
+      void createFeedEvent(teamId, userId, 'training_session', {
+        drill_name: 'Game Speed Dribble',
+        touches_count: count,
+        duration_minutes: completedFull ? selectedMinutes : null,
+      });
+    }
 
     if (completedFull) {
       const newPb = currentPb == null || count > currentPb;

@@ -5,6 +5,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { useTeam } from '@/hooks/useTeam';
 import { useUser } from '@/hooks/useUser';
 import { useWeeklyChallenge, getWeeklyChallengeDaysRemaining } from '@/hooks/useWeeklyChallenge';
+import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { formatTime } from '@/utils/formatTime';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { router } from 'expo-router';
@@ -44,108 +46,173 @@ function Avatar({ uri, size = 36 }: { uri: string | null; size?: number }) {
   );
 }
 
-const EVENT_META: Record<string, { label: string; color: string }> = {
-  personal_best:              { label: 'Personal Best',        color: '#31af4d' },
-  challenge_won:              { label: 'Challenge Won',         color: '#1f89ee' },
-  challenge_lost:             { label: 'Challenge',             color: '#78909C' },
-  challenge_sent:             { label: 'Challenge Sent',        color: '#ffb724' },
-  challenge_accepted:         { label: 'Challenge Accepted',    color: '#ffb724' },
-  badge_earned:               { label: 'Badge Earned',          color: '#7c3aed' },
-  weekly_challenge_completed: { label: 'Weekly Challenge',      color: '#1f89ee' },
-  leaderboard_top:            { label: '#1 on Team',            color: '#ff6b35' },
-  training_session:           { label: 'Trained',               color: '#78909C' },
-  group_challenge_sent:       { label: 'Group Challenge',       color: '#ff6b35' },
-  group_challenge_completed:  { label: 'Group Challenge',       color: '#31af4d' },
+const EVENT_COLOR: Record<string, string> = {
+  personal_best:              '#31af4d',
+  challenge_won:              '#1f89ee',
+  challenge_lost:             '#78909C',
+  challenge_sent:             '#ffb724',
+  badge_earned:               '#7c3aed',
+  weekly_challenge_completed: '#1f89ee',
+  leaderboard_top:            '#ff6b35',
+  training_session:           '#78909C',
+  group_challenge_sent:       '#ff6b35',
+  group_challenge_completed:  '#31af4d',
 };
 
-function formatParticipantNames(names: string[]): string {
-  if (names.length <= 2) return names.join(' & ');
-  return `${names[0]}, ${names[1]} +${names.length - 2} more`;
+function buildFeedCopy(
+  event: FeedEvent,
+  isMe: boolean,
+): { headline: string; stat?: string } | null {
+  const p = event.payload;
+  const name = isMe ? 'You' : event.actor_name;
+
+  switch (event.event_type) {
+    case 'personal_best': {
+      const drill = p.drill_name as string;
+      const time = formatTime(p.time_seconds as number);
+      const prev = p.previous_best != null ? formatTime(p.previous_best as number) : null;
+      return prev
+        ? { headline: `${name} improved ${drill}`, stat: `${prev} → ${time}` }
+        : { headline: `${name} set a time on ${drill}`, stat: `${time} · ${p.touches_target} touches` };
+    }
+    case 'leaderboard_top':
+      return {
+        headline: `${name} took #1 on ${p.drill_name as string}`,
+        stat: p.time_seconds ? formatTime(p.time_seconds as number) : undefined,
+      };
+    case 'challenge_won':
+      return {
+        headline: `${name} defeated ${p.opponent_name as string}`,
+        stat: p.my_time && p.opponent_time
+          ? `${formatTime(p.my_time as number)} vs ${formatTime(p.opponent_time as number)} · ${p.drill_name}`
+          : (p.drill_name as string | undefined),
+      };
+    case 'challenge_lost':
+      return {
+        headline: `${name} lost to ${p.opponent_name as string}`,
+        stat: p.my_time && p.opponent_time
+          ? `${formatTime(p.my_time as number)} vs ${formatTime(p.opponent_time as number)} · ${p.drill_name}`
+          : (p.drill_name as string | undefined),
+      };
+    case 'challenge_sent':
+      return {
+        headline: `${name} challenged ${p.opponent_name as string}`,
+        stat: p.drill_name ? `${p.touches_target} ${p.drill_name}` : undefined,
+      };
+    case 'challenge_accepted':
+      return null; // noise — skip entirely
+    case 'badge_earned':
+      return { headline: `${name} earned ${p.badge_name as string}` };
+    case 'weekly_challenge_completed':
+      return {
+        headline: `${name} completed the weekly challenge`,
+        stat: p.rank ? `Ranked #${p.rank}` : undefined,
+      };
+    case 'training_session':
+      return p.touches_count
+        ? { headline: `${name} — Game Speed Dribble`, stat: `${p.touches_count} touches · ${p.duration_minutes} min` }
+        : null; // regular training sessions without notable context are noise
+    case 'group_challenge_sent': {
+      const names = Array.isArray(p.participant_names) ? (p.participant_names as string[]) : [];
+      const others = names.filter((n) => !isMe || n !== event.actor_name);
+      const nameStr = others.length > 2
+        ? `${others[0]} + ${others.length - 1} others`
+        : others.join(' & ');
+      return {
+        headline: `${name} started a group challenge with ${nameStr}`,
+        stat: `${p.touches_target} touches`,
+      };
+    }
+    case 'group_challenge_completed': {
+      const rankN = p.rank as number;
+      const suffix = rankN === 1 ? 'st' : rankN === 2 ? 'nd' : rankN === 3 ? 'rd' : 'th';
+      return {
+        headline: `${name} finished ${rankN}${suffix} in a group challenge`,
+        stat: p.time_seconds ? formatTime(p.time_seconds as number) : undefined,
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 function FeedCard({ event, currentUserId, onPress }: { event: FeedEvent; currentUserId: string; onPress: () => void }) {
   const isMe = event.actor_id === currentUserId;
-  const name = isMe ? 'You' : event.actor_name;
-  const p = event.payload;
-  const meta = EVENT_META[event.event_type] ?? { label: event.event_type, color: '#78909C' };
+  const color = EVENT_COLOR[event.event_type] ?? '#78909C';
+  const copy = buildFeedCopy(event, isMe);
 
-  let detail = '';
-  let stat = '';
-
-  switch (event.event_type) {
-    case 'personal_best':
-      detail = p.drill_name ? `${p.drill_name} · ${p.touches_target ?? ''} touches` : '';
-      stat = p.time_seconds ? formatTime(p.time_seconds as number) : '';
-      break;
-    case 'challenge_won':
-    case 'challenge_lost':
-      detail = p.drill_name ? `${p.drill_name} · ${p.touches_target ?? ''} touches` : '';
-      stat = p.my_time && p.opponent_time
-        ? `${formatTime(p.my_time as number)} vs ${formatTime(p.opponent_time as number)}`
-        : '';
-      break;
-    case 'challenge_sent':
-    case 'challenge_accepted':
-      detail = p.opponent_name
-        ? `vs ${p.opponent_name as string}`
-        : '';
-      stat = p.drill_name ? `${p.drill_name} · ${p.touches_target} touches` : '';
-      break;
-    case 'badge_earned':
-      detail = (p.badge_name as string) || '';
-      break;
-    case 'weekly_challenge_completed':
-      detail = p.drill_name ? `${p.drill_name}` : '';
-      stat = p.rank ? `Rank #${p.rank}` : '';
-      break;
-    case 'leaderboard_top':
-      detail = p.drill_name ? `${p.drill_name} · ${p.touches_target} touches` : '';
-      stat = p.time_seconds ? formatTime(p.time_seconds as number) : '';
-      break;
-    case 'training_session':
-      detail = p.drill_name ? (p.drill_name as string) : '';
-      stat = p.time_seconds ? formatTime(p.time_seconds as number) : '';
-      break;
-    case 'group_challenge_sent': {
-      const names = Array.isArray(p.participant_names) ? (p.participant_names as string[]) : [];
-      detail = names.length > 0 ? formatParticipantNames(names) : '';
-      stat = `${p.touches_target} touches`;
-      break;
-    }
-    case 'group_challenge_completed': {
-      const names = Array.isArray(p.participant_names) ? (p.participant_names as string[]) : [];
-      detail = names.length > 0 ? formatParticipantNames(names) : '';
-      const rankSuffix = ['', 'st', 'nd', 'rd'][(p.rank as number) <= 3 ? (p.rank as number) : 0] ?? 'th';
-      stat = p.time_seconds
-        ? `${formatTime(p.time_seconds as number)} · ${p.rank}${rankSuffix} of ${p.total_participants}`
-        : '';
-      break;
-    }
-  }
+  if (!copy) return null;
 
   return (
     <Pressable style={styles.feedCard} onPress={onPress}>
-      {/* Left accent bar */}
-      <View style={[styles.feedAccent, { backgroundColor: meta.color }]} />
-
+      <View style={[styles.feedAccent, { backgroundColor: color }]} />
       <View style={styles.feedCardInner}>
-        {/* Top row: avatar + name + time */}
         <View style={styles.feedCardHeader}>
-          <Avatar uri={event.actor_avatar} size={40} />
-          <View style={styles.feedCardHeaderText}>
-            <Text style={styles.feedName}>{name}</Text>
-            <Text style={styles.feedTime}>{timeAgo(event.created_at)}</Text>
+          <Avatar uri={event.actor_avatar} size={36} />
+          <Text style={styles.feedTime}>{timeAgo(event.created_at)}</Text>
+        </View>
+        <Text style={styles.feedHeadline}>{copy.headline}</Text>
+        {copy.stat ? <Text style={[styles.feedStat, { color }]}>{copy.stat}</Text> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+// CHALLENGE NUDGE CARD
+
+const DAILY_GOAL_MINUTES = 15;
+
+function ChallengeNudgeCard({
+  challengerName,
+  moreCount,
+  todayMinutes,
+}: {
+  challengerName: string;
+  moreCount: number;
+  todayMinutes: number;
+}) {
+  const goalMet = todayMinutes >= DAILY_GOAL_MINUTES;
+  const goalPct = Math.min(todayMinutes / DAILY_GOAL_MINUTES, 1);
+  const minsLeft = Math.max(DAILY_GOAL_MINUTES - todayMinutes, 0);
+  const label = moreCount > 0
+    ? `${challengerName} + ${moreCount} other${moreCount > 1 ? 's' : ''} challenged you`
+    : `${challengerName} challenged you`;
+
+  return (
+    <Pressable style={styles.nudgeCard} onPress={() => router.push('/(tabs)/challenges')}>
+      <View style={styles.nudgeTop}>
+        <Text style={styles.nudgeTitle}>{label}</Text>
+        <Text style={styles.nudgeChevron}>›</Text>
+      </View>
+
+      {!goalMet && (
+        <>
+          <View style={styles.nudgeProgressRow}>
+            <Text style={styles.nudgeProgressLabel}>Today's training</Text>
+            <Text style={styles.nudgeProgressValue}>{todayMinutes} / {DAILY_GOAL_MINUTES} min</Text>
           </View>
-        </View>
+          <View style={styles.nudgeTrack}>
+            <View style={[styles.nudgeFill, { width: `${goalPct * 100}%` as any }]} />
+          </View>
+          <Text style={styles.nudgeHint}>
+            Need a warmup? {minsLeft} minute{minsLeft !== 1 ? 's' : ''} left in today&apos;s goal. Players who hit it win more challenges.
+          </Text>
+        </>
+      )}
 
-        {/* Event type badge */}
-        <View style={[styles.feedBadge, { backgroundColor: `${meta.color}18` }]}>
-          <Text style={[styles.feedBadgeText, { color: meta.color }]}>{meta.label}</Text>
-        </View>
-
-        {/* Detail + stat */}
-        {detail ? <Text style={styles.feedDetail}>{detail}</Text> : null}
-        {stat ? <Text style={[styles.feedStat, { color: meta.color }]}>{stat}</Text> : null}
+      <View style={styles.nudgeActions}>
+        <Pressable
+          style={styles.nudgeTrainBtn}
+          onPress={(e) => { e.stopPropagation(); router.push('/(tabs)/train'); }}
+        >
+          <Text style={styles.nudgeTrainBtnText}>Train Now</Text>
+        </Pressable>
+        <Pressable
+          style={styles.nudgeViewBtn}
+          onPress={() => router.push('/(tabs)/challenges')}
+        >
+          <Text style={styles.nudgeViewBtnText}>{goalMet ? 'Accept Challenge' : 'View Challenge'}</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -213,6 +280,8 @@ const HomeScreen = () => {
   const { data: team } = useTeam(user?.id);
   const { data: feedEvents = [], isLoading, refetch: refetchFeed } = useFeedEvents(profile?.team_id ?? undefined);
   const { data: weeklyChallenge } = useWeeklyChallenge(profile?.team_id ?? undefined);
+  const { data: challenges = [] } = usePlayerChallenges(user?.id);
+  const { data: touchStats } = useTouchTracking(user?.id);
   const { data: leaderboard = [] } = useDrillLeaderboard(
     weeklyChallenge?.drill_id,
     weeklyChallenge?.touches_target ?? 100,
@@ -237,6 +306,11 @@ const HomeScreen = () => {
   const teamName = team?.name;
   const firstName = displayName.split(' ')[0];
 
+  const pendingIncoming = challenges.filter(
+    (c) => c.status === 'pending' && c.challenged_id === user?.id,
+  );
+  const todayMinutes = touchStats?.today_minutes ?? 0;
+
   const listHeader = (
     <>
       {weeklyChallenge && (
@@ -244,6 +318,13 @@ const HomeScreen = () => {
           challenge={weeklyChallenge}
           leaderboard={leaderboard}
           currentUserId={user?.id ?? ''}
+        />
+      )}
+      {pendingIncoming.length > 0 && (
+        <ChallengeNudgeCard
+          challengerName={pendingIncoming[0].challenger_name ?? 'Someone'}
+          moreCount={pendingIncoming.length - 1}
+          todayMinutes={todayMinutes}
         />
       )}
       {feedEvents.length > 0 && (
@@ -418,6 +499,99 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  // CHALLENGE NUDGE
+  nudgeCard: {
+    backgroundColor: '#FFF8EC',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFE4A0',
+    shadowColor: '#ffb724',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  nudgeTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  nudgeTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#92400E',
+    flex: 1,
+  },
+  nudgeChevron: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  nudgeProgressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  nudgeProgressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  nudgeProgressValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  nudgeTrack: {
+    height: 6,
+    backgroundColor: '#FDE68A',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  nudgeFill: {
+    height: 6,
+    backgroundColor: '#ffb724',
+    borderRadius: 3,
+  },
+  nudgeHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
+    lineHeight: 17,
+  },
+  nudgeActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  nudgeTrainBtn: {
+    flex: 1,
+    backgroundColor: '#ffb724',
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  nudgeTrainBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  nudgeViewBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  nudgeViewBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+
   // FEED
   feedSectionLabel: {
     fontSize: 13,
@@ -451,40 +625,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  feedCardHeaderText: {
-    flex: 1,
-  },
-  feedName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-  },
   feedTime: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '600',
     color: '#B0BEC5',
-    marginTop: 1,
+    textAlign: 'right',
   },
-  feedBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  feedBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  feedDetail: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#455A64',
+  feedHeadline: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    lineHeight: 21,
   },
   feedStat: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
 
   // EMPTY STATE

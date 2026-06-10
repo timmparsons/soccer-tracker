@@ -26,6 +26,7 @@ export interface FeedEvent {
   created_at: string;
 }
 
+
 export function useFeedEvents(teamId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -58,7 +59,7 @@ export function useFeedEvents(teamId: string | undefined) {
 
       if (error) return [];
 
-      if (!data) return [];
+      if (!data?.length) return [];
 
       return (data as Record<string, unknown>[]).map((row) => {
         const actor = row.actor as Record<string, string | null> | null;
