@@ -1140,7 +1140,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 3.0.2</Text>
+                <Text style={styles.version}>Version 3.03</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>
