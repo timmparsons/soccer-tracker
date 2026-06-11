@@ -1,11 +1,9 @@
-import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
-import CoinAwardBanner from '@/components/common/CoinAwardBanner';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { useCoinTransactions } from '@/hooks/useCoins';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import {
@@ -15,13 +13,10 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -36,60 +31,6 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
-  const queryClient = useQueryClient();
-  const [banner, setBanner] = useState<{
-    amount: number;
-    note: string | null;
-  } | null>(null);
-  const [lastSeenCoinsAt, setLastSeenCoinsAt] = useState<string | null>(null);
-  const mountedRef = useRef(false);
-
-  // Load lastSeenCoinsAt from storage on mount
-  useEffect(() => {
-    AsyncStorage.getItem('lastSeenCoinsAt').then((val) => setLastSeenCoinsAt(val));
-  }, []);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    // Skip the first emission so we don't banner on app open
-    mountedRef.current = false;
-    const timer = setTimeout(() => {
-      mountedRef.current = true;
-    }, 2000);
-
-    const channel = supabase
-      .channel(`coin-awards-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'coin_transactions',
-          filter: `player_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (!mountedRef.current) return;
-          const { amount, note, created_at } = payload.new as {
-            amount: number;
-            note: string | null;
-            created_at: string;
-          };
-          setBanner({ amount, note });
-          setLastSeenCoinsAt(created_at);
-          AsyncStorage.setItem('lastSeenCoinsAt', created_at);
-          queryClient.invalidateQueries({ queryKey: ['coins', user.id] });
-          queryClient.invalidateQueries({
-            queryKey: ['coin-transactions', user.id],
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, queryClient]);
 
   const {
     data: touchStats,
@@ -107,20 +48,6 @@ const HomeScreen = () => {
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(
     user?.id,
   );
-
-  const { data: coinTransactions = [] } = useCoinTransactions(user?.id);
-  const unseenCoins = coinTransactions.filter(
-    (tx) => !lastSeenCoinsAt || tx.created_at > lastSeenCoinsAt,
-  );
-  const unseenTotal = unseenCoins.reduce((sum, tx) => sum + tx.amount, 0);
-
-  const dismissUnseenCoins = () => {
-    const latest = unseenCoins[0]?.created_at;
-    if (latest) {
-      setLastSeenCoinsAt(latest);
-      AsyncStorage.setItem('lastSeenCoinsAt', latest);
-    }
-  };
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -185,13 +112,6 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      {banner && (
-        <CoinAwardBanner
-          amount={banner.amount}
-          note={banner.note}
-          onDismiss={() => setBanner(null)}
-        />
-      )}
       <PageHeader
         title={`Hey ${displayName}!`}
         subtitle='Ready to get some touches?'
@@ -209,26 +129,6 @@ const HomeScreen = () => {
           />
         }
       >
-        {/* UNSEEN COIN AWARD */}
-        {unseenCoins.length > 0 && (
-          <View style={styles.coinNotice}>
-            <Text style={styles.coinNoticeEmoji}>🏆</Text>
-            <View style={styles.coinNoticeText}>
-              <Text style={styles.coinNoticeTitle}>
-                +{unseenTotal} Champion Point{unseenTotal !== 1 ? 's' : ''} from your coach!
-              </Text>
-              {unseenCoins.length === 1 && unseenCoins[0].note ? (
-                <Text style={styles.coinNoticeNote} numberOfLines={2}>{unseenCoins[0].note}</Text>
-              ) : unseenCoins.length > 1 ? (
-                <Text style={styles.coinNoticeNote}>{unseenCoins.length} awards — check your profile for details</Text>
-              ) : null}
-            </View>
-            <Pressable onPress={dismissUnseenCoins} hitSlop={12}>
-              <Text style={styles.coinNoticeDismiss}>✕</Text>
-            </Pressable>
-          </View>
-        )}
-
         {/* VINNIE */}
         <VinnieCard
           trainedToday={(touchStats?.today_touches || 0) > 0}
@@ -241,6 +141,25 @@ const HomeScreen = () => {
           weekSessions={touchStats?.this_week_sessions}
           totalTouches={touchStats?.total_touches}
         />
+
+        {/* TODAY'S CHALLENGE */}
+        {!profile?.is_coach && user?.id && (
+          <TodayChallengeCard
+            userId={user.id}
+            totalTouches={touchStats?.total_touches ?? 0}
+            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
+              router.push({
+                pathname: '/(tabs)/train',
+                params: {
+                  startChallengeDrillId: drillId,
+                  startChallengeDuration: String(durationMinutes),
+                  startChallengeName: drillName,
+                  startChallengeDifficulty: difficulty,
+                },
+              });
+            }}
+          />
+        )}
 
         {/* TODAY'S PROGRESS */}
         <View style={styles.todayCard}>
@@ -275,15 +194,6 @@ const HomeScreen = () => {
             </View>
           </View>
         </View>
-
-        {/* CHALLENGES */}
-        {!profile?.is_coach && user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={displayName}
-          />
-        )}
 
         {/* QUICK STATS */}
         <View style={styles.statsGrid}>
@@ -405,40 +315,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  coinNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#3ab86a',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#31af4d',
-  },
-  coinNoticeEmoji: {
-    fontSize: 24,
-  },
-  coinNoticeText: {
-    flex: 1,
-    gap: 2,
-  },
-  coinNoticeTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  coinNoticeNote: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  coinNoticeDismiss: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-
   // STATS GRID (2x2)
   statsGrid: {
     flexDirection: 'row',

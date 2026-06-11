@@ -11,7 +11,9 @@ import {
 } from '@/hooks/usePlayerChallenges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const VISIBLE_LIMIT = 3;
 
 
 function timeRemaining(isoDate: string) {
@@ -45,6 +47,7 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
   const [attemptGroupChallenge, setAttemptGroupChallenge] = useState<GroupChallenge | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [challengedPlayers, setChallengedPlayers] = useState<Teammate[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const pendingCount = challenges.filter(
     (c) => c.status === 'pending' && c.challenged_id === userId,
@@ -58,8 +61,67 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
   });
 
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
-  const completedChallenges = challenges.filter((c) => c.status === 'completed').slice(0, 3);
+  const completedChallenges = challenges.filter((c) => c.status === 'completed');
   const displayedChallenges = [...activeChallenges, ...completedChallenges];
+
+  type ChallengeItem =
+    | { type: 'group'; data: GroupChallenge }
+    | { type: 'player'; data: PlayerChallenge };
+
+  const allItems: ChallengeItem[] = [
+    ...groupChallenges.map((gc): ChallengeItem => ({ type: 'group', data: gc })),
+    ...displayedChallenges.map((c): ChallengeItem => ({ type: 'player', data: c })),
+  ];
+  const visibleItems = allItems.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = allItems.length - visibleItems.length;
+
+  const renderItem = (item: ChallengeItem) =>
+    item.type === 'group' ? (
+      <GroupChallengeCard
+        key={item.data.id}
+        challenge={item.data}
+        userId={userId}
+        onAttempt={() => setAttemptGroupChallenge(item.data)}
+        onCancel={() =>
+          Alert.alert('Cancel Group Challenge?', 'This will remove the challenge for everyone.', [
+            { text: 'Keep', style: 'cancel' },
+            {
+              text: 'Cancel',
+              style: 'destructive',
+              onPress: () => deleteGroup({ groupChallengeId: item.data.id, userId }),
+            },
+          ])
+        }
+      />
+    ) : (
+      <ChallengeRow
+        key={item.data.id}
+        challenge={item.data}
+        userId={userId}
+        onRespond={(accept) =>
+          respond({
+            challengeId: item.data.id,
+            accept,
+            timeLimitHours: item.data.time_limit_hours,
+            challengerId: item.data.challenger_id,
+            responderId: userId,
+            responderName: item.data.challenged_name ?? '',
+            challengerPushToken: item.data.challenger_push_token ?? null,
+          })
+        }
+        onAttempt={() => setAttemptChallenge(item.data)}
+        onCancel={(expired?: boolean) =>
+          Alert.alert(
+            expired ? 'Delete Challenge?' : 'Cancel Challenge?',
+            expired ? 'This will remove the expired challenge.' : 'This will remove the challenge for both players.',
+            [
+              { text: 'Keep', style: 'cancel' },
+              { text: expired ? 'Delete' : 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: item.data.id }) },
+            ],
+          )
+        }
+      />
+    );
 
   return (
     <>
@@ -189,55 +251,40 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
               )}
             </View>
           )}
-          {groupChallenges.map((gc) => (
-            <GroupChallengeCard
-              key={gc.id}
-              challenge={gc}
-              userId={userId}
-              onAttempt={() => setAttemptGroupChallenge(gc)}
-              onCancel={() =>
-                Alert.alert('Cancel Group Challenge?', 'This will remove the challenge for everyone.', [
-                  { text: 'Keep', style: 'cancel' },
-                  {
-                    text: 'Cancel',
-                    style: 'destructive',
-                    onPress: () => deleteGroup({ groupChallengeId: gc.id, userId }),
-                  },
-                ])
-              }
-            />
-          ))}
-          {displayedChallenges.map((c) => (
-            <ChallengeRow
-              key={c.id}
-              challenge={c}
-              userId={userId}
-              onRespond={(accept) =>
-                respond({
-                  challengeId: c.id,
-                  accept,
-                  timeLimitHours: c.time_limit_hours,
-                  challengerId: c.challenger_id,
-                  responderId: userId,
-                  responderName: c.challenged_name ?? '',
-                  challengerPushToken: c.challenger_push_token ?? null,
-                })
-              }
-              onAttempt={() => setAttemptChallenge(c)}
-              onCancel={(expired?: boolean) =>
-                Alert.alert(
-                  expired ? 'Delete Challenge?' : 'Cancel Challenge?',
-                  expired ? 'This will remove the expired challenge.' : 'This will remove the challenge for both players.',
-                  [
-                    { text: 'Keep', style: 'cancel' },
-                    { text: expired ? 'Delete' : 'Cancel Challenge', style: 'destructive', onPress: () => cancelPlayer({ challengeId: c.id }) },
-                  ],
-                )
-              }
-            />
-          ))}
+          {visibleItems.map(renderItem)}
+          {hiddenCount > 0 && (
+            <TouchableOpacity style={styles.viewAllRow} onPress={() => setShowHistory(true)} activeOpacity={0.7}>
+              <Text style={styles.viewAllText}>View all challenges ({allItems.length})</Text>
+              <Ionicons name='chevron-forward' size={16} color='#1f89ee' />
+            </TouchableOpacity>
+          )}
         </View>}
       </View>
+
+      <Modal
+        visible={showHistory}
+        animationType='slide'
+        presentationStyle='pageSheet'
+        onRequestClose={() => setShowHistory(false)}
+      >
+        <View style={styles.historyContainer}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.historyTitle}>All Challenges</Text>
+            <TouchableOpacity onPress={() => setShowHistory(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name='close' size={26} color='#1a1a2e' />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.historyContent}>
+            {allItems.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No challenges yet</Text>
+              </View>
+            ) : (
+              allItems.map(renderItem)
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {attemptChallenge && (
         <ChallengeAttemptModal
@@ -643,6 +690,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: '#FFF',
+  },
+
+  viewAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 14,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+
+  // HISTORY MODAL
+  historyContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  historyContent: {
+    paddingBottom: 30,
   },
 
   cancelRow: {

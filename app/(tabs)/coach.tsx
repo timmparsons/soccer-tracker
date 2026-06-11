@@ -3,7 +3,6 @@ import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
-import { useAwardCoins, usePlayerCoins } from '@/hooks/useCoins';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
@@ -78,7 +77,7 @@ export default function CoachDashboard() {
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalTab, setModalTab] = useState<'log' | 'edit' | 'coins'>('log');
+  const [modalTab, setModalTab] = useState<'log' | 'edit'>('log');
   const [touchCount, setTouchCount] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -87,9 +86,6 @@ export default function CoachDashboard() {
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
-  const [coinAmount, setCoinAmount] = useState('');
-  const [coinNote, setCoinNote] = useState('');
-  const [awardingCoins, setAwardingCoins] = useState(false);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
 
   // Edit session state
@@ -304,10 +300,6 @@ export default function CoachDashboard() {
     tipsParams,
   );
 
-  // Coin hooks — must be before early returns
-  const { mutateAsync: awardCoins } = useAwardCoins();
-  const { data: selectedPlayerCoins = 0 } = usePlayerCoins(selectedPlayer?.id);
-
   // Coach challenges — must be before early returns
   const { data: coachChallenges = [] } = useCoachChallenges(user?.id);
 
@@ -380,49 +372,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
-    setCoinAmount('');
-    setCoinNote('');
     setModalVisible(true);
-  };
-
-  const handleAwardCoins = async () => {
-    const amount = parseInt(coinAmount, 10);
-    if (!amount || amount <= 0 || isNaN(amount)) {
-      Alert.alert('Invalid Amount', 'Please enter a valid coin amount.');
-      return;
-    }
-    if (!selectedPlayer || !user?.id) return;
-
-    setAwardingCoins(true);
-    try {
-      const { data: playerProfile } = await supabase
-        .from('profiles')
-        .select('expo_push_token')
-        .eq('id', selectedPlayer.id)
-        .single();
-
-      await awardCoins({
-        coachId: user.id,
-        playerId: selectedPlayer.id,
-        amount,
-        note: coinNote.trim() || null,
-        playerPushToken: playerProfile?.expo_push_token ?? null,
-        playerName: selectedPlayer.display_name || selectedPlayer.name,
-      });
-
-      Alert.alert(
-        'Points Awarded! 🏆',
-        `${amount} Champion Point${amount !== 1 ? 's' : ''} sent to ${selectedPlayer.display_name || selectedPlayer.name}`
-      );
-      setCoinAmount('');
-      setCoinNote('');
-      setModalVisible(false);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      Alert.alert('Error', msg || 'Failed to award coins. Please try again.');
-    } finally {
-      setAwardingCoins(false);
-    }
   };
 
   const handleEditPress = (player: PlayerStats) => {
@@ -482,8 +432,6 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
-    setCoinAmount('');
-    setCoinNote('');
   };
 
   // Handle saving touches for a player
@@ -1067,14 +1015,6 @@ export default function CoachDashboard() {
                       Edit
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalTab, modalTab === 'coins' && styles.modalTabActive]}
-                    onPress={() => setModalTab('coins')}
-                  >
-                    <Text style={[styles.modalTabText, modalTab === 'coins' && styles.modalTabTextActive]}>
-                      🏆 Coins
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 {modalTab === 'log' ? (
@@ -1170,49 +1110,6 @@ export default function CoachDashboard() {
                         ))}
                       </View>
                     )}
-                  </>
-                )}
-
-                {modalTab === 'coins' && (
-                  <>
-                    <View style={styles.coinBalanceRow}>
-                      <Text style={styles.coinBalanceLabel}>Current Balance</Text>
-                      <Text style={styles.coinBalanceValue}>🏆 {selectedPlayerCoins.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Champion Points *</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 5"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="number-pad"
-                        value={coinAmount}
-                        onChangeText={setCoinAmount}
-                      />
-                    </View>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Reason (optional)</Text>
-                      <TextInput
-                        style={[styles.input, styles.inputMultiline]}
-                        placeholder="e.g. Great effort in training today"
-                        placeholderTextColor="#9CA3AF"
-                        value={coinNote}
-                        onChangeText={setCoinNote}
-                        multiline
-                        numberOfLines={2}
-                      />
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.saveButton, awardingCoins && styles.saveButtonDisabled]}
-                      onPress={handleAwardCoins}
-                      disabled={awardingCoins}
-                    >
-                      {awardingCoins ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text style={styles.saveButtonText}>Award Coins</Text>
-                      )}
-                    </TouchableOpacity>
                   </>
                 )}
 
@@ -2042,33 +1939,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#6B7280',
-  },
-
-  // Coins tab
-  coinBalanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF9E6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FFE082',
-  },
-  coinBalanceLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  coinBalanceValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#92400E',
-  },
-  inputMultiline: {
-    height: 72,
-    textAlignVertical: 'top',
   },
 });

@@ -1,8 +1,9 @@
+import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import PageHeader from '@/components/common/PageHeader';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -10,11 +11,13 @@ import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -31,6 +34,7 @@ import {
   Vibration,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
@@ -40,6 +44,7 @@ const TrainPage = () => {
   const { data: profile } = useProfile(user?.id);
   const { isPremium } = useSubscription();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
@@ -59,6 +64,7 @@ const TrainPage = () => {
   const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
   const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
+  const [showGameSpeedModal, setShowGameSpeedModal] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -102,6 +108,17 @@ const TrainPage = () => {
     };
   }, []);
 
+  // Show Vinnie's game-speed pep talk once per day on first visit to Train
+  useEffect(() => {
+    const today = getLocalDate();
+    AsyncStorage.getItem('vinnieGameSpeedShownDate').then((stored) => {
+      if (stored !== today) {
+        setShowGameSpeedModal(true);
+        AsyncStorage.setItem('vinnieGameSpeedShownDate', today);
+      }
+    });
+  }, []);
+
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
@@ -122,7 +139,6 @@ const TrainPage = () => {
     }
   };
 
-  // Timer logic
   const startFreeTimer = useCallback(
     (seconds: number) => {
       setFreeTimerDuration(seconds);
@@ -134,6 +150,62 @@ const TrainPage = () => {
     [],
   );
 
+  const handleStartChallenge = useCallback(
+    (drillId: string, durationMinutes: number, drillName: string, difficulty: string) => {
+      Alert.alert(
+        drillName,
+        'How do you want to log this challenge?',
+        [
+          {
+            text: 'Log Manually',
+            onPress: () => {
+              setChallengeDrillId(drillId);
+              setChallengeDurationMinutes(durationMinutes);
+              setChallengeName(drillName);
+              setChallengeDifficulty(difficulty);
+              setModalVisible(true);
+            },
+          },
+          {
+            text: 'Use Timer',
+            onPress: () => {
+              setTimerChallengeDrillId(drillId);
+              setTimerChallengeName(drillName);
+              startFreeTimer(durationMinutes * 60);
+            },
+          },
+        ],
+      );
+    },
+    [startFreeTimer],
+  );
+
+  // Triggered when navigated here from Home's "Start Challenge" button
+  const params = useLocalSearchParams<{
+    startChallengeDrillId?: string;
+    startChallengeDuration?: string;
+    startChallengeName?: string;
+    startChallengeDifficulty?: string;
+  }>();
+
+  useEffect(() => {
+    if (!params.startChallengeDrillId) return;
+    handleStartChallenge(
+      params.startChallengeDrillId,
+      Number(params.startChallengeDuration ?? 0),
+      params.startChallengeName ?? '',
+      params.startChallengeDifficulty ?? '',
+    );
+    router.setParams({
+      startChallengeDrillId: undefined,
+      startChallengeDuration: undefined,
+      startChallengeName: undefined,
+      startChallengeDifficulty: undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.startChallengeDrillId]);
+
+  // Timer logic
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -267,19 +339,21 @@ const TrainPage = () => {
     }
   };
 
+  const closeTimer = () => {
+    stopTimer();
+    setShowTimerModal(false);
+    setTimeRemaining(0);
+    setTimerChallengeDrillId(undefined);
+    setTimerChallengeName(undefined);
+  };
+
   const cancelTimer = () => {
     Alert.alert('Stop Timer?', 'Are you sure you want to stop the timer?', [
       { text: 'Keep Going', style: 'cancel' },
       {
         text: 'Stop',
         style: 'destructive',
-        onPress: () => {
-          stopTimer();
-          setShowTimerModal(false);
-          setTimeRemaining(0);
-          setTimerChallengeDrillId(undefined);
-          setTimerChallengeName(undefined);
-        },
+        onPress: closeTimer,
       },
     ]);
   };
@@ -380,37 +454,12 @@ const TrainPage = () => {
           <Ionicons name='chevron-forward' size={20} color='#78909C' />
         </TouchableOpacity>
 
-        {/* TODAY'S CHALLENGE */}
-        {user?.id && (
-          <TodayChallengeCard
+        {/* CHALLENGES */}
+        {!profile?.is_coach && user?.id && (
+          <ChallengesCard
             userId={user.id}
-            totalTouches={touchStats?.total_touches ?? 0}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              Alert.alert(
-                drillName,
-                'How do you want to log this challenge?',
-                [
-                  {
-                    text: 'Log Manually',
-                    onPress: () => {
-                      setChallengeDrillId(drillId);
-                      setChallengeDurationMinutes(durationMinutes);
-                      setChallengeName(drillName);
-                      setChallengeDifficulty(difficulty);
-                      setModalVisible(true);
-                    },
-                  },
-                  {
-                    text: 'Use Timer',
-                    onPress: () => {
-                      setTimerChallengeDrillId(drillId);
-                      setTimerChallengeName(drillName);
-                      setShowTimerPicker(true);
-                    },
-                  },
-                ],
-              );
-            }}
+            teamId={profile?.team_id}
+            playerName={getDisplayName(profile)}
           />
         )}
 
@@ -426,6 +475,13 @@ const TrainPage = () => {
         onRequestClose={cancelTimer}
       >
         <View style={styles.timerModal}>
+          <TouchableOpacity
+            style={[styles.timerCloseButton, { top: insets.top + 12 }]}
+            onPress={closeTimer}
+            hitSlop={12}
+          >
+            <Ionicons name='close' size={28} color='#FFF' />
+          </TouchableOpacity>
           <View style={styles.timerContent}>
             <Text style={styles.timerChallengeName}>{timerChallengeName ?? 'Free Practice'}</Text>
             <Text style={styles.timerInstructions}>
@@ -680,6 +736,12 @@ const TrainPage = () => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Vinnie Game Speed Pep Talk — once per day */}
+      <VinnieGameSpeedModal
+        visible={showGameSpeedModal}
+        onClose={() => setShowGameSpeedModal(false)}
+      />
+
       {/* Vinnie Celebration */}
       <VinnieCelebrationModal
         visible={showVinnieCelebration}
@@ -923,6 +985,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f89ee',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  timerCloseButton: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 1,
+    padding: 4,
   },
   timerContent: {
     alignItems: 'center',

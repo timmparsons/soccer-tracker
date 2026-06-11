@@ -1,6 +1,7 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { useChallengeStats, useTodayChallenge } from '@/hooks/useTouchTracking';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -93,6 +94,10 @@ const LogSessionModal = ({
 
   const isChallengeMode = !!challengeDrillId;
 
+  const { data: todayChallenge } = useTodayChallenge(userId);
+  const { data: challengeStats } = useChallengeStats(userId, todayChallenge?.id);
+  const challengeLocked = !isChallengeMode && !(challengeStats?.completedToday ?? false);
+
   const handleSubmit = async () => {
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
@@ -164,7 +169,7 @@ const LogSessionModal = ({
   const juggleCount = juggles ? parseInt(juggles) : 0;
   const isFormValid = isChallengeMode
     ? attempted
-    : touchCount > 0 || juggleCount > 0;
+    : !challengeLocked && (touchCount > 0 || juggleCount > 0);
 
   return (
     <Modal
@@ -354,6 +359,14 @@ const LogSessionModal = ({
 
           {/* Submit Button - Fixed at bottom */}
           <View style={styles.buttonContainer}>
+            {challengeLocked && (
+              <View style={styles.lockedBanner}>
+                <Ionicons name='lock-closed' size={18} color='#F57C00' />
+                <Text style={styles.lockedMessage}>
+                  Finish Today&apos;s Challenge on the Home tab to unlock session logging
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               style={[
                 styles.submitButton,
@@ -574,6 +587,24 @@ const styles = StyleSheet.create({
   submitButtonDisabled: {
     backgroundColor: '#B0BEC5',
     shadowOpacity: 0,
+  },
+  lockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FFE0B2',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  lockedMessage: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F57C00',
   },
   submitButtonText: {
     color: '#FFF',

@@ -313,6 +313,20 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   return { mood: 'encouraging', message: pickRandom(encouragingPool) };
 };
 
+export const VINNIE_GAME_SPEED_TIPS: string[] = [
+  "In a real match you get 1–2 seconds on the ball before a defender's on you. Train like that pressure is real.",
+  "50+ touches per minute — that's game speed. Anything slower is just a warm-up.",
+  "Train faster than you play. If it's fast and clean in training, it'll feel easy under a real defender.",
+  "Speed of play wins games. The quicker your feet, the less time opponents have to react.",
+  "Today, every touch should feel like there's a defender closing you down. Sharp first touch, quick release.",
+  "Pros don't get time on the ball. Make your touches count like the clock's already running.",
+  "Game speed isn't about rushing — it's about being decisive. Know your next move before the ball arrives.",
+  "Push your tempo today. The habits you build at speed are the ones that show up on matchday.",
+];
+
+export const getVinnieGameSpeedTip = (): string =>
+  pickRandom(VINNIE_GAME_SPEED_TIPS);
+
 export const getVinnieCelebration = (): string =>
   pickRandom(VINNIE_CELEBRATIONS);
 
