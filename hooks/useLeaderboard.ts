@@ -51,7 +51,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
   ] = await Promise.all([
     supabase
       .from('daily_sessions')
-      .select('user_id, touches_logged, date')
+      .select('user_id, touches_logged, date, is_match_speed')
       .in('user_id', memberIds)
       .gte('date', lastWeekStart)
       .lte('date', today),
@@ -72,7 +72,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     targetByMember[t.user_id] = t.daily_target_touches;
   }
 
-  const recentByMember: Record<string, { touches_logged: number; date: string }[]> = {};
+  const recentByMember: Record<string, { touches_logged: number; date: string; is_match_speed: boolean | null }[]> = {};
   for (const s of recentSessionsRaw || []) {
     if (!recentByMember[s.user_id]) recentByMember[s.user_id] = [];
     recentByMember[s.user_id].push(s);
@@ -88,13 +88,16 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     const recent = recentByMember[member.id] || [];
     const all = allByMember[member.id] || [];
 
+    const leaderboardWeight = (s: { touches_logged: number; is_match_speed: boolean | null }) =>
+      s.is_match_speed === false ? Math.floor(s.touches_logged * 0.5) : s.touches_logged;
+
     const today_touches = recent
       .filter((s) => s.date === today)
-      .reduce((sum, s) => sum + s.touches_logged, 0);
+      .reduce((sum, s) => sum + leaderboardWeight(s), 0);
 
     const weekly_touches = recent
       .filter((s) => s.date >= weekStartDate && s.date <= today)
-      .reduce((sum, s) => sum + s.touches_logged, 0);
+      .reduce((sum, s) => sum + leaderboardWeight(s), 0);
 
     const last_week_touches = recent
       .filter((s) => s.date >= lastWeekStart && s.date <= lastWeekEnd)

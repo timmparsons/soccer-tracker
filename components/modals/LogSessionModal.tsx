@@ -65,6 +65,8 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [matchSpeed, setMatchSpeed] = useState(true);
+  const [vinnieConfirmVisible, setVinnieConfirmVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
@@ -88,24 +90,15 @@ const LogSessionModal = ({
       );
       setAttempted(false);
       setTouches('');
+      setMatchSpeed(true);
     }
   }, [visible, challengeDurationMinutes]);
 
   const isChallengeMode = !!challengeDrillId;
 
-  const handleSubmit = async () => {
+  const doSubmit = async (resolvedMatchSpeed: boolean) => {
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
-
-    if (isChallengeMode) {
-      if (!attempted) {
-        Alert.alert('Did you attempt it?', 'Check the box to confirm you attempted this challenge');
-        return;
-      }
-    } else if (touchCount <= 0 && juggleCount <= 0) {
-      Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
-      return;
-    }
 
     setSubmitting(true);
 
@@ -118,15 +111,14 @@ const LogSessionModal = ({
         touches_logged: touchCount > 0 ? touchCount : juggleCount,
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
+        is_match_speed: isChallengeMode ? true : resolvedMatchSpeed,
         date: today,
       });
 
       if (error) throw error;
 
-      // Reschedule inactivity reminders — reset the 2-day countdown from now
       scheduleInactivityReminders(new Date()).catch(() => {});
 
-      // Check for newly earned badges (fire-and-forget, non-blocking)
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
@@ -137,11 +129,11 @@ const LogSessionModal = ({
         });
       }
 
-      // Reset form
       setTouches('');
       setDuration('');
       setJuggles('');
       setAttempted(false);
+      setMatchSpeed(true);
 
       onSuccess();
       onClose();
@@ -157,6 +149,28 @@ const LogSessionModal = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async () => {
+    const touchCount = touches ? parseInt(touches) : 0;
+    const juggleCount = juggles ? parseInt(juggles) : 0;
+
+    if (isChallengeMode) {
+      if (!attempted) {
+        Alert.alert('Did you attempt it?', 'Check the box to confirm you attempted this challenge');
+        return;
+      }
+    } else if (touchCount <= 0 && juggleCount <= 0) {
+      Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
+      return;
+    }
+
+    if (!isChallengeMode && matchSpeed) {
+      setVinnieConfirmVisible(true);
+      return;
+    }
+
+    await doSubmit(matchSpeed);
   };
 
   // Check if form is valid
@@ -183,6 +197,44 @@ const LogSessionModal = ({
               keyboardHeight > 0 && { height: screenHeight * 0.85 - keyboardHeight },
             ]}
           >
+          {/* Vinnie match speed confirmation overlay */}
+          {vinnieConfirmVisible && (
+            <View style={styles.vinnieOverlay}>
+              <View style={styles.vinnieConfirmCard}>
+                <Image
+                  source={require('@/assets/images/vinnie.png')}
+                  style={styles.vinnieConfirmImage}
+                  resizeMode='contain'
+                />
+                <Text style={styles.vinnieConfirmTitle}>Hold on...</Text>
+                <Text style={styles.vinnieConfirmBody}>
+                  Did you really go{' '}
+                  <Text style={styles.vinnieConfirmBold}>full match speed</Text>? Moving dynamically, dropping hips, exploding out of turns?
+                </Text>
+                <Text style={styles.vinnieConfirmSub}>
+                  Be honest — your squad sees this on the leaderboard.
+                </Text>
+                <TouchableOpacity
+                  style={styles.vinnieConfirmYes}
+                  onPress={() => {
+                    setVinnieConfirmVisible(false);
+                    doSubmit(true);
+                  }}
+                >
+                  <Text style={styles.vinnieConfirmYesText}>Yes, full gas! 🔥</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.vinnieConfirmNo}
+                  onPress={() => {
+                    setVinnieConfirmVisible(false);
+                    doSubmit(false);
+                  }}
+                >
+                  <Text style={styles.vinnieConfirmNoText}>Nah, just warming up</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Log Practice Session</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -239,6 +291,35 @@ const LogSessionModal = ({
                 </View>
                 <Text style={styles.attemptedLabel}>I attempted this challenge</Text>
               </TouchableOpacity>
+            )}
+
+            {/* Match Speed Toggle — regular mode only */}
+            {!isChallengeMode && (
+              <View style={styles.intensitySection}>
+                <Text style={styles.sectionLabel}>Training Intensity</Text>
+                <View style={styles.intensityToggle}>
+                  <TouchableOpacity
+                    style={[styles.intensityOption, !matchSpeed && styles.intensityOptionActiveWarm]}
+                    onPress={() => setMatchSpeed(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.intensityOptionText, !matchSpeed && styles.intensityOptionTextActiveWarm]}>
+                      Warm Up
+                    </Text>
+                    <Text style={styles.intensityOptionSub}>Half points on leaderboard</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.intensityOption, matchSpeed && styles.intensityOptionActiveMatch]}
+                    onPress={() => setMatchSpeed(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.intensityOptionText, matchSpeed && styles.intensityOptionTextActiveMatch]}>
+                      Match Speed 🔥
+                    </Text>
+                    <Text style={[styles.intensityOptionSub, matchSpeed && { color: 'rgba(255,255,255,0.75)' }]}>Full points on leaderboard</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
 
             {/* Touches + Duration — side by side so both are always visible when keyboard is open */}
@@ -674,6 +755,130 @@ const styles = StyleSheet.create({
   },
   inputPairHalf: {
     flex: 1,
+  },
+  intensitySection: {
+    marginBottom: 24,
+  },
+  intensityToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F2F5',
+    borderRadius: 14,
+    padding: 4,
+    gap: 4,
+  },
+  intensityOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  intensityOptionActiveWarm: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  intensityOptionActiveMatch: {
+    backgroundColor: '#ffb724',
+    shadowColor: '#ffb724',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  intensityOptionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 2,
+  },
+  intensityOptionTextActiveWarm: {
+    color: '#1a1a2e',
+  },
+  intensityOptionTextActiveMatch: {
+    color: '#FFF',
+  },
+  intensityOptionSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#B0BEC5',
+  },
+  vinnieOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    zIndex: 10,
+  },
+  vinnieConfirmCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+  },
+  vinnieConfirmImage: {
+    width: 100,
+    height: 70,
+    marginBottom: 12,
+  },
+  vinnieConfirmTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 10,
+  },
+  vinnieConfirmBody: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  vinnieConfirmBold: {
+    fontWeight: '900',
+    color: '#ffb724',
+  },
+  vinnieConfirmSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  vinnieConfirmYes: {
+    backgroundColor: '#ffb724',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  vinnieConfirmYesText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  vinnieConfirmNo: {
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  vinnieConfirmNoText: {
+    color: '#78909C',
+    fontSize: 15,
+    fontWeight: '700',
   },
   minutesLabelRow: {
     flexDirection: 'row',
