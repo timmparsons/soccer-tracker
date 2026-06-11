@@ -110,14 +110,16 @@ const TrainPage = () => {
 
   // Show Vinnie's game-speed pep talk once per day on first visit to Train
   useEffect(() => {
+    if (!user?.id) return;
     const today = getLocalDate();
-    AsyncStorage.getItem('vinnieGameSpeedShownDate').then((stored) => {
+    const key = `vinnieGameSpeedShownDate-${user.id}`;
+    AsyncStorage.getItem(key).then((stored) => {
       if (stored !== today) {
         setShowGameSpeedModal(true);
-        AsyncStorage.setItem('vinnieGameSpeedShownDate', today);
+        AsyncStorage.setItem(key, today);
       }
     });
-  }, []);
+  }, [user?.id]);
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
