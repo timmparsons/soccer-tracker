@@ -9,11 +9,11 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StatusBar } from 'react-native';
+import { AppState, Platform, StatusBar } from 'react-native';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -26,6 +26,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Refetch/recompute date-dependent queries (e.g. today's challenge) when the
+// app returns to the foreground, since query keys based on today's date
+// won't recompute on their own if the app was backgrounded overnight.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (status) => {
+    focusManager.setFocused(status === 'active');
+  });
+}
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);

@@ -192,18 +192,21 @@ const TrainPage = () => {
 
   useEffect(() => {
     if (!params.startChallengeDrillId) return;
-    handleStartChallenge(
-      params.startChallengeDrillId,
-      Number(params.startChallengeDuration ?? 0),
-      params.startChallengeName ?? '',
-      params.startChallengeDifficulty ?? '',
-    );
+    const drillId = params.startChallengeDrillId;
+    const durationMinutes = Number(params.startChallengeDuration ?? 0);
+    const drillName = params.startChallengeName ?? '';
+    const difficulty = params.startChallengeDifficulty ?? '';
     router.setParams({
       startChallengeDrillId: undefined,
       startChallengeDuration: undefined,
       startChallengeName: undefined,
       startChallengeDifficulty: undefined,
     });
+    // Delay the alert so it isn't dropped mid tab-transition (seen on iPad).
+    const timeout = setTimeout(() => {
+      handleStartChallenge(drillId, durationMinutes, drillName, difficulty);
+    }, 400);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.startChallengeDrillId]);
 
