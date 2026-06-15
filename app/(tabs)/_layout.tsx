@@ -81,7 +81,7 @@ export default function TabLayout() {
       me?.completed_at === null
     );
   });
-  const homeBadge = hasUnstartedGroupChallenge ? '' : undefined;
+  const trainBadge = hasUnstartedGroupChallenge ? '' : undefined;
 
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
@@ -109,17 +109,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
-            tabBarBadge: homeBadge,
-            tabBarBadgeStyle: {
-              top: 0,
-              right: -2,
-              minWidth: 8,
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              paddingHorizontal: 0,
-              fontSize: 0,
-            },
           }}
         />
         <Tabs.Screen
@@ -140,6 +129,17 @@ export default function TabLayout() {
               <Play size={size ?? 28} color={color} />
             ),
             href: profile?.is_coach ? null : '/train',
+            tabBarBadge: trainBadge,
+            tabBarBadgeStyle: {
+              top: 0,
+              right: -2,
+              minWidth: 8,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              paddingHorizontal: 0,
+              fontSize: 0,
+            },
           }}
         />
         <Tabs.Screen
