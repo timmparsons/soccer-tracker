@@ -24,6 +24,7 @@ interface SessionLog {
   touches_logged: number;
   duration_minutes: number | null;
   created_at: string;
+  focus_areas: string[] | null;
 }
 
 export const useTouchTracking = (userId: string | undefined) => {
@@ -164,6 +165,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           date,
           touches_logged,
           duration_minutes,
+          focus_areas,
           created_at,
           drills (name)
         `,
@@ -178,6 +180,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           date: string;
           touches_logged: number;
           duration_minutes: number | null;
+          focus_areas: string[] | null;
           created_at: string;
           drills: { name: string } | null;
         }) => ({
@@ -186,6 +189,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           drill_name: s.drills?.name || null,
           touches_logged: s.touches_logged,
           duration_minutes: s.duration_minutes,
+          focus_areas: s.focus_areas ?? null,
           created_at: s.created_at,
         }),
       );

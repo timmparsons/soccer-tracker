@@ -125,6 +125,7 @@ const HomeScreen = () => {
               </Text>
               <Ionicons name='chevron-forward' size={16} color='#B0BEC5' />
             </TouchableOpacity>
+            <View style={styles.reactionDivider} />
             <TouchableOpacity
               onPress={dismissReactions}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -136,7 +137,7 @@ const HomeScreen = () => {
         )}
 
         {/* REACTIONS MODAL */}
-        <Modal visible={showReactionsModal} transparent animationType='slide'>
+        <Modal visible={showReactionsModal} transparent animationType='slide' onRequestClose={dismissReactions}>
           <Pressable style={styles.modalOverlay} onPress={dismissReactions}>
             <Pressable style={styles.modalSheet} onPress={() => {}}>
               <View style={styles.modalHandle} />
@@ -387,7 +388,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    overflow: 'hidden',
   },
   reactionBannerMain: {
     flex: 1,
@@ -396,11 +396,14 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
   },
+  reactionDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#BFDBFE',
+  },
   reactionDismiss: {
     paddingHorizontal: 14,
     paddingVertical: 14,
-    borderLeftWidth: 1,
-    borderLeftColor: '#BFDBFE',
   },
   reactionIconBg: {
     width: 34,

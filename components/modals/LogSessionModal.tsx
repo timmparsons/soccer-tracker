@@ -41,6 +41,16 @@ interface LogSessionModalProps {
   badgeContext?: Omit<BadgeCheckContext, 'jugglesThisSession' | 'durationMinutes'>;
 }
 
+const FOCUS_AREAS = [
+  { key: 'juggling', label: 'Juggling' },
+  { key: 'dribbling', label: 'Dribbling' },
+  { key: 'ball_mastery', label: 'Ball Mastery' },
+  { key: 'passing', label: 'Passing' },
+  { key: 'first_touch', label: 'First Touch' },
+  { key: 'shooting', label: 'Shooting' },
+  { key: 'fitness', label: 'Fitness' },
+];
+
 const DRILL_TIPS: Record<string, string> = {
   beginner:
     'Focus on clean touches, not speed. Get comfortable with the ball first! ⚽',
@@ -67,6 +77,7 @@ const LogSessionModal = ({
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -89,6 +100,7 @@ const LogSessionModal = ({
       );
       setAttempted(false);
       setTouches('');
+      setSelectedAreas([]);
     }
   }, [visible, challengeDurationMinutes]);
 
@@ -124,6 +136,7 @@ const LogSessionModal = ({
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
         date: today,
+        focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
       });
 
       if (error) throw error;
@@ -147,6 +160,7 @@ const LogSessionModal = ({
       setDuration('');
       setJuggles('');
       setAttempted(false);
+      setSelectedAreas([]);
 
       onSuccess();
       onClose();
@@ -326,6 +340,37 @@ const LogSessionModal = ({
                     </Text>
                   </View>
                 )}
+            </View>
+
+            {/* Focus areas */}
+            <View style={styles.focusSection}>
+              <Text style={styles.sectionLabel}>
+                What did you work on?{' '}
+                <Text style={styles.optionalLabel}>(optional)</Text>
+              </Text>
+              <View style={styles.pillsRow}>
+                {FOCUS_AREAS.map((area) => {
+                  const active = selectedAreas.includes(area.key);
+                  return (
+                    <TouchableOpacity
+                      key={area.key}
+                      style={[styles.pill, active && styles.pillActive]}
+                      onPress={() =>
+                        setSelectedAreas((prev) =>
+                          active
+                            ? prev.filter((k) => k !== area.key)
+                            : [...prev, area.key],
+                        )
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                        {area.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             {/* Best Juggles — simple optional field, regular mode only */}
@@ -695,6 +740,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     lineHeight: 19,
+  },
+  focusSection: {
+    marginBottom: 24,
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F2F5',
+    borderWidth: 1.5,
+    borderColor: '#DDE1E7',
+  },
+  pillActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#1f89ee',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  pillTextActive: {
+    color: '#1f89ee',
   },
   inputPairSection: {
     marginBottom: 24,

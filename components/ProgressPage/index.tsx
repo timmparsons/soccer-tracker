@@ -48,11 +48,10 @@ const ProgressPage = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        queryClient.invalidateQueries({
-          queryKey: ['recent-sessions', user.id],
-        });
+        queryClient.invalidateQueries({ queryKey: ['recent-sessions', user.id] });
         queryClient.invalidateQueries({ queryKey: ['chart-stats', user.id] });
         queryClient.invalidateQueries({ queryKey: ['quick-stats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['focus-breakdown', user.id] });
       }
     }, [user?.id, queryClient]),
   );
@@ -132,6 +131,37 @@ const ProgressPage = () => {
       }
     },
   });
+
+  const { data: focusBreakdownRaw = [] } = useQuery({
+    queryKey: ['focus-breakdown', user?.id, timeFilter, getLocalDate()],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const today = new Date();
+      const daysToFetch = timeFilter === 'week' ? 7 : 28;
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - daysToFetch + 1);
+
+      const { data } = await supabase
+        .from('daily_sessions')
+        .select('focus_areas')
+        .eq('user_id', user!.id)
+        .gte('date', getLocalDate(startDate))
+        .not('focus_areas', 'is', null);
+
+      const counts: Record<string, number> = {};
+      data?.forEach((s: { focus_areas: string[] | null }) => {
+        s.focus_areas?.forEach((area) => {
+          counts[area] = (counts[area] || 0) + 1;
+        });
+      });
+
+      return Object.entries(counts)
+        .map(([area, count]) => ({ area, count }))
+        .sort((a, b) => b.count - a.count);
+    },
+  });
+
+  const focusBreakdown = focusBreakdownRaw;
 
   const getTpmLabel = (tpm: number) => {
     if (tpm === 0) return 'No data';
@@ -320,6 +350,28 @@ const ProgressPage = () => {
           </View>
         </View>
 
+        {/* Training Focus Breakdown */}
+        {focusBreakdown.length > 0 && (
+          <View style={styles.focusCard}>
+            <Text style={styles.sectionTitle}>Training Focus</Text>
+            {focusBreakdown.map(({ area, count }) => {
+              const pct = count / focusBreakdown[0].count;
+              const label = area.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+              return (
+                <View key={area} style={styles.focusRow}>
+                  <Text style={styles.focusRowLabel}>{label}</Text>
+                  <View style={styles.focusBarTrack}>
+                    <View style={[styles.focusBarFill, { width: `${pct * 100}%` }]} />
+                  </View>
+                  <Text style={styles.focusRowCount}>
+                    {count} {count === 1 ? 'session' : 'sessions'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Session History */}
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
@@ -364,6 +416,17 @@ const ProgressPage = () => {
                           </>
                         )}
                       </View>
+                      {session.focus_areas && session.focus_areas.length > 0 && (
+                        <View style={styles.focusTags}>
+                          {session.focus_areas.map((area) => (
+                            <View key={area} style={styles.focusTag}>
+                              <Text style={styles.focusTagText}>
+                                {area.replace('_', ' ')}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   </View>
                   <View style={styles.sessionRight}>
@@ -645,6 +708,66 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FF9800',
     marginTop: 4,
+  },
+  focusCard: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  focusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  focusRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    width: 100,
+  },
+  focusBarTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#F0F2F5',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  focusBarFill: {
+    height: 8,
+    backgroundColor: '#1f89ee',
+    borderRadius: 4,
+  },
+  focusRowCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+    width: 70,
+    textAlign: 'right',
+  },
+  focusTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
+  },
+  focusTag: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  focusTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1f89ee',
+    textTransform: 'capitalize',
   },
 
 });
