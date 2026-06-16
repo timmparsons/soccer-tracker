@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -345,6 +346,24 @@ const ProfilePage = () => {
   const handleJoinTeam = () => {
     setShowSettingsModal(false);
     router.push('/(modals)/join-team');
+  };
+
+  const handleLeaveTeam = () => {
+    Alert.alert('Leave Team', 'Are you sure you want to leave your team?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase
+            .from('profiles')
+            .update({ team_id: null })
+            .eq('id', user!.id);
+          await refetchProfile();
+          queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+        },
+      },
+    ]);
   };
 
   const handleSaveName = async () => {
@@ -1036,6 +1055,51 @@ const ProfilePage = () => {
                   </View>
                 </View>
 
+                {/* Team Code - non-coach players on a team */}
+                {!profile?.is_coach &&
+                  profile?.team_id &&
+                  (profile?.teams as any)?.code && (
+                    <View style={styles.myTeamCard}>
+                      <View style={styles.myTeamHeader}>
+                        <Ionicons name='people' size={18} color='#1f89ee' />
+                        <Text style={styles.myTeamName}>
+                          {(profile.teams as any).name}
+                        </Text>
+                      </View>
+                      <Text style={styles.myTeamCodeLabel}>Team Code</Text>
+                      <Text style={styles.myTeamCode}>
+                        {(profile.teams as any).code}
+                      </Text>
+                      <View style={styles.myTeamActions}>
+                        <TouchableOpacity
+                          style={styles.myTeamCopyBtn}
+                          onPress={async () => {
+                            await Clipboard.setStringAsync(
+                              (profile.teams as any).code,
+                            );
+                            Alert.alert(
+                              'Copied!',
+                              'Team code copied to clipboard',
+                            );
+                          }}
+                        >
+                          <Ionicons
+                            name='copy-outline'
+                            size={15}
+                            color='#1f89ee'
+                          />
+                          <Text style={styles.myTeamCopyText}>Copy Code</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.myTeamLeaveBtn}
+                          onPress={handleLeaveTeam}
+                        >
+                          <Text style={styles.myTeamLeaveText}>Leave Team</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
                 {/* Team Buttons (if no team) */}
                 {!profile?.team_id && (
                   <View style={styles.teamButtonsContainer}>
@@ -1140,7 +1204,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 3.03</Text>
+                <Text style={styles.version}>Version 3.0.7</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>
@@ -2515,5 +2579,74 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+
+  // MY TEAM CARD (non-coach players with a team)
+  myTeamCard: {
+    backgroundColor: '#F0F7FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  myTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  myTeamName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  myTeamCodeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  myTeamCode: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1f89ee',
+    letterSpacing: 3,
+    marginBottom: 14,
+  },
+  myTeamActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  myTeamCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+  },
+  myTeamCopyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  myTeamLeaveBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+  },
+  myTeamLeaveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
   },
 });

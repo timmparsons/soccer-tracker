@@ -1,12 +1,10 @@
-import { useCoachTeams } from '@/hooks/useCoachTeams';
-import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,19 +24,9 @@ export default function CreateTeam() {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { isPremium, isLoading: premiumLoading } = useSubscription();
 
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
-
-  // Gate: non-premium users go to paywall
-  useEffect(() => {
-    if (!premiumLoading && !isPremium) {
-      router.replace('/(modals)/paywall');
-    }
-  }, [isPremium, premiumLoading, router]);
 
   // If already on a team, redirect
   if (profile?.team_id) {
@@ -77,11 +65,6 @@ export default function CreateTeam() {
 
     if (!user?.id) {
       Alert.alert('Error', 'You must be logged in to create a team');
-      return;
-    }
-
-    if (coachTeams.length >= 3) {
-      Alert.alert('Team Limit Reached', 'The Coach plan supports up to 3 teams. Remove an existing team to create a new one.');
       return;
     }
 
@@ -143,45 +126,18 @@ export default function CreateTeam() {
       // Invalidate so the coach dashboard picks up the new team immediately
       queryClient.invalidateQueries({ queryKey: ['coach-teams', user.id] });
 
-      const isAddingSecondTeam = !!profile?.team_id;
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ team_id: team.id })
+        .eq('id', user.id);
+      if (profileError) throw profileError;
+      await refetchProfile();
 
-      if (!isAddingSecondTeam) {
-        // First team — set as active and mark as coach
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ team_id: team.id, is_coach: true, role: 'coach' })
-          .eq('id', user.id);
-        if (profileError) throw profileError;
-        await refetchProfile();
-
-        Alert.alert(
-          'Team Created! 🎉',
-          `Team: ${teamName}\nTeam Code: ${teamCode}\n\nShare this code with your teammates so they can join!`,
-          [{ text: 'Done', onPress: () => router.replace('/') }],
-        );
-      } else {
-        // Additional team — ask if they want to switch active team
-        await refetchProfile();
-        Alert.alert(
-          'Team Created! 🎉',
-          `Team: ${teamName}\nTeam Code: ${teamCode}\n\nSwitch to this team as your active team?`,
-          [
-            {
-              text: 'Switch',
-              onPress: async () => {
-                await supabase.from('profiles').update({ team_id: team.id }).eq('id', user.id);
-                await refetchProfile();
-                router.replace('/');
-              },
-            },
-            {
-              text: 'Stay on current team',
-              style: 'cancel',
-              onPress: () => router.replace('/'),
-            },
-          ],
-        );
-      }
+      Alert.alert(
+        'Team Created!',
+        `Team: ${teamName}\nCode: ${teamCode}\n\nShare this code with friends so they can join!`,
+        [{ text: 'Done', onPress: () => router.replace('/') }],
+      );
     } catch (error: any) {
       console.error('Error creating team:', error);
       Alert.alert('Error', error.message || 'Failed to create team');
@@ -248,7 +204,7 @@ export default function CreateTeam() {
           <View style={styles.coachCard}>
             <Ionicons name='star' size={20} color='#ffb724' />
             <Text style={styles.coachText}>
-              You&apos;ll become the team coach and can manage your players
+              Share the code with anyone — friends, teammates, neighbors
             </Text>
           </View>
 

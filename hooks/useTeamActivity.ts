@@ -54,69 +54,58 @@ function sessionMessage(name: string, totalTouches: number, sessionCount: number
   ]);
 }
 
-export function useTeamActivity(teamId: string | undefined, limit = 7) {
+export function useActivityFeed(limit = 7) {
   return useQuery({
-    queryKey: ['team-activity', teamId, limit, getLocalDate()],
-    enabled: !!teamId,
+    queryKey: ['activity-feed', limit, getLocalDate()],
     queryFn: async (): Promise<TeamActivityItem[]> => {
-      if (!teamId) return [];
+      const today = getLocalDate();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+      // Fetch today's sessions across all users
+      const { data: sessions } = await supabase
+        .from('daily_sessions')
+        .select('user_id, touches_logged, drill_id, created_at')
+        .eq('date', today)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      // Fetch recent 1v1 wins globally
+      const { data: wins } = await supabase
+        .from('player_challenges')
+        .select('id, winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at, created_at')
+        .eq('status', 'completed')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Collect all user IDs we need profiles for
+      const sessionUserIds = [...new Set((sessions || []).map((s: { user_id: string }) => s.user_id))];
+      const winnerIds = (wins || []).map((w: { winner_id: string }) => w.winner_id);
+      const opponentIds = (wins || []).map((w: { winner_id: string; challenger_id: string; challenged_id: string }) =>
+        w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
+      );
+      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds])];
+
+      if (allUserIds.length === 0) return [];
+
+      // Fetch all relevant profiles, excluding coaches
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url')
-        .eq('team_id', teamId)
+        .in('id', allUserIds)
         .eq('is_coach', false);
 
       if (!profiles || profiles.length === 0) return [];
 
       const profileMap = new Map(profiles.map((p) => [p.id, p]));
-      const memberIds = profiles.map((p) => p.id);
-      const today = getLocalDate();
 
-      // Fetch today's sessions for all team members
-      const { data: sessions } = await supabase
-        .from('daily_sessions')
-        .select('user_id, touches_logged, drill_id, created_at')
-        .in('user_id', memberIds)
-        .eq('date', today)
-        .order('created_at', { ascending: false });
-
-      // Fetch recent 1v1 wins (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const { data: wins } = await supabase
-        .from('player_challenges')
-        .select(
-          'id, winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at, created_at',
-        )
-        .eq('status', 'completed')
-        .in('winner_id', memberIds)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      // Batch-fetch any opponent profiles not already in profileMap
-      const opponentIds = [
-        ...new Set(
-          (wins || []).map((w: { winner_id: string; challenger_id: string; challenged_id: string }) =>
-            w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
-          ),
-        ),
-      ].filter((id) => !profileMap.has(id));
-
-      if (opponentIds.length > 0) {
-        const { data: opponents } = await supabase
-          .from('profiles')
-          .select('id, name, display_name, avatar_url')
-          .in('id', opponentIds);
-        opponents?.forEach((p) => profileMap.set(p.id, p));
-      }
-
-      // Aggregate today's sessions per user (one story per person)
+      // Aggregate today's sessions per user
       type UserStats = { totalTouches: number; sessionCount: number; hasChallenge: boolean; latestAt: string };
       const userStats = new Map<string, UserStats>();
 
       for (const s of (sessions || []) as { user_id: string; touches_logged: number; drill_id: string | null; created_at: string }[]) {
+        if (!profileMap.has(s.user_id)) continue;
         const existing = userStats.get(s.user_id);
         if (existing) {
           existing.totalTouches += s.touches_logged;
@@ -135,7 +124,7 @@ export function useTeamActivity(teamId: string | undefined, limit = 7) {
       const items: TeamActivityItem[] = [];
       const usedUsers = new Set<string>();
 
-      // 1v1 wins first (most exciting)
+      // 1v1 wins first
       for (const w of (wins || []) as {
         id: string;
         winner_id: string;
@@ -146,6 +135,7 @@ export function useTeamActivity(teamId: string | undefined, limit = 7) {
         created_at: string;
       }[]) {
         if (usedUsers.has(w.winner_id)) continue;
+        if (!profileMap.has(w.winner_id)) continue;
 
         const winnerProfile = profileMap.get(w.winner_id);
         const winnerName = getDisplayName(winnerProfile);

@@ -40,12 +40,10 @@ interface OnboardingData {
 
 const PLAYER_STEPS = [
   'welcome',
-  'persona',
   'social',
   'name',
   'notif',
   'signup',
-  'paywall',
 ] as const;
 
 const COACH_STEPS = [
@@ -220,7 +218,7 @@ export default function OnboardingScreen() {
   const { data: user } = useUser();
   const [stepIndex, setStepIndex] = useState(0);
   const [data, setData] = useState<OnboardingData>({
-    persona: null,
+    persona: 'player',
     goal: null,
     painPoints: [],
     name: '',
@@ -333,7 +331,7 @@ export default function OnboardingScreen() {
             password={data.password}
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
-            onNext={goNext}
+            onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
           />
         );
       case 'paywall':

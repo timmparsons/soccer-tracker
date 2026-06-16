@@ -1,3 +1,4 @@
+import { useUnviewedReactions } from '@/hooks/useActivityReactions';
 import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useGroupChallenges } from '@/hooks/useGroupChallenges';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
@@ -70,6 +71,12 @@ export default function TabLayout() {
   const challengeBadge =
     activeCoachChallenges + pendingPlayerChallenges || undefined;
 
+  const hasLive1v1 = playerChallenges?.some((c) => {
+    if (c.status !== 'accepted') return false;
+    const isChallenger = c.challenger_id === user?.id;
+    return isChallenger ? !c.challenger_completed_at : !c.challenged_completed_at;
+  }) ?? false;
+
   const hasUnstartedGroupChallenge = groupChallenges?.some((gc) => {
     const me = gc.participants.find((p) => p.user_id === user?.id);
     const deadlinePassed = new Date() > new Date(gc.deadline_at);
@@ -81,7 +88,11 @@ export default function TabLayout() {
       me?.completed_at === null
     );
   });
-  const homeBadge = hasUnstartedGroupChallenge ? '' : undefined;
+
+  const trainBadge = hasLive1v1 || hasUnstartedGroupChallenge ? '' : undefined;
+
+  const { data: unviewedReactions = [] } = useUnviewedReactions(isPlayer ? user?.id : undefined);
+  const homeBadge = unviewedReactions.length > 0 ? '' : undefined;
 
   return (
     <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
@@ -140,6 +151,17 @@ export default function TabLayout() {
               <Play size={size ?? 28} color={color} />
             ),
             href: profile?.is_coach ? null : '/train',
+            tabBarBadge: trainBadge,
+            tabBarBadgeStyle: {
+              top: 0,
+              right: -2,
+              minWidth: 8,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              paddingHorizontal: 0,
+              fontSize: 0,
+            },
           }}
         />
         <Tabs.Screen
