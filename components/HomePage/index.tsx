@@ -11,6 +11,7 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -26,6 +27,7 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
 
   const {
     data: touchStats,
@@ -42,16 +44,18 @@ const HomeScreen = () => {
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
+      queryClient.invalidateQueries({ queryKey: ['team-activity'] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-    }, [refetchProfile, refetchStats, refetchChallengeStats]),
+      queryClient.invalidateQueries({ queryKey: ['team-activity'] });
+    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]),
   );
 
   if (statsLoading) {
