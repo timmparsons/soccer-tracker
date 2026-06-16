@@ -1,15 +1,11 @@
+import ActivityFeed from '@/components/HomePage/ActivityFeed';
 import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
-import { getLocalDate } from '@/utils/getLocalDate';
 import CircularProgress from '@/components/common/CircularProgress';
-import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
-  useDailyTouchHistory,
-  useRecentSessions,
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
@@ -19,7 +15,6 @@ import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -41,32 +36,22 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
-  const { data: recentSessions = [], refetch: refetchRecent } =
-    useRecentSessions(user?.id, 3);
-  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
-    useChallengeRecord(user?.id);
-  const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(
-    user?.id,
-  );
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
-      refetchRecent(),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, refetchRecent]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-      refetchRecent();
-    }, [refetchProfile, refetchStats, refetchChallengeStats, refetchRecent]),
+    }, [refetchProfile, refetchStats, refetchChallengeStats]),
   );
 
   if (statsLoading) {
@@ -78,37 +63,14 @@ const HomeScreen = () => {
   }
 
   const displayName = getDisplayName(profile);
-  const weekTouches = touchStats?.this_week_touches || 0;
   const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
-  const winStreak = challengeRecord.streak;
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const todayPct = Math.min((todayTouches / dailyTarget) * 100, 100);
   const todayDone = todayTouches >= dailyTarget;
 
-  const formatSessionDate = (dateStr: string) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const d = new Date(dateStr + 'T00:00:00');
-    if (dateStr === getLocalDate(today)) return 'Today';
-    if (dateStr === getLocalDate(yesterday)) return 'Yesterday';
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getTpmLabel = (tpm: number) => {
-    if (tpm === 0) return 'No data';
-    if (tpm < 30) return 'Slow pace';
-    if (tpm < 50) return 'Moderate';
-    if (tpm < 80) return 'Good tempo!';
-    return 'Game speed!';
-  };
 
   return (
     <View style={styles.container}>
@@ -195,104 +157,9 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/* QUICK STATS */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, styles.statWeek]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
-              <Text style={styles.statIcon}>📊</Text>
-            </View>
-            <Text style={[styles.statValue, { color: '#1f89ee' }]}>
-              {weekTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.statLabel}>This Week</Text>
-            <Text style={styles.statSubtext}>Resets Sunday</Text>
-            <MiniSparkline data={dailyHistory} color='#1f89ee' />
-          </View>
+        {/* TEAM ACTIVITY */}
+        <ActivityFeed teamId={profile?.team_id} />
 
-          <View style={[styles.statCard, styles.statStreak]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
-              <Text style={styles.statIcon}>🔥</Text>
-            </View>
-            <Text style={[styles.statValue, { color: '#ffb724' }]}>
-              {streak}
-            </Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-            <Text style={styles.statSubtext}>Keep it going!</Text>
-          </View>
-
-          <View style={[styles.statCard, styles.statBest]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
-              <Text style={styles.statIcon}>⚡</Text>
-            </View>
-            <Text style={[styles.statValue, { color: '#1f89ee' }]}>
-              {weekTpm}
-            </Text>
-            <Text style={styles.statLabel}>Touches/Min</Text>
-            <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
-            <MiniSparkline data={dailyHistory} color='#1f89ee' />
-          </View>
-
-          <View style={[styles.statCard, styles.statAvg]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
-              <Text style={styles.statIcon}>⚽</Text>
-            </View>
-            <Text style={[styles.statValue, { color: '#ffb724' }]}>
-              {challengeStreak}
-            </Text>
-            <Text style={styles.statLabel}>Challenge Streak</Text>
-            <Text style={styles.statSubtext}>
-              {challengeStreak === 0
-                ? "Do today's challenge!"
-                : 'Days in a row'}
-            </Text>
-          </View>
-
-          {winStreak > 0 && (
-            <View style={[styles.statCard, styles.statWinStreak]}>
-              <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
-                <Text style={styles.statIcon}>⚔️</Text>
-              </View>
-              <Text style={[styles.statValue, { color: '#ffb724' }]}>
-                {winStreak}
-              </Text>
-              <Text style={styles.statLabel}>1v1 Win Streak</Text>
-              <Text style={styles.statSubtext}>{"Don't lose it!"}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* RECENT SESSIONS */}
-        {recentSessions.length > 0 && (
-          <View style={styles.recentCard}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.recentLabel}>Recent Sessions</Text>
-              <Pressable onPress={() => router.push('/(tabs)/progress')}>
-                <Text style={styles.seeAll}>See all →</Text>
-              </Pressable>
-            </View>
-            {recentSessions.map((s, i) => (
-              <View
-                key={s.id}
-                style={[
-                  styles.recentRow,
-                  i < recentSessions.length - 1 && styles.recentRowBorder,
-                ]}
-              >
-                <View style={styles.recentLeft}>
-                  <Text style={styles.recentDate}>
-                    {formatSessionDate(s.date)}
-                  </Text>
-                  {s.drill_name && (
-                    <Text style={styles.recentDrill}>{s.drill_name}</Text>
-                  )}
-                </View>
-                <Text style={styles.recentTouches}>
-                  {s.touches_logged.toLocaleString()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -315,78 +182,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  // STATS GRID (2x2)
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statCard: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  statWeek: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 4,
-    borderTopColor: '#1f89ee',
-  },
-  statStreak: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 4,
-    borderTopColor: '#ffb724',
-  },
-  statBest: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 4,
-    borderTopColor: '#1f89ee',
-  },
-  statAvg: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 4,
-    borderTopColor: '#ffb724',
-  },
-  statWinStreak: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 4,
-    borderTopColor: '#ffb724',
-    width: '100%',
-  },
-  statIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F5F7FA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statIcon: {
-    fontSize: 18,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 2,
-  },
-  statSubtext: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-
   // TODAY'S PROGRESS
   todayCard: {
     backgroundColor: '#1f89ee',
@@ -450,60 +245,4 @@ const styles = StyleSheet.create({
   },
 
   // RECENT SESSIONS
-  recentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  recentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  recentLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    letterSpacing: 0,
-  },
-  seeAll: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  recentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  recentRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4F8',
-  },
-  recentLeft: {
-    flex: 1,
-  },
-  recentDate: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-  recentDrill: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    marginTop: 2,
-  },
-  recentTouches: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1f89ee',
-  },
 });

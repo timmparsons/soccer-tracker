@@ -1,8 +1,14 @@
+import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
-import { useRecentSessions, useTouchTracking } from '@/hooks/useTouchTracking';
+import {
+  useChallengeStats,
+  useDailyTouchHistory,
+  useRecentSessions,
+  useTouchTracking,
+} from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
@@ -57,6 +63,8 @@ const ProgressPage = () => {
 
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: challengeStats } = useChallengeStats(user?.id, undefined);
+  const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
 
   useEffect(() => {
     const streak = touchStats?.current_streak || 0;
@@ -125,44 +133,18 @@ const ProgressPage = () => {
     },
   });
 
-  // Get quick stats
-  const { data: quickStats } = useQuery({
-    queryKey: ['quick-stats', user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const getTpmLabel = (tpm: number) => {
+    if (tpm === 0) return 'No data';
+    if (tpm < 30) return 'Slow pace';
+    if (tpm < 50) return 'Moderate';
+    if (tpm < 80) return 'Good tempo!';
+    return 'Game speed!';
+  };
 
-      const { data: sessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged, duration_minutes, date')
-        .eq('user_id', user!.id)
-        .gte('date', getLocalDate(sevenDaysAgo));
-
-      if (!sessions || sessions.length === 0) {
-        return { bestDay: 0, dailyAvg: 0, daysHitTarget: 0, avgTpm: 0 };
-      }
-
-      // Group by date
-      const byDate: Record<string, number> = {};
-      sessions.forEach((s) => {
-        byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
-      });
-
-      const dailyTotals = Object.values(byDate);
-      const bestDay = Math.max(...dailyTotals, 0);
-      const dailyAvg = Math.round(dailyTotals.reduce((a, b) => a + b, 0) / 7);
-      const daysHitTarget = dailyTotals.filter((t) => t >= 1000).length;
-
-      // Calculate average TPM — only sessions that have a duration recorded
-      const timedSessions = sessions.filter((s) => (s.duration_minutes || 0) > 0);
-      const tpmTouches = timedSessions.reduce((sum, s) => sum + s.touches_logged, 0);
-      const totalMinutes = timedSessions.reduce((sum, s) => sum + s.duration_minutes!, 0);
-      const avgTpm = totalMinutes > 0 ? Math.round(tpmTouches / totalMinutes) : 0;
-
-      return { bestDay, dailyAvg, daysHitTarget, avgTpm };
-    },
-  });
+  const weekTouches = touchStats?.this_week_touches || 0;
+  const streak = touchStats?.current_streak || 0;
+  const weekTpm = touchStats?.this_week_tpm || 0;
+  const challengeStreak = challengeStats?.challengeStreak || 0;
 
   // Format time ago
   const formatTimeAgo = (dateStr: string) => {
@@ -291,43 +273,51 @@ const ProgressPage = () => {
           />
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.quickStatsCard}>
-          <Text style={styles.sectionTitle}>This Week</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>📈</Text>
-              <Text style={styles.statValue}>
-                {(quickStats?.bestDay || 0).toLocaleString()}
-              </Text>
-              <Text style={styles.statLabel}>Best Day</Text>
+        {/* This Week Stats */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, styles.statWeek]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
+              <Text style={styles.statIcon}>📊</Text>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>📊</Text>
-              <Text style={styles.statValue}>
-                {(quickStats?.dailyAvg || 0).toLocaleString()}
-              </Text>
-              <Text style={styles.statLabel}>Daily Avg</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>⚡</Text>
-              <Text style={styles.statValue}>{quickStats?.avgTpm || 0}</Text>
-              <Text style={styles.statLabel}>Tempo</Text>
-            </View>
+            <Text style={[styles.statValue, { color: '#1f89ee' }]}>
+              {weekTouches.toLocaleString()}
+            </Text>
+            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={styles.statSubtext}>Resets Sunday</Text>
+            <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
-          {(quickStats?.avgTpm || 0) > 0 && (
-            <View style={styles.tpmHint}>
-              <Text style={styles.tpmHintText}>
-                {(quickStats?.avgTpm || 0) < 30
-                  ? '💡 Try practicing faster - aim for game speed!'
-                  : (quickStats?.avgTpm || 0) < 50
-                    ? '👍 Good pace! Push for 50+ touches/min'
-                    : (quickStats?.avgTpm || 0) < 80
-                      ? "🔥 Great tempo! You're training at game speed"
-                      : '⚡ Elite intensity! Keep it up!'}
-              </Text>
+
+          <View style={[styles.statCard, styles.statStreak]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
+              <Text style={styles.statIcon}>🔥</Text>
             </View>
-          )}
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>{streak}</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+            <Text style={styles.statSubtext}>Keep it going!</Text>
+          </View>
+
+          <View style={[styles.statCard, styles.statBest]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#EFF6FF' }]}>
+              <Text style={styles.statIcon}>⚡</Text>
+            </View>
+            <Text style={[styles.statValue, { color: '#1f89ee' }]}>{weekTpm}</Text>
+            <Text style={styles.statLabel}>Touches/Min</Text>
+            <Text style={styles.statSubtext}>{getTpmLabel(weekTpm)}</Text>
+            <MiniSparkline data={dailyHistory} color='#1f89ee' />
+          </View>
+
+          <View style={[styles.statCard, styles.statAvg]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
+              <Text style={styles.statIcon}>⚽</Text>
+            </View>
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>
+              {challengeStreak}
+            </Text>
+            <Text style={styles.statLabel}>Challenge Streak</Text>
+            <Text style={styles.statSubtext}>
+              {challengeStreak === 0 ? "Do today's challenge!" : 'Days in a row'}
+            </Text>
+          </View>
         </View>
 
         {/* Session History */}
@@ -503,62 +493,60 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 
-  // QUICK STATS
-  quickStatsCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '900',
     color: '#1a1a2e',
     marginBottom: 16,
   },
+
+  // THIS WEEK STATS GRID
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
   },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#EFF6FF',
+  statCard: {
+    width: '48%',
     padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statEmoji: {
-    fontSize: 28,
+  statWeek: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
+  statStreak: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
+  statBest: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
+  statAvg: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
+  statIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F5F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
+  statIcon: { fontSize: 18 },
   statValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     color: '#1a1a2e',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78909C',
-    textAlign: 'center',
-  },
-  tpmHint: {
-    marginTop: 16,
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 12,
-  },
-  tpmHintText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1976D2',
-    textAlign: 'center',
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  statSubtext: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
   },
 
   // SESSION HISTORY
