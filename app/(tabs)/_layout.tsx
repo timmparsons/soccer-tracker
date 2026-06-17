@@ -167,11 +167,11 @@ export default function TabLayout() {
         <Tabs.Screen
           name='coach'
           options={{
-            title: 'Coach',
+            title: 'Team',
             tabBarIcon: ({ color }) => (
               <Ionicons name='clipboard' size={24} color={color} />
             ),
-            // Always hidden from tab bar (index.tsx renders it)
+            // Always hidden from tab bar (index.tsx renders it for coaches)
             href: null,
           }}
         />

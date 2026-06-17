@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 interface DailyStats {
   today_touches: number;
@@ -357,8 +359,20 @@ export const useDailyTouchHistory = (userId: string | undefined) => {
 };
 
 export const useTodayChallenge = (userId: string | undefined) => {
+  const [date, setDate] = useState(getLocalDate());
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        const today = getLocalDate();
+        setDate((prev) => (prev !== today ? today : prev));
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   return useQuery({
-    queryKey: ['today-challenge', userId, getLocalDate()],
+    queryKey: ['today-challenge', userId, date],
     queryFn: async () => {
       if (!userId) return null;
 

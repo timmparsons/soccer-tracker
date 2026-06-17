@@ -40,6 +40,7 @@ interface OnboardingData {
 
 const PLAYER_STEPS = [
   'welcome',
+  'persona',
   'social',
   'name',
   'notif',

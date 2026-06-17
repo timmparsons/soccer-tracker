@@ -2,13 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import type { Badge } from '@/hooks/useBadges';
+
+const CONFETTI_BADGE_IDS = new Set([
+  'streak_100',
+  'streak_365',
+  'challenge_streak_3',
+  'challenge_streak_7',
+  'challenge_streak_30',
+]);
 
 interface BadgeEarnedModalProps {
   visible: boolean;
@@ -18,7 +28,10 @@ interface BadgeEarnedModalProps {
 
 export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarnedModalProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const confettiRef = useRef<ConfettiCannon>(null);
   const [index, setIndex] = useState(0);
+
+  const showConfetti = badges.some((b) => CONFETTI_BADGE_IDS.has(b.id));
 
   useEffect(() => {
     if (visible) {
@@ -30,6 +43,9 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
         tension: 100,
         friction: 8,
       }).start();
+      if (showConfetti) {
+        setTimeout(() => confettiRef.current?.start(), 300);
+      }
     } else {
       scaleAnim.setValue(0);
     }
@@ -51,6 +67,8 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
     }).start();
   };
 
+  const { width } = Dimensions.get('window');
+
   return (
     <Modal
       visible={visible}
@@ -59,6 +77,16 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
       hardwareAccelerated
       onRequestClose={onClose}
     >
+      {showConfetti && (
+        <ConfettiCannon
+          ref={confettiRef}
+          count={180}
+          origin={{ x: width / 2, y: -20 }}
+          autoStart={false}
+          fadeOut
+          colors={['#ffb724', '#1f89ee', '#31af4d', '#FF6B6B', '#A855F7']}
+        />
+      )}
       <View style={styles.overlay}>
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
           {/* Badge count pill */}
