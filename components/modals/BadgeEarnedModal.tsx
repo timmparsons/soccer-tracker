@@ -31,7 +31,7 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
   const confettiRef = useRef<ConfettiCannon>(null);
   const [index, setIndex] = useState(0);
 
-  const showConfetti = badges.some((b) => CONFETTI_BADGE_IDS.has(b.id));
+  const anyBadgeNeedsConfetti = badges.some((b) => CONFETTI_BADGE_IDS.has(b.id));
 
   useEffect(() => {
     if (visible) {
@@ -43,13 +43,16 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
         tension: 100,
         friction: 8,
       }).start();
-      if (showConfetti) {
-        setTimeout(() => confettiRef.current?.start(), 300);
-      }
     } else {
       scaleAnim.setValue(0);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible && badges[index] && CONFETTI_BADGE_IDS.has(badges[index].id)) {
+      setTimeout(() => confettiRef.current?.start(), 300);
+    }
+  }, [visible, index]);
 
   if (!badges.length) return null;
 
@@ -77,7 +80,7 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
       hardwareAccelerated
       onRequestClose={onClose}
     >
-      {showConfetti && (
+      {anyBadgeNeedsConfetti && (
         <ConfettiCannon
           ref={confettiRef}
           count={180}
