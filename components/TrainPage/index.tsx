@@ -776,7 +776,7 @@ const TrainPage = () => {
             setChallengeDifficulty(undefined);
           }}
           userId={user.id}
-          onSuccess={handleSessionLogged}
+          onSuccess={() => handleSessionLogged(!!challengeDrillId)}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
           challengeDurationMinutes={challengeDurationMinutes}
