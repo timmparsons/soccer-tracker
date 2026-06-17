@@ -332,7 +332,7 @@ const ProfilePage = () => {
   const handleFeedback = async () => {
     const email = 'timmparsons85@gmail.com';
     const subject = 'Master Touch Feedback';
-    const body = `\n\n---\nApp Version: 2.0.0\nUser: ${user?.email || 'Unknown'}`;
+    const body = `\n\n---\nApp Version: 3.0.10\nUser: ${user?.email || 'Unknown'}`;
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     const canOpen = await Linking.canOpenURL(url);
@@ -1204,7 +1204,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 3.0.9</Text>
+                <Text style={styles.version}>Version 3.0.10</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>
