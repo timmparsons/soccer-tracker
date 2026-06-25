@@ -33,7 +33,7 @@ export async function checkAndAwardBadges(
   candidate('streak_3', context.currentStreak >= 3);
   candidate('streak_7', context.currentStreak >= 7);
   candidate('streak_30', context.currentStreak >= 30);
-  candidate('streak_100', context.currentStreak >= 100);
+  candidate('streak_100', context.currentStreak >= 1); // TEMP: lowered for confetti testing
   candidate('streak_365', context.currentStreak >= 365);
 
   // Volume badges
@@ -144,7 +144,7 @@ export async function checkAndAwardBadges(
       }
     }
 
-    candidate('challenge_streak_3', challengeStreak >= 3);
+    candidate('challenge_streak_3', challengeStreak >= 1); // TEMP: lowered for confetti testing
     candidate('challenge_streak_7', challengeStreak >= 7);
     candidate('challenge_streak_30', challengeStreak >= 30);
   }
@@ -170,8 +170,9 @@ export async function checkAndAwardBadges(
 
   if (toAward.length === 0) return [];
 
-  const { error } = await supabase.from('user_badges').insert(
+  const { error } = await supabase.from('user_badges').upsert(
     toAward.map((badge_id) => ({ user_id: userId, badge_id })),
+    { onConflict: 'user_id,badge_id', ignoreDuplicates: true },
   );
 
   if (error) {

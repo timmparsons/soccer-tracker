@@ -108,9 +108,20 @@ const TrainPage = () => {
     };
   }, []);
 
-  // Show Vinnie's game-speed pep talk once per day on first visit to Train
+  // Triggered when navigated here from Home's "Start Challenge" button
+  const params = useLocalSearchParams<{
+    startChallengeDrillId?: string;
+    startChallengeDuration?: string;
+    startChallengeName?: string;
+    startChallengeDifficulty?: string;
+  }>();
+
+  // Show Vinnie's game-speed pep talk once per day on first visit to Train —
+  // but not if we're about to show the start-challenge alert, since the two
+  // modals can collide and swallow the alert.
   useEffect(() => {
     if (!user?.id) return;
+    if (params.startChallengeDrillId) return;
     const today = getLocalDate();
     const key = `vinnieGameSpeedShownDate-${user.id}`;
     AsyncStorage.getItem(key).then((stored) => {
@@ -119,7 +130,7 @@ const TrainPage = () => {
         AsyncStorage.setItem(key, today);
       }
     });
-  }, [user?.id]);
+  }, [user?.id, params.startChallengeDrillId]);
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
@@ -182,28 +193,25 @@ const TrainPage = () => {
     [startFreeTimer],
   );
 
-  // Triggered when navigated here from Home's "Start Challenge" button
-  const params = useLocalSearchParams<{
-    startChallengeDrillId?: string;
-    startChallengeDuration?: string;
-    startChallengeName?: string;
-    startChallengeDifficulty?: string;
-  }>();
-
   useEffect(() => {
     if (!params.startChallengeDrillId) return;
-    handleStartChallenge(
-      params.startChallengeDrillId,
-      Number(params.startChallengeDuration ?? 0),
-      params.startChallengeName ?? '',
-      params.startChallengeDifficulty ?? '',
-    );
-    router.setParams({
-      startChallengeDrillId: undefined,
-      startChallengeDuration: undefined,
-      startChallengeName: undefined,
-      startChallengeDifficulty: undefined,
-    });
+    const drillId = params.startChallengeDrillId;
+    const durationMinutes = Number(params.startChallengeDuration ?? 0);
+    const drillName = params.startChallengeName ?? '';
+    const difficulty = params.startChallengeDifficulty ?? '';
+    // Delay so the alert isn't dropped mid tab-transition. Clear params only
+    // after firing — clearing upfront re-renders before the timeout runs and
+    // cancels it via effect cleanup.
+    const timeout = setTimeout(() => {
+      handleStartChallenge(drillId, durationMinutes, drillName, difficulty);
+      router.setParams({
+        startChallengeDrillId: undefined,
+        startChallengeDuration: undefined,
+        startChallengeName: undefined,
+        startChallengeDifficulty: undefined,
+      });
+    }, 400);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.startChallengeDrillId]);
 

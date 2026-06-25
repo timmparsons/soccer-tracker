@@ -80,16 +80,6 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
       hardwareAccelerated
       onRequestClose={onClose}
     >
-      {anyBadgeNeedsConfetti && (
-        <ConfettiCannon
-          ref={confettiRef}
-          count={180}
-          origin={{ x: width / 2, y: -20 }}
-          autoStart={false}
-          fadeOut
-          colors={['#ffb724', '#1f89ee', '#31af4d', '#FF6B6B', '#A855F7']}
-        />
-      )}
       <View style={styles.overlay}>
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
           {/* Badge count pill */}
@@ -119,6 +109,16 @@ export default function BadgeEarnedModal({ visible, onClose, badges }: BadgeEarn
           </TouchableOpacity>
         </Animated.View>
       </View>
+      {anyBadgeNeedsConfetti && (
+        <ConfettiCannon
+          ref={confettiRef}
+          count={180}
+          origin={{ x: width / 2, y: -20 }}
+          autoStart={false}
+          fadeOut
+          colors={['#ffb724', '#1f89ee', '#31af4d', '#FF6B6B', '#A855F7']}
+        />
+      )}
     </Modal>
   );
 }
