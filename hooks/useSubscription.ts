@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import Purchases from 'react-native-purchases';
 
 // DEV OVERRIDES: set to true/false to preview UI, null for real RevenueCat check
-const DEV_PRO_OVERRIDE: boolean | null = true;
+const DEV_PRO_OVERRIDE: boolean | null = null;
 const DEV_COACH_OVERRIDE: boolean | null = null;
 
 export function useSubscription() {
