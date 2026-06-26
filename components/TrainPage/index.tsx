@@ -116,12 +116,16 @@ const TrainPage = () => {
     startChallengeDifficulty?: string;
   }>();
 
+  // Capture once at mount — stable for the lifetime of this component instance.
+  // Using a ref (not state) so changing params later doesn't re-trigger the effect.
+  const openedWithChallengeRef = useRef(!!params.startChallengeDrillId);
+
   // Show Vinnie's game-speed pep talk once per day on first visit to Train —
-  // but not if we're about to show the start-challenge alert, since the two
-  // modals can collide and swallow the alert.
+  // but not if we were navigated here via Start Challenge, since the Alert and
+  // Vinnie modal collide. Depends only on user.id so clearing the route params
+  // (router.setParams after the Alert fires) never re-triggers this.
   useEffect(() => {
-    if (!user?.id) return;
-    if (params.startChallengeDrillId) return;
+    if (!user?.id || openedWithChallengeRef.current) return;
     const today = getLocalDate();
     const key = `vinnieGameSpeedShownDate-${user.id}`;
     AsyncStorage.getItem(key).then((stored) => {
@@ -130,7 +134,7 @@ const TrainPage = () => {
         AsyncStorage.setItem(key, today);
       }
     });
-  }, [user?.id, params.startChallengeDrillId]);
+  }, [user?.id]);
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
