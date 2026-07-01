@@ -182,7 +182,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <Swords size={size ?? 28} color={color} />
             ),
-            href: profile?.team_id ? '/leaderboard' : null,
+            href: '/leaderboard',
             tabBarBadge: challengeBadge,
             tabBarBadgeStyle: { top: -6, right: -8 },
           }}

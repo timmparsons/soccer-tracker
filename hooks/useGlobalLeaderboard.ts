@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { getAnonymousName } from '@/utils/anonymousName';
+import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
 
@@ -20,10 +20,9 @@ export function useGlobalLeaderboard() {
     queryKey: ['global-leaderboard', weekStart],
     staleTime: 2 * 60 * 1000,
     queryFn: async (): Promise<GlobalPlayer[]> => {
-      // Fetch this week's sessions for all non-coach players
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, name, display_name, hometown_city, hometown_state')
         .eq('is_coach', false)
         .eq('onboarding_completed', true);
 
@@ -44,13 +43,23 @@ export function useGlobalLeaderboard() {
         totals[s.user_id] = (totals[s.user_id] ?? 0) + s.touches_logged;
       }
 
+      const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
+
       return Object.entries(totals)
         .filter(([, touches]) => touches > 0)
-        .map(([userId, touches]) => ({
-          userId,
-          name: getAnonymousName(userId),
-          touches,
-        }))
+        .map(([userId, touches]) => {
+          const p = profileMap[userId];
+          const rawName = p?.name || p?.display_name || 'Player';
+          return {
+            userId,
+            name: getGlobalDisplayName(
+              rawName,
+              (p as any)?.hometown_city,
+              (p as any)?.hometown_state,
+            ),
+            touches,
+          };
+        })
         .sort((a, b) => b.touches - a.touches)
         .slice(0, 100);
     },

@@ -36,8 +36,8 @@ export function useSubscription() {
     return { isPremium, isCoach, isLoading: false };
   }
 
-  // Admins bypass all subscription gates — useful for testing before products are live
-  if (profile?.is_admin === true) {
+  // Admins and DB-flagged coaches bypass RevenueCat entirely
+  if (profile?.is_admin === true || profile?.is_coach === true) {
     return { isPremium: true, isCoach: true, isLoading: false };
   }
 

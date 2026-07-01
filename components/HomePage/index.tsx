@@ -33,6 +33,7 @@ const HomeScreen = () => {
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const [showReactionsModal, setShowReactionsModal] = useState(false);
+  const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -128,6 +129,33 @@ const HomeScreen = () => {
             <View style={styles.reactionDivider} />
             <TouchableOpacity
               onPress={dismissReactions}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.reactionDismiss}
+            >
+              <Ionicons name='close' size={18} color='#78909C' />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* TEAM NUDGE — solo players with no team */}
+        {!profile?.is_coach && !profile?.team_id && !teamNudgeDismissed && (
+          <View style={styles.teamNudgeBanner}>
+            <TouchableOpacity
+              style={styles.teamNudgeMain}
+              onPress={() => router.push('/(modals)/join-team')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.teamNudgeIcon}>
+                <Ionicons name='people' size={18} color='#1f89ee' />
+              </View>
+              <Text style={styles.teamNudgeText}>
+                Got a team code? Join your teammates on the leaderboard.
+              </Text>
+              <Ionicons name='chevron-forward' size={16} color='#B0BEC5' />
+            </TouchableOpacity>
+            <View style={styles.reactionDivider} />
+            <TouchableOpacity
+              onPress={() => setTeamNudgeDismissed(true)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.reactionDismiss}
             >
@@ -381,6 +409,37 @@ const styles = StyleSheet.create({
   },
 
   // REACTION BANNER
+  teamNudgeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginBottom: 8,
+  },
+  teamNudgeMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  teamNudgeIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamNudgeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    lineHeight: 18,
+  },
   reactionBanner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,16 +1,12 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
 import BadgeGrid from '@/components/common/BadgeGrid';
-import PastSeasonModal from '@/components/modals/PastSeasonModal';
-import {
-  useArchivedSeasons,
-  type ArchivedSeason,
-} from '@/hooks/useArchivedSeasons';
 import type { Badge } from '@/hooks/useBadges';
 import {
   useAllBadges,
   useLeaderboardWinCount,
   useUserBadges,
 } from '@/hooks/useBadges';
+import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
@@ -79,15 +75,42 @@ const ProfilePage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  const [hometownCity, setHometownCity] = useState('');
+  const [hometownState, setHometownState] = useState('AZ');
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [showPlayerClubModal, setShowPlayerClubModal] = useState(false);
+  const [playerClubQuery, setPlayerClubQuery] = useState('');
+  const [savingPlayerClub, setSavingPlayerClub] = useState(false);
+  const [showCreateClubModal, setShowCreateClubModal] = useState(false);
+  const [showJoinClubModal, setShowJoinClubModal] = useState(false);
+  const [clubNameInput, setClubNameInput] = useState('');
+  const [clubJoinCodeInput, setClubJoinCodeInput] = useState('');
+  const [savingClub, setSavingClub] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
   } | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<ArchivedSeason | null>(
-    null,
-  );
 
-  const { data: archivedSeasons = [] } = useArchivedSeasons(profile?.team_id);
+  // Club info for coaches
+  const { data: teamClub, refetch: refetchClub } = useQuery({
+    queryKey: ['team-club', profile?.team_id],
+    enabled: !!profile?.is_coach && !!profile?.team_id,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data: team } = await supabase
+        .from('teams')
+        .select('club_id')
+        .eq('id', profile!.team_id!)
+        .single();
+      if (!(team as any)?.club_id) return null;
+      const { data: club } = await supabase
+        .from('clubs')
+        .select('id, name, join_code')
+        .eq('id', (team as any).club_id)
+        .single();
+      return club as { id: string; name: string; join_code: string } | null;
+    },
+  });
 
   const TARGET_PRESETS = [
     { value: 500, label: '500', subtitle: 'Starting out', emoji: '🌱' },
@@ -110,6 +133,12 @@ const ProfilePage = () => {
       }
     }, [user?.id, refetchProfile, queryClient]),
   );
+
+  useEffect(() => {
+    if (!profile) return;
+    setHometownCity((profile as any)?.hometown_city ?? '');
+    setHometownState((profile as any)?.hometown_state ?? 'AZ');
+  }, [profile?.id]);
 
   const handlePickImage = async () => {
     const permissionResult =
@@ -380,6 +409,105 @@ const ProfilePage = () => {
       Alert.alert('Error', 'Failed to update name. Please try again.');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleCreateClub = async () => {
+    if (!clubNameInput.trim() || !profile?.team_id) return;
+    setSavingClub(true);
+    try {
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const { data: club, error } = await supabase
+        .from('clubs')
+        .insert({ name: clubNameInput.trim(), join_code: joinCode, created_by: user!.id })
+        .select()
+        .single();
+      if (error || !club) throw error;
+      await Promise.all([
+        supabase.from('teams').update({ club_id: (club as any).id }).eq('id', profile.team_id),
+        supabase.from('profiles').update({ club_id: (club as any).id } as any).eq('id', user!.id),
+      ]);
+      await refetchClub();
+      setShowCreateClubModal(false);
+      setClubNameInput('');
+    } catch {
+      Alert.alert('Error', 'Failed to create club. Try again.');
+    } finally {
+      setSavingClub(false);
+    }
+  };
+
+  const handleJoinClub = async () => {
+    if (!clubJoinCodeInput.trim() || !profile?.team_id) return;
+    setSavingClub(true);
+    try {
+      const { data: club } = await supabase
+        .from('clubs')
+        .select('id, name')
+        .eq('join_code', clubJoinCodeInput.trim().toUpperCase())
+        .single();
+      if (!club) {
+        Alert.alert('Not Found', 'No club found with that code.');
+        return;
+      }
+      await Promise.all([
+        supabase.from('teams').update({ club_id: (club as any).id }).eq('id', profile.team_id),
+        supabase.from('profiles').update({ club_id: (club as any).id } as any).eq('id', user!.id),
+      ]);
+      await refetchClub();
+      setShowJoinClubModal(false);
+      setClubJoinCodeInput('');
+      Alert.alert('Joined!', `Your team is now part of ${(club as any).name}.`);
+    } catch {
+      Alert.alert('Error', 'Something went wrong.');
+    } finally {
+      setSavingClub(false);
+    }
+  };
+
+  const handleSaveLocation = async () => {
+    setSavingLocation(true);
+    try {
+      await updateProfile({
+        hometown_city: hometownCity.trim() || null,
+        hometown_state: hometownState.trim() || null,
+      });
+      Alert.alert('Saved', 'Your location has been updated.');
+    } catch {
+      Alert.alert('Error', 'Failed to save location.');
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const playerClubId = !profile?.is_coach ? (profile as any)?.club_id ?? null : null;
+  const { data: playerClub } = useQuery({
+    queryKey: ['club', playerClubId],
+    enabled: !!playerClubId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clubs')
+        .select('id, name')
+        .eq('id', playerClubId)
+        .single();
+      return data ?? null;
+    },
+  });
+  const { data: clubSearchResults = [], isFetching: clubSearchFetching } = useClubSearch(playerClubQuery);
+
+  const handleSavePlayerClub = async (clubId: string) => {
+    if (!user?.id) return;
+    setSavingPlayerClub(true);
+    try {
+      await supabase.from('profiles').update({ club_id: clubId } as any).eq('id', user.id);
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['club-leaderboard'] });
+      setShowPlayerClubModal(false);
+      setPlayerClubQuery('');
+    } catch {
+      Alert.alert('Error', 'Failed to save club.');
+    } finally {
+      setSavingPlayerClub(false);
     }
   };
 
@@ -837,6 +965,49 @@ const ProfilePage = () => {
                 <Ionicons name='add-circle-outline' size={20} color='#1f89ee' />
                 <Text style={styles.createTeamBtnText}>Create New Team</Text>
               </TouchableOpacity>
+
+              {/* Club Card */}
+              {teamClub ? (
+                <View style={styles.clubCard}>
+                  <View style={styles.clubCardHeader}>
+                    <Ionicons name='shield' size={18} color='#1f89ee' />
+                    <Text style={styles.clubCardTitle}>{teamClub.name}</Text>
+                  </View>
+                  <Text style={styles.clubCardCodeLabel}>Club Join Code</Text>
+                  <Text style={styles.clubCardCode}>{teamClub.join_code}</Text>
+                  <TouchableOpacity
+                    style={styles.clubCopyBtn}
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(teamClub.join_code);
+                      Alert.alert('Copied!', 'Club code copied to clipboard.');
+                    }}
+                  >
+                    <Ionicons name='copy-outline' size={15} color='#1f89ee' />
+                    <Text style={styles.clubCopyText}>Copy Code</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.clubSetupCard}>
+                  <Text style={styles.clubSetupTitle}>Set Up a Club</Text>
+                  <Text style={styles.clubSetupSubtitle}>
+                    Link teams across your organization to unlock the Club leaderboard.
+                  </Text>
+                  <View style={styles.clubSetupButtons}>
+                    <TouchableOpacity
+                      style={styles.clubCreateBtn}
+                      onPress={() => setShowCreateClubModal(true)}
+                    >
+                      <Text style={styles.clubCreateBtnText}>Create Club</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.clubJoinBtn}
+                      onPress={() => setShowJoinClubModal(true)}
+                    >
+                      <Text style={styles.clubJoinBtnText}>Join by Code</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </>
           )}
 
@@ -861,68 +1032,7 @@ const ProfilePage = () => {
             </View>
           )}
 
-          {/* Past Seasons */}
-          {archivedSeasons.length > 0 && (
-            <View style={styles.pastSeasonsCard}>
-              <Text style={styles.pastSeasonsTitle}>Past Seasons</Text>
-              {archivedSeasons.map((season) => {
-                const start = new Date(
-                  season.season_start_date,
-                ).toLocaleDateString('en-US', {
-                  month: 'short',
-                  year: 'numeric',
-                });
-                const end = new Date(season.season_end_date).toLocaleDateString(
-                  'en-US',
-                  { month: 'short', year: 'numeric' },
-                );
-                const top3 = season.player_standings.slice(0, 3);
-                return (
-                  <TouchableOpacity
-                    key={season.id}
-                    style={styles.pastSeasonRow}
-                    onPress={() => setSelectedSeason(season)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pastSeasonLeft}>
-                      <Text style={styles.pastSeasonNumber}>
-                        Season {season.season_number}
-                      </Text>
-                      <Text style={styles.pastSeasonDates}>
-                        {start} – {end}
-                      </Text>
-                      {top3.length > 0 && (
-                        <Text style={styles.pastSeasonTop} numberOfLines={1}>
-                          {top3
-                            .map((p, i) => `${['🥇', '🥈', '🥉'][i]} ${p.name}`)
-                            .join('  ')}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={styles.pastSeasonRight}>
-                      <Text style={styles.pastSeasonLevel}>
-                        Lv {season.final_team_level}
-                      </Text>
-                      <Ionicons
-                        name='chevron-forward'
-                        size={16}
-                        color='#78909C'
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
         </ScrollView>
-
-        {selectedSeason && (
-          <PastSeasonModal
-            visible={!!selectedSeason}
-            onClose={() => setSelectedSeason(null)}
-            season={selectedSeason}
-          />
-        )}
 
         {/* Goal Edit Modal */}
         <Modal
@@ -1153,6 +1263,67 @@ const ProfilePage = () => {
                         size={20}
                         color='#B0BEC5'
                       />
+                    </TouchableOpacity>
+
+                    <View style={styles.settingsDivider} />
+
+                    {/* Location — shown to all players, optional context on global leaderboard */}
+                    <View style={[styles.settingsRow, { paddingVertical: 10 }]}>
+                      <View style={[styles.settingsIconBg, { backgroundColor: '#E8F5E9' }]}>
+                        <Ionicons name='location' size={20} color='#31af4d' />
+                      </View>
+                      <Text style={[styles.settingsLabel, { flex: 1 }]}>Location</Text>
+                    </View>
+                    <View style={styles.locationInputsContainer}>
+                      <TextInput
+                        style={styles.locationInput}
+                        placeholder='City'
+                        placeholderTextColor='#B0BEC5'
+                        value={hometownCity}
+                        onChangeText={setHometownCity}
+                      />
+                      <TextInput
+                        style={styles.locationInput}
+                        placeholder='State (e.g. AZ)'
+                        placeholderTextColor='#B0BEC5'
+                        value={hometownState}
+                        onChangeText={setHometownState}
+                        maxLength={2}
+                        autoCapitalize='characters'
+                      />
+                      <TouchableOpacity
+                        style={[styles.locationSaveBtn, savingLocation && { opacity: 0.5 }]}
+                        onPress={handleSaveLocation}
+                        disabled={savingLocation}
+                      >
+                        {savingLocation ? (
+                          <ActivityIndicator size='small' color='#FFF' />
+                        ) : (
+                          <Text style={styles.locationSaveBtnText}>Save Location</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.settingsDivider} />
+
+                    {/* Club */}
+                    <TouchableOpacity
+                      style={styles.settingsRow}
+                      onPress={() => setShowPlayerClubModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.settingsRowLeft}>
+                        <View style={[styles.settingsIconBg, { backgroundColor: '#EDE7F6' }]}>
+                          <Ionicons name='shield' size={20} color='#7E57C2' />
+                        </View>
+                        <View>
+                          <Text style={styles.settingsLabel}>My Club</Text>
+                          <Text style={styles.settingsValue}>
+                            {playerClub ? playerClub.name : 'Not set'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1463,6 +1634,182 @@ const ProfilePage = () => {
           </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
+
+      {/* Player Club Search Modal */}
+      <Modal
+        visible={showPlayerClubModal}
+        animationType='slide'
+        transparent={true}
+        onRequestClose={() => { setShowPlayerClubModal(false); setPlayerClubQuery(''); }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalEmoji}>🏟️</Text>
+                <Text style={styles.modalTitle}>Find Your Club</Text>
+                <Text style={styles.modalSubtitle}>
+                  Search for your soccer club or academy.
+                </Text>
+              </View>
+              <View style={[styles.nameInput, { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, paddingHorizontal: 14, marginBottom: 12 }]}>
+                <Ionicons name='search-outline' size={18} color='#78909C' style={{ marginRight: 8 }} />
+                <TextInput
+                  style={{ flex: 1, fontSize: 16, color: '#1a1a2e', paddingVertical: 14 }}
+                  placeholder='Search club name...'
+                  placeholderTextColor='#B0BEC5'
+                  value={playerClubQuery}
+                  onChangeText={setPlayerClubQuery}
+                  autoFocus
+                  autoCorrect={false}
+                />
+                {clubSearchFetching && <ActivityIndicator size='small' color='#1f89ee' />}
+              </View>
+              <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps='handled'>
+                {playerClubQuery.trim().length >= 2 && clubSearchResults.length === 0 && !clubSearchFetching && (
+                  <Text style={{ textAlign: 'center', color: '#78909C', fontWeight: '600', fontSize: 14, marginTop: 12 }}>
+                    No clubs found for "{playerClubQuery}"
+                  </Text>
+                )}
+                {clubSearchResults.map((club) => (
+                  <TouchableOpacity
+                    key={club.id}
+                    style={[styles.modalCancel, { backgroundColor: (profile as any)?.club_id === club.id ? '#EBF4FF' : '#F5F7FA', borderColor: (profile as any)?.club_id === club.id ? '#1f89ee' : '#E5E7EB', borderWidth: 1.5, marginBottom: 8 }]}
+                    onPress={() => handleSavePlayerClub(club.id)}
+                    disabled={savingPlayerClub}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalCancelText, { color: '#1a1a2e' }]}>{club.name}</Text>
+                    {savingPlayerClub && <ActivityIndicator size='small' color='#1f89ee' style={{ marginLeft: 8 }} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { setShowPlayerClubModal(false); setPlayerClubQuery(''); }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Create Club Modal */}
+      <Modal
+        visible={showCreateClubModal}
+        animationType='slide'
+        transparent={true}
+        onRequestClose={() => setShowCreateClubModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalEmoji}>🏆</Text>
+                <Text style={styles.modalTitle}>Create a Club</Text>
+                <Text style={styles.modalSubtitle}>
+                  Give your club a name. Share the code with other coaches to link their teams.
+                </Text>
+              </View>
+              <TextInput
+                style={styles.nameInput}
+                placeholder='Club name (e.g. FC Scottsdale)'
+                placeholderTextColor='#9CA3AF'
+                value={clubNameInput}
+                onChangeText={setClubNameInput}
+                autoFocus
+              />
+              <TouchableOpacity
+                style={[
+                  styles.nameSaveButton,
+                  (!clubNameInput.trim() || savingClub) && styles.nameSaveButtonDisabled,
+                ]}
+                onPress={handleCreateClub}
+                disabled={!clubNameInput.trim() || savingClub}
+              >
+                {savingClub ? (
+                  <ActivityIndicator color='#FFF' />
+                ) : (
+                  <Text style={styles.nameSaveButtonText}>Create Club</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowCreateClubModal(false);
+                  setClubNameInput('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Join Club Modal */}
+      <Modal
+        visible={showJoinClubModal}
+        animationType='slide'
+        transparent={true}
+        onRequestClose={() => setShowJoinClubModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalEmoji}>🔗</Text>
+                <Text style={styles.modalTitle}>Join a Club</Text>
+                <Text style={styles.modalSubtitle}>
+                  Enter the code from your club administrator.
+                </Text>
+              </View>
+              <TextInput
+                style={styles.nameInput}
+                placeholder='Club code (e.g. A1B2C3)'
+                placeholderTextColor='#9CA3AF'
+                value={clubJoinCodeInput}
+                onChangeText={setClubJoinCodeInput}
+                autoCapitalize='characters'
+                autoFocus
+              />
+              <TouchableOpacity
+                style={[
+                  styles.nameSaveButton,
+                  (!clubJoinCodeInput.trim() || savingClub) && styles.nameSaveButtonDisabled,
+                ]}
+                onPress={handleJoinClub}
+                disabled={!clubJoinCodeInput.trim() || savingClub}
+              >
+                {savingClub ? (
+                  <ActivityIndicator color='#FFF' />
+                ) : (
+                  <Text style={styles.nameSaveButtonText}>Join Club</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowJoinClubModal(false);
+                  setClubJoinCodeInput('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Badge Detail Modal */}
       <Modal
@@ -2133,6 +2480,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
   },
   settingsSheetTitle: {
     fontSize: 20,
@@ -2529,58 +2877,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // Past Seasons
-  pastSeasonsCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-  },
-  pastSeasonsTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 12,
-  },
-  pastSeasonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  pastSeasonLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  pastSeasonNumber: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  pastSeasonDates: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  pastSeasonTop: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-    marginTop: 2,
-  },
-  pastSeasonRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pastSeasonLevel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
 
   // MY TEAM CARD (non-coach players with a team)
   myTeamCard: {
@@ -2649,5 +2945,142 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#78909C',
+  },
+
+  settingsDivider: {
+    height: 1,
+    backgroundColor: '#F0F4F8',
+    marginVertical: 4,
+  },
+  locationInputsContainer: {
+    gap: 8,
+    paddingBottom: 8,
+  },
+  locationInput: {
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    backgroundColor: '#FFF',
+  },
+  locationSaveBtn: {
+    backgroundColor: '#31af4d',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  locationSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+
+  // CLUB CARD (coaches)
+  clubCard: {
+    backgroundColor: '#F0F7FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  clubCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  clubCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  clubCardCodeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  clubCardCode: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1f89ee',
+    letterSpacing: 3,
+    marginBottom: 12,
+  },
+  clubCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+  },
+  clubCopyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  clubSetupCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  clubSetupTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 4,
+  },
+  clubSetupSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  clubSetupButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  clubCreateBtn: {
+    flex: 1,
+    backgroundColor: '#1f89ee',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  clubCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  clubJoinBtn: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1f89ee',
+  },
+  clubJoinBtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1f89ee',
   },
 });

@@ -1,4 +1,3 @@
-import LeaderboardPage from '@/components/Leaderboard';
 import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
 import WeekGrid from '@/components/CoachDashboard/WeekGrid';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
@@ -62,7 +61,6 @@ export default function CoachDashboard() {
   // Team switcher state
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
-  const [coachView, setCoachView] = useState<'team' | 'leaderboard'>('team');
 
   const paywallShownRef = useRef(false);
 
@@ -576,27 +574,6 @@ export default function CoachDashboard() {
         </TouchableOpacity>
       </View>
 
-      {/* View toggle */}
-      <View style={styles.viewToggle}>
-        <TouchableOpacity
-          style={[styles.viewToggleBtn, coachView === 'team' && styles.viewToggleBtnActive]}
-          onPress={() => setCoachView('team')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.viewToggleText, coachView === 'team' && styles.viewToggleTextActive]}>Team</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.viewToggleBtn, coachView === 'leaderboard' && styles.viewToggleBtnActive]}
-          onPress={() => setCoachView('leaderboard')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.viewToggleText, coachView === 'leaderboard' && styles.viewToggleTextActive]}>Leaderboard</Text>
-        </TouchableOpacity>
-      </View>
-
-      {coachView === 'leaderboard' ? (
-        <LeaderboardPage hideHeader />
-      ) : (
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -885,7 +862,6 @@ export default function CoachDashboard() {
           </View>
         )}
       </ScrollView>
-      )}
 
       {/* TEAM SWITCHER MODAL */}
       {coachTeams.length > 1 && (
@@ -1176,38 +1152,6 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: '#1f89ee',
-  },
-
-  // View toggle
-  viewToggle: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#EBEBEB',
-    borderRadius: 10,
-    padding: 3,
-  },
-  viewToggleBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  viewToggleBtnActive: {
-    backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  viewToggleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  viewToggleTextActive: {
-    color: '#1a1a2e',
   },
 
   // Header

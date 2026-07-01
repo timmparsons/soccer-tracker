@@ -1,3 +1,4 @@
+import { useClubSearch } from '@/hooks/useClubSearch';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ interface OnboardingData {
   password: string;
   coachGoal: string | null;
   dailyTarget: number;
+  clubId: string | null;
 }
 
 const PLAYER_STEPS = [
@@ -44,6 +46,7 @@ const PLAYER_STEPS = [
   'social',
   'name',
   'notif',
+  'club',
   'signup',
 ] as const;
 
@@ -227,6 +230,7 @@ export default function OnboardingScreen() {
     password: '',
     coachGoal: null,
     dailyTarget: 1000,
+    clubId: null,
   });
 
   const steps: readonly Step[] =
@@ -256,7 +260,8 @@ export default function OnboardingScreen() {
         display_name: data.name || null,
         is_coach: data.persona === 'coach',
         skill_focus: data.goal || null,
-      })
+        club_id: data.clubId || null,
+      } as any)
       .eq('id', userId);
 
     if (data.persona === 'player') {
@@ -313,6 +318,14 @@ export default function OnboardingScreen() {
         return <SolutionScreen painPoints={data.painPoints} onNext={goNext} />;
       case 'notif':
         return <NotifScreen onNext={goNext} />;
+      case 'club':
+        return (
+          <ClubSearchScreen
+            selectedId={data.clubId}
+            onSelect={(id) => setData((d) => ({ ...d, clubId: id }))}
+            onNext={goNext}
+          />
+        );
       case 'processing':
         return <ProcessingScreen onDone={goNext} />;
       case 'dailygoal':
@@ -1537,6 +1550,94 @@ function CoachNotifScreen({ onNext }: { onNext: () => void }) {
   );
 }
 
+// SCREEN — CLUB SEARCH (player onboarding)
+
+function ClubSearchScreen({
+  selectedId,
+  onSelect,
+  onNext,
+}: {
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onNext: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const { data: results = [], isFetching } = useClubSearch(query);
+
+  return (
+    <KeyboardAvoidingView
+      style={s.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        keyboardShouldPersistTaps='handled'
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={s.title}>Find your club</Text>
+        <Text style={s.subtitle}>
+          Search for your soccer club or academy to join their leaderboard.
+        </Text>
+
+        <View style={s.clubSearchInputRow}>
+          <Ionicons name='search-outline' size={20} color='#78909C' />
+          <TextInput
+            style={s.clubSearchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder='Search club name...'
+            placeholderTextColor='#B0BEC5'
+            autoCorrect={false}
+            returnKeyType='search'
+          />
+          {isFetching && <ActivityIndicator size='small' color='#1f89ee' />}
+        </View>
+
+        {query.trim().length >= 2 && results.length === 0 && !isFetching && (
+          <Text style={s.clubSearchEmpty}>No clubs found for "{query}"</Text>
+        )}
+
+        {results.map((club) => (
+          <TouchableOpacity
+            key={club.id}
+            style={[
+              s.optionRow,
+              selectedId === club.id && s.optionRowSelected,
+            ]}
+            onPress={() => onSelect(selectedId === club.id ? null : club.id)}
+            activeOpacity={0.8}
+          >
+            <Text style={s.optionEmoji}>🏟️</Text>
+            <Text
+              style={[
+                s.optionLabel,
+                { flex: 1 },
+                selectedId === club.id && s.optionLabelSelected,
+              ]}
+            >
+              {club.name}
+            </Text>
+            {selectedId === club.id && (
+              <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />
+            )}
+          </TouchableOpacity>
+        ))}
+
+        <View style={{ height: 16 }} />
+        <PrimaryButton
+          label={selectedId ? 'Join this club →' : 'Continue'}
+          onPress={onNext}
+        />
+        {!selectedId && (
+          <TouchableOpacity style={s.skipLink} onPress={onNext}>
+            <Text style={s.skipLinkText}>My club isn't listed — skip</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
 // SCREEN 7C (COACH) — COACH PAYWALL PLACEHOLDER
 
 function CoachPaywallScreen({ onNext }: { onNext: () => void }) {
@@ -2272,6 +2373,33 @@ const s = StyleSheet.create({
   },
   demoTouchesMe: {
     color: '#1f89ee',
+  },
+
+  // CLUB SEARCH SCREEN
+  clubSearchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 12,
+  },
+  clubSearchInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#1a1a2e',
+    fontWeight: '600',
+  },
+  clubSearchEmpty: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    marginBottom: 16,
   },
 
   // PAYWALL SCREEN

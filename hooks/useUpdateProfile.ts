@@ -10,6 +10,9 @@ type UpdateProfileInput = {
   role?: 'player' | 'coach';
   team_id?: string | null;
   avatar_url?: string | null;
+  show_on_global_leaderboard?: boolean;
+  hometown_city?: string | null;
+  hometown_state?: string | null;
 };
 
 export function useUpdateProfile(userId?: string) {
