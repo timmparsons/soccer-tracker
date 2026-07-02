@@ -16,6 +16,43 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function getStreetFeedMessage(category: string, challengeName: string, name: string): string {
+  switch (category) {
+    case 'freestyle':
+      return pick([
+        `${name} took on ${challengeName}`,
+        `${name} pulled off ${challengeName}`,
+        `${name} was feeling it — ${challengeName}`,
+      ]);
+    case 'accuracy':
+      return pick([
+        `${name} locked in on ${challengeName}`,
+        `${name} put the work in on ${challengeName}`,
+        `${name} stepped up to ${challengeName}`,
+      ]);
+    case 'crazy_control':
+      return pick([
+        `${name} got uncomfortable — ${challengeName}`,
+        `${name} earned it with ${challengeName}`,
+        `${name} took on ${challengeName} and felt every rep`,
+      ]);
+    case 'make_rules':
+      return pick([
+        `${name} went off — ${challengeName}`,
+        `${name} made their own rules: ${challengeName}`,
+        `${name} owned the yard with ${challengeName}`,
+      ]);
+    case 'creativity':
+      return pick([
+        `${name} built something with ${challengeName}`,
+        `${name} got creative — ${challengeName}`,
+        `${name} invented something doing ${challengeName}`,
+      ]);
+    default:
+      return `${name} completed ${challengeName}`;
+  }
+}
+
 function sessionMessage(name: string, totalTouches: number, sessionCount: number, hasChallenge: boolean): string {
   if (hasChallenge) return pick([
     `${name} completed their challenge of the day`,
@@ -79,13 +116,22 @@ export function useActivityFeed(limit = 7) {
         .order('created_at', { ascending: false })
         .limit(20);
 
+      // Fetch recent street challenge completions
+      const { data: streetCompletions } = await (supabase as any)
+        .from('street_challenge_completions')
+        .select('id, profile_id, challenge_id, challenge_name, category, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(30);
+
       // Collect all user IDs we need profiles for
       const sessionUserIds = [...new Set((sessions || []).map((s: { user_id: string }) => s.user_id))];
       const winnerIds = (wins || []).map((w: { winner_id: string }) => w.winner_id);
       const opponentIds = (wins || []).map((w: { winner_id: string; challenger_id: string; challenged_id: string }) =>
         w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
       );
-      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds])];
+      const streetUserIds = (streetCompletions || []).map((c: any) => c.profile_id as string);
+      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds])];
 
       if (allUserIds.length === 0) return [];
 
@@ -176,6 +222,21 @@ export function useActivityFeed(limit = 7) {
           createdAt: stats.latestAt,
         });
         usedUsers.add(userId);
+      }
+
+      // Street challenge completions
+      for (const completion of (streetCompletions || []) as any[]) {
+        const profile = profileMap.get(completion.profile_id);
+        if (!profile) continue;
+        const name = getDisplayName(profile);
+        items.push({
+          id: `street-${completion.id}`,
+          userId: completion.profile_id,
+          name,
+          avatarUrl: profile.avatar_url ?? null,
+          message: getStreetFeedMessage(completion.category, completion.challenge_name, name),
+          createdAt: completion.created_at,
+        });
       }
 
       return items

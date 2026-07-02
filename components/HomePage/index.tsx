@@ -3,7 +3,6 @@ import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import { markReactionsViewed, useUnviewedReactions } from '@/hooks/useActivityReactions';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
@@ -18,8 +17,6 @@ import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -32,7 +29,6 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
-  const [showReactionsModal, setShowReactionsModal] = useState(false);
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
   const queryClient = useQueryClient();
 
@@ -45,14 +41,6 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
-  const { data: unviewedReactions = [] } = useUnviewedReactions(user?.id);
-
-  const dismissReactions = async () => {
-    setShowReactionsModal(false);
-    await markReactionsViewed(unviewedReactions.map((r) => r.id));
-    queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
-  };
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -60,10 +48,9 @@ const HomeScreen = () => {
       refetchStats(),
       refetchChallengeStats(),
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] }),
-      queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,8 +58,7 @@ const HomeScreen = () => {
       refetchStats();
       refetchChallengeStats();
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
-    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]),
+    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]),
   );
 
   if (statsLoading) {
@@ -112,31 +98,6 @@ const HomeScreen = () => {
           />
         }
       >
-        {/* REACTION NOTIFICATION */}
-        {unviewedReactions.length > 0 && (
-          <View style={styles.reactionBanner}>
-            <TouchableOpacity style={styles.reactionBannerMain} onPress={() => setShowReactionsModal(true)} activeOpacity={0.7}>
-              <View style={styles.reactionIconBg}>
-                <Ionicons name='thumbs-up' size={18} color='#1f89ee' />
-              </View>
-              <Text style={styles.reactionText} numberOfLines={2}>
-                {unviewedReactions.length === 1
-                  ? `${unviewedReactions[0].reactor_name} gave your activity a thumbs up`
-                  : `${unviewedReactions[0].reactor_name} and ${unviewedReactions.length - 1} ${unviewedReactions.length === 2 ? 'other' : 'others'} liked your activity`}
-              </Text>
-              <Ionicons name='chevron-forward' size={16} color='#B0BEC5' />
-            </TouchableOpacity>
-            <View style={styles.reactionDivider} />
-            <TouchableOpacity
-              onPress={dismissReactions}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.reactionDismiss}
-            >
-              <Ionicons name='close' size={18} color='#78909C' />
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* TEAM NUDGE — solo players with no team */}
         {!profile?.is_coach && !profile?.team_id && !teamNudgeDismissed && (
           <View style={styles.teamNudgeBanner}>
@@ -163,30 +124,6 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* REACTIONS MODAL */}
-        <Modal visible={showReactionsModal} transparent animationType='slide' onRequestClose={dismissReactions}>
-          <Pressable style={styles.modalOverlay} onPress={dismissReactions}>
-            <Pressable style={styles.modalSheet} onPress={() => {}}>
-              <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Who liked your activity</Text>
-              {unviewedReactions.map((r) => (
-                <View key={r.id} style={styles.modalRow}>
-                  <View style={styles.modalAvatar}>
-                    <Text style={styles.modalAvatarText}>
-                      {r.reactor_name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={styles.modalName}>{r.reactor_name}</Text>
-                  <Ionicons name='thumbs-up' size={18} color='#1f89ee' />
-                </View>
-              ))}
-              <TouchableOpacity style={styles.modalDismissBtn} onPress={dismissReactions}>
-                <Text style={styles.modalDismissText}>Got it</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
-        </Modal>
 
         {/* VINNIE */}
         <VinnieCard
@@ -341,74 +278,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
   },
 
-  // REACTIONS MODAL
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 20,
-  },
-  modalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4F8',
-  },
-  modalAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalAvatarText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1f89ee',
-  },
-  modalName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-  modalDismissBtn: {
-    marginTop: 24,
-    backgroundColor: '#1f89ee',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  modalDismissText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-
-  // REACTION BANNER
+  // BANNERS
   teamNudgeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -440,21 +310,6 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     lineHeight: 18,
   },
-  reactionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  reactionBannerMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-  },
   reactionDivider: {
     width: 1,
     height: 36,
@@ -463,20 +318,5 @@ const styles = StyleSheet.create({
   reactionDismiss: {
     paddingHorizontal: 14,
     paddingVertical: 14,
-  },
-  reactionIconBg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reactionText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    lineHeight: 18,
   },
 });

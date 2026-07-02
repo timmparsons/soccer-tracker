@@ -1,4 +1,5 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import StreetTab from '@/components/TrainPage/StreetTab';
 import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
@@ -45,6 +46,7 @@ const TrainPage = () => {
   const { isPremium } = useSubscription();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [trainView, setTrainView] = useState<'academy' | 'street'>('academy');
   const [modalVisible, setModalVisible] = useState(false);
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
@@ -392,6 +394,30 @@ const TrainPage = () => {
         avatarUrl={profile?.avatar_url}
       />
 
+      {/* Academy / Street segmented control — non-coaches only */}
+      {!profile?.is_coach && (
+        <View style={styles.segmentedRow}>
+          <View style={styles.segmentedContainer}>
+            <TouchableOpacity
+              style={[styles.segmentedTab, trainView === 'academy' && styles.segmentedTabActive]}
+              onPress={() => setTrainView('academy')}
+            >
+              <Text style={[styles.segmentedTabText, trainView === 'academy' && styles.segmentedTabTextActive]}>
+                Academy
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.segmentedTab, trainView === 'street' && styles.segmentedTabActive]}
+              onPress={() => setTrainView('street')}
+            >
+              <Text style={[styles.segmentedTabText, trainView === 'street' && styles.segmentedTabTextActive]}>
+                Freestyle
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -402,81 +428,83 @@ const TrainPage = () => {
           />
         }
       >
-        {/* Today's Progress */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressSparkle}>
-            <Text style={styles.sparkleEmoji}>✨</Text>
-          </View>
-          <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
-          <View style={styles.touchesRow}>
-            <Text style={styles.touchesValue}>
-              {todayTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.touchesDivider}>/</Text>
-            <Text style={styles.touchesTarget}>
-              {dailyTarget.toLocaleString()}
-            </Text>
-          </View>
-          <Text style={styles.touchesLabel}>touches</Text>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-            />
-          </View>
-          <Text style={styles.progressPercentText}>
-            {Math.round(progressPercent)}% Complete
-          </Text>
-        </View>
+        {trainView === 'street' && !profile?.is_coach ? (
+          <StreetTab />
+        ) : (
+          <>
+            {/* Today's Progress */}
+            <View style={styles.progressCard}>
+              <View style={styles.progressSparkle}>
+                <Text style={styles.sparkleEmoji}>✨</Text>
+              </View>
+              <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
+              <View style={styles.touchesRow}>
+                <Text style={styles.touchesValue}>
+                  {todayTouches.toLocaleString()}
+                </Text>
+                <Text style={styles.touchesDivider}>/</Text>
+                <Text style={styles.touchesTarget}>
+                  {dailyTarget.toLocaleString()}
+                </Text>
+              </View>
+              <Text style={styles.touchesLabel}>touches</Text>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
+                />
+              </View>
+              <Text style={styles.progressPercentText}>
+                {Math.round(progressPercent)}% Complete
+              </Text>
+            </View>
 
-        {/* Action Buttons Row */}
-        <View style={styles.actionButtonsRow}>
-          {/* Log Session Button */}
-          <TouchableOpacity
-            style={styles.logButton}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='add-circle' size={24} color='#FFF' />
-            <Text style={styles.logButtonText}>LOG SESSION</Text>
-          </TouchableOpacity>
+            {/* Action Buttons Row */}
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={styles.logButton}
+                onPress={() => setModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name='add-circle' size={24} color='#FFF' />
+                <Text style={styles.logButtonText}>LOG SESSION</Text>
+              </TouchableOpacity>
 
-          {/* Start Timer Button */}
-          <TouchableOpacity
-            style={styles.timerButton}
-            onPress={() => setShowTimerPicker(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name='timer' size={24} color='#FFF' />
-            <Text style={styles.timerButtonText}>START TIMER</Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                style={styles.timerButton}
+                onPress={() => setShowTimerPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name='timer' size={24} color='#FFF' />
+                <Text style={styles.timerButtonText}>START TIMER</Text>
+              </TouchableOpacity>
+            </View>
 
+            {/* Drill Library */}
+            <TouchableOpacity
+              style={styles.libraryCard}
+              onPress={() => router.push('/(modals)/drill-library')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.libraryIconBg}>
+                <Ionicons name='book' size={22} color='#1f89ee' />
+              </View>
+              <View style={styles.libraryTextBlock}>
+                <Text style={styles.libraryTitle}>Drill Library</Text>
+                <Text style={styles.librarySubtitle}>Browse & log drills</Text>
+              </View>
+              <Ionicons name='chevron-forward' size={20} color='#78909C' />
+            </TouchableOpacity>
 
-        {/* Drill Library */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => router.push('/(modals)/drill-library')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='book' size={22} color='#1f89ee' />
-          </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
-
-        {/* CHALLENGES */}
-        {!profile?.is_coach && user?.id && (
-          <ChallengesCard
-            userId={user.id}
-            teamId={profile?.team_id}
-            playerName={getDisplayName(profile)}
-          />
+            {/* CHALLENGES */}
+            {!profile?.is_coach && user?.id && (
+              <ChallengesCard
+                userId={user.id}
+                teamId={profile?.team_id}
+                playerName={getDisplayName(profile)}
+              />
+            )}
+          </>
         )}
-
       </ScrollView>
 
       {/* Timer Modal */}
@@ -903,6 +931,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFD54F',
     textAlign: 'center',
+  },
+
+  // SEGMENTED CONTROL
+  segmentedRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  segmentedContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F4F8',
+    borderRadius: 10,
+    padding: 3,
+  },
+  segmentedTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  segmentedTabActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  segmentedTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  segmentedTabTextActive: {
+    color: '#1a1a2e',
   },
 
   // ACTION BUTTONS ROW

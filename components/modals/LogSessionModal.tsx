@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const screenHeight = Dimensions.get('window').height;
 
@@ -71,7 +72,9 @@ const LogSessionModal = ({
   challengeDifficulty,
   badgeContext,
 }: LogSessionModalProps) => {
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const [touches, setTouches] = useState('');
+  const [freestyleMinutes, setFreestyleMinutes] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
@@ -100,6 +103,7 @@ const LogSessionModal = ({
       );
       setAttempted(false);
       setTouches('');
+      setFreestyleMinutes('');
       setSelectedAreas([]);
     }
   }, [visible, challengeDurationMinutes]);
@@ -157,6 +161,7 @@ const LogSessionModal = ({
 
       // Reset form
       setTouches('');
+      setFreestyleMinutes('');
       setDuration('');
       setJuggles('');
       setAttempted(false);
@@ -278,7 +283,10 @@ const LogSessionModal = ({
                       keyboardType='number-pad'
                       returnKeyType='done'
                       value={touches}
-                      onChangeText={setTouches}
+                      onChangeText={(val) => {
+                        setTouches(val);
+                        if (val) setFreestyleMinutes('');
+                      }}
                       />
                     <View style={styles.inputIconBg}>
                       {isChallengeMode ? (
@@ -342,6 +350,46 @@ const LogSessionModal = ({
                 )}
             </View>
 
+            {/* Freestyle Minutes — non-challenge mode only */}
+            {!isChallengeMode && (
+              <View style={styles.freestyleSection}>
+                <Text style={styles.sectionLabel}>
+                  Freestyle Minutes{' '}
+                  <Text style={styles.optionalLabel}>(optional)</Text>
+                </Text>
+                <Text style={styles.jugglingHint}>Backyard freestyle? 1 min = 100 touches auto-calculated.</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    returnKeyType='done'
+                    value={freestyleMinutes}
+                    onChangeText={(val) => {
+                      setFreestyleMinutes(val);
+                      const mins = parseInt(val);
+                      if (val && mins > 0) {
+                        setTouches(String(mins * 100));
+                      } else if (!val) {
+                        setTouches('');
+                      }
+                    }}
+                  />
+                  <View style={styles.inputIconBg}>
+                    <Ionicons name='flash' size={20} color='#ffb724' />
+                  </View>
+                </View>
+                {freestyleMinutes && parseInt(freestyleMinutes) > 0 && (
+                  <View style={styles.tpmPreview}>
+                    <Text style={styles.tpmPreviewText}>
+                      ⚡ {parseInt(freestyleMinutes) * 100} touches calculated
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Focus areas */}
             <View style={styles.focusSection}>
               <Text style={styles.sectionLabel}>
@@ -403,7 +451,7 @@ const LogSessionModal = ({
           </ScrollView>
 
           {/* Submit Button - Fixed at bottom */}
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, { paddingBottom: Math.max(30, bottomInset + 20) }]}>
             {challengeLocked && (
               <View style={styles.lockedBanner}>
                 <Ionicons name='lock-closed' size={18} color='#F57C00' />
@@ -740,6 +788,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     lineHeight: 19,
+  },
+  freestyleSection: {
+    marginBottom: 24,
   },
   focusSection: {
     marginBottom: 24,

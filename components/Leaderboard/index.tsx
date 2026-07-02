@@ -432,20 +432,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
       {/* TOP VIEW PILLS: conditionally shown based on memberships */}
       <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, view === 'global' && styles.tabActive]}
-          onPress={() => setView('global')}
-        >
-          <Text style={[styles.tabText, view === 'global' && styles.tabTextActive]}>Global</Text>
-        </TouchableOpacity>
-        {hasClub && (
-          <TouchableOpacity
-            style={[styles.tab, view === 'club' && styles.tabActive]}
-            onPress={() => setView('club')}
-          >
-            <Text style={[styles.tabText, view === 'club' && styles.tabTextActive]}>Club</Text>
-          </TouchableOpacity>
-        )}
         {hasTeam && (
           <TouchableOpacity
             style={[styles.tab, view === 'team' && styles.tabActive]}
@@ -454,6 +440,20 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             <Text style={[styles.tabText, view === 'team' && styles.tabTextActive]}>Team</Text>
           </TouchableOpacity>
         )}
+        {hasClub && (
+          <TouchableOpacity
+            style={[styles.tab, view === 'club' && styles.tabActive]}
+            onPress={() => setView('club')}
+          >
+            <Text style={[styles.tabText, view === 'club' && styles.tabTextActive]}>Club</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.tab, view === 'global' && styles.tabActive]}
+          onPress={() => setView('global')}
+        >
+          <Text style={[styles.tabText, view === 'global' && styles.tabTextActive]}>Global</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Team picker — coaches with 2+ teams, team view only */}
@@ -771,14 +771,18 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                         <View style={styles.rankContainer}>
                           <Text style={styles.rankNumber}>{index + 1}</Text>
                         </View>
-                        <View style={styles.globalAvatarPlaceholder}>
-                          <Ionicons name='person' size={22} color='#B0BEC5' />
-                        </View>
+                        <Image
+                          source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          style={styles.avatar}
+                        />
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>
                             {player.name}
                             {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                           </Text>
+                          {player.cityState && (
+                            <Text style={styles.globalCityState}>{player.cityState}</Text>
+                          )}
                         </View>
                       </View>
                       <View style={styles.playerRight}>
@@ -1086,6 +1090,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1f89ee',
+  },
+  globalCityState: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 1,
   },
   statsRow: {
     flexDirection: 'row',

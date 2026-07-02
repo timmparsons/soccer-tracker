@@ -29,7 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface PlayerStats {
   id: string;
@@ -51,6 +51,7 @@ interface PlayerStats {
 }
 
 export default function CoachDashboard() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
@@ -92,6 +93,7 @@ export default function CoachDashboard() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editCount, setEditCount] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+
 
   // Get team info
   const { data: team } = useQuery({
@@ -861,13 +863,14 @@ export default function CoachDashboard() {
             )}
           </View>
         )}
+
       </ScrollView>
 
       {/* TEAM SWITCHER MODAL */}
       {coachTeams.length > 1 && (
         <Modal transparent visible={switcherVisible} animationType="fade" onRequestClose={() => setSwitcherVisible(false)}>
           <TouchableOpacity style={styles.switcherOverlay} activeOpacity={1} onPress={() => setSwitcherVisible(false)}>
-            <View style={styles.switcherSheet}>
+            <View style={[styles.switcherSheet, { paddingBottom: Math.max(36, insets.bottom + 20) }]}>
               <Text style={styles.switcherTitle}>Switch Team</Text>
               {coachTeams.map((t) => (
                 <TouchableOpacity
@@ -919,7 +922,7 @@ export default function CoachDashboard() {
           <Modal transparent visible animationType="slide" onRequestClose={() => setCellInfo(null)}>
             <View style={styles.modalOverlay}>
               <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCellInfo(null)} />
-              <View style={styles.cellInfoSheet}>
+              <View style={[styles.cellInfoSheet, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
                 <View style={styles.cellInfoHeader}>
                   <Image
                     source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
@@ -965,7 +968,7 @@ export default function CoachDashboard() {
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
                 <View style={styles.modalHeader}>
                   <Ionicons name="football" size={32} color="#1f89ee" />
                   <Text style={styles.modalTitle}>

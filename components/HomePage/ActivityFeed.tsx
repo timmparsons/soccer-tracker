@@ -1,20 +1,14 @@
-import {
-  toggleReaction,
-  useMyReactionKeys,
-} from '@/hooks/useActivityReactions';
+import CheerRow from '@/components/HomePage/CheerRow';
+import { useCheersForItems, useMyCheerKeys } from '@/hooks/useFeedCheers';
 import { useActivityFeed } from '@/hooks/useTeamActivity';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
-import { getDisplayName } from '@/utils/getDisplayName';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
-import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { useMemo } from 'react';
 import {
   Image,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -25,29 +19,9 @@ const ActivityFeed = () => {
   const { data: activity = [] } = useActivityFeed(7);
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const { data: myReactionKeys = new Set<string>() } = useMyReactionKeys(user?.id);
-  const queryClient = useQueryClient();
-  const [localReacted, setLocalReacted] = useState<Set<string>>(new Set());
-
-  const reactorName = getDisplayName(profile);
-
-  const handleThumbsUp = async (item: (typeof activity)[0]) => {
-    if (!user?.id || item.userId === user.id) return;
-    const alreadyReacted = myReactionKeys.has(item.id) || localReacted.has(item.id);
-    setLocalReacted((prev) => {
-      const next = new Set(prev);
-      alreadyReacted ? next.delete(item.id) : next.add(item.id);
-      return next;
-    });
-    await toggleReaction({
-      activityKey: item.id,
-      recipientId: item.userId,
-      reactorId: user.id,
-      reactorName,
-      alreadyReacted,
-    });
-    queryClient.invalidateQueries({ queryKey: ['my-reaction-keys', user.id] });
-  };
+  const feedItemKeys = useMemo(() => activity.map((item) => item.id), [activity]);
+  const { data: cheersMap = new Map() } = useCheersForItems(feedItemKeys);
+  const { data: myCheerKeys = new Set<string>() } = useMyCheerKeys(user?.id);
 
   if (activity.length === 0) return null;
 
@@ -56,32 +30,30 @@ const ActivityFeed = () => {
       <Text style={styles.label}>Activity</Text>
       {activity.map((item, i) => {
         const isOwn = item.userId === user?.id;
-        const reacted = myReactionKeys.has(item.id) || localReacted.has(item.id);
+        const isCoach = !!profile?.is_coach;
         return (
           <View
             key={item.id}
-            style={[styles.row, i < activity.length - 1 && styles.rowBorder]}
+            style={[styles.itemWrap, i < activity.length - 1 && styles.itemBorder]}
           >
-            <Image
-              source={{ uri: item.avatarUrl || FALLBACK_AVATAR }}
-              style={styles.avatar}
-            />
-            <View style={styles.info}>
-              <Text style={styles.message}>{item.message}</Text>
-              <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
+            <View style={styles.row}>
+              <Image
+                source={{ uri: item.avatarUrl || FALLBACK_AVATAR }}
+                style={styles.avatar}
+              />
+              <View style={styles.info}>
+                <Text style={styles.message}>{item.message}</Text>
+                <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
+              </View>
             </View>
-            {!isOwn && (
-              <TouchableOpacity
-                onPress={() => handleThumbsUp(item)}
-                style={styles.thumbBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={reacted ? 'thumbs-up' : 'thumbs-up-outline'}
-                  size={18}
-                  color={reacted ? '#1f89ee' : '#B0BEC5'}
-                />
-              </TouchableOpacity>
+            {!isOwn && !isCoach && user?.id && (
+              <CheerRow
+                feedItemKey={item.id}
+                recipientId={item.userId}
+                userId={user.id}
+                cheerData={cheersMap.get(item.id)}
+                alreadyCheered={myCheerKeys.has(item.id)}
+              />
             )}
           </View>
         );
@@ -109,15 +81,17 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     marginBottom: 12,
   },
+  itemWrap: {
+    paddingVertical: 10,
+  },
+  itemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
     gap: 12,
-  },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4F8',
   },
   avatar: {
     width: 38,
@@ -138,8 +112,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     marginTop: 2,
-  },
-  thumbBtn: {
-    padding: 4,
   },
 });

@@ -6,7 +6,9 @@ import { useQuery } from '@tanstack/react-query';
 export interface GlobalPlayer {
   userId: string;
   name: string;
+  cityState: string | null;
   touches: number;
+  avatar_url: string | null;
 }
 
 export function useGlobalLeaderboard() {
@@ -22,7 +24,7 @@ export function useGlobalLeaderboard() {
     queryFn: async (): Promise<GlobalPlayer[]> => {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, name, display_name, hometown_city, hometown_state')
+        .select('id, name, display_name, avatar_url, hometown_city, hometown_state')
         .eq('is_coach', false)
         .eq('onboarding_completed', true);
 
@@ -50,14 +52,15 @@ export function useGlobalLeaderboard() {
         .map(([userId, touches]) => {
           const p = profileMap[userId];
           const rawName = p?.name || p?.display_name || 'Player';
+          const city = (p as any)?.hometown_city as string | null | undefined;
+          const state = (p as any)?.hometown_state as string | null | undefined;
+          const cityState = city && state ? `${city}, ${state}` : city || null;
           return {
             userId,
-            name: getGlobalDisplayName(
-              rawName,
-              (p as any)?.hometown_city,
-              (p as any)?.hometown_state,
-            ),
+            name: getGlobalDisplayName(rawName),
+            cityState: cityState ?? null,
             touches,
+            avatar_url: p?.avatar_url ?? null,
           };
         })
         .sort((a, b) => b.touches - a.touches)

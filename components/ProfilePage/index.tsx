@@ -16,6 +16,7 @@ import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
+import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
@@ -32,6 +33,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -76,15 +78,17 @@ const ProfilePage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [hometownCity, setHometownCity] = useState('');
-  const [hometownState, setHometownState] = useState('AZ');
+  const [hometownState, setHometownState] = useState('');
   const [savingLocation, setSavingLocation] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [globalPublic, setGlobalPublic] = useState(false);
   const [showPlayerClubModal, setShowPlayerClubModal] = useState(false);
   const [playerClubQuery, setPlayerClubQuery] = useState('');
   const [savingPlayerClub, setSavingPlayerClub] = useState(false);
   const [showCreateClubModal, setShowCreateClubModal] = useState(false);
-  const [showJoinClubModal, setShowJoinClubModal] = useState(false);
+  const [showCoachClubSearchModal, setShowCoachClubSearchModal] = useState(false);
+  const [coachClubQuery, setCoachClubQuery] = useState('');
   const [clubNameInput, setClubNameInput] = useState('');
-  const [clubJoinCodeInput, setClubJoinCodeInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
@@ -137,7 +141,8 @@ const ProfilePage = () => {
   useEffect(() => {
     if (!profile) return;
     setHometownCity((profile as any)?.hometown_city ?? '');
-    setHometownState((profile as any)?.hometown_state ?? 'AZ');
+    setHometownState((profile as any)?.hometown_state ?? '');
+    setGlobalPublic((profile as any)?.show_on_global_leaderboard ?? false);
   }, [profile?.id]);
 
   const handlePickImage = async () => {
@@ -437,27 +442,18 @@ const ProfilePage = () => {
     }
   };
 
-  const handleJoinClub = async () => {
-    if (!clubJoinCodeInput.trim() || !profile?.team_id) return;
+  const handleJoinClubBySearch = async (clubId: string, clubName: string) => {
+    if (!profile?.team_id) return;
     setSavingClub(true);
     try {
-      const { data: club } = await supabase
-        .from('clubs')
-        .select('id, name')
-        .eq('join_code', clubJoinCodeInput.trim().toUpperCase())
-        .single();
-      if (!club) {
-        Alert.alert('Not Found', 'No club found with that code.');
-        return;
-      }
       await Promise.all([
-        supabase.from('teams').update({ club_id: (club as any).id }).eq('id', profile.team_id),
-        supabase.from('profiles').update({ club_id: (club as any).id } as any).eq('id', user!.id),
+        supabase.from('teams').update({ club_id: clubId }).eq('id', profile.team_id),
+        supabase.from('profiles').update({ club_id: clubId } as any).eq('id', user!.id),
       ]);
       await refetchClub();
-      setShowJoinClubModal(false);
-      setClubJoinCodeInput('');
-      Alert.alert('Joined!', `Your team is now part of ${(club as any).name}.`);
+      setShowCoachClubSearchModal(false);
+      setCoachClubQuery('');
+      Alert.alert('Joined!', `Your team is now part of ${clubName}.`);
     } catch {
       Alert.alert('Error', 'Something went wrong.');
     } finally {
@@ -472,11 +468,23 @@ const ProfilePage = () => {
         hometown_city: hometownCity.trim() || null,
         hometown_state: hometownState.trim() || null,
       });
-      Alert.alert('Saved', 'Your location has been updated.');
+      setEditingLocation(false);
     } catch {
       Alert.alert('Error', 'Failed to save location.');
     } finally {
       setSavingLocation(false);
+    }
+  };
+
+  const handleToggleGlobal = async (val: boolean) => {
+    setGlobalPublic(val);
+    if (val && !hometownCity) setEditingLocation(true);
+    if (!val) setEditingLocation(false);
+    try {
+      await updateProfile({ show_on_global_leaderboard: val });
+    } catch {
+      setGlobalPublic(!val);
+      Alert.alert('Error', 'Failed to update visibility.');
     }
   };
 
@@ -494,6 +502,7 @@ const ProfilePage = () => {
     },
   });
   const { data: clubSearchResults = [], isFetching: clubSearchFetching } = useClubSearch(playerClubQuery);
+  const { data: coachClubSearchResults = [], isFetching: coachClubSearchFetching } = useClubSearch(coachClubQuery);
 
   const handleSavePlayerClub = async (clubId: string) => {
     if (!user?.id) return;
@@ -973,18 +982,6 @@ const ProfilePage = () => {
                     <Ionicons name='shield' size={18} color='#1f89ee' />
                     <Text style={styles.clubCardTitle}>{teamClub.name}</Text>
                   </View>
-                  <Text style={styles.clubCardCodeLabel}>Club Join Code</Text>
-                  <Text style={styles.clubCardCode}>{teamClub.join_code}</Text>
-                  <TouchableOpacity
-                    style={styles.clubCopyBtn}
-                    onPress={async () => {
-                      await Clipboard.setStringAsync(teamClub.join_code);
-                      Alert.alert('Copied!', 'Club code copied to clipboard.');
-                    }}
-                  >
-                    <Ionicons name='copy-outline' size={15} color='#1f89ee' />
-                    <Text style={styles.clubCopyText}>Copy Code</Text>
-                  </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.clubSetupCard}>
@@ -1001,9 +998,9 @@ const ProfilePage = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.clubJoinBtn}
-                      onPress={() => setShowJoinClubModal(true)}
+                      onPress={() => { setShowSettingsModal(false); setShowCoachClubSearchModal(true); }}
                     >
-                      <Text style={styles.clubJoinBtnText}>Join by Code</Text>
+                      <Text style={styles.clubJoinBtnText}>Find Club</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1267,49 +1264,71 @@ const ProfilePage = () => {
 
                     <View style={styles.settingsDivider} />
 
-                    {/* Location — shown to all players, optional context on global leaderboard */}
-                    <View style={[styles.settingsRow, { paddingVertical: 10 }]}>
-                      <View style={[styles.settingsIconBg, { backgroundColor: '#E8F5E9' }]}>
-                        <Ionicons name='location' size={20} color='#31af4d' />
+                    {/* Global Leaderboard toggle */}
+                    <View style={[styles.settingsRow, { paddingVertical: 12 }]}>
+                      <View style={[styles.settingsIconBg, { backgroundColor: '#EFF6FF' }]}>
+                        <Ionicons name='globe' size={20} color='#1f89ee' />
                       </View>
-                      <Text style={[styles.settingsLabel, { flex: 1 }]}>Location</Text>
-                    </View>
-                    <View style={styles.locationInputsContainer}>
-                      <TextInput
-                        style={styles.locationInput}
-                        placeholder='City'
-                        placeholderTextColor='#B0BEC5'
-                        value={hometownCity}
-                        onChangeText={setHometownCity}
-                      />
-                      <TextInput
-                        style={styles.locationInput}
-                        placeholder='State (e.g. AZ)'
-                        placeholderTextColor='#B0BEC5'
-                        value={hometownState}
-                        onChangeText={setHometownState}
-                        maxLength={2}
-                        autoCapitalize='characters'
-                      />
-                      <TouchableOpacity
-                        style={[styles.locationSaveBtn, savingLocation && { opacity: 0.5 }]}
-                        onPress={handleSaveLocation}
-                        disabled={savingLocation}
-                      >
-                        {savingLocation ? (
-                          <ActivityIndicator size='small' color='#FFF' />
-                        ) : (
-                          <Text style={styles.locationSaveBtnText}>Save Location</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.settingsLabel}>Show me on Global Leaderboard</Text>
+                        <Text style={styles.settingsValue}>{getGlobalDisplayName(displayName)}</Text>
+                        {(hometownCity || hometownState) && (
+                          <Text style={[styles.settingsValue, { color: '#78909C' }]}>{[hometownCity, hometownState].filter(Boolean).join(', ')}</Text>
                         )}
-                      </TouchableOpacity>
+                      </View>
+                      <Switch
+                        value={globalPublic}
+                        onValueChange={handleToggleGlobal}
+                        trackColor={{ false: '#DDE1E7', true: '#1f89ee' }}
+                        thumbColor='#FFF'
+                        style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
+                      />
                     </View>
+
+                    {globalPublic && (
+                      editingLocation ? (
+                        <View style={styles.locationInputsContainer}>
+                          <TextInput
+                            style={styles.locationInput}
+                            placeholder='City'
+                            placeholderTextColor='#B0BEC5'
+                            value={hometownCity}
+                            onChangeText={setHometownCity}
+                          />
+                          <TextInput
+                            style={styles.locationInput}
+                            placeholder='State (e.g. AZ)'
+                            placeholderTextColor='#B0BEC5'
+                            value={hometownState}
+                            onChangeText={setHometownState}
+                            maxLength={2}
+                            autoCapitalize='characters'
+                          />
+                          <TouchableOpacity
+                            style={[styles.locationSaveBtn, savingLocation && { opacity: 0.5 }]}
+                            onPress={handleSaveLocation}
+                            disabled={savingLocation}
+                          >
+                            {savingLocation ? (
+                              <ActivityIndicator size='small' color='#FFF' />
+                            ) : (
+                              <Text style={styles.locationSaveBtnText}>Save</Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity onPress={() => setEditingLocation(true)} style={styles.locationEditBtn}>
+                          <Text style={styles.locationEditBtnText}>Edit location</Text>
+                        </TouchableOpacity>
+                      )
+                    )}
 
                     <View style={styles.settingsDivider} />
 
                     {/* Club */}
                     <TouchableOpacity
                       style={styles.settingsRow}
-                      onPress={() => setShowPlayerClubModal(true)}
+                      onPress={() => { setShowSettingsModal(false); setShowPlayerClubModal(true); }}
                       activeOpacity={0.7}
                     >
                       <View style={styles.settingsRowLeft}>
@@ -1754,55 +1773,54 @@ const ProfilePage = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Join Club Modal */}
+      {/* Coach Club Search Modal */}
       <Modal
-        visible={showJoinClubModal}
+        visible={showCoachClubSearchModal}
         animationType='slide'
         transparent={true}
-        onRequestClose={() => setShowJoinClubModal(false)}
+        onRequestClose={() => { setShowCoachClubSearchModal(false); setCoachClubQuery(''); }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalEmoji}>🔗</Text>
-                <Text style={styles.modalTitle}>Join a Club</Text>
+                <Text style={styles.modalEmoji}>🔍</Text>
+                <Text style={styles.modalTitle}>Find Your Club</Text>
                 <Text style={styles.modalSubtitle}>
-                  Enter the code from your club administrator.
+                  Search for your club or academy to link your team.
                 </Text>
               </View>
               <TextInput
                 style={styles.nameInput}
-                placeholder='Club code (e.g. A1B2C3)'
+                placeholder='Search club name...'
                 placeholderTextColor='#9CA3AF'
-                value={clubJoinCodeInput}
-                onChangeText={setClubJoinCodeInput}
-                autoCapitalize='characters'
+                value={coachClubQuery}
+                onChangeText={setCoachClubQuery}
                 autoFocus
               />
-              <TouchableOpacity
-                style={[
-                  styles.nameSaveButton,
-                  (!clubJoinCodeInput.trim() || savingClub) && styles.nameSaveButtonDisabled,
-                ]}
-                onPress={handleJoinClub}
-                disabled={!clubJoinCodeInput.trim() || savingClub}
-              >
-                {savingClub ? (
-                  <ActivityIndicator color='#FFF' />
-                ) : (
-                  <Text style={styles.nameSaveButtonText}>Join Club</Text>
+              {coachClubSearchFetching && <ActivityIndicator size='small' color='#1f89ee' />}
+              <ScrollView style={{ width: '100%', maxHeight: 200 }} keyboardShouldPersistTaps='handled'>
+                {coachClubQuery.trim().length >= 2 && coachClubSearchResults.length === 0 && !coachClubSearchFetching && (
+                  <Text style={styles.modalSubtitle}>No clubs found for "{coachClubQuery}"</Text>
                 )}
-              </TouchableOpacity>
+                {coachClubSearchResults.map((club) => (
+                  <TouchableOpacity
+                    key={club.id}
+                    style={[styles.modalCancel, { backgroundColor: '#F5F7FA', borderColor: '#E5E7EB', borderWidth: 1.5, marginBottom: 8 }]}
+                    onPress={() => handleJoinClubBySearch(club.id, club.name)}
+                    disabled={savingClub}
+                  >
+                    <Text style={[styles.modalCancelText, { color: '#1a1a2e' }]}>{club.name}</Text>
+                    {savingClub && <ActivityIndicator size='small' color='#1f89ee' style={{ marginLeft: 8 }} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
               <TouchableOpacity
                 style={styles.modalCancel}
-                onPress={() => {
-                  setShowJoinClubModal(false);
-                  setClubJoinCodeInput('');
-                }}
+                onPress={() => { setShowCoachClubSearchModal(false); setCoachClubQuery(''); }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -2951,6 +2969,15 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F0F4F8',
     marginVertical: 4,
+  },
+  locationEditBtn: {
+    paddingVertical: 6,
+    paddingBottom: 8,
+  },
+  locationEditBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
   },
   locationInputsContainer: {
     gap: 8,
