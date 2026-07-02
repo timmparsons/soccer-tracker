@@ -28,6 +28,78 @@ Both coach and player paywalls were removed to allow free sharing with the club 
 - `'pro'` — player premium (checked as `isPremium` in `useSubscription`)
 - `'coach'` — coach access (checked as `isCoach`)
 
+---
+
+## Teams, Clubs & Leaderboard Structure
+
+This documents how the three levels of organisation work today and what gaps exist.
+
+### Three Levels
+
+| Level | What it is | Leaderboard tab |
+|---|---|---|
+| **Team** | A squad managed by a coach. Players join via a 6-char code. | `team` tab — touches + juggling sub-tabs |
+| **Club** | A parent organisation (e.g. a football club) that teams belong to. Players set their club during onboarding. | `club` tab — all players across all teams in the club |
+| **Global** | Everyone on the app. Always visible regardless of team/club membership. | `global` tab |
+
+The leaderboard (`components/Leaderboard/index.tsx`) defaults to the most specific view the user qualifies for: team → club → global. A player with no team and no club lands directly on the global tab.
+
+---
+
+### Team Creation
+
+**Where it lives:** `app/(modals)/create-team.tsx`
+
+**Current flow:**
+- Any coach can open this modal and enter a team name
+- A random 6-char alphanumeric join code is generated and checked for uniqueness
+- On create: inserts a row in `teams`, sets `profile.team_id` to the new team
+- Players join via `app/(modals)/join-team.tsx` by entering the code
+
+**Gaps / to-dos:**
+- No UI entry point for coaches to reach the create-team modal from within the app — it needs to be surfaced from the coach dashboard (e.g. a "Create team" button in `ManageTab` or the header when `coachTeams` is empty)
+- No multi-team management UI beyond the team switcher pill in the coach header
+- Max team count (if any) is not enforced in the app — was mentioned as "up to 3 teams" in the removed coach paywall copy
+
+---
+
+### Club Creation
+
+**Current state:** Clubs exist in the DB (`clubs` table with `id`, `name`, `created_by`, `join_code`). The `useClubSearch` hook (`hooks/useClubSearch.ts`) lets players search and select a club by name during player onboarding (`ClubSearchScreen` step).
+
+**What's missing — no club creation flow exists yet.** The `clubs` table has a `created_by` column and a `join_code` column (from `supabase/club_migration.sql`), but there is no screen or modal that lets anyone create a club. Currently clubs can only be added directly in Supabase.
+
+**To build:**
+- A "Create club" modal (similar to `create-team.tsx`) where a coach or admin enters a club name
+- RLS policy already allows any authenticated user to insert a club (`clubs_insert` policy: `auth.uid() = created_by`)
+- After creation, set `profile.club_id` on the creator's profile
+- Surface the modal from: the club search screen when no results found ("Can't find your club? Create it →"), and from the profile page
+- Consider whether club creation should be coach-only or open to any player
+
+**DB schema (from `supabase/club_migration.sql`):**
+```sql
+clubs (id, name, created_by, join_code, created_at)
+```
+RLS: anyone authenticated can read; only `created_by` can update.
+
+---
+
+### Global Leaderboard — Individual Players
+
+**Current state:** Fully working. `hooks/useGlobalLeaderboard.ts` queries all players with `onboarding_completed = true` and `is_coach = false`, aggregates this week's touches from `daily_sessions`, and returns the top 100.
+
+**Key behaviours:**
+- Visible to everyone — no team or club required
+- Names are anonymised via `utils/globalLeaderboardName.ts` / `utils/anonymousName.ts` (e.g. first name + last initial only)
+- City/state shown if the player has set `hometown_city` / `hometown_state` on their profile (currently no UI to set this)
+- Defaults to the global tab for players with no team and no club
+
+**Gaps:**
+- No way for players to set their hometown in the app — `hometown_city` / `hometown_state` fields exist on the `profiles` table but there's no UI. Adding a "Location (optional)" field to the profile page would populate the city/state shown on the global leaderboard.
+- The global leaderboard only shows this week's touches — no all-time global view (club and team tabs have all-time options)
+
+---
+
 ## Invite Code → Auto-Premium
 
 When a user signs up and enters an invite code provided by their coach, automatically set `is_premium = true` on their profile.
