@@ -48,39 +48,30 @@ The leaderboard (`components/Leaderboard/index.tsx`) defaults to the most specif
 
 ### Team Creation
 
-**Where it lives:** `app/(modals)/create-team.tsx`
+**Where it lives:** `app/(modals)/create-team.tsx`, surfaced via the "Create New Team" button in `components/CoachDashboard/ManageTab.tsx`
 
 **Current flow:**
-- Any coach can open this modal and enter a team name
-- A random 6-char alphanumeric join code is generated and checked for uniqueness
+- Coach opens the Manage tab → taps "Create New Team" at the bottom
+- Enters a team name; a random 6-char alphanumeric join code is generated and checked for uniqueness
 - On create: inserts a row in `teams`, sets `profile.team_id` to the new team
 - Players join via `app/(modals)/join-team.tsx` by entering the code
+- Capped at 3 teams per coach (enforced in the UI; button locks and shows "Team Limit Reached")
+- Each team card in ManageTab shows the code, copy/share buttons, player list, and season management
 
-**Gaps / to-dos:**
-- No UI entry point for coaches to reach the create-team modal from within the app — it needs to be surfaced from the coach dashboard (e.g. a "Create team" button in `ManageTab` or the header when `coachTeams` is empty)
-- No multi-team management UI beyond the team switcher pill in the coach header
-- Max team count (if any) is not enforced in the app — was mentioned as "up to 3 teams" in the removed coach paywall copy
+**This is fully working.**
 
 ---
 
 ### Club Creation
 
-**Current state:** Clubs exist in the DB (`clubs` table with `id`, `name`, `created_by`, `join_code`). The `useClubSearch` hook (`hooks/useClubSearch.ts`) lets players search and select a club by name during player onboarding (`ClubSearchScreen` step).
+**Where it lives:** `components/ProfilePage/index.tsx` — `handleCreateClub` function, surfaced via a "Create Club" button in the club section of the profile page.
 
-**What's missing — no club creation flow exists yet.** The `clubs` table has a `created_by` column and a `join_code` column (from `supabase/club_migration.sql`), but there is no screen or modal that lets anyone create a club. Currently clubs can only be added directly in Supabase.
+**Current flow:**
+- User taps "Create Club" on their profile page → modal opens with a club name input
+- On submit: inserts into `clubs` table, sets `profile.club_id` to the new club, and updates the club leaderboard query
+- Players can also search for and join an existing club during onboarding (`ClubSearchScreen` step in player flow) via `hooks/useClubSearch.ts`
 
-**To build:**
-- A "Create club" modal (similar to `create-team.tsx`) where a coach or admin enters a club name
-- RLS policy already allows any authenticated user to insert a club (`clubs_insert` policy: `auth.uid() = created_by`)
-- After creation, set `profile.club_id` on the creator's profile
-- Surface the modal from: the club search screen when no results found ("Can't find your club? Create it →"), and from the profile page
-- Consider whether club creation should be coach-only or open to any player
-
-**DB schema (from `supabase/club_migration.sql`):**
-```sql
-clubs (id, name, created_by, join_code, created_at)
-```
-RLS: anyone authenticated can read; only `created_by` can update.
+**This is fully working.**
 
 ---
 
