@@ -86,7 +86,8 @@ const ProfilePage = () => {
   const [playerClubQuery, setPlayerClubQuery] = useState('');
   const [savingPlayerClub, setSavingPlayerClub] = useState(false);
   const [showCreateClubModal, setShowCreateClubModal] = useState(false);
-  const [showCoachClubSearchModal, setShowCoachClubSearchModal] = useState(false);
+  const [showCoachClubSearchModal, setShowCoachClubSearchModal] =
+    useState(false);
   const [coachClubQuery, setCoachClubQuery] = useState('');
   const [clubNameInput, setClubNameInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
@@ -424,13 +425,23 @@ const ProfilePage = () => {
       const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { data: club, error } = await supabase
         .from('clubs')
-        .insert({ name: clubNameInput.trim(), join_code: joinCode, created_by: user!.id })
+        .insert({
+          name: clubNameInput.trim(),
+          join_code: joinCode,
+          created_by: user!.id,
+        })
         .select()
         .single();
       if (error || !club) throw error;
       await Promise.all([
-        supabase.from('teams').update({ club_id: (club as any).id }).eq('id', profile.team_id),
-        supabase.from('profiles').update({ club_id: (club as any).id } as any).eq('id', user!.id),
+        supabase
+          .from('teams')
+          .update({ club_id: (club as any).id })
+          .eq('id', profile.team_id),
+        supabase
+          .from('profiles')
+          .update({ club_id: (club as any).id } as any)
+          .eq('id', user!.id),
       ]);
       await refetchClub();
       setShowCreateClubModal(false);
@@ -447,8 +458,14 @@ const ProfilePage = () => {
     setSavingClub(true);
     try {
       await Promise.all([
-        supabase.from('teams').update({ club_id: clubId }).eq('id', profile.team_id),
-        supabase.from('profiles').update({ club_id: clubId } as any).eq('id', user!.id),
+        supabase
+          .from('teams')
+          .update({ club_id: clubId })
+          .eq('id', profile.team_id),
+        supabase
+          .from('profiles')
+          .update({ club_id: clubId } as any)
+          .eq('id', user!.id),
       ]);
       await refetchClub();
       setShowCoachClubSearchModal(false);
@@ -488,7 +505,9 @@ const ProfilePage = () => {
     }
   };
 
-  const playerClubId = !profile?.is_coach ? (profile as any)?.club_id ?? null : null;
+  const playerClubId = !profile?.is_coach
+    ? ((profile as any)?.club_id ?? null)
+    : null;
   const { data: playerClub } = useQuery({
     queryKey: ['club', playerClubId],
     enabled: !!playerClubId,
@@ -501,14 +520,21 @@ const ProfilePage = () => {
       return data ?? null;
     },
   });
-  const { data: clubSearchResults = [], isFetching: clubSearchFetching } = useClubSearch(playerClubQuery);
-  const { data: coachClubSearchResults = [], isFetching: coachClubSearchFetching } = useClubSearch(coachClubQuery);
+  const { data: clubSearchResults = [], isFetching: clubSearchFetching } =
+    useClubSearch(playerClubQuery);
+  const {
+    data: coachClubSearchResults = [],
+    isFetching: coachClubSearchFetching,
+  } = useClubSearch(coachClubQuery);
 
   const handleSavePlayerClub = async (clubId: string) => {
     if (!user?.id) return;
     setSavingPlayerClub(true);
     try {
-      await supabase.from('profiles').update({ club_id: clubId } as any).eq('id', user.id);
+      await supabase
+        .from('profiles')
+        .update({ club_id: clubId } as any)
+        .eq('id', user.id);
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       queryClient.invalidateQueries({ queryKey: ['club-leaderboard'] });
       setShowPlayerClubModal(false);
@@ -987,7 +1013,8 @@ const ProfilePage = () => {
                 <View style={styles.clubSetupCard}>
                   <Text style={styles.clubSetupTitle}>Set Up a Club</Text>
                   <Text style={styles.clubSetupSubtitle}>
-                    Link teams across your organization to unlock the Club leaderboard.
+                    Link teams across your organization to unlock the Club
+                    leaderboard.
                   </Text>
                   <View style={styles.clubSetupButtons}>
                     <TouchableOpacity
@@ -998,7 +1025,10 @@ const ProfilePage = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.clubJoinBtn}
-                      onPress={() => { setShowSettingsModal(false); setShowCoachClubSearchModal(true); }}
+                      onPress={() => {
+                        setShowSettingsModal(false);
+                        setShowCoachClubSearchModal(true);
+                      }}
                     >
                       <Text style={styles.clubJoinBtnText}>Find Club</Text>
                     </TouchableOpacity>
@@ -1028,7 +1058,6 @@ const ProfilePage = () => {
               />
             </View>
           )}
-
         </ScrollView>
 
         {/* Goal Edit Modal */}
@@ -1266,14 +1295,29 @@ const ProfilePage = () => {
 
                     {/* Global Leaderboard toggle */}
                     <View style={[styles.settingsRow, { paddingVertical: 12 }]}>
-                      <View style={[styles.settingsIconBg, { backgroundColor: '#EFF6FF' }]}>
+                      <View
+                        style={[
+                          styles.settingsIconBg,
+                          { backgroundColor: '#EFF6FF' },
+                        ]}
+                      >
                         <Ionicons name='globe' size={20} color='#1f89ee' />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.settingsLabel}>Show me on Global Leaderboard</Text>
-                        <Text style={styles.settingsValue}>{getGlobalDisplayName(displayName)}</Text>
+                        <Text style={styles.settingsLabel}>
+                          Show me on Global Leaderboard
+                        </Text>
+                        <Text style={styles.settingsValue}>
+                          {getGlobalDisplayName(displayName)}
+                        </Text>
                         {(hometownCity || hometownState) && (
-                          <Text style={[styles.settingsValue, { color: '#78909C' }]}>{[hometownCity, hometownState].filter(Boolean).join(', ')}</Text>
+                          <Text
+                            style={[styles.settingsValue, { color: '#78909C' }]}
+                          >
+                            {[hometownCity, hometownState]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Text>
                         )}
                       </View>
                       <Switch
@@ -1281,12 +1325,14 @@ const ProfilePage = () => {
                         onValueChange={handleToggleGlobal}
                         trackColor={{ false: '#DDE1E7', true: '#1f89ee' }}
                         thumbColor='#FFF'
-                        style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
+                        style={{
+                          transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }],
+                        }}
                       />
                     </View>
 
-                    {globalPublic && (
-                      editingLocation ? (
+                    {globalPublic &&
+                      (editingLocation ? (
                         <View style={styles.locationInputsContainer}>
                           <TextInput
                             style={styles.locationInput}
@@ -1305,34 +1351,51 @@ const ProfilePage = () => {
                             autoCapitalize='characters'
                           />
                           <TouchableOpacity
-                            style={[styles.locationSaveBtn, savingLocation && { opacity: 0.5 }]}
+                            style={[
+                              styles.locationSaveBtn,
+                              savingLocation && { opacity: 0.5 },
+                            ]}
                             onPress={handleSaveLocation}
                             disabled={savingLocation}
                           >
                             {savingLocation ? (
                               <ActivityIndicator size='small' color='#FFF' />
                             ) : (
-                              <Text style={styles.locationSaveBtnText}>Save</Text>
+                              <Text style={styles.locationSaveBtnText}>
+                                Save
+                              </Text>
                             )}
                           </TouchableOpacity>
                         </View>
                       ) : (
-                        <TouchableOpacity onPress={() => setEditingLocation(true)} style={styles.locationEditBtn}>
-                          <Text style={styles.locationEditBtnText}>Edit location</Text>
+                        <TouchableOpacity
+                          onPress={() => setEditingLocation(true)}
+                          style={styles.locationEditBtn}
+                        >
+                          <Text style={styles.locationEditBtnText}>
+                            Edit location
+                          </Text>
                         </TouchableOpacity>
-                      )
-                    )}
+                      ))}
 
                     <View style={styles.settingsDivider} />
 
                     {/* Club */}
                     <TouchableOpacity
                       style={styles.settingsRow}
-                      onPress={() => { setShowSettingsModal(false); setShowPlayerClubModal(true); }}
+                      onPress={() => {
+                        setShowSettingsModal(false);
+                        setShowPlayerClubModal(true);
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={styles.settingsRowLeft}>
-                        <View style={[styles.settingsIconBg, { backgroundColor: '#EDE7F6' }]}>
+                        <View
+                          style={[
+                            styles.settingsIconBg,
+                            { backgroundColor: '#EDE7F6' },
+                          ]}
+                        >
                           <Ionicons name='shield' size={20} color='#7E57C2' />
                         </View>
                         <View>
@@ -1342,7 +1405,11 @@ const ProfilePage = () => {
                           </Text>
                         </View>
                       </View>
-                      <Ionicons name='chevron-forward' size={20} color='#B0BEC5' />
+                      <Ionicons
+                        name='chevron-forward'
+                        size={20}
+                        color='#B0BEC5'
+                      />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1395,7 +1462,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 3.0.12</Text>
+                <Text style={styles.version}>Version 3.0.14</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>
@@ -1659,7 +1726,10 @@ const ProfilePage = () => {
         visible={showPlayerClubModal}
         animationType='slide'
         transparent={true}
-        onRequestClose={() => { setShowPlayerClubModal(false); setPlayerClubQuery(''); }}
+        onRequestClose={() => {
+          setShowPlayerClubModal(false);
+          setPlayerClubQuery('');
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1674,10 +1744,31 @@ const ProfilePage = () => {
                   Search for your soccer club or academy.
                 </Text>
               </View>
-              <View style={[styles.nameInput, { flexDirection: 'row', alignItems: 'center', paddingVertical: 0, paddingHorizontal: 14, marginBottom: 12 }]}>
-                <Ionicons name='search-outline' size={18} color='#78909C' style={{ marginRight: 8 }} />
+              <View
+                style={[
+                  styles.nameInput,
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 0,
+                    paddingHorizontal: 14,
+                    marginBottom: 12,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name='search-outline'
+                  size={18}
+                  color='#78909C'
+                  style={{ marginRight: 8 }}
+                />
                 <TextInput
-                  style={{ flex: 1, fontSize: 16, color: '#1a1a2e', paddingVertical: 14 }}
+                  style={{
+                    flex: 1,
+                    fontSize: 16,
+                    color: '#1a1a2e',
+                    paddingVertical: 14,
+                  }}
                   placeholder='Search club name...'
                   placeholderTextColor='#B0BEC5'
                   value={playerClubQuery}
@@ -1685,30 +1776,72 @@ const ProfilePage = () => {
                   autoFocus
                   autoCorrect={false}
                 />
-                {clubSearchFetching && <ActivityIndicator size='small' color='#1f89ee' />}
-              </View>
-              <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps='handled'>
-                {playerClubQuery.trim().length >= 2 && clubSearchResults.length === 0 && !clubSearchFetching && (
-                  <Text style={{ textAlign: 'center', color: '#78909C', fontWeight: '600', fontSize: 14, marginTop: 12 }}>
-                    No clubs found for "{playerClubQuery}"
-                  </Text>
+                {clubSearchFetching && (
+                  <ActivityIndicator size='small' color='#1f89ee' />
                 )}
+              </View>
+              <ScrollView
+                style={{ maxHeight: 300 }}
+                keyboardShouldPersistTaps='handled'
+              >
+                {playerClubQuery.trim().length >= 2 &&
+                  clubSearchResults.length === 0 &&
+                  !clubSearchFetching && (
+                    <Text
+                      style={{
+                        textAlign: 'center',
+                        color: '#78909C',
+                        fontWeight: '600',
+                        fontSize: 14,
+                        marginTop: 12,
+                      }}
+                    >
+                      No clubs found for "{playerClubQuery}"
+                    </Text>
+                  )}
                 {clubSearchResults.map((club) => (
                   <TouchableOpacity
                     key={club.id}
-                    style={[styles.modalCancel, { backgroundColor: (profile as any)?.club_id === club.id ? '#EBF4FF' : '#F5F7FA', borderColor: (profile as any)?.club_id === club.id ? '#1f89ee' : '#E5E7EB', borderWidth: 1.5, marginBottom: 8 }]}
+                    style={[
+                      styles.modalCancel,
+                      {
+                        backgroundColor:
+                          (profile as any)?.club_id === club.id
+                            ? '#EBF4FF'
+                            : '#F5F7FA',
+                        borderColor:
+                          (profile as any)?.club_id === club.id
+                            ? '#1f89ee'
+                            : '#E5E7EB',
+                        borderWidth: 1.5,
+                        marginBottom: 8,
+                      },
+                    ]}
                     onPress={() => handleSavePlayerClub(club.id)}
                     disabled={savingPlayerClub}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.modalCancelText, { color: '#1a1a2e' }]}>{club.name}</Text>
-                    {savingPlayerClub && <ActivityIndicator size='small' color='#1f89ee' style={{ marginLeft: 8 }} />}
+                    <Text
+                      style={[styles.modalCancelText, { color: '#1a1a2e' }]}
+                    >
+                      {club.name}
+                    </Text>
+                    {savingPlayerClub && (
+                      <ActivityIndicator
+                        size='small'
+                        color='#1f89ee'
+                        style={{ marginLeft: 8 }}
+                      />
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <TouchableOpacity
                 style={styles.modalCancel}
-                onPress={() => { setShowPlayerClubModal(false); setPlayerClubQuery(''); }}
+                onPress={() => {
+                  setShowPlayerClubModal(false);
+                  setPlayerClubQuery('');
+                }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -1734,7 +1867,8 @@ const ProfilePage = () => {
                 <Text style={styles.modalEmoji}>🏆</Text>
                 <Text style={styles.modalTitle}>Create a Club</Text>
                 <Text style={styles.modalSubtitle}>
-                  Give your club a name. Share the code with other coaches to link their teams.
+                  Give your club a name. Share the code with other coaches to
+                  link their teams.
                 </Text>
               </View>
               <TextInput
@@ -1748,7 +1882,8 @@ const ProfilePage = () => {
               <TouchableOpacity
                 style={[
                   styles.nameSaveButton,
-                  (!clubNameInput.trim() || savingClub) && styles.nameSaveButtonDisabled,
+                  (!clubNameInput.trim() || savingClub) &&
+                    styles.nameSaveButtonDisabled,
                 ]}
                 onPress={handleCreateClub}
                 disabled={!clubNameInput.trim() || savingClub}
@@ -1778,7 +1913,10 @@ const ProfilePage = () => {
         visible={showCoachClubSearchModal}
         animationType='slide'
         transparent={true}
-        onRequestClose={() => { setShowCoachClubSearchModal(false); setCoachClubQuery(''); }}
+        onRequestClose={() => {
+          setShowCoachClubSearchModal(false);
+          setCoachClubQuery('');
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1801,26 +1939,56 @@ const ProfilePage = () => {
                 onChangeText={setCoachClubQuery}
                 autoFocus
               />
-              {coachClubSearchFetching && <ActivityIndicator size='small' color='#1f89ee' />}
-              <ScrollView style={{ width: '100%', maxHeight: 200 }} keyboardShouldPersistTaps='handled'>
-                {coachClubQuery.trim().length >= 2 && coachClubSearchResults.length === 0 && !coachClubSearchFetching && (
-                  <Text style={styles.modalSubtitle}>No clubs found for "{coachClubQuery}"</Text>
-                )}
+              {coachClubSearchFetching && (
+                <ActivityIndicator size='small' color='#1f89ee' />
+              )}
+              <ScrollView
+                style={{ width: '100%', maxHeight: 200 }}
+                keyboardShouldPersistTaps='handled'
+              >
+                {coachClubQuery.trim().length >= 2 &&
+                  coachClubSearchResults.length === 0 &&
+                  !coachClubSearchFetching && (
+                    <Text style={styles.modalSubtitle}>
+                      No clubs found for "{coachClubQuery}"
+                    </Text>
+                  )}
                 {coachClubSearchResults.map((club) => (
                   <TouchableOpacity
                     key={club.id}
-                    style={[styles.modalCancel, { backgroundColor: '#F5F7FA', borderColor: '#E5E7EB', borderWidth: 1.5, marginBottom: 8 }]}
+                    style={[
+                      styles.modalCancel,
+                      {
+                        backgroundColor: '#F5F7FA',
+                        borderColor: '#E5E7EB',
+                        borderWidth: 1.5,
+                        marginBottom: 8,
+                      },
+                    ]}
                     onPress={() => handleJoinClubBySearch(club.id, club.name)}
                     disabled={savingClub}
                   >
-                    <Text style={[styles.modalCancelText, { color: '#1a1a2e' }]}>{club.name}</Text>
-                    {savingClub && <ActivityIndicator size='small' color='#1f89ee' style={{ marginLeft: 8 }} />}
+                    <Text
+                      style={[styles.modalCancelText, { color: '#1a1a2e' }]}
+                    >
+                      {club.name}
+                    </Text>
+                    {savingClub && (
+                      <ActivityIndicator
+                        size='small'
+                        color='#1f89ee'
+                        style={{ marginLeft: 8 }}
+                      />
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <TouchableOpacity
                 style={styles.modalCancel}
-                onPress={() => { setShowCoachClubSearchModal(false); setCoachClubQuery(''); }}
+                onPress={() => {
+                  setShowCoachClubSearchModal(false);
+                  setCoachClubQuery('');
+                }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -2894,7 +3062,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
-
 
   // MY TEAM CARD (non-coach players with a team)
   myTeamCard: {
