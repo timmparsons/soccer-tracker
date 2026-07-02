@@ -8,7 +8,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -19,7 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Purchases from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // TYPES & CONSTANTS
@@ -52,7 +50,6 @@ const COACH_STEPS = [
   'coachsocial',
   'coachnotif',
   'coachsignup',
-  'coachpaywall',
 ] as const;
 
 type Step = (typeof PLAYER_STEPS)[number] | (typeof COACH_STEPS)[number];
@@ -171,11 +168,9 @@ export default function OnboardingScreen() {
             password={data.password}
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
-            onNext={goNext}
+            onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
           />
         );
-      case 'coachpaywall':
-        return <CoachPaywallScreen onNext={handleFinish} />;
       default:
         return null;
     }
@@ -808,97 +803,6 @@ function ClubSearchScreen({
         )}
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-// SCREEN 7C (COACH) — COACH PAYWALL PLACEHOLDER
-
-function CoachPaywallScreen({ onNext }: { onNext: () => void }) {
-  const [purchasing, setPurchasing] = useState(false);
-
-  const handlePurchase = async () => {
-    if (Platform.OS === 'web') {
-      onNext();
-      return;
-    }
-    setPurchasing(true);
-    try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 8000),
-      );
-      const all = await Promise.race([Purchases.getOfferings(), timeout]);
-      const pkg = (all as Awaited<ReturnType<typeof Purchases.getOfferings>>).all['coach']?.monthly;
-      if (pkg) {
-        await Purchases.purchasePackage(pkg);
-      }
-      onNext();
-    } catch (e: any) {
-      if (e.message === 'timeout') {
-        Alert.alert('Purchase unavailable', 'Could not connect to the store. Please try again or continue without a plan.');
-      } else if (!e.userCancelled) {
-        Alert.alert('Purchase failed', e.message ?? 'Something went wrong.');
-      }
-    } finally {
-      setPurchasing(false);
-    }
-  };
-
-  return (
-    <View style={s.screen}>
-      <ScrollView
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={s.paywallTitle}>{'One license.\nYour whole squad.'}</Text>
-        <Text style={s.subtitle}>
-          Every player on your team gets Pro features — included.
-        </Text>
-
-        <View style={s.paywallFeatures}>
-          {[
-            'Full player dashboard with weekly touch reports',
-            'Assign challenges to individuals or the whole squad',
-            'Up to 3 teams under one account',
-            'Players get Pro features free while on your team',
-            'See who needs a nudge before every session',
-          ].map((f) => (
-            <View key={f} style={s.paywallFeatureRow}>
-              <Ionicons name='checkmark-circle' size={20} color='#31af4d' />
-              <Text style={s.paywallFeatureText}>{f}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={[s.paywallPricing, { paddingVertical: 24 }]}>
-          <Text style={s.pricingPlan}>Coach</Text>
-          <Text style={[s.pricingAmount, { fontSize: 32 }]}>
-            $19.99 / month
-          </Text>
-          <Text style={s.pricingMonthly}>Squad licence · cancel anytime</Text>
-        </View>
-
-        <View style={{ height: 16 }} />
-        <TouchableOpacity
-          style={[s.paywallCta, purchasing && { opacity: 0.6 }]}
-          onPress={handlePurchase}
-          activeOpacity={0.85}
-          disabled={purchasing}
-        >
-          {purchasing ? (
-            <ActivityIndicator color='#FFF' />
-          ) : (
-            <Text style={s.paywallCtaText}>Start coaching →</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.skipLink}
-          onPress={onNext}
-        >
-          <Text style={s.skipLinkText}>Continue without Coach plan</Text>
-        </TouchableOpacity>
-        <Text style={s.paywallDisclaimer}>Restore purchases</Text>
-      </ScrollView>
-    </View>
   );
 }
 

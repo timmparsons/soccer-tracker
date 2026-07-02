@@ -5,7 +5,6 @@ import { useCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useProfile } from '@/hooks/useProfile';
-import { useSubscription } from '@/hooks/useSubscription';
 import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -13,7 +12,7 @@ import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -55,23 +54,12 @@ export default function CoachDashboard() {
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
-  const { isCoach, isLoading: subLoading } = useSubscription();
   const queryClient = useQueryClient();
   const { data: coachTeams = [], refetch: refetchCoachTeams } = useCoachTeams(user?.id);
 
   // Team switcher state
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
-
-  const paywallShownRef = useRef(false);
-
-  // Gate: push non-coach-subscribers to the paywall once per mount
-  useEffect(() => {
-    if (!subLoading && !isCoach && !paywallShownRef.current) {
-      paywallShownRef.current = true;
-      router.push({ pathname: '/(modals)/paywall', params: { tab: 'coach' } });
-    }
-  }, [subLoading, isCoach]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
