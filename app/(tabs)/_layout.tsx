@@ -1,4 +1,3 @@
-import { useUnviewedReactions } from '@/hooks/useActivityReactions';
 import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useGroupChallenges } from '@/hooks/useGroupChallenges';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
@@ -60,8 +59,6 @@ export default function TabLayout() {
 
   const trainBadge = hasLive1v1 || hasUnstartedGroupChallenge ? '' : undefined;
 
-  const { data: unviewedReactions = [] } = useUnviewedReactions(isPlayer ? user?.id : undefined);
-  const homeBadge = unviewedReactions.length > 0 ? '' : undefined;
 
   return (
     <Tabs
@@ -88,17 +85,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color, size }) => (
               <House size={size ?? 28} color={color} />
             ),
-            tabBarBadge: homeBadge,
-            tabBarBadgeStyle: {
-              top: 0,
-              right: -2,
-              minWidth: 8,
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              paddingHorizontal: 0,
-              fontSize: 0,
-            },
           }}
         />
         <Tabs.Screen

@@ -3,6 +3,7 @@ import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
+import { markReactionsViewed, useAllMyRecentCheers, useUnviewedReactions } from '@/hooks/useActivityReactions';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
@@ -17,6 +18,8 @@ import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -29,6 +32,7 @@ const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const [refreshing, setRefreshing] = useState(false);
+  const [showReactionsModal, setShowReactionsModal] = useState(false);
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
   const queryClient = useQueryClient();
 
@@ -41,6 +45,18 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
+  const { data: unviewedReactions = [] } = useUnviewedReactions(user?.id);
+  const { data: allCheers = [] } = useAllMyRecentCheers(user?.id);
+
+  const openNotifications = async () => {
+    setShowReactionsModal(true);
+    await markReactionsViewed([]);
+    queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['all-my-cheers', user?.id] });
+  };
+
+  const dismissReactions = () => setShowReactionsModal(false);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -48,9 +64,10 @@ const HomeScreen = () => {
       refetchStats(),
       refetchChallengeStats(),
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] }),
+      queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,7 +75,8 @@ const HomeScreen = () => {
       refetchStats();
       refetchChallengeStats();
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
-    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient]),
+      queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
+    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]),
   );
 
   if (statsLoading) {
@@ -86,6 +104,8 @@ const HomeScreen = () => {
         subtitle='Ready to get some touches?'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
+        hasNewCheers={unviewedReactions.length > 0}
+        onNotificationPress={openNotifications}
       />
 
       <ScrollView
@@ -124,6 +144,36 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* REACTIONS MODAL */}
+        <Modal visible={showReactionsModal} transparent animationType='slide' onRequestClose={dismissReactions}>
+          <Pressable style={styles.modalOverlay} onPress={dismissReactions}>
+            <Pressable style={styles.modalSheet} onPress={() => {}}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Cheers</Text>
+              {allCheers.length === 0 && (
+                <Text style={styles.modalEmpty}>No cheers yet — get out there and train!</Text>
+              )}
+              {allCheers.map((r) => (
+                <View key={r.id} style={styles.modalRow}>
+                  <View style={styles.modalAvatar}>
+                    <Text style={styles.modalAvatarText}>
+                      {r.reactor_name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.modalRowText}>
+                    <Text style={styles.modalName}>{r.reactor_name}</Text>
+                    <Text style={styles.modalActivity}>cheered {r.activity_label}</Text>
+                  </View>
+                  {r.is_new && <View style={styles.modalNewDot} />}
+                </View>
+              ))}
+              <TouchableOpacity style={styles.modalDismissBtn} onPress={dismissReactions}>
+                <Text style={styles.modalDismissText}>Close</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* VINNIE */}
         <VinnieCard
@@ -276,6 +326,94 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
+  },
+
+  // REACTIONS MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 20,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F4F8',
+  },
+  modalAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAvatarText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1f89ee',
+  },
+  modalRowText: {
+    flex: 1,
+  },
+  modalName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  modalActivity: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  modalNewDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+  modalEmpty: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  modalDismissBtn: {
+    marginTop: 24,
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  modalDismissText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 
   // BANNERS
