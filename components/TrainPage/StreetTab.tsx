@@ -1,9 +1,9 @@
-import { STREET_CHALLENGES } from '@/constants/streetChallenges';
-import { logStreetCompletion, useMyStreetCompletions } from '@/hooks/useStreetChallenges';
+import { logStreetCompletion, useMyStreetCompletions, useStreetChallengesData } from '@/hooks/useStreetChallenges';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,15 +13,16 @@ import {
 export default function StreetTab() {
   const { data: user } = useUser();
   const queryClient = useQueryClient();
+  const { data: challenges, isLoading } = useStreetChallengesData();
   const { data: completedToday = new Set<string>() } = useMyStreetCompletions(user?.id);
   const [optimistic, setOptimistic] = useState<Set<string>>(new Set());
 
   const handleComplete = async (challengeId: string, categoryKey: string) => {
-    if (!user?.id) return;
+    if (!user?.id || !challenges) return;
 
     setOptimistic((prev) => new Set(prev).add(challengeId));
 
-    const challenge = STREET_CHALLENGES[categoryKey]?.challenges.find((c) => c.id === challengeId);
+    const challenge = challenges[categoryKey]?.challenges.find((c) => c.id === challengeId);
     if (!challenge) return;
 
     try {
@@ -35,11 +36,22 @@ export default function StreetTab() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color='#1f89ee' />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {Object.entries(STREET_CHALLENGES).map(([categoryKey, category]) => (
+      {Object.entries(challenges ?? {}).map(([categoryKey, category]) => (
         <View key={categoryKey} style={styles.section}>
           <Text style={styles.categoryLabel}>{category.label}</Text>
+          {category.subtitle && (
+            <Text style={styles.categorySubtitle}>{category.subtitle}</Text>
+          )}
           {category.challenges.map((challenge) => {
             const done = completedToday.has(challenge.id) || optimistic.has(challenge.id);
             return (
@@ -67,6 +79,10 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: 32,
   },
+  loading: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
   section: {
     marginBottom: 20,
   },
@@ -76,6 +92,12 @@ const styles = StyleSheet.create({
     color: '#78909C',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  categorySubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
     marginBottom: 10,
   },
   card: {
