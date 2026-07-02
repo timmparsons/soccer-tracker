@@ -5,7 +5,6 @@ import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs } from 'expo-router';
 import {
   ChartSpline,
@@ -14,42 +13,12 @@ import {
   Settings,
   Swords,
 } from 'lucide-react-native';
-import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-type ViewMode = 'coach' | 'player';
-
-interface ViewModeContextType {
-  viewMode: ViewMode;
-  setViewMode: (mode: ViewMode) => void;
-}
-
-export const ViewModeContext = createContext<ViewModeContextType>({
-  viewMode: 'coach',
-  setViewMode: () => {},
-});
-
-export const useViewMode = () => useContext(ViewModeContext);
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const [viewMode, setViewModeState] = useState<ViewMode>('coach');
-
-  // Load persisted view mode on mount
-  useEffect(() => {
-    AsyncStorage.getItem('viewMode').then((stored) => {
-      if (stored === 'coach' || stored === 'player') {
-        setViewModeState(stored);
-      }
-    });
-  }, []);
-
-  const setViewMode = (mode: ViewMode) => {
-    setViewModeState(mode);
-    AsyncStorage.setItem('viewMode', mode);
-  };
 
   const isPlayer = !profile?.is_coach;
   const { data: coachChallenges } = usePlayerCoachChallenges(
@@ -95,9 +64,8 @@ export default function TabLayout() {
   const homeBadge = unviewedReactions.length > 0 ? '' : undefined;
 
   return (
-    <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
-      <Tabs
-        screenOptions={{
+    <Tabs
+      screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: '#ffb724',
           tabBarInactiveTintColor: '#95A5A6',
@@ -196,7 +164,6 @@ export default function TabLayout() {
             ),
           }}
         />
-      </Tabs>
-    </ViewModeContext.Provider>
+    </Tabs>
   );
 }

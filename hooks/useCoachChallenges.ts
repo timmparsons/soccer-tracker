@@ -1,11 +1,7 @@
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
+import { sendPush } from '@/utils/sendPush';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-function sendPush(token: string, title: string, body: string) {
-  supabase.functions
-    .invoke('send-push', { body: { to: token, title, body } })
-    .catch(() => {});
-}
 
 export interface CoachChallenge {
   id: string;
@@ -193,7 +189,7 @@ export function useCompleteCoachChallenge() {
       touchesTarget: number;
       coachPushToken?: string | null;
     }) => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDate();
       const [challengeResult, sessionResult] = await Promise.all([
         supabase
           .from('coach_challenges')

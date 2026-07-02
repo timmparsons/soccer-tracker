@@ -33,7 +33,7 @@ export async function checkAndAwardBadges(
   candidate('streak_3', context.currentStreak >= 3);
   candidate('streak_7', context.currentStreak >= 7);
   candidate('streak_30', context.currentStreak >= 30);
-  candidate('streak_100', context.currentStreak >= 1); // TEMP: lowered for confetti testing
+  candidate('streak_100', context.currentStreak >= 100);
   candidate('streak_365', context.currentStreak >= 365);
 
   // Volume badges
@@ -144,7 +144,7 @@ export async function checkAndAwardBadges(
       }
     }
 
-    candidate('challenge_streak_3', challengeStreak >= 1); // TEMP: lowered for confetti testing
+    candidate('challenge_streak_3', challengeStreak >= 3);
     candidate('challenge_streak_7', challengeStreak >= 7);
     candidate('challenge_streak_30', challengeStreak >= 30);
   }

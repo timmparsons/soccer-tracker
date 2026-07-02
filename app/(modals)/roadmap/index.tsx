@@ -1,4 +1,4 @@
-import { getRankBadge, getRankName } from '@/lib/xp';
+import { getRankBadge, getRankName, LEVEL_THRESHOLDS } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useEffect } from 'react';
@@ -11,14 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-const LEVEL_THRESHOLDS = [
-  0, 300, 700, 1200, 1800, 2500, 3400, 4600, 6000, 7700,
-  9700, 12200, 15200, 18700, 22700, 27700, 33700, 40700, 48700, 57700,
-  68200, 79000, 90100, 101500, 113200, 125200, 137500, 150000, 162800, 175900,
-  189300, 203000, 217000, 231300, 245900, 260800, 276000, 291500, 307300, 323300,
-  339600, 356200, 373100, 390300, 407800, 425600, 443700, 462100, 480800, 500000,
-];
 
 const TIERS = [
   { min: 1, max: 5, name: 'Grassroots' },

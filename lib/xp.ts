@@ -1,58 +1,15 @@
 // lib/xp.ts
 
+export const LEVEL_THRESHOLDS = [
+  0, 300, 700, 1200, 1800, 2500, 3400, 4600, 6000, 7700,
+  9700, 12200, 15200, 18700, 22700, 27700, 33700, 40700, 48700, 57700,
+  68200, 79000, 90100, 101500, 113200, 125200, 137500, 150000, 162800, 175900,
+  189300, 203000, 217000, 231300, 245900, 260800, 276000, 291500, 307300, 323300,
+  339600, 356200, 373100, 390300, 407800, 425600, 443700, 462100, 480800, 500000,
+];
+
 export function getLevelFromXp(totalXp: number) {
-  const levelThresholds = [
-    0,       // Level 1
-    300,     // Level 2
-    700,     // Level 3
-    1200,    // Level 4
-    1800,    // Level 5
-    2500,    // Level 6
-    3400,    // Level 7
-    4600,    // Level 8
-    6000,    // Level 9
-    7700,    // Level 10
-    9700,    // Level 11
-    12200,   // Level 12
-    15200,   // Level 13
-    18700,   // Level 14
-    22700,   // Level 15
-    27700,   // Level 16
-    33700,   // Level 17
-    40700,   // Level 18
-    48700,   // Level 19
-    57700,   // Level 20
-    68200,   // Level 21
-    79000,   // Level 22
-    90100,   // Level 23
-    101500,  // Level 24
-    113200,  // Level 25
-    125200,  // Level 26
-    137500,  // Level 27
-    150000,  // Level 28
-    162800,  // Level 29
-    175900,  // Level 30
-    189300,  // Level 31
-    203000,  // Level 32
-    217000,  // Level 33
-    231300,  // Level 34
-    245900,  // Level 35
-    260800,  // Level 36
-    276000,  // Level 37
-    291500,  // Level 38
-    307300,  // Level 39
-    323300,  // Level 40
-    339600,  // Level 41
-    356200,  // Level 42
-    373100,  // Level 43
-    390300,  // Level 44
-    407800,  // Level 45
-    425600,  // Level 46
-    443700,  // Level 47
-    462100,  // Level 48
-    480800,  // Level 49
-    500000,  // Level 50
-  ];
+  const levelThresholds = LEVEL_THRESHOLDS;
 
   let level = 1;
   for (let i = levelThresholds.length - 1; i >= 0; i--) {

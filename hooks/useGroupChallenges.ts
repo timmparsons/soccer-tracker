@@ -1,13 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { sendPush } from '@/utils/sendPush';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-
-function sendPush(token: string, title: string, body: string) {
-  supabase.functions
-    .invoke('send-push', { body: { to: token, title, body } })
-    .catch(() => {});
-}
 
 export interface GroupChallengeParticipant {
   id: string;

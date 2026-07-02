@@ -1,11 +1,7 @@
 import { supabase } from '@/lib/supabase';
+import { getLocalDate } from '@/utils/getLocalDate';
+import { sendPush } from '@/utils/sendPush';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-function sendPush(token: string, title: string, body: string) {
-  supabase.functions
-    .invoke('send-push', { body: { to: token, title, body } })
-    .catch(() => {});
-}
 
 export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'expired';
 
@@ -305,7 +301,7 @@ export function useCompleteChallenge() {
         .eq('id', challengeId);
       if (error) throw error;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDate();
       const { error: sessionError } = await supabase.from('daily_sessions').insert({
         user_id: userId,
         touches_logged: touchesTarget,

@@ -533,15 +533,6 @@ export default function CoachDashboard() {
     return `${Math.floor(diffDays / 7)}w ago`;
   };
 
-  // Get TPM color
-  const getTpmColor = (tpm: number) => {
-    if (tpm === 0) return '#9CA3AF';
-    if (tpm < 30) return '#EF4444';
-    if (tpm < 50) return '#F59E0B';
-    if (tpm < 80) return '#22C55E';
-    return '#31af4d';
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
