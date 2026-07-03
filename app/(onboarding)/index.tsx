@@ -428,10 +428,11 @@ function SocialProofScreen({ onNext }: { onNext: () => void }) {
             </View>
           </View>
         </View>
-
-        <View style={{ height: 16 }} />
-        <PrimaryButton label='That could be me →' onPress={onNext} />
       </ScrollView>
+
+      <View style={s.bottomPad}>
+        <PrimaryButton label='That could be me →' onPress={onNext} />
+      </View>
     </View>
   );
 }
@@ -672,9 +673,11 @@ function CoachSocialScreen({ onNext }: { onNext: () => void }) {
           </View>
         </View>
 
-        <View style={{ height: 16 }} />
-        <PrimaryButton label="That's what I want →" onPress={onNext} />
       </ScrollView>
+
+      <View style={s.bottomPad}>
+        <PrimaryButton label="That's what I want →" onPress={onNext} />
+      </View>
     </View>
   );
 }
@@ -800,8 +803,9 @@ function ClubSearchScreen({
             )}
           </TouchableOpacity>
         ))}
+      </ScrollView>
 
-        <View style={{ height: 16 }} />
+      <View style={s.bottomPad}>
         <PrimaryButton
           label={selectedId ? 'Join this club →' : 'Continue'}
           onPress={onNext}
@@ -811,7 +815,7 @@ function ClubSearchScreen({
             <Text style={s.skipLinkText}>My club isn't listed — skip</Text>
           </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
