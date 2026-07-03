@@ -240,7 +240,7 @@ const ProfilePage = () => {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut({ scope: 'local' });
+            await supabase.auth.signOut();
           },
         },
       ]);
