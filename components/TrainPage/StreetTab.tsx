@@ -13,7 +13,7 @@ import {
 export default function StreetTab() {
   const { data: user } = useUser();
   const queryClient = useQueryClient();
-  const { data: challenges, isLoading } = useStreetChallengesData();
+  const { data: challenges, isLoading, isError, error } = useStreetChallengesData();
   const { data: completedToday = new Set<string>() } = useMyStreetCompletions(user?.id);
   const [optimistic, setOptimistic] = useState<Set<string>>(new Set());
 
@@ -44,14 +44,21 @@ export default function StreetTab() {
     );
   }
 
+  if (isError) {
+    console.error('freestyle_challenges fetch error:', error);
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.errorText}>Failed to load challenges. Check your connection and try again.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <Text style={styles.tabSubtitle}>Try any of these for 10 minutes</Text>
       {Object.entries(challenges ?? {}).map(([categoryKey, category]) => (
         <View key={categoryKey} style={styles.section}>
           <Text style={styles.categoryLabel}>{category.label}</Text>
-          {category.subtitle && (
-            <Text style={styles.categorySubtitle}>{category.subtitle}</Text>
-          )}
           {category.challenges.map((challenge) => {
             const done = completedToday.has(challenge.id) || optimistic.has(challenge.id);
             return (
@@ -79,9 +86,22 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: 32,
   },
+  tabSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    marginBottom: 20,
+  },
   loading: {
     paddingVertical: 40,
     alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   section: {
     marginBottom: 20,
