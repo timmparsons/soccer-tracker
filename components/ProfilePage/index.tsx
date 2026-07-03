@@ -454,7 +454,10 @@ const ProfilePage = () => {
   };
 
   const handleJoinClubBySearch = async (clubId: string, clubName: string) => {
-    if (!profile?.team_id) return;
+    if (!profile?.team_id) {
+      Alert.alert('Create a Team First', 'You need to create a team before joining a club. Use "Create Team" on this page first.');
+      return;
+    }
     setSavingClub(true);
     try {
       await Promise.all([

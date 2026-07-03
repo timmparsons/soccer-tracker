@@ -48,6 +48,7 @@ const COACH_STEPS = [
   'welcome',
   'persona',
   'coachsocial',
+  'coachname',
   'coachnotif',
   'coachsignup',
 ] as const;
@@ -159,6 +160,15 @@ export default function OnboardingScreen() {
         );
       case 'coachsocial':
         return <CoachSocialScreen onNext={goNext} />;
+      case 'coachname':
+        return (
+          <NameScreen
+            value={data.name}
+            onChange={(n) => setData((d) => ({ ...d, name: n }))}
+            onNext={goNext}
+            isCoach
+          />
+        );
       case 'coachnotif':
         return <CoachNotifScreen onNext={goNext} />;
       case 'coachsignup':

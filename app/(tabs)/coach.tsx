@@ -321,6 +321,27 @@ export default function CoachDashboard() {
     );
   }
 
+  if (!profile?.team_id) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.noTeamState}>
+          <Ionicons name="people-outline" size={56} color="#D1D5DB" />
+          <Text style={styles.noTeamTitle}>No team yet</Text>
+          <Text style={styles.noTeamSubtitle}>
+            Create your first team to start tracking your players.
+          </Text>
+          <TouchableOpacity
+            style={styles.noTeamButton}
+            onPress={() => router.push('/(modals)/create-team')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.noTeamButtonText}>Create Team</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Calculate comprehensive team stats
   const totalPlayers = teamPlayers?.length || 0;
   const activePlayers = teamPlayers?.filter((p) => p.today_touches > 0).length || 0;
@@ -1107,6 +1128,38 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  noTeamState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    gap: 12,
+  },
+  noTeamTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginTop: 4,
+  },
+  noTeamSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  noTeamButton: {
+    marginTop: 8,
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+  },
+  noTeamButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFF',
   },
 
   // Tab bar
