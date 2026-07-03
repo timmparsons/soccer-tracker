@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
 import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
@@ -65,8 +66,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
+  const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
 
   const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+  const { data: inactivePlayers = [] } = useInactivePlayers(
+    profile?.is_coach ? profile?.team_id : null,
+  );
 
   const effectiveTeamId = profile?.team_id ?? undefined;
   const activeTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
@@ -427,6 +432,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           title='Compete'
           showAvatar={true}
           avatarUrl={profile?.avatar_url}
+          hasNewCheers={profile?.is_coach ? inactivePlayers.length > 0 : false}
+          onNotificationPress={
+            profile?.is_coach ? () => setInactiveModalVisible(true) : undefined
+          }
         />
       )}
 
@@ -803,6 +812,74 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         visible={!!selectedPlayerId}
         onClose={() => setSelectedPlayerId(null)}
       />
+
+      {/* INACTIVE PLAYERS MODAL (coaches only) */}
+      <Modal
+        visible={inactiveModalVisible}
+        transparent
+        animationType='slide'
+        onRequestClose={() => setInactiveModalVisible(false)}
+      >
+        <View style={styles.inactiveOverlay}>
+          <TouchableOpacity
+            style={styles.inactiveBackdrop}
+            activeOpacity={1}
+            onPress={() => setInactiveModalVisible(false)}
+          />
+          <View style={styles.inactiveSheet}>
+            <View style={styles.inactiveHeader}>
+              <Text style={styles.inactiveTitle}>Needs a Nudge</Text>
+              <Text style={styles.inactiveSubtitle}>
+                {inactivePlayers.length === 0
+                  ? 'Everyone has trained in the last 3 days'
+                  : `${inactivePlayers.length} player${inactivePlayers.length === 1 ? '' : 's'} haven't trained in 3+ days`}
+              </Text>
+            </View>
+            {inactivePlayers.length === 0 ? (
+              <View style={styles.inactiveEmpty}>
+                <Ionicons name='checkmark-circle' size={40} color='#31af4d' />
+                <Text style={styles.inactiveEmptyText}>Squad is on track</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                {inactivePlayers.map((player) => {
+                  const name = player.display_name || player.name || 'Player';
+                  const lastDate = player.last_session_date;
+                  let lastLabel = 'Never trained';
+                  if (lastDate) {
+                    const days = Math.floor(
+                      (Date.now() - new Date(lastDate + 'T00:00:00').getTime()) /
+                        (1000 * 60 * 60 * 24),
+                    );
+                    lastLabel = days === 1 ? 'Last trained yesterday' : `Last trained ${days} days ago`;
+                  }
+                  return (
+                    <View key={player.id} style={styles.inactiveRow}>
+                      <Image
+                        source={{
+                          uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                        }}
+                        style={styles.inactiveAvatar}
+                      />
+                      <View style={styles.inactiveInfo}>
+                        <Text style={styles.inactivePlayerName}>{name}</Text>
+                        <Text style={styles.inactiveLastSeen}>{lastLabel}</Text>
+                      </View>
+                      <Ionicons name='alert-circle' size={20} color='#F59E0B' />
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              style={styles.inactiveDismiss}
+              onPress={() => setInactiveModalVisible(false)}
+            >
+              <Text style={styles.inactiveDismissText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1246,5 +1323,87 @@ const styles = StyleSheet.create({
   },
   pickerRowTextActive: {
     color: '#1f89ee',
+  },
+
+  // Inactive players modal
+  inactiveOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  inactiveBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  inactiveSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  inactiveHeader: {
+    marginBottom: 16,
+  },
+  inactiveTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 4,
+  },
+  inactiveSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+  },
+  inactiveEmpty: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  inactiveEmptyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#31af4d',
+  },
+  inactiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  inactiveAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  inactiveInfo: {
+    flex: 1,
+  },
+  inactivePlayerName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  inactiveLastSeen: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginTop: 2,
+  },
+  inactiveDismiss: {
+    marginTop: 20,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  inactiveDismissText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
   },
 });
