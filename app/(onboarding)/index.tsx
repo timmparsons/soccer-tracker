@@ -40,8 +40,8 @@ const PLAYER_STEPS = [
   'social',
   'name',
   'notif',
-  'club',
   'signup',
+  'club',
 ] as const;
 
 const COACH_STEPS = [
@@ -145,7 +145,7 @@ export default function OnboardingScreen() {
           <ClubSearchScreen
             selectedId={data.clubId}
             onSelect={(id) => setData((d) => ({ ...d, clubId: id }))}
-            onNext={goNext}
+            onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
           />
         );
       case 'signup':
