@@ -55,38 +55,38 @@ function getStreetFeedMessage(category: string, challengeName: string, name: str
 
 function sessionMessage(name: string, totalTouches: number, sessionCount: number, hasChallenge: boolean): string {
   if (hasChallenge) return pick([
-    `${name} completed their challenge of the day`,
-    `${name} got their daily challenge done`,
-    `${name} knocked out today's challenge`,
-    `${name} checked off their challenge of the day`,
+    `${name} completed their challenge`,
+    `${name} got their challenge done`,
+    `${name} knocked out a challenge`,
+    `${name} checked off their challenge`,
   ]);
   if (totalTouches >= 10000) return pick([
-    `${name} put in an insane shift — ${totalTouches.toLocaleString()} touches today`,
-    `${name} is an absolute machine — ${totalTouches.toLocaleString()} touches today`,
+    `${name} put in an insane shift — ${totalTouches.toLocaleString()} touches`,
+    `${name} is an absolute machine — ${totalTouches.toLocaleString()} touches`,
     `${name} is built different — ${totalTouches.toLocaleString()} touches and counting`,
   ]);
   if (totalTouches >= 5000) return pick([
-    `${name} is on one — ${totalTouches.toLocaleString()} touches today`,
+    `${name} is on one — ${totalTouches.toLocaleString()} touches`,
     `${name} is having a day — ${totalTouches.toLocaleString()} touches logged`,
-    `${name} is putting in serious work — ${totalTouches.toLocaleString()} touches today`,
+    `${name} is putting in serious work — ${totalTouches.toLocaleString()} touches`,
   ]);
   if (totalTouches >= 2000) return pick([
-    `${name} has been busy today — ${totalTouches.toLocaleString()} touches`,
-    `${name} is clocking up the reps — ${totalTouches.toLocaleString()} touches today`,
-    `${name} is making today count — ${totalTouches.toLocaleString()} touches`,
+    `${name} has been busy — ${totalTouches.toLocaleString()} touches`,
+    `${name} is clocking up the reps — ${totalTouches.toLocaleString()} touches`,
+    `${name} is making it count — ${totalTouches.toLocaleString()} touches`,
   ]);
   if (totalTouches >= 1000) return pick([
-    `${name} hit 1,000 touches today`,
-    `${name} crossed the 1,000 touch mark today`,
-    `${name} broke 1,000 touches today`,
+    `${name} hit 1,000 touches`,
+    `${name} crossed the 1,000 touch mark`,
+    `${name} broke 1,000 touches`,
   ]);
   if (sessionCount >= 3) return pick([
-    `${name} keeps coming back — ${sessionCount} sessions today`,
-    `${name} has been at it all day — ${sessionCount} sessions logged`,
+    `${name} keeps coming back — ${sessionCount} sessions`,
+    `${name} has been at it — ${sessionCount} sessions logged`,
   ]);
   return pick([
-    `${name} put in work today`,
-    `${name} showed up today`,
+    `${name} put in work`,
+    `${name} showed up`,
     `${name} is getting their reps in`,
   ]);
 }
@@ -95,24 +95,23 @@ export function useActivityFeed(limit = 7) {
   return useQuery({
     queryKey: ['activity-feed', limit, getLocalDate()],
     queryFn: async (): Promise<TeamActivityItem[]> => {
-      const today = getLocalDate();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const threeDaysAgoDate = getLocalDate(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
-      // Fetch today's sessions across all users
+      // Fetch sessions from the past 3 days across all users
       const { data: sessions } = await supabase
         .from('daily_sessions')
-        .select('user_id, touches_logged, drill_id, created_at')
-        .eq('date', today)
+        .select('user_id, date, touches_logged, drill_id, created_at')
+        .gte('date', threeDaysAgoDate)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       // Fetch recent 1v1 wins globally
       const { data: wins } = await supabase
         .from('player_challenges')
         .select('id, winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at, created_at')
         .eq('status', 'completed')
-        .gte('created_at', sevenDaysAgo.toISOString())
+        .gte('created_at', threeDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -120,7 +119,7 @@ export function useActivityFeed(limit = 7) {
       const { data: streetCompletions } = await (supabase as any)
         .from('street_challenge_completions')
         .select('id, profile_id, challenge_id, challenge_name, category, created_at')
-        .gte('created_at', sevenDaysAgo.toISOString())
+        .gte('created_at', threeDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -146,25 +145,28 @@ export function useActivityFeed(limit = 7) {
 
       const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
-      // Aggregate today's sessions per user
-      type UserStats = { totalTouches: number; sessionCount: number; hasChallenge: boolean; latestAt: string };
-      const userStats = new Map<string, UserStats>();
+      // Aggregate sessions per user per day, then pick each user's most recent day
+      type DayStats = { totalTouches: number; sessionCount: number; hasChallenge: boolean; latestAt: string };
+      const userDayMap = new Map<string, Map<string, DayStats>>();
 
-      for (const s of (sessions || []) as { user_id: string; touches_logged: number; drill_id: string | null; created_at: string }[]) {
+      for (const s of (sessions || []) as { user_id: string; date: string; touches_logged: number; drill_id: string | null; created_at: string }[]) {
         if (!profileMap.has(s.user_id)) continue;
-        const existing = userStats.get(s.user_id);
+        if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
+        const dayMap = userDayMap.get(s.user_id)!;
+        const existing = dayMap.get(s.date);
         if (existing) {
           existing.totalTouches += s.touches_logged;
           existing.sessionCount += 1;
           if (s.drill_id) existing.hasChallenge = true;
         } else {
-          userStats.set(s.user_id, {
-            totalTouches: s.touches_logged,
-            sessionCount: 1,
-            hasChallenge: !!s.drill_id,
-            latestAt: s.created_at,
-          });
+          dayMap.set(s.date, { totalTouches: s.touches_logged, sessionCount: 1, hasChallenge: !!s.drill_id, latestAt: s.created_at });
         }
+      }
+
+      const userStats = new Map<string, DayStats>();
+      for (const [userId, dayMap] of userDayMap.entries()) {
+        const [, best] = [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))[0];
+        userStats.set(userId, best);
       }
 
       const items: TeamActivityItem[] = [];
@@ -207,14 +209,14 @@ export function useActivityFeed(limit = 7) {
         usedUsers.add(w.winner_id);
       }
 
-      // One story per user from today's sessions
+      // One story per user (their most recent training day)
       for (const [userId, stats] of userStats.entries()) {
         if (usedUsers.has(userId)) continue;
         const profile = profileMap.get(userId);
         const name = getDisplayName(profile);
 
         items.push({
-          id: `session-${userId}-${today}`,
+          id: `session-${userId}-${stats.latestAt}`,
           userId,
           name,
           avatarUrl: profile?.avatar_url ?? null,
@@ -226,6 +228,7 @@ export function useActivityFeed(limit = 7) {
 
       // Street challenge completions
       for (const completion of (streetCompletions || []) as any[]) {
+        if (usedUsers.has(completion.profile_id)) continue;
         const profile = profileMap.get(completion.profile_id);
         if (!profile) continue;
         const name = getDisplayName(profile);

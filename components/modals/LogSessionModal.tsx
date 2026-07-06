@@ -60,6 +60,10 @@ const DRILL_TIPS: Record<string, string> = {
     'Game speed every rep. No breaks — this is where champions are made! 🔥',
 };
 
+const MAX_SESSION_TOUCHES = 9999;
+const MAX_SESSION_JUGGLES = 9999;
+const MAX_DAILY_TOUCHES = 15000;
+
 const LogSessionModal = ({
   visible,
   onClose,
@@ -128,10 +132,40 @@ const LogSessionModal = ({
       return;
     }
 
+    if (touchCount > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
+    if (juggleCount > MAX_SESSION_JUGGLES) {
+      Alert.alert('Too many juggles', `Maximum is ${MAX_SESSION_JUGGLES.toLocaleString()} per session.`);
+      return;
+    }
+
+    const today = getLocalDate();
+
+    if (touchCount > 0) {
+      const { data: todaySessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged')
+        .eq('user_id', userId)
+        .eq('date', today);
+      const todayTotal = (todaySessions ?? []).reduce((sum: number, s: { touches_logged: number }) => sum + s.touches_logged, 0);
+      if (todayTotal + touchCount > MAX_DAILY_TOUCHES) {
+        const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
+        Alert.alert(
+          'Daily limit reached',
+          remaining > 0
+            ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
+            : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
+        );
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
-      const today = getLocalDate();
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: userId,
@@ -282,6 +316,7 @@ const LogSessionModal = ({
                       placeholderTextColor='#B0BEC5'
                       keyboardType='number-pad'
                       returnKeyType='done'
+                      maxLength={4}
                       value={touches}
                       onChangeText={(val) => {
                         setTouches(val);
@@ -324,14 +359,14 @@ const LogSessionModal = ({
                 </View>
               </View>
 
-              {/* Hint */}
-              {isChallengeMode ? (
+              {isChallengeMode && (
                 <Text style={styles.sectionHint}>Score is optional — logging the attempt still counts!</Text>
-              ) : !duration ? (
-                <Text style={styles.sectionHint}>Add minutes to track your touches per minute!</Text>
-              ) : null}
+              )}
 
-              {/* TPM preview */}
+              {!isChallengeMode && (
+                <Text style={styles.dailyLimitNote}>Max {MAX_SESSION_TOUCHES.toLocaleString()} per session · {MAX_DAILY_TOUCHES.toLocaleString()} per day</Text>
+              )}
+
               {!isChallengeMode &&
                 touches &&
                 duration &&
@@ -350,43 +385,30 @@ const LogSessionModal = ({
                 )}
             </View>
 
-            {/* Freestyle Minutes — non-challenge mode only */}
+            {/* Freestyle shortcut — compact inline row */}
             {!isChallengeMode && (
-              <View style={styles.freestyleSection}>
-                <Text style={styles.sectionLabel}>
-                  Freestyle Minutes{' '}
-                  <Text style={styles.optionalLabel}>(optional)</Text>
+              <View style={styles.freestyleRow}>
+                <Ionicons name='flash' size={14} color='#ffb724' />
+                <Text style={styles.freestyleRowLabel}>Freestyle min</Text>
+                <TextInput
+                  style={styles.freestyleRowInput}
+                  placeholder='0'
+                  placeholderTextColor='#B0BEC5'
+                  keyboardType='number-pad'
+                  returnKeyType='done'
+                  value={freestyleMinutes}
+                  onChangeText={(val) => {
+                    setFreestyleMinutes(val);
+                    const mins = parseInt(val);
+                    if (val && mins > 0) setTouches(String(mins * 100));
+                    else if (!val) setTouches('');
+                  }}
+                />
+                <Text style={styles.freestyleRowCalc}>
+                  {freestyleMinutes && parseInt(freestyleMinutes) > 0
+                    ? `= ${(parseInt(freestyleMinutes) * 100).toLocaleString()} touches`
+                    : '1 min = 100 touches'}
                 </Text>
-                <Text style={styles.jugglingHint}>Backyard freestyle? 1 min = 100 touches auto-calculated.</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder='0'
-                    placeholderTextColor='#B0BEC5'
-                    keyboardType='number-pad'
-                    returnKeyType='done'
-                    value={freestyleMinutes}
-                    onChangeText={(val) => {
-                      setFreestyleMinutes(val);
-                      const mins = parseInt(val);
-                      if (val && mins > 0) {
-                        setTouches(String(mins * 100));
-                      } else if (!val) {
-                        setTouches('');
-                      }
-                    }}
-                  />
-                  <View style={styles.inputIconBg}>
-                    <Ionicons name='flash' size={20} color='#ffb724' />
-                  </View>
-                </View>
-                {freestyleMinutes && parseInt(freestyleMinutes) > 0 && (
-                  <View style={styles.tpmPreview}>
-                    <Text style={styles.tpmPreviewText}>
-                      ⚡ {parseInt(freestyleMinutes) * 100} touches calculated
-                    </Text>
-                  </View>
-                )}
               </View>
             )}
 
@@ -436,6 +458,7 @@ const LogSessionModal = ({
                     placeholderTextColor='#B0BEC5'
                     keyboardType='number-pad'
                     returnKeyType='done'
+                    maxLength={4}
                     value={juggles}
                     onChangeText={setJuggles}
                   />
@@ -544,13 +567,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   jugglingInputSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   jugglingHint: {
     fontSize: 12,
     fontWeight: '600',
     color: '#78909C',
-    marginBottom: 10,
+    marginBottom: 8,
+    marginTop: -2,
   },
   optionalLabel: {
     fontSize: 13,
@@ -789,11 +813,45 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     lineHeight: 19,
   },
-  freestyleSection: {
-    marginBottom: 24,
+  dailyLimitNote: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 4,
+  },
+  freestyleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  freestyleRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  freestyleRowInput: {
+    backgroundColor: '#F0F2F5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a2e',
+    borderWidth: 1.5,
+    borderColor: '#DDE1E7',
+    width: 56,
+    textAlign: 'center',
+  },
+  freestyleRowCalc: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffb724',
+    flex: 1,
   },
   focusSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   pillsRow: {
     flexDirection: 'row',
@@ -801,8 +859,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#F0F2F5',
     borderWidth: 1.5,
@@ -813,7 +871,7 @@ const styles = StyleSheet.create({
     borderColor: '#1f89ee',
   },
   pillText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#78909C',
   },
@@ -821,7 +879,7 @@ const styles = StyleSheet.create({
     color: '#1f89ee',
   },
   inputPairSection: {
-    marginBottom: 24,
+    marginBottom: 8,
   },
   inputPairRow: {
     flexDirection: 'row',
