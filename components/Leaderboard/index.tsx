@@ -67,6 +67,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
   const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
   const { data: inactivePlayers = [] } = useInactivePlayers(
@@ -161,6 +162,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         .sort((a, b) => b.high_score - a.high_score || a.name.localeCompare(b.name));
     },
     enabled: !!profile?.team_id,
+    refetchInterval: 60_000,
   });
 
   const {
@@ -187,11 +189,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     }
   }, [touchesLeaderboard, user?.id, lastWeekStart]);
 
-  const handleRefresh = () => {
-    refetchTouches();
-    refetchJuggling();
-    refetchGlobal();
-    refetchClub();
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchTouches(), refetchJuggling(), refetchGlobal(), refetchClub()]);
+    setRefreshing(false);
   };
 
   useFocusEffect(
@@ -515,7 +516,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
         }
       >
         {/* ── TEAM VIEW ── */}

@@ -132,5 +132,6 @@ export function useTouchesLeaderboard(teamId: string | null | undefined, seasonS
     queryKey: ['team-touches-leaderboard', teamId, seasonStartDate ?? null],
     queryFn: () => fetchTouchesLeaderboard(teamId!, seasonStartDate),
     enabled: !!teamId,
+    refetchInterval: 60_000,
   });
 }
