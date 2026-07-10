@@ -455,7 +455,10 @@ const ProfilePage = () => {
 
   const handleJoinClubBySearch = async (clubId: string, clubName: string) => {
     if (!profile?.team_id) {
-      Alert.alert('Create a Team First', 'You need to create a team before joining a club. Use "Create Team" on this page first.');
+      Alert.alert(
+        'Create a Team First',
+        'You need to create a team before joining a club. Use "Create Team" on this page first.',
+      );
       return;
     }
     setSavingClub(true);
@@ -1465,7 +1468,7 @@ const ProfilePage = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.version}>Version 3.0.14</Text>
+                <Text style={styles.version}>Version 3.0.21</Text>
 
                 {/* Danger zone */}
                 <View style={styles.dangerCard}>

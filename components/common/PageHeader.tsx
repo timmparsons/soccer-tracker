@@ -5,9 +5,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Dimensions,
   Image,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -106,23 +108,25 @@ const PageHeader = ({
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Likes</Text>
-            {allCheers.length === 0 && (
-              <Text style={styles.modalEmpty}>No likes yet — get out there and train!</Text>
-            )}
-            {allCheers.map((r) => (
-              <View key={r.id} style={styles.modalRow}>
-                <View style={styles.modalAvatar}>
-                  <Text style={styles.modalAvatarText}>
-                    {r.reactor_name.charAt(0).toUpperCase()}
-                  </Text>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+              {allCheers.length === 0 && (
+                <Text style={styles.modalEmpty}>No likes yet — get out there and train!</Text>
+              )}
+              {allCheers.map((r) => (
+                <View key={r.id} style={styles.modalRow}>
+                  <View style={styles.modalAvatar}>
+                    <Text style={styles.modalAvatarText}>
+                      {r.reactor_name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.modalRowText}>
+                    <Text style={styles.modalName}>{r.reactor_name}</Text>
+                    <Text style={styles.modalActivity}>liked {r.activity_label}</Text>
+                  </View>
+                  {r.is_new && <View style={styles.modalNewDot} />}
                 </View>
-                <View style={styles.modalRowText}>
-                  <Text style={styles.modalName}>{r.reactor_name}</Text>
-                  <Text style={styles.modalActivity}>liked {r.activity_label}</Text>
-                </View>
-                {r.is_new && <View style={styles.modalNewDot} />}
-              </View>
-            ))}
+              ))}
+            </ScrollView>
             <TouchableOpacity style={styles.modalDismissBtn} onPress={() => setShowCheersModal(false)}>
               <Text style={styles.modalDismissText}>Close</Text>
             </TouchableOpacity>
@@ -213,6 +217,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 24,
     paddingBottom: 40,
+    maxHeight: Dimensions.get('window').height * 0.7,
   },
   modalHandle: {
     width: 40,

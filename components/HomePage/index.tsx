@@ -127,26 +127,46 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* VINNIE */}
-        <VinnieCard
-          trainedToday={(touchStats?.today_touches || 0) > 0}
-          streak={streak}
-          challengeStreak={challengeStreak}
-          skillFocus={profile?.skill_focus ?? null}
-          todayTouches={todayTouches}
-          dailyTarget={dailyTarget}
-          weekTpm={weekTpm}
-          weekSessions={touchStats?.this_week_sessions}
-          totalTouches={touchStats?.total_touches}
-        />
-
-        {/* TODAY'S CHALLENGE + TODAY'S PROGRESS */}
+        {/* TODAY'S CHALLENGE (full width) + PROGRESS / VINNIE row */}
         {!profile?.is_coach && user?.id ? (
-          // Non-coaches: side-by-side compact layout
-          <View style={styles.cardsRow}>
+          <>
+            <View style={styles.cardsRow}>
+              <View style={styles.todayCard}>
+                <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
+                {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+                <View style={styles.todayCompact}>
+                  <CircularProgress
+                    progress={todayPct / 100}
+                    size={64}
+                    thickness={4}
+                    color={todayDone ? '#ffb724' : '#FFFFFF'}
+                    trackColor='rgba(255,255,255,0.2)'
+                    labelColor='rgba(255,255,255,0.65)'
+                  />
+                  <View style={styles.todayCountRow}>
+                    <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+                    <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
+                  </View>
+                  <Text style={styles.todaySubtext}>
+                    {todayDone ? 'Smashed it!' : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
+                  </Text>
+                </View>
+              </View>
+              <VinnieCard
+                compact
+                trainedToday={(touchStats?.today_touches || 0) > 0}
+                streak={streak}
+                challengeStreak={challengeStreak}
+                skillFocus={profile?.skill_focus ?? null}
+                todayTouches={todayTouches}
+                dailyTarget={dailyTarget}
+                weekTpm={weekTpm}
+                weekSessions={touchStats?.this_week_sessions}
+                totalTouches={touchStats?.total_touches}
+              />
+            </View>
             <TodayChallengeCard
               userId={user.id}
-              compact
               totalTouches={touchStats?.total_touches ?? 0}
               onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
                 router.push({
@@ -160,30 +180,21 @@ const HomeScreen = () => {
                 });
               }}
             />
-            <View style={styles.todayCard}>
-              <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
-              {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
-              <View style={styles.todayCompact}>
-                <CircularProgress
-                  progress={todayPct / 100}
-                  size={64}
-                  thickness={4}
-                  color={todayDone ? '#ffb724' : '#FFFFFF'}
-                  trackColor='rgba(255,255,255,0.2)'
-                  labelColor='rgba(255,255,255,0.65)'
-                />
-                <View style={styles.todayCountRow}>
-                  <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
-                  <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
-                </View>
-                <Text style={styles.todaySubtext}>
-                  {todayDone ? 'Smashed it!' : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
-                </Text>
-              </View>
-            </View>
-          </View>
+          </>
         ) : (
-          // Coaches: full-width progress card with ring
+          <>
+          {/* Coaches: full-width Vinnie + progress card */}
+          <VinnieCard
+            trainedToday={(touchStats?.today_touches || 0) > 0}
+            streak={streak}
+            challengeStreak={challengeStreak}
+            skillFocus={profile?.skill_focus ?? null}
+            todayTouches={todayTouches}
+            dailyTarget={dailyTarget}
+            weekTpm={weekTpm}
+            weekSessions={touchStats?.this_week_sessions}
+            totalTouches={touchStats?.total_touches}
+          />
           <View style={styles.todayCardFull}>
             <View style={styles.todayHeader}>
               <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
@@ -208,6 +219,7 @@ const HomeScreen = () => {
               </View>
             </View>
           </View>
+          </>
         )}
 
         {/* TEAM ACTIVITY */}
@@ -260,7 +272,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  // TODAY'S PROGRESS — full width (coaches, with ring)
+  // TODAY'S PROGRESS — full width
   todayCardFull: {
     backgroundColor: '#1f89ee',
     borderRadius: 24,

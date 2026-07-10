@@ -5,7 +5,11 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +59,7 @@ const TodayChallengeCard = ({
   const { data: stats } = useChallengeStats(userId, challenge?.id);
   const [videoVisible, setVideoVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [detailVisible, setDetailVisible] = useState(false);
 
   if (challengeLoading) {
     return (
@@ -75,8 +80,8 @@ const TodayChallengeCard = ({
   const cardContent = (
     <View style={[styles.card, compact && styles.cardCompact]}>
         {compact ? (
-          // Compact: non-expandable, stacked layout
-          <>
+          // Compact: tappable card that opens detail modal
+          <TouchableOpacity onPress={() => setDetailVisible(true)} activeOpacity={0.85} style={styles.compactInner}>
             <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
             <Text style={[styles.drillName, styles.drillNameCompact]}>{challenge.name}</Text>
             <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg, alignSelf: 'center', marginTop: 8 }]}>
@@ -89,15 +94,11 @@ const TodayChallengeCard = ({
                 <Text style={styles.completedPillText}>Completed! 🎉</Text>
               </View>
             ) : (
-              <TouchableOpacity
-                style={styles.startButtonSmall}
-                onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.startButtonSmallText}>Start Challenge</Text>
-              </TouchableOpacity>
+              <View style={[styles.startButtonSmall, { alignSelf: 'stretch' }]}>
+                <Text style={styles.startButtonSmallText}>View Challenge</Text>
+              </View>
             )}
-          </>
+          </TouchableOpacity>
         ) : (
           // Full: expandable layout
           <>
@@ -220,6 +221,83 @@ const TodayChallengeCard = ({
   return (
     <>
       {compact ? <View style={styles.compactWrapper}>{cardContent}</View> : cardContent}
+
+      {/* Compact detail modal */}
+      {compact && (
+        <Modal visible={detailVisible} transparent animationType='slide' onRequestClose={() => setDetailVisible(false)}>
+          <Pressable style={styles.modalOverlay} onPress={() => setDetailVisible(false)}>
+            <Pressable style={styles.modalSheet} onPress={() => {}}>
+              <View style={styles.modalHandle} />
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                <Text style={styles.modalSectionLabel}>TODAY&apos;S CHALLENGE</Text>
+                <View style={styles.modalTitleRow}>
+                  <Text style={styles.modalTitle}>{challenge.name}</Text>
+                  <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg }]}>
+                    <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>{difficulty}</Text>
+                  </View>
+                </View>
+                <Text style={styles.goalLine}>
+                  Get as many touches as you can in {durationMinutes} min
+                </Text>
+
+                {challenge.video_url ? (
+                  <TouchableOpacity
+                    style={styles.thumbnailContainer}
+                    onPress={() => setVideoVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    {challenge.thumbnail_url ? (
+                      <Image source={{ uri: challenge.thumbnail_url }} style={styles.thumbnail} resizeMode='cover' />
+                    ) : (
+                      <View style={styles.thumbnailPlaceholder} />
+                    )}
+                    <View style={styles.playOverlay}>
+                      <View style={styles.playButton}>
+                        <Ionicons name='play' size={22} color='#FFF' />
+                      </View>
+                      <Text style={styles.watchLabel}>Watch Video</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.videoComingSoon}>Video coming soon</Text>
+                )}
+
+                {tierProgress && (
+                  <View style={styles.tierProgress}>
+                    <View style={styles.tierProgressHeader}>
+                      <Text style={styles.tierProgressLabel}>
+                        {tierProgress.remaining} touches to unlock {tierProgress.next}
+                      </Text>
+                      <Text style={styles.tierProgressPct}>{Math.round(tierProgress.pct * 100)}%</Text>
+                    </View>
+                    <View style={styles.tierProgressTrack}>
+                      <View style={[styles.tierProgressFill, { width: `${tierProgress.pct * 100}%` as any }]} />
+                    </View>
+                  </View>
+                )}
+
+                {completedToday ? (
+                  <View style={styles.completedBadge}>
+                    <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.startButton}
+                    onPress={() => {
+                      setDetailVisible(false);
+                      onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.startButtonText}>Start Challenge</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
       <DrillVideoModal
         visible={videoVisible}
         onClose={() => setVideoVisible(false)}
@@ -253,6 +331,9 @@ const styles = StyleSheet.create({
   compactWrapper: {
     flex: 1,
   },
+  compactInner: {
+    flex: 1,
+  },
   drillNameCompact: {
     fontSize: 15,
     marginTop: 4,
@@ -261,6 +342,48 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F0F4F8',
     marginVertical: 10,
+  },
+  // DETAIL MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: Dimensions.get('window').height * 0.82,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1f89ee',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    flexShrink: 1,
   },
   headerRow: {
     flexDirection: 'row',

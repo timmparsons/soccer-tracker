@@ -264,18 +264,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     return '';
   };
 
-  const getRankLabel = (rank: number) => {
-    if (rank === 1) return '1st';
-    if (rank === 2) return '2nd';
-    if (rank === 3) return '3rd';
-    return `${rank}th`;
-  };
 
-  const getPodiumRankStyle = (rank: number) => {
-    if (rank === 1) return styles.podiumRank1;
-    if (rank === 2) return styles.podiumRank2;
-    return styles.podiumRank3;
-  };
 
   const getCurrentUserId = () => user?.id;
 
@@ -311,7 +300,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
           );
@@ -332,7 +320,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
           );
@@ -354,7 +341,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
           );
@@ -375,7 +361,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
           );
@@ -399,7 +384,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
             </TouchableOpacity>
           );
         })()}
@@ -412,7 +396,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
             </TouchableOpacity>
           );
         })()}
@@ -426,7 +409,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
             </TouchableOpacity>
           );
         })()}
@@ -439,7 +421,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
               <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              <View style={getPodiumRankStyle(rank)}><Text style={styles.podiumRankText}>{getRankLabel(rank)}</Text></View>
             </TouchableOpacity>
           );
         })()}
@@ -1139,29 +1120,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1f89ee',
     marginBottom: 8,
-  },
-  podiumRank1: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  podiumRank2: {
-    backgroundColor: '#C0C0C0',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  podiumRank3: {
-    backgroundColor: '#CD7F32',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  podiumRankText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '900',
   },
 
   // LIST
