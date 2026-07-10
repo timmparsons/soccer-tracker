@@ -12,24 +12,28 @@ export interface UnviewedReaction {
   created_at: string;
 }
 
-function decodeActivityKey(key: string): string {
+function decodeActivityKey(key: string): { label: string; type: 'session' | 'win' | 'street' | 'other' } {
   if (key.startsWith('session-')) {
-    const match = /(\d{4}-\d{2}-\d{2})T/.exec(key);
+    const match = /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(key);
     if (match) {
       const date = new Date(match[1] + 'T12:00:00Z');
-      return `your session on ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      return {
+        label: `Training session · ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        type: 'session',
+      };
     }
-    return 'your training session';
+    return { label: 'Training session', type: 'session' };
   }
-  if (key.startsWith('win-')) return 'your 1v1 win';
-  if (key.startsWith('street-')) return 'your street challenge';
-  return 'your activity';
+  if (key.startsWith('win-')) return { label: '1v1 win', type: 'win' };
+  if (key.startsWith('street-')) return { label: 'Street challenge', type: 'street' };
+  return { label: 'Activity', type: 'other' };
 }
 
 export interface CheerNotification {
   id: string;
   activity_key: string;
   activity_label: string;
+  activity_type: 'session' | 'win' | 'street' | 'other';
   reactor_name: string;
   created_at: string;
   is_new: boolean;
@@ -85,14 +89,18 @@ export function useAllMyRecentCheers(userId: string | undefined) {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      return ((data ?? []) as any[]).map((row) => ({
-        id: `${row.feed_item_key}-${row.cheered_by_profile_id}`,
-        activity_key: row.feed_item_key,
-        activity_label: decodeActivityKey(row.feed_item_key),
-        reactor_name: getDisplayName(row.profiles),
-        created_at: row.created_at,
-        is_new: lastViewed ? new Date(row.created_at) > new Date(lastViewed) : true,
-      }));
+      return ((data ?? []) as any[]).map((row) => {
+        const decoded = decodeActivityKey(row.feed_item_key);
+        return {
+          id: `${row.feed_item_key}-${row.cheered_by_profile_id}`,
+          activity_key: row.feed_item_key,
+          activity_label: decoded.label,
+          activity_type: decoded.type,
+          reactor_name: getDisplayName(row.profiles),
+          created_at: row.created_at,
+          is_new: lastViewed ? new Date(row.created_at) > new Date(lastViewed) : true,
+        };
+      });
     },
   });
 }

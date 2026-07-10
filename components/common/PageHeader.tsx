@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { markReactionsViewed, useAllMyRecentCheers, useUnviewedReactions } from '@/hooks/useActivityReactions';
+import { CheerNotification, markReactionsViewed, useAllMyRecentCheers, useUnviewedReactions } from '@/hooks/useActivityReactions';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -8,14 +8,34 @@ import {
   Dimensions,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function activityIcon(type: CheerNotification['activity_type']): { name: React.ComponentProps<typeof Ionicons>['name']; color: string; bg: string } {
+  switch (type) {
+    case 'win': return { name: 'trophy', color: '#F59E0B', bg: '#FEF3C7' };
+    case 'street': return { name: 'flash', color: '#8B5CF6', bg: '#EDE9FE' };
+    default: return { name: 'football', color: '#1f89ee', bg: '#EFF6FF' };
+  }
+}
 
 interface PageHeaderProps {
   title: string;
@@ -104,34 +124,48 @@ const PageHeader = ({
 
       {/* Cheers Modal */}
       <Modal visible={showCheersModal} transparent animationType='slide' onRequestClose={() => setShowCheersModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowCheersModal(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => {}}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowCheersModal(false)}>
+            <View style={styles.modalBackdrop} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Likes</Text>
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {allCheers.length === 0 && (
                 <Text style={styles.modalEmpty}>No likes yet — get out there and train!</Text>
               )}
-              {allCheers.map((r) => (
-                <View key={r.id} style={styles.modalRow}>
-                  <View style={styles.modalAvatar}>
-                    <Text style={styles.modalAvatarText}>
-                      {r.reactor_name.charAt(0).toUpperCase()}
-                    </Text>
+              {allCheers.map((r) => {
+                const icon = activityIcon(r.activity_type);
+                return (
+                  <View key={r.id} style={styles.modalRow}>
+                    <View style={[styles.modalAvatar, { backgroundColor: '#EFF6FF' }]}>
+                      <Text style={styles.modalAvatarText}>
+                        {r.reactor_name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.modalRowText}>
+                      <View style={styles.modalNameRow}>
+                        <Text style={styles.modalName}>{r.reactor_name}</Text>
+                        {r.is_new && <View style={styles.modalNewDot} />}
+                      </View>
+                      <View style={styles.modalActivityRow}>
+                        <View style={[styles.modalActivityIcon, { backgroundColor: icon.bg }]}>
+                          <Ionicons name={icon.name} size={11} color={icon.color} />
+                        </View>
+                        <Text style={styles.modalActivity}>{r.activity_label}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.modalTime}>{timeAgo(r.created_at)}</Text>
                   </View>
-                  <View style={styles.modalRowText}>
-                    <Text style={styles.modalName}>{r.reactor_name}</Text>
-                    <Text style={styles.modalActivity}>liked {r.activity_label}</Text>
-                  </View>
-                  {r.is_new && <View style={styles.modalNewDot} />}
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
             <TouchableOpacity style={styles.modalDismissBtn} onPress={() => setShowCheersModal(false)}>
               <Text style={styles.modalDismissText}>Close</Text>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -208,8 +242,11 @@ const styles = StyleSheet.create({
   // CHEERS MODAL
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',
@@ -257,22 +294,47 @@ const styles = StyleSheet.create({
   modalRowText: {
     flex: 1,
   },
+  modalNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   modalName: {
     fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
   },
+  modalActivityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  modalActivityIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalActivity: {
     fontSize: 12,
     fontWeight: '600',
     color: '#78909C',
-    marginTop: 2,
+    flexShrink: 1,
   },
   modalNewDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+  },
+  modalTime: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#B0BEC5',
+    marginLeft: 8,
+    flexShrink: 0,
   },
   modalEmpty: {
     fontSize: 14,
