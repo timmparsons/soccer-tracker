@@ -102,11 +102,23 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   }, []);
 
   const getPeriodLabel = () => {
-    if (teamSubTab === 'juggling') {
-      return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
-    }
+    if (view === 'club') return clubPeriod === 'week' ? 'This Week' : 'All Time';
+    if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
     const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'All Time' };
     return labels[touchesPeriod];
+  };
+
+  const getResetNote = (): string | null => {
+    if (view === 'global') return 'Resets Sunday';
+    if (view === 'club') return clubPeriod === 'week' ? 'Resets Sunday' : 'Lifetime touches';
+    if (view === 'team') {
+      if (teamSubTab === 'touches') {
+        if (touchesPeriod === 'week') return 'Resets Sunday';
+        if (touchesPeriod === 'alltime') return 'Best single week ever';
+      }
+      if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'Resets Sunday' : null;
+    }
+    return null;
   };
 
   const {
@@ -475,9 +487,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Controls row: period dropdown + Touches/Juggling toggle (team view only) */}
-      {view === 'team' && (
-        <View style={styles.controlsRow}>
+      {/* Controls row — always rendered for all tabs to keep spacing identical */}
+      <View style={styles.controlsRow}>
+        {view !== 'global' && (
           <TouchableOpacity
             style={styles.periodDropdownBtn}
             onPress={() => setPeriodPickerVisible(true)}
@@ -486,6 +498,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
             <Ionicons name='chevron-down' size={14} color='#6B7280' />
           </TouchableOpacity>
+        )}
+        {view === 'team' && (
           <View style={styles.subTabsRow}>
             <TouchableOpacity
               style={[styles.subTab, teamSubTab === 'touches' && styles.subTabActive]}
@@ -504,8 +518,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
+        )}
+      </View>
+
+      {/* Reset note — always rendered to prevent layout jump */}
+      <Text style={styles.resetNote}>{getResetNote() ?? ''}</Text>
 
       {/* Period picker modal */}
       <Modal
@@ -521,7 +538,20 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         >
           <View style={styles.pickerSheet}>
             <Text style={styles.pickerTitle}>Time Period</Text>
-            {teamSubTab === 'touches'
+            {view === 'club'
+              ? (['week', 'alltime'] as const).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.pickerRow, clubPeriod === p && styles.pickerRowActive]}
+                    onPress={() => { setClubPeriod(p); setPeriodPickerVisible(false); }}
+                  >
+                    <Text style={[styles.pickerRowText, clubPeriod === p && styles.pickerRowTextActive]}>
+                      {p === 'week' ? 'This Week' : 'All Time'}
+                    </Text>
+                    {clubPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
+                  </TouchableOpacity>
+                ))
+              : teamSubTab === 'touches'
               ? (['today', 'week', 'last_week', 'alltime'] as const).map((p) => (
                   <TouchableOpacity
                     key={p}
@@ -608,9 +638,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <>
             {teamSubTab === 'touches' && (
               <>
-                {touchesPeriod === 'week' && <Text style={styles.resetNote}>Resets Sunday</Text>}
-                {touchesPeriod === 'alltime' && <Text style={styles.resetNote}>Best single week ever</Text>}
-
                 {renderTouchesPodium()}
 
                 <View style={styles.listContainer}>
@@ -725,23 +752,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {/* ── CLUB VIEW ── */}
         {view === 'club' && (
           <>
-            <View style={[styles.periodPillRow, { justifyContent: 'center' }]}>
-              <TouchableOpacity
-                style={[styles.periodPill, clubPeriod === 'week' && styles.periodPillActive]}
-                onPress={() => setClubPeriod('week')}
-              >
-                <Text style={[styles.periodPillText, clubPeriod === 'week' && styles.periodPillTextActive]}>This Week</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.periodPill, clubPeriod === 'alltime' && styles.periodPillActive]}
-                onPress={() => setClubPeriod('alltime')}
-              >
-                <Text style={[styles.periodPillText, clubPeriod === 'alltime' && styles.periodPillTextActive]}>All Time</Text>
-              </TouchableOpacity>
-            </View>
-            {clubPeriod === 'week' && <Text style={styles.resetNote}>Resets Sunday</Text>}
-            {clubPeriod === 'alltime' && <Text style={styles.resetNote}>Lifetime touches</Text>}
-
             {clubLoading ? (
               <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
             ) : clubLeaderboard.length === 0 ? (
@@ -794,7 +804,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {/* ── GLOBAL VIEW ── */}
         {view === 'global' && (
           <>
-            <Text style={styles.resetNote}>This week's touches · resets Sunday</Text>
             {globalLoading ? (
               <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
             ) : globalLeaderboard.length === 0 ? (
@@ -974,16 +983,14 @@ const styles = StyleSheet.create({
 
   // CONTROLS ROW (period dropdown + Touches/Juggling toggle)
   controlsRow: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 8,
     backgroundColor: '#FFFFFF',
-    gap: 12,
   },
   periodDropdownBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -996,16 +1003,14 @@ const styles = StyleSheet.create({
 
   // SUB-TABS (Touches / Juggling) — segmented control style
   subTabsRow: {
-    flex: 1,
     flexDirection: 'row',
     backgroundColor: '#F0F4F8',
     borderRadius: 10,
     padding: 3,
   },
   subTab: {
-    flex: 1,
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -1030,8 +1035,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
-    marginTop: 6,
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    marginBottom: 6,
+    minHeight: 16,
   },
 
   // PERIOD PILLS
