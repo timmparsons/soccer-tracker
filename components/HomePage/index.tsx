@@ -140,58 +140,75 @@ const HomeScreen = () => {
           totalTouches={touchStats?.total_touches}
         />
 
-        {/* TODAY'S CHALLENGE */}
-        {!profile?.is_coach && user?.id && (
-          <TodayChallengeCard
-            userId={user.id}
-            totalTouches={touchStats?.total_touches ?? 0}
-            onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-              router.push({
-                pathname: '/(tabs)/train',
-                params: {
-                  startChallengeDrillId: drillId,
-                  startChallengeDuration: String(durationMinutes),
-                  startChallengeName: drillName,
-                  startChallengeDifficulty: difficulty,
-                },
-              });
-            }}
-          />
-        )}
-
-        {/* TODAY'S PROGRESS */}
-        <View style={styles.todayCard}>
-          <View style={styles.todayHeader}>
-            <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
-            {todayDone && (
-              <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>
-            )}
-          </View>
-          <View style={styles.todayRingRow}>
-            <CircularProgress
-              progress={todayPct / 100}
-              size={120}
-              color={todayDone ? '#ffb724' : '#FFFFFF'}
-              trackColor='rgba(255,255,255,0.2)'
-              labelColor='rgba(255,255,255,0.65)'
+        {/* TODAY'S CHALLENGE + TODAY'S PROGRESS */}
+        {!profile?.is_coach && user?.id ? (
+          // Non-coaches: side-by-side compact layout
+          <View style={styles.cardsRow}>
+            <TodayChallengeCard
+              userId={user.id}
+              compact
+              totalTouches={touchStats?.total_touches ?? 0}
+              onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
+                router.push({
+                  pathname: '/(tabs)/train',
+                  params: {
+                    startChallengeDrillId: drillId,
+                    startChallengeDuration: String(durationMinutes),
+                    startChallengeName: drillName,
+                    startChallengeDifficulty: difficulty,
+                  },
+                });
+              }}
             />
-            <View style={styles.todayRingMeta}>
-              <View style={styles.todayCountRow}>
-                <Text style={styles.todayTouches}>
-                  {todayTouches.toLocaleString()}
-                </Text>
-                <Text style={styles.todayTarget}>
-                  /{dailyTarget.toLocaleString()}
+            <View style={styles.todayCard}>
+              <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
+              {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+              <View style={styles.todayCompact}>
+                <CircularProgress
+                  progress={todayPct / 100}
+                  size={64}
+                  thickness={4}
+                  color={todayDone ? '#ffb724' : '#FFFFFF'}
+                  trackColor='rgba(255,255,255,0.2)'
+                  labelColor='rgba(255,255,255,0.65)'
+                />
+                <View style={styles.todayCountRow}>
+                  <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+                  <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
+                </View>
+                <Text style={styles.todaySubtext}>
+                  {todayDone ? 'Smashed it!' : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
                 </Text>
               </View>
-              <Text style={styles.todaySubtext}>
-                {todayDone
-                  ? 'Smashed it — keep going!'
-                  : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
-              </Text>
             </View>
           </View>
-        </View>
+        ) : (
+          // Coaches: full-width progress card with ring
+          <View style={styles.todayCardFull}>
+            <View style={styles.todayHeader}>
+              <Text style={styles.todaySectionLabel}>{"Today's Progress"}</Text>
+              {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
+            </View>
+            <View style={styles.todayRingRow}>
+              <CircularProgress
+                progress={todayPct / 100}
+                size={120}
+                color={todayDone ? '#ffb724' : '#FFFFFF'}
+                trackColor='rgba(255,255,255,0.2)'
+                labelColor='rgba(255,255,255,0.65)'
+              />
+              <View style={styles.todayRingMeta}>
+                <View style={styles.todayCountRow}>
+                  <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
+                  <Text style={styles.todayTarget}>/{dailyTarget.toLocaleString()}</Text>
+                </View>
+                <Text style={styles.todaySubtext}>
+                  {todayDone ? 'Smashed it — keep going!' : `${(dailyTarget - todayTouches).toLocaleString()} to go`}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* TEAM ACTIVITY */}
         <ActivityFeed />
@@ -218,8 +235,33 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  // TODAY'S PROGRESS
+  // CARDS ROW (challenge + progress side by side, non-coaches)
+  cardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'stretch',
+  },
+
+  // TODAY'S PROGRESS — compact (50% width, no ring)
   todayCard: {
+    flex: 1,
+    backgroundColor: '#1f89ee',
+    borderRadius: 20,
+    padding: 14,
+    shadowColor: '#1f89ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  todayCompact: {
+    marginTop: 10,
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  // TODAY'S PROGRESS — full width (coaches, with ring)
+  todayCardFull: {
     backgroundColor: '#1f89ee',
     borderRadius: 24,
     padding: 18,
@@ -235,21 +277,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  todaySectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
-    letterSpacing: 0,
-  },
-  todayDoneBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    backgroundColor: '#31af4d',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
   todayRingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -258,26 +285,44 @@ const styles = StyleSheet.create({
   todayRingMeta: {
     flex: 1,
   },
+
+  todaySectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+  },
+  todayDoneBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    backgroundColor: '#31af4d',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
   todayCountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   todayTouches: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '900',
     color: '#FFFFFF',
   },
   todayTarget: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.45)',
     marginLeft: 2,
   },
   todaySubtext: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
   },
 
   // BANNERS

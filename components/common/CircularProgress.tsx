@@ -5,6 +5,7 @@ import * as Progress from 'react-native-progress';
 interface Props {
   progress: number;
   size?: number;
+  thickness?: number;
   color?: string;
   trackColor?: string;
   labelColor?: string;
@@ -13,11 +14,14 @@ interface Props {
 const CircularProgress = ({
   progress,
   size = 130,
+  thickness = 10,
   color = '#1f89ee',
   trackColor = '#EFF6FF',
   labelColor = '#78909C',
 }: Props) => {
   const pct = Math.round(Math.min(progress, 1) * 100);
+  const pctFontSize = Math.round(size * 0.22);
+  const subFontSize = Math.round(size * 0.09);
 
   return (
     <View style={styles.wrapper}>
@@ -27,12 +31,12 @@ const CircularProgress = ({
         color={color}
         unfilledColor={trackColor}
         borderWidth={0}
-        thickness={10}
+        thickness={thickness}
         animated
       />
       <View style={[styles.centerLabel, { width: size, height: size }]}>
-        <Text style={[styles.pct, { color }]}>{pct}%</Text>
-        <Text style={[styles.sub, { color: labelColor }]}>of goal</Text>
+        <Text style={[styles.pct, { color, fontSize: pctFontSize }]}>{pct}%</Text>
+        <Text style={[styles.sub, { color: labelColor, fontSize: subFontSize }]}>of goal</Text>
       </View>
     </View>
   );
@@ -51,11 +55,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pct: {
-    fontSize: 28,
     fontWeight: '900',
   },
   sub: {
-    fontSize: 11,
     fontWeight: '700',
     color: '#78909C',
     marginTop: 2,

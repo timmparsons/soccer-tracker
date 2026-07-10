@@ -15,6 +15,7 @@ import {
 interface TodayChallengeCardProps {
   userId: string;
   totalTouches: number;
+  compact?: boolean;
   onStartChallenge: (
     drillId: string,
     durationMinutes: number,
@@ -46,6 +47,7 @@ const getTierProgress = (totalTouches: number) => {
 const TodayChallengeCard = ({
   userId,
   totalTouches,
+  compact = false,
   onStartChallenge,
 }: TodayChallengeCardProps) => {
   const router = useRouter();
@@ -56,7 +58,7 @@ const TodayChallengeCard = ({
 
   if (challengeLoading) {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, compact && styles.cardCompact]}>
         <ActivityIndicator size='small' color='#31af4d' />
       </View>
     );
@@ -70,123 +72,154 @@ const TodayChallengeCard = ({
   const completedToday = stats?.completedToday ?? false;
   const tierProgress = getTierProgress(totalTouches);
 
-  return (
-    <>
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.headerRow}
-          onPress={() => setExpanded((v) => !v)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.headerTextBlock}>
-            <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
-            <View style={styles.drillRow}>
-              <Text style={styles.drillName}>{challenge.name}</Text>
-              <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg }]}>
-                <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>
-                  {difficulty}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color='#78909C' />
-        </TouchableOpacity>
-
-        {!expanded && (
-          completedToday ? (
-            <View style={styles.completedPill}>
-              <Text style={styles.completedPillText}>Completed today! 🎉</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.startButtonSmall}
-              onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.startButtonSmallText}>Start Challenge</Text>
-            </TouchableOpacity>
-          )
-        )}
-
-        {expanded && (
+  const cardContent = (
+    <View style={[styles.card, compact && styles.cardCompact]}>
+        {compact ? (
+          // Compact: non-expandable, stacked layout
           <>
-            <Text style={styles.goalLine}>
-              Get as many touches as you can in {durationMinutes} min
-            </Text>
-
-            {challenge.video_url ? (
-              <TouchableOpacity
-                style={styles.thumbnailContainer}
-                onPress={() => setVideoVisible(true)}
-                activeOpacity={0.85}
-              >
-                {challenge.thumbnail_url ? (
-                  <Image
-                    source={{ uri: challenge.thumbnail_url }}
-                    style={styles.thumbnail}
-                    resizeMode='cover'
-                  />
-                ) : (
-                  <View style={styles.thumbnailPlaceholder} />
-                )}
-                <View style={styles.playOverlay}>
-                  <View style={styles.playButton}>
-                    <Ionicons name='play' size={22} color='#FFF' />
-                  </View>
-                  <Text style={styles.watchLabel}>Watch Video</Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
-            )}
-
-            {/* Tier progress */}
-            {tierProgress ? (
-              <View style={styles.tierProgress}>
-                <View style={styles.tierProgressHeader}>
-                  <Text style={styles.tierProgressLabel}>
-                    🔓 {tierProgress.remaining} touches to unlock {tierProgress.next}
-                  </Text>
-                  <Text style={styles.tierProgressPct}>
-                    {Math.round(tierProgress.pct * 100)}%
-                  </Text>
-                </View>
-                <View style={styles.tierProgressTrack}>
-                  <View style={[styles.tierProgressFill, { width: `${tierProgress.pct * 100}%` as any }]} />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.tierUnlocked}>
-                <Text style={styles.tierUnlockedText}>🔓 All challenge tiers unlocked!</Text>
-              </View>
-            )}
-
+            <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
+            <Text style={[styles.drillName, styles.drillNameCompact]}>{challenge.name}</Text>
+            <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg, alignSelf: 'center', marginTop: 8 }]}>
+              <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>{difficulty}</Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <View style={styles.compactDivider} />
             {completedToday ? (
-              <>
-                <View style={styles.completedBadge}>
-                  <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.keepTrainingButton}
-                  onPress={() => router.push('/(tabs)/train')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.keepTrainingText}>Keep Training →</Text>
-                </TouchableOpacity>
-              </>
+              <View style={[styles.completedPill, { alignSelf: 'center', marginTop: 0 }]}>
+                <Text style={styles.completedPillText}>Completed! 🎉</Text>
+              </View>
             ) : (
               <TouchableOpacity
-                style={styles.startButton}
+                style={styles.startButtonSmall}
                 onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.startButtonText}>Start Challenge</Text>
+                <Text style={styles.startButtonSmallText}>Start Challenge</Text>
               </TouchableOpacity>
             )}
           </>
-        )}
-      </View>
+        ) : (
+          // Full: expandable layout
+          <>
+            <TouchableOpacity
+              style={styles.headerRow}
+              onPress={() => setExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.headerTextBlock}>
+                <Text style={styles.headerLabel}>TODAY&apos;S CHALLENGE</Text>
+                <View style={styles.drillRow}>
+                  <Text style={styles.drillName}>{challenge.name}</Text>
+                  <View style={[styles.difficultyChip, { backgroundColor: difficultyStyle.bg }]}>
+                    <Text style={[styles.difficultyText, { color: difficultyStyle.text }]}>
+                      {difficulty}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color='#78909C' />
+            </TouchableOpacity>
 
+            {!expanded && (
+              completedToday ? (
+                <View style={styles.completedPill}>
+                  <Text style={styles.completedPillText}>Completed today! 🎉</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.startButtonSmall}
+                  onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.startButtonSmallText}>Start Challenge</Text>
+                </TouchableOpacity>
+              )
+            )}
+
+            {expanded && (
+              <>
+                <Text style={styles.goalLine}>
+                  Get as many touches as you can in {durationMinutes} min
+                </Text>
+
+                {challenge.video_url ? (
+                  <TouchableOpacity
+                    style={styles.thumbnailContainer}
+                    onPress={() => setVideoVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    {challenge.thumbnail_url ? (
+                      <Image
+                        source={{ uri: challenge.thumbnail_url }}
+                        style={styles.thumbnail}
+                        resizeMode='cover'
+                      />
+                    ) : (
+                      <View style={styles.thumbnailPlaceholder} />
+                    )}
+                    <View style={styles.playOverlay}>
+                      <View style={styles.playButton}>
+                        <Ionicons name='play' size={22} color='#FFF' />
+                      </View>
+                      <Text style={styles.watchLabel}>Watch Video</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.videoComingSoon}>📹 Video coming soon</Text>
+                )}
+
+                {tierProgress ? (
+                  <View style={styles.tierProgress}>
+                    <View style={styles.tierProgressHeader}>
+                      <Text style={styles.tierProgressLabel}>
+                        🔓 {tierProgress.remaining} touches to unlock {tierProgress.next}
+                      </Text>
+                      <Text style={styles.tierProgressPct}>
+                        {Math.round(tierProgress.pct * 100)}%
+                      </Text>
+                    </View>
+                    <View style={styles.tierProgressTrack}>
+                      <View style={[styles.tierProgressFill, { width: `${tierProgress.pct * 100}%` as any }]} />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.tierUnlocked}>
+                    <Text style={styles.tierUnlockedText}>🔓 All challenge tiers unlocked!</Text>
+                  </View>
+                )}
+
+                {completedToday ? (
+                  <>
+                    <View style={styles.completedBadge}>
+                      <Text style={styles.completedBadgeText}>Completed today! 🎉</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.keepTrainingButton}
+                      onPress={() => router.push('/(tabs)/train')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.keepTrainingText}>Keep Training →</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.startButton}
+                    onPress={() => onStartChallenge(challenge.id, durationMinutes, challenge.name, difficulty)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.startButtonText}>Start Challenge</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </>
+        )}
+    </View>
+  );
+
+  return (
+    <>
+      {compact ? <View style={styles.compactWrapper}>{cardContent}</View> : cardContent}
       <DrillVideoModal
         visible={videoVisible}
         onClose={() => setVideoVisible(false)}
@@ -212,6 +245,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardCompact: {
+    marginBottom: 0,
+    flex: 1,
+  },
+  compactWrapper: {
+    flex: 1,
+  },
+  drillNameCompact: {
+    fontSize: 15,
+    marginTop: 4,
+  },
+  compactDivider: {
+    height: 1,
+    backgroundColor: '#F0F4F8',
+    marginVertical: 10,
   },
   headerRow: {
     flexDirection: 'row',

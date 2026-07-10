@@ -13,7 +13,14 @@ export interface UnviewedReaction {
 }
 
 function decodeActivityKey(key: string): string {
-  if (key.startsWith('session-')) return 'your training session';
+  if (key.startsWith('session-')) {
+    const match = /(\d{4}-\d{2}-\d{2})T/.exec(key);
+    if (match) {
+      const date = new Date(match[1] + 'T12:00:00Z');
+      return `your session on ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    }
+    return 'your training session';
+  }
   if (key.startsWith('win-')) return 'your 1v1 win';
   if (key.startsWith('street-')) return 'your street challenge';
   return 'your activity';

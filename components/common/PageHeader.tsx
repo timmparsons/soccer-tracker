@@ -105,9 +105,9 @@ const PageHeader = ({
         <Pressable style={styles.modalOverlay} onPress={() => setShowCheersModal(false)}>
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Cheers</Text>
+            <Text style={styles.modalTitle}>Likes</Text>
             {allCheers.length === 0 && (
-              <Text style={styles.modalEmpty}>No cheers yet — get out there and train!</Text>
+              <Text style={styles.modalEmpty}>No likes yet — get out there and train!</Text>
             )}
             {allCheers.map((r) => (
               <View key={r.id} style={styles.modalRow}>
@@ -118,7 +118,7 @@ const PageHeader = ({
                 </View>
                 <View style={styles.modalRowText}>
                   <Text style={styles.modalName}>{r.reactor_name}</Text>
-                  <Text style={styles.modalActivity}>cheered {r.activity_label}</Text>
+                  <Text style={styles.modalActivity}>liked {r.activity_label}</Text>
                 </View>
                 {r.is_new && <View style={styles.modalNewDot} />}
               </View>
