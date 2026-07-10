@@ -27,7 +27,7 @@ const DAYS_BEFORE_FIRST_REMINDER = 2;
 const TOTAL_REMINDER_DAYS = 7;
 const REMINDER_HOUR = 15; // 3pm local time
 
-function getReminderMessage(daysSinceLastSession: number): { title: string; body: string } {
+export function getReminderMessage(daysSinceLastSession: number): { title: string; body: string } {
   if (daysSinceLastSession === 2) {
     return {
       title: 'Coach Vinnie here! 👟',

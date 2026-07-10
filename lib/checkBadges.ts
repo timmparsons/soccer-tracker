@@ -11,22 +11,24 @@ export interface BadgeCheckContext {
   teamId: string | null;
 }
 
-export async function checkAndAwardBadges(
-  userId: string,
+export interface BadgeQueryData {
+  alreadyEarned: Set<string>;
+  juggleSessions?: Array<{ date: string; juggle_count: number | null }>;
+  challengeSessions?: Array<{ date: string }>;
+  beginnerDrillIds?: string[];
+  completedDrillIds?: string[];
+}
+
+// Pure function — no Supabase, fully testable
+export function qualifyingBadges(
   context: BadgeCheckContext,
-): Promise<string[]> {
-  // Fetch already-earned badge IDs
-  const { data: existing } = await supabase
-    .from('user_badges')
-    .select('badge_id')
-    .eq('user_id', userId);
-
-  const earned = new Set((existing ?? []).map((r) => r.badge_id));
-
+  data: BadgeQueryData,
+): string[] {
+  const { alreadyEarned, juggleSessions, challengeSessions, beginnerDrillIds, completedDrillIds } = data;
   const toAward: string[] = [];
 
   const candidate = (id: string, condition: boolean) => {
-    if (condition && !earned.has(id)) toAward.push(id);
+    if (condition && !alreadyEarned.has(id)) toAward.push(id);
   };
 
   // Streak badges
@@ -63,49 +65,43 @@ export async function checkAndAwardBadges(
   );
 
   // Sky High badges — 3 consecutive days of new juggling PBs, tiered by final count
-  const missingSkyHigh = ['perf_sky_high_bronze', 'perf_sky_high_silver', 'perf_sky_high_gold']
-    .filter((id) => !earned.has(id));
+  if (juggleSessions !== undefined) {
+    const missingSkyHigh = ['perf_sky_high_bronze', 'perf_sky_high_silver', 'perf_sky_high_gold']
+      .filter((id) => !alreadyEarned.has(id));
 
-  if (missingSkyHigh.length > 0) {
-    const { data: juggleSessions } = await supabase
-      .from('daily_sessions')
-      .select('juggle_count, date')
-      .eq('user_id', userId)
-      .not('juggle_count', 'is', null)
-      .gt('juggle_count', 0)
-      .order('date', { ascending: true });
+    if (missingSkyHigh.length > 0) {
+      const dailyMax = new Map<string, number>();
+      for (const s of juggleSessions) {
+        const cur = dailyMax.get(s.date) ?? 0;
+        if ((s.juggle_count ?? 0) > cur) dailyMax.set(s.date, s.juggle_count!);
+      }
 
-    const dailyMax = new Map<string, number>();
-    for (const s of juggleSessions ?? []) {
-      const cur = dailyMax.get(s.date) ?? 0;
-      if ((s.juggle_count ?? 0) > cur) dailyMax.set(s.date, s.juggle_count!);
-    }
+      const days = [...dailyMax.entries()].sort(([a], [b]) => a.localeCompare(b));
 
-    const days = [...dailyMax.entries()].sort(([a], [b]) => a.localeCompare(b));
+      let skyStreak = 0;
+      let skyAllTimePB = 0;
+      let skyPrevDate: string | null = null;
+      let bronzeQ = false, silverQ = false, goldQ = false;
 
-    let skyStreak = 0;
-    let skyAllTimePB = 0;
-    let skyPrevDate: string | null = null;
-    let bronzeQ = false, silverQ = false, goldQ = false;
-
-    for (const [date, max] of days) {
-      if (max > skyAllTimePB) {
-        skyStreak =
-          skyPrevDate !== null && dayDiff(skyPrevDate, date) === 1 ? skyStreak + 1 : 1;
-        skyAllTimePB = max;
-        skyPrevDate = date;
-        if (skyStreak >= 3) {
-          if (max >= 20) bronzeQ = true;
-          if (max >= 50) silverQ = true;
-          if (max >= 100) goldQ = true;
-          if (goldQ) break;
+      for (const [date, max] of days) {
+        if (max > skyAllTimePB) {
+          skyStreak =
+            skyPrevDate !== null && dayDiff(skyPrevDate, date) === 1 ? skyStreak + 1 : 1;
+          skyAllTimePB = max;
+          skyPrevDate = date;
+          if (skyStreak >= 3) {
+            if (max >= 20) bronzeQ = true;
+            if (max >= 50) silverQ = true;
+            if (max >= 100) goldQ = true;
+            if (goldQ) break;
+          }
         }
       }
-    }
 
-    candidate('perf_sky_high_bronze', bronzeQ);
-    candidate('perf_sky_high_silver', silverQ);
-    candidate('perf_sky_high_gold', goldQ);
+      candidate('perf_sky_high_bronze', bronzeQ);
+      candidate('perf_sky_high_silver', silverQ);
+      candidate('perf_sky_high_gold', goldQ);
+    }
   }
 
   // Social badges
@@ -115,42 +111,99 @@ export async function checkAndAwardBadges(
   candidate('challenge_intermediate', context.totalTouches >= 10_000);
   candidate('challenge_advanced', context.totalTouches >= 50_000);
 
-  // Challenge streak badges — fetched at submit time, only if not all already earned
+  // Challenge streak badges
+  if (challengeSessions !== undefined) {
+    const missingStreakBadges = ['challenge_streak_3', 'challenge_streak_7', 'challenge_streak_30']
+      .filter((id) => !alreadyEarned.has(id));
+
+    if (missingStreakBadges.length > 0) {
+      let challengeStreak = 0;
+      if (challengeSessions.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let cursor = new Date(today);
+
+        for (const s of challengeSessions) {
+          const d = new Date(s.date + 'T00:00:00');
+          if (d.getTime() === cursor.getTime()) {
+            challengeStreak++;
+            cursor.setDate(cursor.getDate() - 1);
+          } else if (d < cursor) {
+            break;
+          }
+        }
+      }
+
+      candidate('challenge_streak_3', challengeStreak >= 3);
+      candidate('challenge_streak_7', challengeStreak >= 7);
+      candidate('challenge_streak_30', challengeStreak >= 30);
+    }
+  }
+
+  // Drills badges
+  if (beginnerDrillIds !== undefined && completedDrillIds !== undefined) {
+    if (!alreadyEarned.has('drills_beginner')) {
+      const completedSet = new Set(completedDrillIds);
+      const allBeginnerDone =
+        beginnerDrillIds.length > 0 &&
+        beginnerDrillIds.every((id) => completedSet.has(id));
+      candidate('drills_beginner', allBeginnerDone);
+    }
+  }
+
+  return toAward;
+}
+
+function dayDiff(a: string, b: string): number {
+  return Math.round(
+    (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86_400_000,
+  );
+}
+
+export async function checkAndAwardBadges(
+  userId: string,
+  context: BadgeCheckContext,
+): Promise<string[]> {
+  const { data: existing } = await supabase
+    .from('user_badges')
+    .select('badge_id')
+    .eq('user_id', userId);
+
+  const alreadyEarned = new Set((existing ?? []).map((r) => r.badge_id));
+
+  let juggleSessions: BadgeQueryData['juggleSessions'];
+  let challengeSessions: BadgeQueryData['challengeSessions'];
+  let beginnerDrillIds: string[] | undefined;
+  let completedDrillIds: string[] | undefined;
+
+  const missingSkyHigh = ['perf_sky_high_bronze', 'perf_sky_high_silver', 'perf_sky_high_gold']
+    .filter((id) => !alreadyEarned.has(id));
+
+  if (missingSkyHigh.length > 0) {
+    const { data } = await supabase
+      .from('daily_sessions')
+      .select('juggle_count, date')
+      .eq('user_id', userId)
+      .not('juggle_count', 'is', null)
+      .gt('juggle_count', 0)
+      .order('date', { ascending: true });
+    juggleSessions = data ?? [];
+  }
+
   const missingStreakBadges = ['challenge_streak_3', 'challenge_streak_7', 'challenge_streak_30']
-    .filter((id) => !earned.has(id));
+    .filter((id) => !alreadyEarned.has(id));
 
   if (missingStreakBadges.length > 0) {
-    const { data: challengeSessions } = await supabase
+    const { data } = await supabase
       .from('daily_sessions')
       .select('date')
       .eq('user_id', userId)
       .not('drill_id', 'is', null)
       .order('date', { ascending: false });
-
-    let challengeStreak = 0;
-    if (challengeSessions && challengeSessions.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let cursor = new Date(today);
-
-      for (const s of challengeSessions) {
-        const d = new Date(s.date + 'T00:00:00');
-        if (d.getTime() === cursor.getTime()) {
-          challengeStreak++;
-          cursor.setDate(cursor.getDate() - 1);
-        } else if (d < cursor) {
-          break;
-        }
-      }
-    }
-
-    candidate('challenge_streak_3', challengeStreak >= 3);
-    candidate('challenge_streak_7', challengeStreak >= 7);
-    candidate('challenge_streak_30', challengeStreak >= 30);
+    challengeSessions = data ?? [];
   }
 
-  // Drills badges — only check if not already earned (avoids unnecessary queries)
-  if (!earned.has('drills_beginner')) {
+  if (!alreadyEarned.has('drills_beginner')) {
     const [{ data: beginnerDrills }, { data: completedSessions }] = await Promise.all([
       supabase.from('drills').select('id').eq('difficulty_level', 'beginner'),
       supabase
@@ -159,14 +212,17 @@ export async function checkAndAwardBadges(
         .eq('user_id', userId)
         .not('drill_id', 'is', null),
     ]);
-
-    const completedIds = new Set((completedSessions ?? []).map((s) => s.drill_id));
-    const allBeginnerDone =
-      (beginnerDrills ?? []).length > 0 &&
-      (beginnerDrills ?? []).every((d) => completedIds.has(d.id));
-
-    candidate('drills_beginner', allBeginnerDone);
+    beginnerDrillIds = (beginnerDrills ?? []).map((d) => d.id);
+    completedDrillIds = (completedSessions ?? []).map((s) => s.drill_id);
   }
+
+  const toAward = qualifyingBadges(context, {
+    alreadyEarned,
+    juggleSessions,
+    challengeSessions,
+    beginnerDrillIds,
+    completedDrillIds,
+  });
 
   if (toAward.length === 0) return [];
 
@@ -183,12 +239,6 @@ export async function checkAndAwardBadges(
   return toAward;
 }
 
-function dayDiff(a: string, b: string): number {
-  return Math.round(
-    (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86_400_000,
-  );
-}
-
 // Called from the leaderboard after data loads to record last week's winner.
 // Idempotent — week_start is the PK so duplicate calls are safe.
 // Awards social_no1 badge to the winner if they don't already have it.
@@ -197,12 +247,10 @@ export async function recordWeeklyWin(
   winnerId: string,
   currentUserId: string,
 ): Promise<void> {
-  // Record the winner (ignore if already recorded for this week)
   await supabase
     .from('leaderboard_wins')
     .upsert({ week_start: weekStart, user_id: winnerId }, { onConflict: 'week_start', ignoreDuplicates: true });
 
-  // Award badge to the winner if they're the current user and don't have it yet
   if (winnerId === currentUserId) {
     await supabase
       .from('user_badges')

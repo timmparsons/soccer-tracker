@@ -13,8 +13,11 @@ npm run test:watch # re-run on file save
 
 | Test file | Source | What it covers |
 |---|---|---|
-| `__tests__/lib/xp.test.ts` | `lib/xp.ts` | Level calculation, rank names, rank badges |
-| `__tests__/utils/formatTimeAgo.test.ts` | `utils/formatTimeAgo.ts` | Time formatting edge cases |
+| `__tests__/lib/xp.test.ts` | `lib/xp.ts` | Level calculation at all thresholds, rank names, rank badges |
+| `__tests__/lib/checkBadges.test.ts` | `lib/checkBadges.ts` | All badge qualification logic: streaks, volume, sessions, perf, sky high, social, challenge streaks, drills |
+| `__tests__/lib/vinnie.test.ts` | `lib/vinnie.ts` | All `getVinnieMood` branches: milestones, Monday, streak milestones, TPM, near-target, beginner, late-day urgency |
+| `__tests__/lib/notifications.test.ts` | `lib/notifications.ts` | Reminder message copy for each day count |
+| `__tests__/utils/formatTimeAgo.test.ts` | `utils/formatTimeAgo.ts` | Time bucket boundaries |
 | `__tests__/utils/getDisplayName.test.ts` | `utils/getDisplayName.ts` | Name priority: display_name → first name → fallback |
 | `__tests__/utils/getLocalDate.test.ts` | `utils/getLocalDate.ts` | Local date string formatting |
 | `__tests__/utils/globalLeaderboardName.test.ts` | `utils/globalLeaderboardName.ts` | First name + last initial formatting |
