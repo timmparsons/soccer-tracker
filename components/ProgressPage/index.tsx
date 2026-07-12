@@ -1,6 +1,7 @@
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
+import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import {
@@ -35,6 +36,7 @@ const shownMilestones = new Set<number>();
 const ProgressPage = () => {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
+  const challengeNotifications = useChallengeNotifications();
   const { isPremium } = useSubscription();
 
   const router = useRouter();
@@ -211,6 +213,7 @@ const ProgressPage = () => {
         title='Progress'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
+        challengeNotifications={challengeNotifications}
         rightComponent={
           <View style={styles.filterContainer}>
             <TouchableOpacity

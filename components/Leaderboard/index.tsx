@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
+import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
@@ -44,6 +45,7 @@ interface JugglingRecord {
 const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const challengeNotifications = useChallengeNotifications();
   const { data: team } = useTeam(user?.id);
   const router = useRouter();
 
@@ -439,6 +441,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           onNotificationPress={
             profile?.is_coach ? () => setInactiveModalVisible(true) : undefined
           }
+          challengeNotifications={challengeNotifications}
         />
       )}
 

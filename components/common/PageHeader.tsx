@@ -37,6 +37,13 @@ function activityIcon(type: CheerNotification['activity_type']): { name: React.C
   }
 }
 
+export interface ChallengeNotificationItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}
+
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -45,6 +52,7 @@ interface PageHeaderProps {
   rightComponent?: React.ReactNode;
   hasNewCheers?: boolean;
   onNotificationPress?: () => void;
+  challengeNotifications?: ChallengeNotificationItem[];
 }
 
 const PageHeader = ({
@@ -55,6 +63,7 @@ const PageHeader = ({
   rightComponent,
   hasNewCheers: hasNewCheersOverride,
   onNotificationPress,
+  challengeNotifications,
 }: PageHeaderProps) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -68,7 +77,7 @@ const PageHeader = ({
 
   const hasNewCheers = isExternalHandler
     ? (hasNewCheersOverride ?? false)
-    : unviewedReactions.length > 0;
+    : unviewedReactions.length > 0 || (challengeNotifications?.length ?? 0) > 0;
 
   const handleBellPress = async () => {
     if (onNotificationPress) {
@@ -130,10 +139,43 @@ const PageHeader = ({
           </TouchableWithoutFeedback>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Likes</Text>
+            <Text style={styles.modalTitle}>Notifications</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {allCheers.length === 0 && (
-                <Text style={styles.modalEmpty}>No likes yet — get out there and train!</Text>
+              {/* Challenge notifications */}
+              {challengeNotifications && challengeNotifications.length > 0 && (
+                <>
+                  {allCheers.length > 0 && <Text style={styles.sectionLabel}>Challenges</Text>}
+                  {challengeNotifications.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.modalRow}
+                      onPress={() => {
+                        setShowCheersModal(false);
+                        item.onPress();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.modalAvatar, { backgroundColor: '#FEE2E2' }]}>
+                        <Ionicons name='alert-circle' size={20} color='#EF4444' />
+                      </View>
+                      <View style={styles.modalRowText}>
+                        <View style={styles.modalNameRow}>
+                          <Text style={styles.modalName}>{item.title}</Text>
+                          <View style={styles.modalNewDot} />
+                        </View>
+                        <Text style={styles.modalActivity}>{item.subtitle}</Text>
+                      </View>
+                      <Ionicons name='chevron-forward' size={16} color='#B0BEC5' />
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              {/* Likes */}
+              {allCheers.length > 0 && challengeNotifications && challengeNotifications.length > 0 && (
+                <Text style={styles.sectionLabel}>Likes</Text>
+              )}
+              {allCheers.length === 0 && (challengeNotifications?.length ?? 0) === 0 && (
+                <Text style={styles.modalEmpty}>No notifications yet — get out there and train!</Text>
               )}
               {allCheers.map((r) => {
                 const icon = activityIcon(r.activity_type);
@@ -269,6 +311,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1a1a2e',
     marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 8,
+    marginBottom: 4,
   },
   modalRow: {
     flexDirection: 'row',

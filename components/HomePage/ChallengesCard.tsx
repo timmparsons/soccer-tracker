@@ -10,7 +10,7 @@ import {
   type PlayerChallenge,
 } from '@/hooks/usePlayerChallenges';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const VISIBLE_LIMIT = 3;
@@ -29,9 +29,10 @@ interface ChallengesCardProps {
   userId: string;
   teamId: string | null | undefined;
   playerName: string;
+  expandSignal?: number;
 }
 
-export default function ChallengesCard({ userId, teamId, playerName }: ChallengesCardProps) {
+export default function ChallengesCard({ userId, teamId, playerName, expandSignal }: ChallengesCardProps) {
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
   const { data: groupChallenges = [] } = useGroupChallenges(userId);
@@ -43,6 +44,10 @@ export default function ChallengesCard({ userId, teamId, playerName }: Challenge
   const { mutate: deleteGroup } = useDeleteGroupChallenge();
 
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if ((expandSignal ?? 0) > 0) setExpanded(true);
+  }, [expandSignal]);
   const [attemptChallenge, setAttemptChallenge] = useState<PlayerChallenge | null>(null);
   const [attemptGroupChallenge, setAttemptGroupChallenge] = useState<GroupChallenge | null>(null);
   const [showPicker, setShowPicker] = useState(false);

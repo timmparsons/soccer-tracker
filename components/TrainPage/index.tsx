@@ -6,6 +6,7 @@ import LogSessionModal from '@/components/modals/LogSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
+import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -137,6 +138,20 @@ const TrainPage = () => {
       }
     });
   }, [user?.id]);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [challengesLayoutY, setChallengesLayoutY] = useState(0);
+  const [challengeExpandSignal, setChallengeExpandSignal] = useState(0);
+
+  const handleScrollToChallenges = useCallback(() => {
+    setTrainView('academy');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: challengesLayoutY, animated: true });
+      setChallengeExpandSignal((s) => s + 1);
+    }, 300);
+  }, [challengesLayoutY]);
+
+  const challengeNotifications = useChallengeNotifications(handleScrollToChallenges);
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
@@ -392,6 +407,7 @@ const TrainPage = () => {
         title='Train'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
+        challengeNotifications={challengeNotifications}
       />
 
       {/* Academy / Street segmented control — non-coaches only */}
@@ -419,6 +435,7 @@ const TrainPage = () => {
       )}
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -497,11 +514,14 @@ const TrainPage = () => {
 
             {/* CHALLENGES */}
             {!profile?.is_coach && user?.id && (
-              <ChallengesCard
-                userId={user.id}
-                teamId={profile?.team_id}
-                playerName={getDisplayName(profile)}
-              />
+              <View onLayout={(e) => setChallengesLayoutY(e.nativeEvent.layout.y)}>
+                <ChallengesCard
+                  userId={user.id}
+                  teamId={profile?.team_id}
+                  playerName={getDisplayName(profile)}
+                  expandSignal={challengeExpandSignal}
+                />
+              </View>
             )}
           </>
         )}

@@ -3,6 +3,7 @@ import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
+import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useChallengeStats,
@@ -28,6 +29,7 @@ import {
 const HomeScreen = () => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const challengeNotifications = useChallengeNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
   const queryClient = useQueryClient();
@@ -88,6 +90,7 @@ const HomeScreen = () => {
         subtitle='Ready to get some touches?'
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
+        challengeNotifications={challengeNotifications}
       />
 
       <ScrollView
