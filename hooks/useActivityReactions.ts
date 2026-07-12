@@ -141,10 +141,20 @@ export async function toggleReaction(params: {
       .eq('feed_item_key', activityKey)
       .eq('cheered_by_profile_id', reactorId);
   } else {
-    await (supabase as any).from('feed_cheers').insert({
-      feed_item_key: activityKey,
-      cheered_by_profile_id: reactorId,
-      recipient_profile_id: recipientId,
-    });
+    // Verify against DB before inserting to prevent double-reactions across devices
+    const { data: existing } = await (supabase as any)
+      .from('feed_cheers')
+      .select('feed_item_key')
+      .eq('feed_item_key', activityKey)
+      .eq('cheered_by_profile_id', reactorId)
+      .maybeSingle();
+
+    if (!existing) {
+      await (supabase as any).from('feed_cheers').insert({
+        feed_item_key: activityKey,
+        cheered_by_profile_id: reactorId,
+        recipient_profile_id: recipientId,
+      });
+    }
   }
 }

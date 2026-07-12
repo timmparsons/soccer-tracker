@@ -21,7 +21,7 @@ const ActivityFeed = () => {
   const { data: profile } = useProfile(user?.id);
   const feedItemKeys = useMemo(() => activity.map((item) => item.id), [activity]);
   const { data: cheersMap = new Map() } = useCheersForItems(feedItemKeys);
-  const { data: myCheerKeys = new Set<string>() } = useMyCheerKeys(user?.id);
+  const { data: myCheerKeys = new Set<string>(), isLoading: cheerKeysLoading } = useMyCheerKeys(user?.id);
 
   if (activity.length === 0) return null;
 
@@ -53,6 +53,7 @@ const ActivityFeed = () => {
                 userId={user.id}
                 cheerData={cheersMap.get(item.id)}
                 alreadyCheered={myCheerKeys.has(item.id)}
+                disabled={cheerKeysLoading}
               />
             )}
           </View>

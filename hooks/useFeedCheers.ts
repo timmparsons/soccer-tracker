@@ -73,11 +73,21 @@ export async function toggleCheer({
       .eq('feed_item_key', feedItemKey)
       .eq('cheered_by_profile_id', cheeredByUserId);
   } else {
-    await (supabase as any).from('feed_cheers').insert({
-      feed_item_key: feedItemKey,
-      cheered_by_profile_id: cheeredByUserId,
-      recipient_profile_id: recipientUserId,
-    });
+    // Verify against DB before inserting to prevent double-cheers across devices
+    const { data: existing } = await (supabase as any)
+      .from('feed_cheers')
+      .select('feed_item_key')
+      .eq('feed_item_key', feedItemKey)
+      .eq('cheered_by_profile_id', cheeredByUserId)
+      .maybeSingle();
+
+    if (!existing) {
+      await (supabase as any).from('feed_cheers').insert({
+        feed_item_key: feedItemKey,
+        cheered_by_profile_id: cheeredByUserId,
+        recipient_profile_id: recipientUserId,
+      });
+    }
   }
 
   queryClient.invalidateQueries({ queryKey: ['feed-cheers'] });

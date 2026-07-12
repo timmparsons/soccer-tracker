@@ -16,9 +16,10 @@ interface CheerRowProps {
   userId: string;
   cheerData: CheerData | undefined;
   alreadyCheered: boolean;
+  disabled?: boolean;
 }
 
-export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, alreadyCheered }: CheerRowProps) {
+export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, alreadyCheered, disabled }: CheerRowProps) {
   const queryClient = useQueryClient();
   const [localOverride, setLocalOverride] = useState<boolean | null>(null);
   const [localCount, setLocalCount] = useState<number | null>(null);
@@ -29,14 +30,14 @@ export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, 
   const effectiveCount = localCount !== null ? localCount : baseCount;
 
   const handleCheer = async () => {
-    const next = !effectiveCheered;
-    setLocalOverride(next);
-    setLocalCount(effectiveCount + (next ? 1 : -1));
+    if (disabled || effectiveCheered) return;
+    setLocalOverride(true);
+    setLocalCount(effectiveCount + 1);
     await toggleCheer({
       feedItemKey,
       cheeredByUserId: userId,
       recipientUserId: recipientId,
-      alreadyCheered: effectiveCheered,
+      alreadyCheered: false,
       queryClient,
     });
   };
@@ -45,9 +46,10 @@ export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, 
     <View style={styles.row}>
       <TouchableOpacity
         onPress={handleCheer}
-        style={[styles.cheerBtn, effectiveCheered && styles.cheerBtnActive]}
+        style={[styles.cheerBtn, effectiveCheered && styles.cheerBtnActive, disabled && styles.cheerBtnDisabled]}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        activeOpacity={0.7}
+        activeOpacity={disabled ? 1 : 0.7}
+        disabled={disabled}
       >
         <Text style={[styles.cheerBtnText, effectiveCheered && styles.cheerBtnTextActive]}>👏</Text>
       </TouchableOpacity>
@@ -99,6 +101,9 @@ const styles = StyleSheet.create({
   cheerBtnActive: {
     borderColor: '#1f89ee',
     backgroundColor: '#EFF6FF',
+  },
+  cheerBtnDisabled: {
+    opacity: 0.4,
   },
   cheerBtnText: {
     fontSize: 12,
