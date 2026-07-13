@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://mastertouch.app/</loc><priority>1.0</priority></url>
-  <url><loc>https://mastertouch.app/guides/1000-touches-a-day.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/soccer-drills-at-home.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/get-better-at-soccer-on-your-own.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/how-to-juggle-a-soccer-ball.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/track-soccer-touches.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/soccer-training-app-for-kids.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/motivate-kids-to-practice-soccer.html</loc><priority>0.8</priority></url>
-  <url><loc>https://mastertouch.app/guides/how-often-should-kids-practice-soccer.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/1000-touches-a-day</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/soccer-drills-at-home</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/get-better-at-soccer-on-your-own</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/how-to-juggle-a-soccer-ball</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/track-soccer-touches</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/soccer-training-app-for-kids</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/motivate-kids-to-practice-soccer</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/guides/how-often-should-kids-practice-soccer</loc><priority>0.8</priority></url>
 </urlset>
