@@ -13,6 +13,7 @@ import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { getTeamDisplayNames } from '@/utils/teamLeaderboardName';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -252,6 +253,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     return player.alltime_best_week;
   };
 
+  const teamDisplayNames = getTeamDisplayNames([...touchesLeaderboard, ...jugglingLeaderboard]);
+  const teamName = (p: { id: string; name: string }) => teamDisplayNames[p.id] ?? p.name;
+
   const scoredPlayers = sortedTouches.filter(p => getTouchScore(p) > 0);
   const showTouchesPodium = scoredPlayers.length >= 1;
   const podiumCount = Math.min(scoredPlayers.length, 3);
@@ -300,7 +304,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
               </View>
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
@@ -320,7 +324,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
               </View>
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
@@ -341,7 +345,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
               </View>
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
@@ -361,7 +365,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
               </View>
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
               {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
             </TouchableOpacity>
@@ -384,7 +388,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
               <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
             </TouchableOpacity>
           );
@@ -396,7 +400,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
               <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
             </TouchableOpacity>
           );
@@ -409,7 +413,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
               <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
             </TouchableOpacity>
           );
@@ -421,7 +425,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
               <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
               <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
               <Text style={styles.podiumTouches}>{p.high_score}</Text>
             </TouchableOpacity>
           );
@@ -648,7 +652,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <View style={styles.playerInfo}>
                             <View style={styles.nameRow}>
                               <Text style={styles.playerName}>
-                                {player.name}
+                                {teamName(player)}
                                 {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                               </Text>
                             </View>
@@ -713,7 +717,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <View style={styles.playerInfo}>
                             <View style={styles.nameRow}>
                               <Text style={styles.playerName}>
-                                {player.name}
+                                {teamName(player)}
                                 {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                               </Text>
                             </View>
