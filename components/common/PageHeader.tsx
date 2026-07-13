@@ -170,9 +170,9 @@ const PageHeader = ({
                   ))}
                 </>
               )}
-              {/* Likes */}
+              {/* Cheers */}
               {allCheers.length > 0 && challengeNotifications && challengeNotifications.length > 0 && (
-                <Text style={styles.sectionLabel}>Likes</Text>
+                <Text style={styles.sectionLabel}>Cheers</Text>
               )}
               {allCheers.length === 0 && (challengeNotifications?.length ?? 0) === 0 && (
                 <Text style={styles.modalEmpty}>No notifications yet — get out there and train!</Text>
@@ -188,7 +188,10 @@ const PageHeader = ({
                     </View>
                     <View style={styles.modalRowText}>
                       <View style={styles.modalNameRow}>
-                        <Text style={styles.modalName}>{r.reactor_name}</Text>
+                        <Text style={styles.modalName}>
+                          {r.reactor_name}
+                          <Text style={styles.modalVerb}> cheered you on 👏</Text>
+                        </Text>
                         {r.is_new && <View style={styles.modalNewDot} />}
                       </View>
                       <View style={styles.modalActivityRow}>
@@ -354,6 +357,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
+  },
+  modalVerb: {
+    fontWeight: '500',
   },
   modalActivityRow: {
     flexDirection: 'row',
