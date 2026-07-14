@@ -182,7 +182,7 @@ h2.section-title { font-size: 34px; font-weight: 900; letter-spacing: -0.4px; ma
 }
 .guide-card h3 { font-size: 17px; font-weight: 900; line-height: 1.35; margin-bottom: 8px; }
 .guide-card p { font-size: 14px; color: var(--muted); flex: 1; }
-.guide-card .more { margin-top: 14px; font-weight: 900; font-size: 14px; color: var(--blue); }
+.guide-card .more { margin-top: 14px; font-weight: 900; font-size: 14px; color: var(--blue); white-space: nowrap; }
 @media (max-width: 860px) { .guides { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 480px) { .guides { grid-template-columns: 1fr; } }
 
@@ -272,3 +272,37 @@ h2.section-title { font-size: 34px; font-weight: 900; letter-spacing: -0.4px; ma
 .related h2 { font-size: 24px; font-weight: 900; margin-bottom: 24px; }
 .related .guides { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 860px) { .related .guides { grid-template-columns: 1fr; } }
+
+/* ===== COURSE PAGES ===== */
+.course-table { width: 100%; border-collapse: collapse; margin: 24px 0 32px; font-size: 15px; }
+.course-table th, .course-table td { border: 1px solid #e8eef4; padding: 10px 14px; text-align: left; }
+.course-table th { background: var(--bg-soft); font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dark); }
+.course-table td { color: #33404b; }
+
+.day-card {
+  background: #fff; border: 1px solid #e8eef4; border-radius: 20px;
+  padding: 26px 28px; margin: 26px 0;
+}
+.day-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.day-num {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  background: var(--blue); color: #fff; font-weight: 900; font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+}
+.day-head h2 { margin: 0 !important; font-size: 22px !important; flex: 1; }
+.touch-pill {
+  margin-left: auto; flex-shrink: 0;
+  background: var(--orange); color: var(--dark);
+  font-size: 13px; font-weight: 900; letter-spacing: 0.5px;
+  padding: 6px 14px; border-radius: 999px; white-space: nowrap;
+}
+.day-card p, .day-card ul, .day-card ol { font-size: 15.5px; }
+.day-card h3 { margin: 18px 0 8px !important; font-size: 16px !important; }
+.day-card .levelup { background: var(--bg-soft); border-radius: 12px; padding: 12px 16px; margin: 16px 0 0; font-size: 14.5px; }
+@media (max-width: 540px) {
+  .day-card { padding: 20px 18px; }
+  .touch-pill { margin-left: 0; }
+}
+
+.pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 40px 0 8px; font-weight: 900; font-size: 15px; flex-wrap: wrap; }
+.pager .spacer { flex: 1; }
