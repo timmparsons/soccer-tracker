@@ -6,6 +6,8 @@
   <url><loc>https://mastertouch.app/course/week-2</loc><priority>0.8</priority></url>
   <url><loc>https://mastertouch.app/course/week-3</loc><priority>0.8</priority></url>
   <url><loc>https://mastertouch.app/course/week-4</loc><priority>0.8</priority></url>
+  <url><loc>https://mastertouch.app/support</loc><priority>0.3</priority></url>
+  <url><loc>https://mastertouch.app/privacy</loc><priority>0.3</priority></url>
   <url><loc>https://mastertouch.app/guides/1000-touches-a-day</loc><priority>0.8</priority></url>
   <url><loc>https://mastertouch.app/guides/soccer-drills-at-home</loc><priority>0.8</priority></url>
   <url><loc>https://mastertouch.app/guides/get-better-at-soccer-on-your-own</loc><priority>0.8</priority></url>
