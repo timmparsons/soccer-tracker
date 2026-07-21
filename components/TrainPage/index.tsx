@@ -12,6 +12,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
+import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -19,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -49,6 +50,12 @@ const TrainPage = () => {
   const insets = useSafeAreaInsets();
   const [trainView, setTrainView] = useState<'academy' | 'street'>('academy');
   const [modalVisible, setModalVisible] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      track('train_viewed');
+    }, []),
+  );
   const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
   const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   // Timer state

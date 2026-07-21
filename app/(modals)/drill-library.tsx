@@ -8,10 +8,11 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { track } from '@/lib/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   ScrollView,
@@ -50,6 +51,10 @@ export default function DrillLibraryScreen() {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+
+  useEffect(() => {
+    track('drill_library_opened');
+  }, []);
 
   const drillsByDifficulty = {
     beginner: drills.filter((d) => d.difficulty_level === 'beginner'),
@@ -134,6 +139,7 @@ export default function DrillLibraryScreen() {
                       <TouchableOpacity
                         style={styles.drillThumbnailContainer}
                         onPress={() => {
+                          track('drill_video_played', { drill: drill.name, difficulty: drill.difficulty_level });
                           setVideoUrl(drill.video_url!);
                           setVideoName(drill.name);
                           setVideoDescription(drill.description ?? '');
@@ -162,6 +168,7 @@ export default function DrillLibraryScreen() {
                       style={styles.drillTapArea}
                       onPress={() => {
                         if (levelLocked) {
+                          track('locked_drill_tapped', { drill: drill.name, difficulty: drill.difficulty_level });
                           router.push('/(modals)/paywall');
                           return;
                         }

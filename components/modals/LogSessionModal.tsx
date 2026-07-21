@@ -83,16 +83,21 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // Android keyboard handling: some devices resize the Modal's dialog window
+  // for the keyboard, others leave it covering the keyboard. Track both the
+  // measured dialog height and the keyboard's top edge, and reconcile at
+  // render time.
+  const [dialogHeight, setDialogHeight] = useState(screenHeight);
+  const [kbScreenY, setKbScreenY] = useState<number | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const show = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
+      setKbScreenY(e.endCoordinates.screenY);
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
+      setKbScreenY(null);
     });
     return () => {
       show.remove();
@@ -186,8 +191,13 @@ const LogSessionModal = ({
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
+        const sessionTouches = touchCount > 0 ? touchCount : juggleCount;
         earnedBadgeIds = await checkAndAwardBadges(userId, {
           ...badgeContext,
+          // Include this session's touches so milestone badges (e.g. 500k) fire
+          // on the session that crosses the threshold, not the next one.
+          totalTouches: badgeContext.totalTouches + sessionTouches,
+          totalSessions: badgeContext.totalSessions + 1,
           jugglesThisSession: juggleCount > 0 ? juggleCount : null,
           durationMinutes,
         });
@@ -217,6 +227,13 @@ const LogSessionModal = ({
     }
   };
 
+  // The keyboard's top edge (screenY) is in screen coordinates and the dialog
+  // window starts at the screen top (statusBarTranslucent), so dialogHeight
+  // doubles as the dialog bottom's screen position. If the window resized for
+  // the keyboard this comes out ~0 and the height cap does the work instead.
+  const kbOverlap = kbScreenY == null ? 0 : Math.max(0, dialogHeight - kbScreenY);
+  const sheetHeight = Math.min(screenHeight * 0.85, dialogHeight - kbOverlap);
+
   // Check if form is valid
   const touchCount = touches ? parseInt(touches) : 0;
   const juggleCount = juggles ? parseInt(juggles) : 0;
@@ -233,12 +250,17 @@ const LogSessionModal = ({
       statusBarTranslucent={Platform.OS === 'android'}
       hardwareAccelerated
     >
-      <View style={styles.kavContainer}>
+      <View
+        style={styles.kavContainer}
+        onLayout={(ev) => {
+          setDialogHeight(ev.nativeEvent.layout.height);
+        }}
+      >
         <View style={styles.modalOverlay}>
           <View
             style={[
               styles.modalContent,
-              keyboardHeight > 0 && { height: screenHeight * 0.85 - keyboardHeight },
+              { height: sheetHeight, marginBottom: kbOverlap },
             ]}
           >
           <View style={styles.modalHeader}>

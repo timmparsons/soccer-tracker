@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Purchases, { PurchasesOffering } from 'react-native-purchases';
 import { useQuery } from '@tanstack/react-query';
+import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 
 const PRO_FEATURES = [
@@ -47,6 +48,10 @@ export default function Paywall() {
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+
+  useEffect(() => {
+    track('paywall_viewed', { tab: params.tab === 'coach' ? 'coach' : 'pro' });
+  }, [params.tab]);
 
   const { data: offerings, isLoading: offeringLoading } = useQuery<{
     pro: PurchasesOffering | null;

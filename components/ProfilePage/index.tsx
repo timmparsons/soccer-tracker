@@ -598,7 +598,7 @@ const ProfilePage = () => {
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
-  const BACKFILL_ENABLED = false; // TEMP: disabled for confetti testing — set back to true when done
+  const BACKFILL_ENABLED = true;
   useEffect(() => {
     if (!BACKFILL_ENABLED || !user?.id || !touchStats) return;
     checkAndAwardBadges(user.id, {

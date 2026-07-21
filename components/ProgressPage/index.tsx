@@ -11,6 +11,7 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -50,6 +51,7 @@ const ProgressPage = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
+        track('progress_viewed');
         queryClient.invalidateQueries({ queryKey: ['recent-sessions', user.id] });
         queryClient.invalidateQueries({ queryKey: ['chart-stats', user.id] });
         queryClient.invalidateQueries({ queryKey: ['quick-stats', user.id] });
