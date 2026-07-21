@@ -2,7 +2,7 @@
   "expo": {
     "name": "Master Touch",
     "slug": "soccer-tracker",
-    "version": "3.0.23",
+    "version": "3.0.24",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
     "scheme": "mastertouch",
