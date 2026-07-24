@@ -168,21 +168,7 @@ const HomeScreen = () => {
                 totalTouches={touchStats?.total_touches}
               />
             </View>
-            <TodayChallengeCard
-              userId={user.id}
-              totalTouches={touchStats?.total_touches ?? 0}
-              onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
-                router.push({
-                  pathname: '/(tabs)/train',
-                  params: {
-                    startChallengeDrillId: drillId,
-                    startChallengeDuration: String(durationMinutes),
-                    startChallengeName: drillName,
-                    startChallengeDifficulty: difficulty,
-                  },
-                });
-              }}
-            />
+            <TodayChallengeCard userId={user.id} />
           </>
         ) : (
           <>

@@ -1,7 +1,7 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import { useChallengeStats, useTodayChallenge } from '@/hooks/useTouchTracking';
+import { useDailyChallenge } from '@/hooks/useDailyChallenge';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -119,9 +119,8 @@ const LogSessionModal = ({
 
   const isChallengeMode = !!challengeDrillId;
 
-  const { data: todayChallenge } = useTodayChallenge(userId);
-  const { data: challengeStats } = useChallengeStats(userId, todayChallenge?.id);
-  const challengeLocked = !isChallengeMode && !(challengeStats?.completedToday ?? false);
+  const { userCompletion } = useDailyChallenge(userId);
+  const challengeLocked = !isChallengeMode && !userCompletion;
 
   const handleSubmit = async () => {
     const touchCount = touches ? parseInt(touches) : 0;

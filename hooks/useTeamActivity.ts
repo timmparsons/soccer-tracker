@@ -12,83 +12,87 @@ export interface TeamActivityItem {
   createdAt: string;
 }
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+function pickForId<T>(arr: T[], id: string): T {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) & 0x7fffffff;
+  }
+  return arr[hash % arr.length];
 }
 
-function getStreetFeedMessage(category: string, challengeName: string, name: string): string {
+function getStreetFeedMessage(category: string, challengeName: string, name: string, id: string): string {
   switch (category) {
     case 'freestyle':
-      return pick([
+      return pickForId([
         `${name} took on ${challengeName}`,
         `${name} pulled off ${challengeName}`,
         `${name} was feeling it — ${challengeName}`,
-      ]);
+      ], id);
     case 'accuracy':
-      return pick([
+      return pickForId([
         `${name} locked in on ${challengeName}`,
         `${name} put the work in on ${challengeName}`,
         `${name} stepped up to ${challengeName}`,
-      ]);
+      ], id);
     case 'crazy_control':
-      return pick([
+      return pickForId([
         `${name} got uncomfortable — ${challengeName}`,
         `${name} earned it with ${challengeName}`,
         `${name} took on ${challengeName} and felt every rep`,
-      ]);
+      ], id);
     case 'make_rules':
-      return pick([
+      return pickForId([
         `${name} went off — ${challengeName}`,
         `${name} made their own rules: ${challengeName}`,
         `${name} owned the yard with ${challengeName}`,
-      ]);
+      ], id);
     case 'creativity':
-      return pick([
+      return pickForId([
         `${name} built something with ${challengeName}`,
         `${name} got creative — ${challengeName}`,
         `${name} invented something doing ${challengeName}`,
-      ]);
+      ], id);
     default:
       return `${name} completed ${challengeName}`;
   }
 }
 
-function sessionMessage(name: string, totalTouches: number, sessionCount: number, hasChallenge: boolean): string {
-  if (hasChallenge) return pick([
+function sessionMessage(name: string, totalTouches: number, sessionCount: number, hasChallenge: boolean, id: string): string {
+  if (hasChallenge) return pickForId([
     `${name} completed their challenge`,
     `${name} got their challenge done`,
     `${name} knocked out a challenge`,
     `${name} checked off their challenge`,
-  ]);
-  if (totalTouches >= 10000) return pick([
+  ], id);
+  if (totalTouches >= 10000) return pickForId([
     `${name} put in an insane shift — ${totalTouches.toLocaleString()} touches`,
     `${name} is an absolute machine — ${totalTouches.toLocaleString()} touches`,
     `${name} is built different — ${totalTouches.toLocaleString()} touches and counting`,
-  ]);
-  if (totalTouches >= 5000) return pick([
+  ], id);
+  if (totalTouches >= 5000) return pickForId([
     `${name} is on one — ${totalTouches.toLocaleString()} touches`,
     `${name} is having a day — ${totalTouches.toLocaleString()} touches logged`,
     `${name} is putting in serious work — ${totalTouches.toLocaleString()} touches`,
-  ]);
-  if (totalTouches >= 2000) return pick([
+  ], id);
+  if (totalTouches >= 2000) return pickForId([
     `${name} has been busy — ${totalTouches.toLocaleString()} touches`,
     `${name} is clocking up the reps — ${totalTouches.toLocaleString()} touches`,
     `${name} is making it count — ${totalTouches.toLocaleString()} touches`,
-  ]);
-  if (totalTouches >= 1000) return pick([
+  ], id);
+  if (totalTouches >= 1000) return pickForId([
     `${name} hit 1,000 touches`,
     `${name} crossed the 1,000 touch mark`,
     `${name} broke 1,000 touches`,
-  ]);
-  if (sessionCount >= 3) return pick([
+  ], id);
+  if (sessionCount >= 3) return pickForId([
     `${name} keeps coming back — ${sessionCount} sessions`,
     `${name} has been at it — ${sessionCount} sessions logged`,
-  ]);
-  return pick([
+  ], id);
+  return pickForId([
     `${name} put in work`,
     `${name} showed up`,
     `${name} is getting their reps in`,
-  ]);
+  ], id);
 }
 
 export function useActivityFeed(limit = 7) {
@@ -123,6 +127,14 @@ export function useActivityFeed(limit = 7) {
         .order('created_at', { ascending: false })
         .limit(30);
 
+      // Fetch recent daily challenge completions
+      const { data: dailyChallengeCompletions } = await (supabase as any)
+        .from('daily_challenge_completions')
+        .select('id, profile_id, challenge_id, time_seconds, created_at, daily_challenges(title)')
+        .gte('created_at', threeDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(30);
+
       // Collect all user IDs we need profiles for
       const sessionUserIds = [...new Set((sessions || []).map((s: { user_id: string }) => s.user_id))];
       const winnerIds = (wins || []).map((w: { winner_id: string }) => w.winner_id);
@@ -130,7 +142,8 @@ export function useActivityFeed(limit = 7) {
         w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
       );
       const streetUserIds = (streetCompletions || []).map((c: any) => c.profile_id as string);
-      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds])];
+      const dailyChallengeUserIds = (dailyChallengeCompletions || []).map((c: any) => c.profile_id as string);
+      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds, ...dailyChallengeUserIds])];
 
       if (allUserIds.length === 0) return [];
 
@@ -199,14 +212,37 @@ export function useActivityFeed(limit = 7) {
           userId: w.winner_id,
           name: winnerName,
           avatarUrl: winnerProfile?.avatar_url ?? null,
-          message: pick([
+          message: pickForId([
             `${winnerName} beat ${opponentName} in a 1v1`,
             `${winnerName} got the better of ${opponentName} today`,
             `${winnerName} took down ${opponentName} in a 1v1`,
-          ]),
+          ], w.id),
           createdAt: completedAt,
         });
         usedUsers.add(w.winner_id);
+      }
+
+      // Daily challenge completions (after 1v1 wins, before training sessions)
+      for (const c of (dailyChallengeCompletions || []) as any[]) {
+        if (usedUsers.has(c.profile_id)) continue;
+        const profile = profileMap.get(c.profile_id);
+        if (!profile) continue;
+        const name = getDisplayName(profile);
+        const mins = Math.floor(c.time_seconds / 60);
+        const secs = String(c.time_seconds % 60).padStart(2, '0');
+        items.push({
+          id: `daily-challenge-${c.id}`,
+          userId: c.profile_id,
+          name,
+          avatarUrl: profile.avatar_url ?? null,
+          message: pickForId([
+            `${name} finished today's challenge in ${mins}:${secs}`,
+            `${name} crushed the daily challenge — ${mins}:${secs}`,
+            `${name} clocked ${mins}:${secs} on today's challenge`,
+          ], c.id),
+          createdAt: c.created_at,
+        });
+        usedUsers.add(c.profile_id);
       }
 
       // One story per user (their most recent training day)
@@ -220,7 +256,7 @@ export function useActivityFeed(limit = 7) {
           userId,
           name,
           avatarUrl: profile?.avatar_url ?? null,
-          message: sessionMessage(name, stats.totalTouches, stats.sessionCount, stats.hasChallenge),
+          message: sessionMessage(name, stats.totalTouches, stats.sessionCount, stats.hasChallenge, `${userId}-${stats.latestAt}`),
           createdAt: stats.latestAt,
         });
         usedUsers.add(userId);
@@ -237,7 +273,7 @@ export function useActivityFeed(limit = 7) {
           userId: completion.profile_id,
           name,
           avatarUrl: profile.avatar_url ?? null,
-          message: getStreetFeedMessage(completion.category, completion.challenge_name, name),
+          message: getStreetFeedMessage(completion.category, completion.challenge_name, name, completion.id),
           createdAt: completion.created_at,
         });
       }
