@@ -1,4 +1,4 @@
-import { getVinnieMood } from '@/lib/vinnie';
+import { getVinnieMood, VinnieSprintResult } from '@/lib/vinnie';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
@@ -12,6 +12,7 @@ interface VinnieCardProps {
   weekTpm?: number;
   weekSessions?: number;
   totalTouches?: number;
+  lastSprintResult?: VinnieSprintResult | null;
   compact?: boolean;
   style?: ViewStyle;
 }
@@ -32,7 +33,7 @@ const PIVOT_Y = HAND_H / 2;
 // Starting angle offset — positive = clockwise, moves hand away from face
 const HAND_ANGLE_OFFSET = 20;
 
-const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, compact = false, style }: VinnieCardProps) => {
+const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult, compact = false, style }: VinnieCardProps) => {
   const now = new Date();
   const hour = now.getHours();
   const dayOfWeek = now.getDay();
@@ -85,9 +86,9 @@ const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, tod
   });
 
   const { message } = useMemo(
-    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches }),
+    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainedToday, streak, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches],
+    [trainedToday, streak, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult],
   );
 
   if (compact) {

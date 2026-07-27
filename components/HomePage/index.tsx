@@ -1,10 +1,13 @@
 import ActivityFeed from '@/components/HomePage/ActivityFeed';
-import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
+import DailySprintCard from '@/components/HomePage/DailySprintCard';
+import TeamUnlockProgressBar from '@/components/HomePage/TeamUnlockProgressBar';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
+import { useDailySprint } from '@/hooks/useDailySprint';
 import { useProfile } from '@/hooks/useProfile';
+import { VinnieSprintResult } from '@/lib/vinnie';
 import {
   useChallengeStats,
   useTouchTracking,
@@ -32,6 +35,7 @@ const HomeScreen = () => {
   const challengeNotifications = useChallengeNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
+  const [lastSprintResult, setLastSprintResult] = useState<VinnieSprintResult | null>(null);
   const queryClient = useQueryClient();
 
   const {
@@ -42,6 +46,8 @@ const HomeScreen = () => {
 
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
+
+  const { sprint } = useDailySprint(user?.id, profile?.team_id);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -166,9 +172,14 @@ const HomeScreen = () => {
                 weekTpm={weekTpm}
                 weekSessions={touchStats?.this_week_sessions}
                 totalTouches={touchStats?.total_touches}
+                lastSprintResult={lastSprintResult}
               />
             </View>
-            <TodayChallengeCard userId={user.id} />
+            <DailySprintCard
+              userId={user.id}
+              teamId={profile?.team_id}
+              onAttemptSubmitted={setLastSprintResult}
+            />
           </>
         ) : (
           <>
@@ -209,6 +220,10 @@ const HomeScreen = () => {
             </View>
           </View>
           </>
+        )}
+
+        {profile?.team_id && sprint && sprint.rosterSize > 0 && (
+          <TeamUnlockProgressBar completedCount={sprint.completedCount} rosterSize={sprint.rosterSize} />
         )}
 
         {/* TEAM ACTIVITY */}

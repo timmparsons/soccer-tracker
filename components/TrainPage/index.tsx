@@ -7,6 +7,7 @@ import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
+import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -87,6 +88,17 @@ const TrainPage = () => {
   const pausedRemainingRef = useRef<number>(0);
   const timerNotificationIdRef = useRef<string | null>(null);
   const whistlePlayedRef = useRef<boolean>(false);
+  const [hasStartedTimer, setHasStartedTimer] = useState(false);
+
+  // Pre-start countdown (10..1,GO) shown once before the free-practice timer
+  // actually begins counting down — reuses the same lead-in as the Daily
+  // Sprint timer. Only the 'countdown' phase of this hook is used; its own
+  // 'active' stopwatch/PR logic doesn't apply to a count-down practice timer.
+  const preTimer = useChallengeTimer({
+    personalBestMs: null,
+    crownThresholdMs: Infinity,
+    onGo: () => setTimerRunning(true),
+  });
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
@@ -253,14 +265,22 @@ const TrainPage = () => {
   }, []);
 
   const pauseResumeTimer = useCallback(() => {
+    // First start (not a resume-from-pause) gets the 10s countdown lead-in.
+    if (!timerRunning && !hasStartedTimer) {
+      setHasStartedTimer(true);
+      preTimer.start();
+      return;
+    }
     setTimerRunning((prev) => !prev);
-  }, []);
+  }, [timerRunning, hasStartedTimer, preTimer]);
 
   const resetTimer = useCallback(() => {
     stopTimer();
+    preTimer.reset();
+    setHasStartedTimer(false);
     pausedRemainingRef.current = freeTimerDuration;
     setTimeRemaining(freeTimerDuration);
-  }, [stopTimer, freeTimerDuration]);
+  }, [stopTimer, preTimer, freeTimerDuration]);
 
   useEffect(() => {
     if (timerRunning) {
@@ -379,6 +399,8 @@ const TrainPage = () => {
 
   const closeTimer = () => {
     stopTimer();
+    preTimer.reset();
+    setHasStartedTimer(false);
     setShowTimerModal(false);
     setTimeRemaining(0);
     setTimerChallengeDrillId(undefined);
@@ -534,7 +556,8 @@ const TrainPage = () => {
         )}
       </ScrollView>
 
-      {/* Timer Modal */}
+      {/* Timer Modal — visually matches the Daily Sprint timer: white for
+          not-yet-started/countdown, dark navy once it's actually running. */}
       <Modal
         visible={showTimerModal}
         animationType='fade'
@@ -543,60 +566,95 @@ const TrainPage = () => {
         hardwareAccelerated
         onRequestClose={cancelTimer}
       >
-        <View style={styles.timerModal}>
+        <View
+          style={[
+            styles.timerModal,
+            { backgroundColor: hasStartedTimer && preTimer.status !== 'countdown' ? '#1a1a2e' : '#FFFFFF' },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.timerCloseButton, { top: insets.top + 12 }]}
             onPress={closeTimer}
             hitSlop={12}
           >
-            <Ionicons name='close' size={28} color='#FFF' />
+            <Ionicons
+              name='close'
+              size={28}
+              color={hasStartedTimer && preTimer.status !== 'countdown' ? '#FFF' : '#78909C'}
+            />
           </TouchableOpacity>
-          <View style={styles.timerContent}>
-            <Text style={styles.timerChallengeName}>{timerChallengeName ?? 'Free Practice'}</Text>
-            <Text style={styles.timerInstructions}>
-              {timerChallengeName ? `Timer for: ${timerChallengeName}` : 'Get as many touches as you can!'}
-            </Text>
 
-            <View style={styles.timerCircle}>
-              <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
-              <Text style={styles.timerSubtext}>
-                {timerRunning ? 'remaining' : 'paused'}
+          {preTimer.status === 'countdown' ? (
+            <View style={styles.timerContent}>
+              <Text style={styles.timerReadyLabel}>{timerChallengeName ?? 'Get Ready'}</Text>
+              <Text
+                style={[
+                  styles.preCountdownText,
+                  preTimer.countdownValue === 'GO' && styles.preCountdownGo,
+                ]}
+              >
+                {preTimer.countdownValue}
               </Text>
             </View>
+          ) : hasStartedTimer ? (
+            <View style={styles.timerContent}>
+              <Text style={styles.timerActiveLabel}>{timerChallengeName ?? 'Free Practice'}</Text>
+              <Text style={styles.timerActiveTime}>{formatTime(timeRemaining)}</Text>
+              <Text style={styles.timerActiveSubtext}>
+                {timerRunning ? 'remaining' : 'paused'}
+              </Text>
 
-            <View style={styles.timerControlButtons}>
-              <TouchableOpacity
-                style={styles.timerSecondaryButton}
-                onPress={resetTimer}
-              >
-                <Ionicons
-                  name='refresh'
-                  size={20}
-                  color='rgba(255,255,255,0.8)'
-                />
-                <Text style={styles.timerSecondaryText}>Reset</Text>
-              </TouchableOpacity>
+              <View style={styles.timerControlButtons}>
+                <TouchableOpacity
+                  style={styles.timerSecondaryButton}
+                  onPress={resetTimer}
+                >
+                  <Ionicons
+                    name='refresh'
+                    size={20}
+                    color='rgba(255,255,255,0.8)'
+                  />
+                  <Text style={styles.timerSecondaryText}>Reset</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.timerStartPauseButton}
+                  onPress={pauseResumeTimer}
+                >
+                  <Ionicons
+                    name={timerRunning ? 'pause' : 'play'}
+                    size={30}
+                    color='#1f89ee'
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.timerSecondaryButton}
+                  onPress={cancelTimer}
+                >
+                  <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
+                  <Text style={styles.timerSecondaryText}>Stop</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.timerContent}>
+              <Text style={styles.timerReadyLabel}>{timerChallengeName ?? 'Free Practice'}</Text>
+              <Text style={styles.timerReadySubtitle}>
+                {timerChallengeName ? `Timer for: ${timerChallengeName}` : 'Get as many touches as you can!'}
+              </Text>
+              <Text style={styles.timerReadyTime}>{formatTime(timeRemaining)}</Text>
 
               <TouchableOpacity
-                style={styles.timerStartPauseButton}
+                style={styles.timerPrimaryButton}
                 onPress={pauseResumeTimer}
+                activeOpacity={0.85}
               >
-                <Ionicons
-                  name={timerRunning ? 'pause' : 'play'}
-                  size={30}
-                  color='#1f89ee'
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.timerSecondaryButton}
-                onPress={cancelTimer}
-              >
-                <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
-                <Text style={styles.timerSecondaryText}>Stop</Text>
+                <Ionicons name='play' size={26} color='#FFF' />
+                <Text style={styles.timerPrimaryButtonText}>Start</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          )}
         </View>
       </Modal>
 
@@ -1082,10 +1140,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // TIMER MODAL
+  // TIMER MODAL — matches the Daily Sprint timer's look: white while
+  // not-yet-started/counting down, dark navy once actually running.
   timerModal: {
     flex: 1,
-    backgroundColor: '#1f89ee',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1099,40 +1157,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  timerChallengeName: {
+  // Ready-to-start screen (white bg)
+  timerReadyLabel: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#FFF',
+    color: '#1a1a2e',
     textAlign: 'center',
     marginBottom: 8,
   },
-  timerInstructions: {
-    fontSize: 18,
+  timerReadySubtitle: {
+    fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#78909C',
+    textAlign: 'center',
     marginBottom: 40,
   },
-  timerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
+  timerReadyTime: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    fontVariant: ['tabular-nums'],
+    marginBottom: 40,
+  },
+  timerPrimaryButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 40,
-    borderWidth: 6,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    gap: 10,
+    backgroundColor: '#1f89ee',
+    paddingVertical: 18,
+    paddingHorizontal: 44,
+    borderRadius: 18,
+    shadowColor: '#1f89ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  timerText: {
-    fontSize: 64,
+  timerPrimaryButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  // Pre-start countdown (white bg, matches SprintTimerModal's CountdownView)
+  preCountdownText: {
+    fontSize: 120,
+    fontWeight: '900',
+    color: '#1f89ee',
+    marginTop: 40,
+  },
+  preCountdownGo: {
+    color: '#31af4d',
+  },
+  // Active/paused screen (dark navy bg)
+  timerActiveLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.75)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  timerActiveTime: {
+    fontSize: 72,
     fontWeight: '900',
     color: '#FFF',
+    fontVariant: ['tabular-nums'],
   },
-  timerSubtext: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 8,
+  timerActiveSubtext: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 48,
   },
   timerControlButtons: {
     flexDirection: 'row',

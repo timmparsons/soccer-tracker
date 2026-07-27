@@ -7,6 +7,7 @@ import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
 import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
+import { useSprintLeaderboard } from '@/hooks/useSprintLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
@@ -28,6 +29,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+const SPRINT_BADGE_INFO: Record<
+  'crown' | 'pr' | 'earlyBird',
+  { icon: string; label: string; message: string; bg: string }
+> = {
+  crown: {
+    icon: '👑',
+    label: 'Crown',
+    message: "Beat today's crown threshold — the target pace set for this sprint combo.",
+    bg: '#FEF9EC',
+  },
+  pr: {
+    icon: '📈',
+    label: 'PR',
+    message: 'Personal record — the fastest this player has ever run this sprint combo.',
+    bg: '#EFF6FF',
+  },
+  earlyBird: {
+    icon: '🌅',
+    label: 'Early Bird',
+    message: "First team member to log a time on today's sprint.",
+    bg: '#FFF4E5',
+  },
+};
 
 const getBeswickLevel = (score: number): { label: string; color: string; bg: string } => {
   if (score >= 2500) return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
@@ -62,7 +87,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       setView(hasTeam ? 'team' : hasClub ? 'club' : 'global');
     }
   }, [profile?.id]);
-  const [teamSubTab, setTeamSubTab] = useState<'touches' | 'juggling'>('touches');
+  const [teamSubTab, setTeamSubTab] = useState<'touches' | 'juggling' | 'sprint'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [clubPeriod, setClubPeriod] = useState<'week' | 'alltime'>('week');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
@@ -72,6 +97,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [periodPickerVisible, setPeriodPickerVisible] = useState(false);
+  const [badgeInfoModal, setBadgeInfoModal] = useState<keyof typeof SPRINT_BADGE_INFO | null>(null);
 
   const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
   const { data: inactivePlayers = [] } = useInactivePlayers(
@@ -120,6 +146,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         if (touchesPeriod === 'alltime') return 'Best single week ever';
       }
       if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'Resets Sunday' : null;
+      if (teamSubTab === 'sprint') return "Today's sprint only — resets daily";
     }
     return null;
   };
@@ -203,6 +230,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     refetch: refetchClub,
   } = useClubLeaderboard(clubId, clubPeriod);
 
+  const {
+    data: sprintLeaderboard = [],
+    isLoading: sprintLoading,
+    refetch: refetchSprint,
+  } = useSprintLeaderboard(effectiveTeamId);
+
   const isLoading = touchesLoading || jugglingLoading;
 
   useEffect(() => {
@@ -215,7 +248,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchTouches(), refetchJuggling(), refetchGlobal(), refetchClub()]);
+    await Promise.all([refetchTouches(), refetchJuggling(), refetchGlobal(), refetchClub(), refetchSprint()]);
     setRefreshing(false);
   };
 
@@ -226,7 +259,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchJuggling();
       refetchGlobal();
       refetchClub();
-    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal, refetchClub])
+      refetchSprint();
+    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal, refetchClub, refetchSprint])
   );
 
   if (isLoading && view === 'team') {
@@ -271,6 +305,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   };
 
 
+
+  const showSprintBadgeInfo = (badge: keyof typeof SPRINT_BADGE_INFO) => {
+    setBadgeInfoModal(badge);
+  };
 
   const getCurrentUserId = () => user?.id;
 
@@ -449,51 +487,60 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         />
       )}
 
-      {/* TOP VIEW TABS: underline style */}
+      {/* TOP VIEW TABS: underline style, period dropdown inline on the right */}
       <View style={styles.tabsContainer}>
-        {hasTeam && (
+        <View style={styles.tabsLeft}>
+          {hasTeam && (
+            <TouchableOpacity
+              style={[styles.tab, view === 'team' && styles.tabActive]}
+              onPress={() => setView('team')}
+            >
+              <Text style={[styles.tabText, view === 'team' && styles.tabTextActive]}>Team</Text>
+            </TouchableOpacity>
+          )}
+          {hasClub && (
+            <TouchableOpacity
+              style={[styles.tab, view === 'club' && styles.tabActive]}
+              onPress={() => setView('club')}
+            >
+              <Text style={[styles.tabText, view === 'club' && styles.tabTextActive]}>Club</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={[styles.tab, view === 'team' && styles.tabActive]}
-            onPress={() => setView('team')}
+            style={[styles.tab, view === 'global' && styles.tabActive]}
+            onPress={() => setView('global')}
           >
-            <Text style={[styles.tabText, view === 'team' && styles.tabTextActive]}>Team</Text>
+            <Text style={[styles.tabText, view === 'global' && styles.tabTextActive]}>Global</Text>
           </TouchableOpacity>
+        </View>
+
+        {view !== 'global' && (
+          <View style={styles.periodRow}>
+            {teamSubTab === 'sprint' ? (
+              <Text style={styles.periodDropdownText}>Today</Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.periodDropdownBtn}
+                onPress={() => setPeriodPickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
+                <Ionicons name='chevron-down' size={14} color='#6B7280' />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
-        {hasClub && (
-          <TouchableOpacity
-            style={[styles.tab, view === 'club' && styles.tabActive]}
-            onPress={() => setView('club')}
-          >
-            <Text style={[styles.tabText, view === 'club' && styles.tabTextActive]}>Club</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.tab, view === 'global' && styles.tabActive]}
-          onPress={() => setView('global')}
-        >
-          <Text style={[styles.tabText, view === 'global' && styles.tabTextActive]}>Global</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Controls row — always rendered for all tabs to keep spacing identical */}
+      {/* Controls — segmented control (full width, equal pills) */}
       <View style={styles.controlsRow}>
-        {view !== 'global' && (
-          <TouchableOpacity
-            style={styles.periodDropdownBtn}
-            onPress={() => setPeriodPickerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
-            <Ionicons name='chevron-down' size={14} color='#6B7280' />
-          </TouchableOpacity>
-        )}
         {view === 'team' && (
           <View style={styles.subTabsRow}>
             <TouchableOpacity
               style={[styles.subTab, teamSubTab === 'touches' && styles.subTabActive]}
               onPress={() => setTeamSubTab('touches')}
             >
-              <Text style={[styles.subTabText, teamSubTab === 'touches' && styles.subTabTextActive]}>
+              <Text style={[styles.subTabText, teamSubTab === 'touches' && styles.subTabTextActive]} numberOfLines={1}>
                 Touches
               </Text>
             </TouchableOpacity>
@@ -501,8 +548,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               style={[styles.subTab, teamSubTab === 'juggling' && styles.subTabActive]}
               onPress={() => setTeamSubTab('juggling')}
             >
-              <Text style={[styles.subTabText, teamSubTab === 'juggling' && styles.subTabTextActive]}>
+              <Text style={[styles.subTabText, teamSubTab === 'juggling' && styles.subTabTextActive]} numberOfLines={1}>
                 Juggling
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.subTab, teamSubTab === 'sprint' && styles.subTabActive]}
+              onPress={() => setTeamSubTab('sprint')}
+            >
+              <Text style={[styles.subTabText, teamSubTab === 'sprint' && styles.subTabTextActive]} numberOfLines={1}>
+                Challenges
               </Text>
             </TouchableOpacity>
           </View>
@@ -564,6 +619,35 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     {jugglingPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
                   </TouchableOpacity>
                 ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Sprint badge info — explains what Crown/PR/Early Bird mean */}
+      <Modal
+        transparent
+        visible={badgeInfoModal !== null}
+        animationType='slide'
+        onRequestClose={() => setBadgeInfoModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setBadgeInfoModal(null)}
+        >
+          <View style={styles.badgeInfoSheet}>
+            {badgeInfoModal && (
+              <>
+                <View style={[styles.badgeInfoIconBg, { backgroundColor: SPRINT_BADGE_INFO[badgeInfoModal].bg }]}>
+                  <Text style={styles.badgeInfoIcon}>{SPRINT_BADGE_INFO[badgeInfoModal].icon}</Text>
+                </View>
+                <Text style={styles.badgeInfoTitle}>{SPRINT_BADGE_INFO[badgeInfoModal].label}</Text>
+                <Text style={styles.badgeInfoMessage}>{SPRINT_BADGE_INFO[badgeInfoModal].message}</Text>
+                <TouchableOpacity style={styles.badgeInfoButton} onPress={() => setBadgeInfoModal(null)} activeOpacity={0.8}>
+                  <Text style={styles.badgeInfoButtonText}>Got it</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -732,6 +816,75 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     );
                   })}
                 </View>
+              </>
+            )}
+
+            {teamSubTab === 'sprint' && (
+              <>
+                {sprintLoading ? (
+                  <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+                ) : sprintLeaderboard.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateTitle}>No Sprint Times Yet</Text>
+                    <Text style={styles.emptyStateText}>
+                      Team members will appear here once they log today&apos;s sprint.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.listContainer}>
+                    {sprintLeaderboard.map((entry, index) => {
+                      const isCurrentUser = entry.userId === getCurrentUserId();
+                      return (
+                        <TouchableOpacity
+                          key={entry.userId}
+                          style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                          onPress={() => setSelectedPlayerId(entry.userId)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.playerLeft}>
+                            <View style={styles.rankContainer}>
+                              <Text style={styles.rankNumber}>{index + 1}</Text>
+                            </View>
+                            <Image
+                              source={{ uri: entry.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                              style={styles.avatar}
+                            />
+                            <View style={styles.playerInfo}>
+                              <View style={styles.nameRow}>
+                                <Text style={styles.playerName}>
+                                  {entry.name}
+                                  {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                                </Text>
+                              </View>
+                              {(entry.isCrown || entry.isPR || entry.isEarlyBird) && (
+                                <View style={styles.sprintBadgeRow}>
+                                  {entry.isCrown && (
+                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('crown'); }} hitSlop={6}>
+                                      <Text style={styles.sprintBadgeText}>👑 Crown</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                  {entry.isPR && (
+                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('pr'); }} hitSlop={6}>
+                                      <Text style={styles.sprintBadgeText}>📈 PR</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                  {entry.isEarlyBird && (
+                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('earlyBird'); }} hitSlop={6}>
+                                      <Text style={styles.sprintBadgeText}>🌅 Early Bird</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                          <View style={styles.playerRight}>
+                            <Text style={styles.weeklyTouches}>{(entry.durationMs / 1000).toFixed(2)}s</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </>
             )}
           </>
@@ -938,15 +1091,20 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // TOP VIEW TABS (Team / Club / Global) — underline style
+  // TOP VIEW TABS (Team / Club / Global) — underline style, period dropdown inline on the right
   tabsContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
-    gap: 24,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  tabsLeft: {
+    flexDirection: 'row',
+    gap: 24,
   },
   tab: {
     paddingVertical: 10,
@@ -969,14 +1127,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // CONTROLS ROW (period dropdown + Touches/Juggling toggle)
+  // CONTROLS — period dropdown row, then full-width segmented control row
   controlsRow: {
-    height: 52,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  periodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
+    minHeight: 20,
   },
   periodDropdownBtn: {
     flexDirection: 'row',
@@ -989,7 +1151,7 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  // SUB-TABS (Touches / Juggling) — segmented control style
+  // SUB-TABS (Touches / Juggling / Sprint) — full-width segmented control, equal-width pills
   subTabsRow: {
     flexDirection: 'row',
     backgroundColor: '#F0F4F8',
@@ -997,10 +1159,13 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   subTab: {
-    paddingVertical: 6,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
   },
   subTabActive: {
     backgroundColor: '#FFF',
@@ -1011,7 +1176,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   subTabText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#78909C',
   },
@@ -1212,6 +1377,16 @@ const styles = StyleSheet.create({
     color: '#78909C',
     fontWeight: '600',
   },
+  sprintBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sprintBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+  },
   podiumAvatarContainer: {
     position: 'relative',
   },
@@ -1346,6 +1521,54 @@ const styles = StyleSheet.create({
   },
   pickerRowTextActive: {
     color: '#1f89ee',
+  },
+
+  // Sprint badge info sheet
+  badgeInfoSheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  badgeInfoIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  badgeInfoIcon: {
+    fontSize: 26,
+  },
+  badgeInfoTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 8,
+  },
+  badgeInfoMessage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  badgeInfoButton: {
+    width: '100%',
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  badgeInfoButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
   },
 
   // Inactive players modal

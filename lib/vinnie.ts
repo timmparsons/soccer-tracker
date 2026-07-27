@@ -5,6 +5,13 @@ export interface VinnieState {
   message: string;
 }
 
+export interface VinnieSprintResult {
+  comboName: string;
+  durationMs: number;
+  isPR: boolean;
+  isCrown: boolean;
+}
+
 export interface VinnieContext {
   trainedToday: boolean;
   streak: number;
@@ -17,6 +24,7 @@ export interface VinnieContext {
   weekTpm?: number;
   weekSessions?: number;
   totalTouches?: number;
+  lastSprintResult?: VinnieSprintResult | null;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -234,12 +242,26 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   const {
     trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus,
     todayTouches = 0, dailyTarget = 1000, weekTpm = 0, weekSessions = 0, totalTouches = 0,
+    lastSprintResult,
   } = ctx;
 
   const encouragingPool =
     skillFocus && GOAL_MESSAGES[skillFocus]
       ? [...GOAL_MESSAGES[skillFocus], ...MESSAGES.encouraging]
       : MESSAGES.encouraging;
+
+  // A just-logged sprint time — highest priority, it's the most immediate
+  // feedback a player can get right after tapping STOP.
+  if (lastSprintResult) {
+    const seconds = (lastSprintResult.durationMs / 1000).toFixed(2);
+    if (lastSprintResult.isCrown) {
+      return { mood: 'hype', message: `CROWN PACE! ${lastSprintResult.comboName} in ${seconds}s — that's elite speed! 👑` };
+    }
+    if (lastSprintResult.isPR) {
+      return { mood: 'hype', message: `New PR! ${lastSprintResult.comboName} in ${seconds}s. You just beat your best 🔥` };
+    }
+    return { mood: 'happy', message: `Sprint logged — ${lastSprintResult.comboName} in ${seconds}s. Chase that PR next time!` };
+  }
 
   // Total touches milestones — highest priority regardless of anything else
   const milestone = [100000, 50000, 25000, 10000, 5000, 1000].find((m) => totalTouches === m);

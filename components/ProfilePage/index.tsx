@@ -10,6 +10,7 @@ import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
+import { useUserSquadBadges } from '@/hooks/useSquadBadges';
 import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
@@ -596,6 +597,7 @@ const ProfilePage = () => {
   const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
     useChallengeRecord(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+  const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
   const BACKFILL_ENABLED = true;
@@ -1062,6 +1064,31 @@ const ProfilePage = () => {
                   setSelectedBadge({ badge, isEarned })
                 }
               />
+            </View>
+          )}
+
+          {/* Squad Trophies Card - team badges earned together */}
+          {!profile?.is_coach && squadBadges.length > 0 && (
+            <View style={styles.badgesCard}>
+              <View style={styles.badgesHeader}>
+                <Text style={styles.badgesTitle}>Squad Trophies</Text>
+                <Text style={styles.badgesCount}>{squadBadges.length} earned</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.squadTrophyRow}>
+                {squadBadges.map((sb) => (
+                  <View key={sb.squadBadgeId} style={styles.squadTrophyChip}>
+                    <View style={styles.squadTrophyIcon}>
+                      <Ionicons name={sb.badgeIcon as any} size={22} color='#ffb724' />
+                    </View>
+                    <Text style={styles.squadTrophyName} numberOfLines={2}>
+                      {sb.badgeName}
+                    </Text>
+                    <Text style={styles.squadTrophyDate}>
+                      {new Date(sb.achievedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
         </ScrollView>
@@ -2754,6 +2781,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#A78BFA',
+  },
+  squadTrophyRow: {
+    gap: 12,
+  },
+  squadTrophyChip: {
+    width: 84,
+    alignItems: 'center',
+  },
+  squadTrophyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ffb72422',
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  squadTrophyName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+  },
+  squadTrophyDate: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#A78BFA',
+    marginTop: 2,
   },
   badgeModalOverlay: {
     flex: 1,

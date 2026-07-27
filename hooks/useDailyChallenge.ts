@@ -60,6 +60,10 @@ const D = {
   PUSH_SCISSOR:       '408632da-eafc-4ee7-91ab-3d4285b56091',
 };
 
+// Exposed so other daily-challenge-adjacent features (e.g. the sprint timer)
+// can reference the same real drill UUIDs instead of duplicating them.
+export const DRILL_IDS = D;
+
 // Touches credited per rep for each drill
 export const TOUCHES_PER_REP: Record<string, number> = {
   [D.TOE_TAPS]:       1,

@@ -153,6 +153,57 @@ export const useTouchTracking = (userId: string | undefined) => {
   });
 };
 
+// Unified streak: a day counts as "active" if it has a raw touch log
+// (daily_sessions) OR a Daily Sprint attempt (sprint_attempts, joined
+// through daily_sprints for its calendar date). This is a strict superset
+// of the touches-only streak in useTouchTracking, so it can only ever be
+// equal to or higher than that value — never lower — which keeps existing
+// long streaks (140+ days) intact.
+export const useActiveStreak = (userId: string | undefined) => {
+  return useQuery({
+    queryKey: ['active-streak', userId],
+    queryFn: async (): Promise<number> => {
+      if (!userId) throw new Error('No user ID');
+
+      const [{ data: sessions }, { data: attempts }] = await Promise.all([
+        supabase.from('daily_sessions').select('date').eq('user_id', userId),
+        (supabase as any)
+          .from('sprint_attempts')
+          .select('daily_sprints(date)')
+          .eq('profile_id', userId),
+      ]);
+
+      const dateSet = new Set<string>();
+      sessions?.forEach((s) => dateSet.add(s.date));
+      (attempts || []).forEach((a: { daily_sprints: { date: string } | null }) => {
+        if (a.daily_sprints?.date) dateSet.add(a.daily_sprints.date);
+      });
+
+      const uniqueDates = [...dateSet].sort((a, b) => b.localeCompare(a));
+
+      let streak = 0;
+      let checkDate = new Date();
+
+      for (const dateStr of uniqueDates) {
+        const sessionDate = new Date(dateStr + 'T00:00:00');
+        const daysDiff = Math.floor(
+          (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        if (daysDiff === 0 || daysDiff === 1) {
+          streak++;
+          checkDate = sessionDate;
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    },
+    enabled: !!userId,
+  });
+};
+
 export const useRecentSessions = (userId: string | undefined, limit = 10) => {
   return useQuery({
     queryKey: ['recent-sessions', userId, limit],

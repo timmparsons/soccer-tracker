@@ -135,6 +135,20 @@ export function useActivityFeed(limit = 7) {
         .order('created_at', { ascending: false })
         .limit(30);
 
+      // Fetch recent daily sprint completions
+      const { data: sprintCompletions } = await (supabase as any)
+        .from('sprint_attempts')
+        .select('id, profile_id, combo_id, duration_ms, is_pr, is_crown, created_at')
+        .gte('created_at', threeDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      const comboIds = [...new Set((sprintCompletions || []).map((c: any) => c.combo_id as string))];
+      const { data: sprintCombos } = comboIds.length > 0
+        ? await (supabase as any).from('sprint_combos').select('id, name').in('id', comboIds)
+        : { data: [] };
+      const comboNameMap = new Map((sprintCombos || []).map((c: any) => [c.id, c.name]));
+
       // Collect all user IDs we need profiles for
       const sessionUserIds = [...new Set((sessions || []).map((s: { user_id: string }) => s.user_id))];
       const winnerIds = (wins || []).map((w: { winner_id: string }) => w.winner_id);
@@ -143,7 +157,8 @@ export function useActivityFeed(limit = 7) {
       );
       const streetUserIds = (streetCompletions || []).map((c: any) => c.profile_id as string);
       const dailyChallengeUserIds = (dailyChallengeCompletions || []).map((c: any) => c.profile_id as string);
-      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds, ...dailyChallengeUserIds])];
+      const sprintUserIds = (sprintCompletions || []).map((c: any) => c.profile_id as string);
+      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds, ...dailyChallengeUserIds, ...sprintUserIds])];
 
       if (allUserIds.length === 0) return [];
 
@@ -220,6 +235,55 @@ export function useActivityFeed(limit = 7) {
           createdAt: completedAt,
         });
         usedUsers.add(w.winner_id);
+      }
+
+      // Daily sprint completions (after 1v1 wins, before daily challenge completions)
+      for (const c of (sprintCompletions || []) as {
+        id: string;
+        profile_id: string;
+        combo_id: string;
+        duration_ms: number;
+        is_pr: boolean;
+        is_crown: boolean;
+        created_at: string;
+      }[]) {
+        if (usedUsers.has(c.profile_id)) continue;
+        const profile = profileMap.get(c.profile_id);
+        if (!profile) continue;
+        const name = getDisplayName(profile);
+        const seconds = (c.duration_ms / 1000).toFixed(2);
+        const comboName = comboNameMap.get(c.combo_id) ?? 'today’s sprint';
+
+        let message: string;
+        if (c.is_crown) {
+          message = pickForId([
+            `${name} set today's pace at ${seconds}s!`,
+            `${name} is setting the pace — ${seconds}s on ${comboName}`,
+            `${name} is the one to beat today — ${seconds}s`,
+          ], c.id);
+        } else if (c.is_pr) {
+          message = pickForId([
+            `${name} hit a NEW PR of ${seconds}s!`,
+            `${name} smashed their PR — ${seconds}s on ${comboName}`,
+            `${name} just beat their best time — ${seconds}s`,
+          ], c.id);
+        } else {
+          message = pickForId([
+            `${name} logged today's sprint in ${seconds}s`,
+            `${name} completed ${comboName} in ${seconds}s`,
+            `${name} clocked ${seconds}s on today's sprint`,
+          ], c.id);
+        }
+
+        items.push({
+          id: `sprint-${c.id}`,
+          userId: c.profile_id,
+          name,
+          avatarUrl: profile.avatar_url ?? null,
+          message,
+          createdAt: c.created_at,
+        });
+        usedUsers.add(c.profile_id);
       }
 
       // Daily challenge completions (after 1v1 wins, before training sessions)
