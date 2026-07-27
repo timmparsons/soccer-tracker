@@ -40,14 +40,22 @@ const tierColor = (value: number, max: number): string => {
 
 const ActivityHeatmap = ({ cells, onWeeksVisibleChange }: ActivityHeatmapProps) => {
   const today = getLocalDate();
+  const todayObj = new Date(today + 'T00:00:00');
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const maxWeeksAvailable = Math.floor(cells.length / 7);
+  // Sunday that starts the calendar week containing today.
+  const currentWeekStart = new Date(todayObj);
+  currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+
+  const earliestDate = cells.length > 0 ? new Date(cells[0].date + 'T00:00:00') : todayObj;
+  const maxWeeksAvailable = Math.max(
+    1,
+    Math.floor((currentWeekStart.getTime() - earliestDate.getTime()) / (7 * 86400000)) + 1,
+  );
   const weeksThatFit = Math.floor((containerWidth - DAY_LABEL_WIDTH) / (CELL_SIZE + CELL_GAP));
   const weeksToShow = Math.max(1, Math.min(maxWeeksAvailable, weeksThatFit || maxWeeksAvailable));
 
-  const visibleCells = cells.slice(-weeksToShow * 7);
-  const max = Math.max(0, ...visibleCells.map((c) => c.value));
+  const cellMap = new Map(cells.map((c) => [c.date, c.value]));
 
   useEffect(() => {
     if (containerWidth > 0) {
@@ -60,23 +68,37 @@ const ActivityHeatmap = ({ cells, onWeeksVisibleChange }: ActivityHeatmapProps) 
     setContainerWidth(e.nativeEvent.layout.width);
   };
 
-  // Chunk into 7-day columns, then place each cell by its actual weekday
-  // (not slice position) so row 0 is always Sunday no matter which weekday
-  // the window happens to start on.
-  const columns: HeatmapCell[][] = [];
-  for (let i = 0; i < visibleCells.length; i += 7) {
-    const week = visibleCells.slice(i, i + 7);
-    const col: HeatmapCell[] = [];
-    week.forEach((cell) => {
-      col[new Date(cell.date + 'T00:00:00').getDay()] = cell;
-    });
+  // Build columns from real Sunday–Saturday calendar weeks (not array
+  // slicing), so the current week's column only ever holds today and
+  // earlier — days after today stay null (rendered empty) instead of
+  // accidentally picking up last week's data for that weekday slot.
+  const columns: (HeatmapCell | null)[][] = [];
+  for (let w = weeksToShow - 1; w >= 0; w--) {
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setDate(weekStart.getDate() - w * 7);
+    const col: (HeatmapCell | null)[] = [];
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(weekStart);
+      cellDate.setDate(cellDate.getDate() + d);
+      if (cellDate > todayObj) {
+        col[d] = null;
+      } else {
+        const dateStr = getLocalDate(cellDate);
+        col[d] = { date: dateStr, value: cellMap.get(dateStr) ?? 0 };
+      }
+    }
     columns.push(col);
   }
+
+  const max = Math.max(
+    0,
+    ...columns.flat().filter((c): c is HeatmapCell => c !== null).map((c) => c.value),
+  );
 
   // Month label per column — only shown the first time a new month appears,
   // same as GitHub's contribution graph.
   const columnMonths = columns.map((col) => {
-    const anchor = col.find(Boolean);
+    const anchor = col.find((c): c is HeatmapCell => c !== null);
     return anchor ? MONTH_NAMES[new Date(anchor.date + 'T00:00:00').getMonth()] : '';
   });
 
@@ -110,8 +132,10 @@ const ActivityHeatmap = ({ cells, onWeeksVisibleChange }: ActivityHeatmapProps) 
                   key={rowIndex}
                   style={[
                     styles.cell,
-                    { backgroundColor: tierColor(cell.value, max) },
-                    cell.date === today && styles.cellToday,
+                    {
+                      backgroundColor: cell ? tierColor(cell.value, max) : 'transparent',
+                    },
+                    cell?.date === today && styles.cellToday,
                   ]}
                 />
               ))}
