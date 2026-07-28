@@ -1,5 +1,5 @@
 import CheerRow from '@/components/HomePage/CheerRow';
-import { useCheersForItems, useMyCheerKeys } from '@/hooks/useFeedCheers';
+import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
 import { useActivityFeed } from '@/hooks/useTeamActivity';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
@@ -21,7 +21,7 @@ const ActivityFeed = () => {
   const { data: profile } = useProfile(user?.id);
   const feedItemKeys = useMemo(() => activity.map((item) => item.id), [activity]);
   const { data: cheersMap = new Map() } = useCheersForItems(feedItemKeys);
-  const { data: myCheerKeys = new Set<string>(), isLoading: cheerKeysLoading } = useMyCheerKeys(user?.id);
+  const { data: myReactions = new Map(), isLoading: cheerKeysLoading } = useMyReactions(user?.id);
 
   if (activity.length === 0) return null;
 
@@ -52,7 +52,7 @@ const ActivityFeed = () => {
                 recipientId={item.userId}
                 userId={user.id}
                 cheerData={cheersMap.get(item.id)}
-                alreadyCheered={myCheerKeys.has(item.id)}
+                myReaction={myReactions.get(item.id)}
                 disabled={cheerKeysLoading}
               />
             )}

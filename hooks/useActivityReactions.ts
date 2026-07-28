@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDisplayName } from '@/utils/getDisplayName';
+import type { ReactionType } from '@/hooks/useFeedCheers';
 import { useQuery } from '@tanstack/react-query';
 
 const CHEERS_VIEWED_KEY = 'cheers_last_viewed_at';
@@ -35,6 +36,7 @@ export interface CheerNotification {
   activity_label: string;
   activity_type: 'session' | 'win' | 'street' | 'other';
   reactor_name: string;
+  reaction_type: ReactionType;
   created_at: string;
   is_new: boolean;
 }
@@ -83,7 +85,7 @@ export function useAllMyRecentCheers(userId: string | undefined) {
 
       const { data } = await (supabase as any)
         .from('feed_cheers')
-        .select('feed_item_key, cheered_by_profile_id, created_at, profiles!cheered_by_profile_id(name, display_name)')
+        .select('feed_item_key, cheered_by_profile_id, reaction_type, created_at, profiles!cheered_by_profile_id(name, display_name)')
         .eq('recipient_profile_id', userId!)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false })
@@ -97,6 +99,7 @@ export function useAllMyRecentCheers(userId: string | undefined) {
           activity_label: decoded.label,
           activity_type: decoded.type,
           reactor_name: getDisplayName(row.profiles),
+          reaction_type: (row.reaction_type ?? 'cheer') as ReactionType,
           created_at: row.created_at,
           is_new: lastViewed ? new Date(row.created_at) > new Date(lastViewed) : true,
         };

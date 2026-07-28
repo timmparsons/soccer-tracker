@@ -57,6 +57,26 @@ function getStreetFeedMessage(category: string, challengeName: string, name: str
   }
 }
 
+function badgeMessage(name: string, badgeId: string, badgeName: string, badgeDescription: string, id: string): string {
+  if (badgeId === 'perf_pb') {
+    return pickForId([
+      `${name} just broke their juggling record!`,
+      `${name} beat their own juggling PB!`,
+      `${name} set a new juggling record!`,
+    ], id);
+  }
+  if (badgeId === 'perf_sky_high_bronze' || badgeId === 'perf_sky_high_silver' || badgeId === 'perf_sky_high_gold') {
+    return pickForId([
+      `${name} is on fire — new juggling PBs 3 days running (${badgeName})`,
+      `${name} just earned ${badgeName} — 3 straight days of new juggling records`,
+    ], id);
+  }
+  return pickForId([
+    `${name} earned the "${badgeName}" badge — ${badgeDescription}`,
+    `${name} just unlocked "${badgeName}"`,
+  ], id);
+}
+
 function sessionMessage(name: string, totalTouches: number, sessionCount: number, hasChallenge: boolean, id: string): string {
   if (hasChallenge) return pickForId([
     `${name} completed their challenge`,
@@ -105,7 +125,7 @@ export function useActivityFeed(limit = 7) {
       // Fetch sessions from the past 3 days across all users
       const { data: sessions } = await supabase
         .from('daily_sessions')
-        .select('user_id, date, touches_logged, drill_id, created_at')
+        .select('user_id, date, touches_logged, drill_id, juggle_count, created_at')
         .gte('date', threeDaysAgoDate)
         .order('created_at', { ascending: false })
         .limit(200);
@@ -118,6 +138,22 @@ export function useActivityFeed(limit = 7) {
         .gte('created_at', threeDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(20);
+
+      // Fetch recently earned badges (streaks, volume, sessions, social,
+      // tier unlocks, etc). perf_pb/perf_sky_high_* are excluded from this
+      // generic pass — badges only ever fire once (upsert onConflict
+      // ignoreDuplicates), so a repeat juggling PB months later wouldn't
+      // re-award perf_pb and would silently never show here. The dedicated
+      // juggling-record check below re-derives it straight from session
+      // data instead, so it fires every time, not just the first ever.
+      const JUGGLE_BADGE_IDS = new Set(['perf_pb', 'perf_sky_high_bronze', 'perf_sky_high_silver', 'perf_sky_high_gold']);
+      const { data: rawBadgeEarns } = await (supabase as any)
+        .from('user_badges')
+        .select('id, user_id, badge_id, earned_at, badges(name, description)')
+        .gte('earned_at', threeDaysAgo.toISOString())
+        .order('earned_at', { ascending: false })
+        .limit(30);
+      const badgeEarns = (rawBadgeEarns || []).filter((b: any) => !JUGGLE_BADGE_IDS.has(b.badge_id));
 
       // Fetch recent street challenge completions
       const { data: streetCompletions } = await (supabase as any)
@@ -149,6 +185,37 @@ export function useActivityFeed(limit = 7) {
         : { data: [] };
       const comboNameMap = new Map((sprintCombos || []).map((c: any) => [c.id, c.name]));
 
+      // Each user's best juggle_count session within the recent window —
+      // candidate for a "broke their juggling record" feed event.
+      const recentBestJuggle = new Map<string, { value: number; createdAt: string }>();
+      for (const s of (sessions || []) as { user_id: string; juggle_count: number | null; created_at: string }[]) {
+        if (!s.juggle_count || s.juggle_count <= 0) continue;
+        const existing = recentBestJuggle.get(s.user_id);
+        if (!existing || s.juggle_count > existing.value) {
+          recentBestJuggle.set(s.user_id, { value: s.juggle_count, createdAt: s.created_at });
+        }
+      }
+
+      // Confirm it's an actual record by checking it beats everything the
+      // user logged before that moment (not just the recent window).
+      const juggleCandidateIds = [...recentBestJuggle.keys()];
+      const priorJuggleMax = new Map<string, number>();
+      if (juggleCandidateIds.length > 0) {
+        const { data: allJuggleSessions } = await supabase
+          .from('daily_sessions')
+          .select('user_id, juggle_count, created_at')
+          .in('user_id', juggleCandidateIds)
+          .not('juggle_count', 'is', null)
+          .gt('juggle_count', 0);
+
+        for (const s of (allJuggleSessions || []) as { user_id: string; juggle_count: number; created_at: string }[]) {
+          const recent = recentBestJuggle.get(s.user_id)!;
+          if (new Date(s.created_at).getTime() >= new Date(recent.createdAt).getTime()) continue;
+          const cur = priorJuggleMax.get(s.user_id) ?? 0;
+          if (s.juggle_count > cur) priorJuggleMax.set(s.user_id, s.juggle_count);
+        }
+      }
+
       // Collect all user IDs we need profiles for
       const sessionUserIds = [...new Set((sessions || []).map((s: { user_id: string }) => s.user_id))];
       const winnerIds = (wins || []).map((w: { winner_id: string }) => w.winner_id);
@@ -158,7 +225,8 @@ export function useActivityFeed(limit = 7) {
       const streetUserIds = (streetCompletions || []).map((c: any) => c.profile_id as string);
       const dailyChallengeUserIds = (dailyChallengeCompletions || []).map((c: any) => c.profile_id as string);
       const sprintUserIds = (sprintCompletions || []).map((c: any) => c.profile_id as string);
-      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds, ...dailyChallengeUserIds, ...sprintUserIds])];
+      const badgeUserIds = (badgeEarns || []).map((b: any) => b.user_id as string);
+      const allUserIds = [...new Set([...sessionUserIds, ...winnerIds, ...opponentIds, ...streetUserIds, ...dailyChallengeUserIds, ...sprintUserIds, ...badgeUserIds])];
 
       if (allUserIds.length === 0) return [];
 
@@ -235,6 +303,57 @@ export function useActivityFeed(limit = 7) {
           createdAt: completedAt,
         });
         usedUsers.add(w.winner_id);
+      }
+
+      // Juggling record broken — checked before badge earns/routine
+      // completions since it's a standout personal moment.
+      for (const [userId, recent] of recentBestJuggle.entries()) {
+        if (usedUsers.has(userId)) continue;
+        const priorMax = priorJuggleMax.get(userId) ?? 0;
+        if (recent.value <= priorMax) continue;
+        const profile = profileMap.get(userId);
+        if (!profile) continue;
+        const name = getDisplayName(profile);
+        const dedupeId = `${userId}-${recent.createdAt}`;
+
+        items.push({
+          id: `juggle-pb-${dedupeId}`,
+          userId,
+          name,
+          avatarUrl: profile.avatar_url ?? null,
+          message: pickForId([
+            `${name} just broke their juggling record — ${recent.value} juggles!`,
+            `${name} smashed their juggling PB with ${recent.value}!`,
+            `${name} set a new juggling record — ${recent.value} juggles`,
+          ], dedupeId),
+          createdAt: recent.createdAt,
+        });
+        usedUsers.add(userId);
+      }
+
+      // Badge earns (records/milestones) — after 1v1 wins, before routine
+      // completions, since these are the rarer/more notable events.
+      for (const b of (badgeEarns || []) as {
+        id: string;
+        user_id: string;
+        badge_id: string;
+        earned_at: string;
+        badges: { name: string; description: string } | null;
+      }[]) {
+        if (usedUsers.has(b.user_id)) continue;
+        const profile = profileMap.get(b.user_id);
+        if (!profile || !b.badges) continue;
+        const name = getDisplayName(profile);
+
+        items.push({
+          id: `badge-${b.id}`,
+          userId: b.user_id,
+          name,
+          avatarUrl: profile.avatar_url ?? null,
+          message: badgeMessage(name, b.badge_id, b.badges.name, b.badges.description, b.id),
+          createdAt: b.earned_at,
+        });
+        usedUsers.add(b.user_id);
       }
 
       // Daily sprint completions (after 1v1 wins, before daily challenge completions)

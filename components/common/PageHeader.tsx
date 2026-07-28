@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CheerNotification, markReactionsViewed, useAllMyRecentCheers, useUnviewedReactions } from '@/hooks/useActivityReactions';
+import { REACTION_EMOJI, type ReactionType } from '@/hooks/useFeedCheers';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -28,6 +29,13 @@ function timeAgo(iso: string): string {
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+const REACTION_VERB: Record<ReactionType, string> = {
+  cheer: 'cheered you on',
+  fire: 'said you\'re on fire',
+  fireworks: 'celebrated with you',
+  strong: 'gave you props',
+};
 
 function activityIcon(type: CheerNotification['activity_type']): { name: React.ComponentProps<typeof Ionicons>['name']; color: string; bg: string } {
   switch (type) {
@@ -190,7 +198,7 @@ const PageHeader = ({
                       <View style={styles.modalNameRow}>
                         <Text style={styles.modalName}>
                           {r.reactor_name}
-                          <Text style={styles.modalVerb}> cheered you on 👏</Text>
+                          <Text style={styles.modalVerb}> {REACTION_VERB[r.reaction_type]} {REACTION_EMOJI[r.reaction_type]}</Text>
                         </Text>
                         {r.is_new && <View style={styles.modalNewDot} />}
                       </View>
