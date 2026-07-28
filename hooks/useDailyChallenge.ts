@@ -1,3 +1,4 @@
+import { useTodayDate } from '@/hooks/useTodayDate';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
@@ -307,7 +308,7 @@ export async function saveDailyChallengeCompletion(
 }
 
 export function useDailyChallenge(userId: string | undefined) {
-  const today = getLocalDate();
+  const today = useTodayDate();
   const { data, isLoading } = useQuery({
     queryKey: ['daily-challenge', userId, today],
     queryFn: async (): Promise<DailyChallengeData> => {

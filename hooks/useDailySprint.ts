@@ -1,6 +1,7 @@
 import { checkAndAwardSquadBadge } from '@/lib/checkSquadBadges';
 import { supabase } from '@/lib/supabase';
 import { TOUCHES_PER_REP } from '@/hooks/useDailyChallenge';
+import { useTodayDate } from '@/hooks/useTodayDate';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +47,7 @@ function pickComboForDate(dateStr: string, combos: SprintCombo[]): SprintCombo {
 }
 
 export function useDailySprint(userId: string | undefined, teamId: string | null | undefined) {
-  const today = getLocalDate();
+  const today = useTodayDate();
   const queryClient = useQueryClient();
 
   const queryKey = ['daily-sprint', userId, teamId ?? null, today];
@@ -248,7 +249,7 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
 // Count of sprint_attempts flagged is_pr for this profile within the
 // current calendar month — powers the "Challenge PRs" stat on Progress.
 export function useMonthlyPRCount(userId: string | undefined) {
-  const today = getLocalDate();
+  const today = useTodayDate();
 
   return useQuery({
     queryKey: ['monthly-pr-count', userId, today],
