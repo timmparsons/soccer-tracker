@@ -239,6 +239,7 @@ export default function DrillLibraryScreen() {
             setChallengeName(undefined);
           }}
           userId={user.id}
+          teamId={profile?.team_id}
           onSuccess={handleSessionLogged}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}

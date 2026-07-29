@@ -1,7 +1,7 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import { useDailyChallenge } from '@/hooks/useDailyChallenge';
+import { useDailySprint } from '@/hooks/useDailySprint';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -28,6 +28,7 @@ interface LogSessionModalProps {
   visible: boolean;
   onClose: () => void;
   userId: string;
+  teamId?: string | null;
   onSuccess: () => void;
   onSessionLogged?: (
     touchCount: number,
@@ -68,6 +69,7 @@ const LogSessionModal = ({
   visible,
   onClose,
   userId,
+  teamId,
   onSuccess,
   onSessionLogged,
   challengeDrillId,
@@ -119,8 +121,8 @@ const LogSessionModal = ({
 
   const isChallengeMode = !!challengeDrillId;
 
-  const { userCompletion } = useDailyChallenge(userId);
-  const challengeLocked = !isChallengeMode && !userCompletion;
+  const { sprint } = useDailySprint(userId, teamId);
+  const challengeLocked = !isChallengeMode && sprint?.todayBestMs == null;
 
   const handleSubmit = async () => {
     const touchCount = touches ? parseInt(touches) : 0;
@@ -500,7 +502,7 @@ const LogSessionModal = ({
               <View style={styles.lockedBanner}>
                 <Ionicons name='lock-closed' size={18} color='#F57C00' />
                 <Text style={styles.lockedMessage}>
-                  Finish Today&apos;s Challenge on the Home tab to unlock session logging
+                  Finish today&apos;s sprint on the Home tab to unlock session logging
                 </Text>
               </View>
             )}

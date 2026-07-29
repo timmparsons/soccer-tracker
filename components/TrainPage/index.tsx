@@ -901,6 +901,7 @@ const TrainPage = () => {
             setChallengeDifficulty(undefined);
           }}
           userId={user.id}
+          teamId={profile?.team_id}
           onSuccess={() => handleSessionLogged(!!challengeDrillId)}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
