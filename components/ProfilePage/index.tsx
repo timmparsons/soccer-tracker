@@ -366,9 +366,9 @@ const ProfilePage = () => {
   };
 
   const handleFeedback = async () => {
-    const email = 'timmparsons85@gmail.com';
+    const email = 'tim@mastertouch.app';
     const subject = 'Master Touch Feedback';
-    const body = `\n\n---\nApp Version: 3.0.11\nUser: ${user?.email || 'Unknown'}`;
+    const body = `\n\n---\nUser: ${user?.email || 'Unknown'}`;
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     const canOpen = await Linking.canOpenURL(url);
