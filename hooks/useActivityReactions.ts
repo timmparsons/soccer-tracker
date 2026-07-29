@@ -13,7 +13,7 @@ export interface UnviewedReaction {
   created_at: string;
 }
 
-function decodeActivityKey(key: string): { label: string; type: 'session' | 'win' | 'street' | 'other' } {
+function decodeActivityKey(key: string): { label: string; type: 'session' | 'win' | 'street' | 'coach' | 'other' } {
   if (key.startsWith('session-')) {
     const match = /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(key);
     if (match) {
@@ -27,6 +27,7 @@ function decodeActivityKey(key: string): { label: string; type: 'session' | 'win
   }
   if (key.startsWith('win-')) return { label: '1v1 win', type: 'win' };
   if (key.startsWith('street-')) return { label: 'Street challenge', type: 'street' };
+  if (key.startsWith('coach-cheer-')) return { label: 'Your coach cheered your training', type: 'coach' };
   return { label: 'Activity', type: 'other' };
 }
 
@@ -34,7 +35,7 @@ export interface CheerNotification {
   id: string;
   activity_key: string;
   activity_label: string;
-  activity_type: 'session' | 'win' | 'street' | 'other';
+  activity_type: 'session' | 'win' | 'street' | 'coach' | 'other';
   reactor_name: string;
   reaction_type: ReactionType;
   created_at: string;

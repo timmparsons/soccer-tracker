@@ -41,6 +41,7 @@ function activityIcon(type: CheerNotification['activity_type']): { name: React.C
   switch (type) {
     case 'win': return { name: 'trophy', color: '#F59E0B', bg: '#FEF3C7' };
     case 'street': return { name: 'flash', color: '#8B5CF6', bg: '#EDE9FE' };
+    case 'coach': return { name: 'star', color: '#ffb724', bg: '#FFF7E6' };
     default: return { name: 'football', color: '#1f89ee', bg: '#EFF6FF' };
   }
 }

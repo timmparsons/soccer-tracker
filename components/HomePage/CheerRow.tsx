@@ -4,10 +4,12 @@ import { useState } from 'react';
 import {
   Modal,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from 'react-native';
 
 interface CheerRowProps {
@@ -17,9 +19,20 @@ interface CheerRowProps {
   cheerData: CheerData | undefined;
   myReaction: ReactionType | undefined;
   disabled?: boolean;
+  label?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, myReaction, disabled }: CheerRowProps) {
+export default function CheerRow({
+  feedItemKey,
+  recipientId,
+  userId,
+  cheerData,
+  myReaction,
+  disabled,
+  label,
+  containerStyle,
+}: CheerRowProps) {
   const queryClient = useQueryClient();
   const [localReaction, setLocalReaction] = useState<ReactionType | null | undefined>(undefined);
   const [localCounts, setLocalCounts] = useState<Record<ReactionType, number> | null>(null);
@@ -69,7 +82,7 @@ export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, 
   };
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, containerStyle]}>
       <View>
         <TouchableOpacity
           onPress={handlePress}
@@ -83,6 +96,11 @@ export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, 
           <Text style={[styles.cheerBtnText, effectiveReaction && styles.cheerBtnTextActive]}>
             {REACTION_EMOJI[effectiveReaction ?? 'cheer']}
           </Text>
+          {label && (
+            <Text style={[styles.cheerBtnLabel, effectiveReaction && styles.cheerBtnTextActive]}>
+              {label}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {showPicker && (
@@ -147,6 +165,9 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   cheerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -167,6 +188,11 @@ const styles = StyleSheet.create({
   },
   cheerBtnTextActive: {
     color: '#1f89ee',
+  },
+  cheerBtnLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
   },
   countText: {
     fontSize: 12,
