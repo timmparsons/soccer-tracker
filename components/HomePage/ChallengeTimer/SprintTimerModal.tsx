@@ -3,7 +3,8 @@ import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -199,11 +200,30 @@ interface CompletionViewProps {
 
 const CompletionView: React.FC<CompletionViewProps> = ({ comboName, result, teamPaceMs, onRetry, onSubmit }) => {
   const paceDeltaMs = teamPaceMs != null ? teamPaceMs - result.durationMs : null;
+  const confettiRef = useRef<ConfettiCannon>(null);
+  const { width } = Dimensions.get('window');
+
+  useEffect(() => {
+    if (result.isPR || result.isCrown) {
+      setTimeout(() => confettiRef.current?.start(), 200);
+    }
+  }, [result.isPR, result.isCrown]);
 
   return (
     <View style={styles.completionContainer}>
       <Text style={styles.completionLabel}>{comboName}</Text>
       <Text style={styles.completionTime}>{formatDuration(result.durationMs)}</Text>
+
+      {(result.isPR || result.isCrown) && (
+        <ConfettiCannon
+          ref={confettiRef}
+          count={180}
+          origin={{ x: width / 2, y: -20 }}
+          autoStart={false}
+          fadeOut
+          colors={['#ffb724', '#1f89ee', '#31af4d', '#FF6B6B', '#A855F7']}
+        />
+      )}
 
       {(result.isPR || result.isCrown) && (
         <View style={styles.badgeRow}>
