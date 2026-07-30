@@ -2,7 +2,6 @@ import RosterCard from '@/components/CoachDashboard/RosterCard';
 import InactivePlayersModal from '@/components/common/InactivePlayersModal';
 import NotificationBell from '@/components/common/NotificationBell';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
-import CoachNoteModal from '@/components/modals/CoachNoteModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useAwardCoachPick, useCoachPickForDate, useRemoveCoachPick } from '@/hooks/useCoachPicks';
 import { PlayerStats, useCoachTeamPlayers } from '@/hooks/useCoachTeamPlayers';
@@ -64,7 +63,6 @@ export default function CoachDashboard() {
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
-  const [notePlayer, setNotePlayer] = useState<PlayerStats | null>(null);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -162,7 +160,7 @@ export default function CoachDashboard() {
     [teamPlayers],
   );
 
-  // Coach engagement tools — cheer, coach's choice, nudge, note
+  // Coach engagement tools — cheer, coach's choice, nudge
   const today = getLocalDate();
   const cheerKeys = useMemo(
     () => sortedPlayers.map((p) => buildCoachCheerKey(p.id, today)),
@@ -351,7 +349,6 @@ export default function CoachDashboard() {
         isPicked={coachPick?.player_id === player.id}
         onTogglePick={() => handleTogglePick(player)}
         onNudge={() => handleNudge(player)}
-        onOpenNote={() => setNotePlayer(player)}
         isInactiveToday={player.today_touches === 0}
       />
     );
@@ -738,17 +735,6 @@ export default function CoachDashboard() {
             id: selectedPlayer.id,
             name: selectedPlayer.display_name || selectedPlayer.name,
           } : undefined}
-        />
-      )}
-
-      {/* COACH NOTE MODAL */}
-      {notePlayer && (
-        <CoachNoteModal
-          visible={!!notePlayer}
-          onClose={() => setNotePlayer(null)}
-          playerId={notePlayer.id}
-          playerName={notePlayer.display_name || notePlayer.name}
-          playerPushToken={notePlayer.expo_push_token}
         />
       )}
 

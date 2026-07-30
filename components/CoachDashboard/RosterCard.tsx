@@ -28,7 +28,6 @@ interface RosterCardProps {
   isPicked: boolean;
   onTogglePick: () => void;
   onNudge: () => void;
-  onOpenNote: () => void;
   isInactiveToday?: boolean;
 }
 
@@ -52,7 +51,6 @@ export default function RosterCard({
   isPicked,
   onTogglePick,
   onNudge,
-  onOpenNote,
   isInactiveToday,
 }: RosterCardProps) {
   const hasActiveChallenge = !!activeChallenge;
@@ -153,11 +151,6 @@ export default function RosterCard({
           >
             <Ionicons name="notifications-outline" size={14} color={nudgedRecently ? '#D1D5DB' : '#78909C'} />
             <Text style={[styles.pillBtnText, nudgedRecently && styles.pillBtnTextMuted]}>Nudge</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.pillBtn} onPress={onOpenNote} hitSlop={6}>
-            <Ionicons name="chatbubble-outline" size={14} color="#78909C" />
-            <Text style={styles.pillBtnText}>Note</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
