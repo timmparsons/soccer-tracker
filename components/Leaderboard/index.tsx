@@ -134,7 +134,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const getPeriodLabel = () => {
     if (view === 'club') return clubPeriod === 'week' ? 'This Week' : 'All Time';
     if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
-    const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'All Time' };
+    const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
     return labels[touchesPeriod];
   };
 
@@ -603,7 +603,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     onPress={() => { setTouchesPeriod(p); setPeriodPickerVisible(false); }}
                   >
                     <Text style={[styles.pickerRowText, touchesPeriod === p && styles.pickerRowTextActive]}>
-                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'last_week' ? 'Last Week' : 'All Time'}
+                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'last_week' ? 'Last Week' : 'Best Week'}
                     </Text>
                     {touchesPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
                   </TouchableOpacity>
