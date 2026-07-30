@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { sendPush } from '@/utils/sendPush';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function useNudgePlayer() {
@@ -20,7 +19,14 @@ export function useNudgePlayer() {
       if (error) throw error;
 
       if (playerPushToken) {
-        sendPush(playerPushToken, '👋 Nudge from Coach', "Your coach noticed you haven't trained today — get some touches in!");
+        const { error: pushError } = await supabase.functions.invoke('send-push', {
+          body: {
+            to: playerPushToken,
+            title: '👋 Nudge from Coach',
+            body: "Your coach noticed you haven't trained today — get some touches in!",
+          },
+        });
+        if (pushError) throw pushError;
       }
     },
     onSuccess: (_data, vars) => {

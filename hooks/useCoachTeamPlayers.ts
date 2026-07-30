@@ -50,9 +50,11 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
 
       const playerIds = players.map((p) => p.id);
 
-      // Fetch sessions per-player to avoid the 1000-row server cap on batched queries
+      // Fetch sessions per-player to avoid the 1000-row server cap on batched queries.
+      // Window must stay well beyond any realistic streak length, or streaks longer
+      // than the window get silently truncated at the window edge (not a real gap).
       const streakWindowStart = new Date();
-      streakWindowStart.setDate(streakWindowStart.getDate() - 120);
+      streakWindowStart.setDate(streakWindowStart.getDate() - 400);
       const streakWindowStartStr = getLocalDate(streakWindowStart);
 
       const [playerSessionResults, { data: allTargetsRaw }] = await Promise.all([

@@ -105,18 +105,22 @@ export default function RosterCard({
 
         <View style={styles.right}>
           <Text style={styles.weekTouches}>{player.week_touches.toLocaleString()}</Text>
+          <View style={styles.todayRow}>
+            <Ionicons name="football" size={11} color={player.today_touches > 0 ? '#31af4d' : '#B0BEC5'} />
+            <Text style={[styles.todayTouches, player.today_touches > 0 && styles.todayTouchesActive]}>
+              {player.today_touches.toLocaleString()} today
+            </Text>
+          </View>
           {player.current_streak > 0 && <Text style={styles.streakText}>🔥 {player.current_streak}</Text>}
         </View>
 
         <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
       </TouchableOpacity>
 
-      {/* Action toolbar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.actionRow}
-      >
+      {/* Action toolbar — Cheer stays outside the ScrollView since its
+          reaction picker pops up via absolute positioning and would get
+          clipped by the ScrollView's overflow bounds otherwise. */}
+      <View style={styles.actionRow}>
         <CheerRow
           feedItemKey={feedItemKey}
           recipientId={player.id}
@@ -127,30 +131,36 @@ export default function RosterCard({
           containerStyle={styles.cheerRowContainer}
         />
 
-        <TouchableOpacity
-          style={[styles.pillBtn, isPicked && styles.pillBtnActive]}
-          onPress={onTogglePick}
-          hitSlop={6}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollablePills}
         >
-          <Ionicons name={isPicked ? 'star' : 'star-outline'} size={14} color={isPicked ? '#D97706' : '#78909C'} />
-          <Text style={[styles.pillBtnText, isPicked && styles.pillBtnTextActive]}>Star</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.pillBtn, isPicked && styles.pillBtnActive]}
+            onPress={onTogglePick}
+            hitSlop={6}
+          >
+            <Ionicons name={isPicked ? 'star' : 'star-outline'} size={14} color={isPicked ? '#D97706' : '#78909C'} />
+            <Text style={[styles.pillBtnText, isPicked && styles.pillBtnTextActive]}>Star</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.pillBtn, nudgedRecently && styles.pillBtnDisabled]}
-          onPress={onNudge}
-          disabled={nudgedRecently}
-          hitSlop={6}
-        >
-          <Ionicons name="notifications-outline" size={14} color={nudgedRecently ? '#D1D5DB' : '#78909C'} />
-          <Text style={[styles.pillBtnText, nudgedRecently && styles.pillBtnTextMuted]}>Nudge</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.pillBtn, nudgedRecently && styles.pillBtnDisabled]}
+            onPress={onNudge}
+            disabled={nudgedRecently}
+            hitSlop={6}
+          >
+            <Ionicons name="notifications-outline" size={14} color={nudgedRecently ? '#D1D5DB' : '#78909C'} />
+            <Text style={[styles.pillBtnText, nudgedRecently && styles.pillBtnTextMuted]}>Nudge</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.pillBtn} onPress={onOpenNote} hitSlop={6}>
-          <Ionicons name="chatbubble-outline" size={14} color="#78909C" />
-          <Text style={styles.pillBtnText}>Note</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity style={styles.pillBtn} onPress={onOpenNote} hitSlop={6}>
+            <Ionicons name="chatbubble-outline" size={14} color="#78909C" />
+            <Text style={styles.pillBtnText}>Note</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
       {nudgedRecently && nudgeHoursAgo !== null && (
         <Text style={styles.nudgeHint}>Nudged {nudgeHoursAgo === 0 ? 'just now' : `${nudgeHoursAgo}h ago`}</Text>
       )}
@@ -294,11 +304,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#D97706',
   },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  todayTouches: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B0BEC5',
+  },
+  todayTouchesActive: {
+    color: '#31af4d',
+  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 4,
+  },
+  scrollablePills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   cheerRowContainer: {
     paddingTop: 0,

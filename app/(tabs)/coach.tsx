@@ -1,4 +1,6 @@
 import RosterCard from '@/components/CoachDashboard/RosterCard';
+import InactivePlayersModal from '@/components/common/InactivePlayersModal';
+import NotificationBell from '@/components/common/NotificationBell';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import CoachNoteModal from '@/components/modals/CoachNoteModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
@@ -7,6 +9,7 @@ import { PlayerStats, useCoachTeamPlayers } from '@/hooks/useCoachTeamPlayers';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
 import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
+import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { useNudgePlayer } from '@/hooks/useNudgePlayer';
 import { useProfile } from '@/hooks/useProfile';
 import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
@@ -46,6 +49,8 @@ export default function CoachDashboard() {
   // Team switcher state
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
+  const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
+  const { data: nudgeModalPlayers = [] } = useInactivePlayers(profile?.team_id);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
@@ -187,7 +192,14 @@ export default function CoachDashboard() {
 
   const handleNudge = (player: PlayerStats) => {
     if (!profile?.team_id) return;
-    nudgePlayer({ playerId: player.id, teamId: profile.team_id, playerPushToken: player.expo_push_token });
+    nudgePlayer(
+      { playerId: player.id, teamId: profile.team_id, playerPushToken: player.expo_push_token },
+      {
+        onError: () => {
+          Alert.alert('Could not send nudge', 'Please try again.');
+        },
+      },
+    );
   };
 
   const handleNudgeAll = (players: PlayerStats[]) => {
@@ -202,7 +214,14 @@ export default function CoachDashboard() {
           text: 'Nudge All',
           onPress: () => {
             players.forEach((player) => {
-              nudgePlayer({ playerId: player.id, teamId, playerPushToken: player.expo_push_token });
+              nudgePlayer(
+                { playerId: player.id, teamId, playerPushToken: player.expo_push_token },
+                {
+                  onError: () => {
+                    Alert.alert('Could not send nudge', `Failed to nudge ${player.display_name || player.name}.`);
+                  },
+                },
+              );
             });
           },
         },
@@ -533,13 +552,19 @@ export default function CoachDashboard() {
             {teamAvgTpm > 0 ? ` · ${teamAvgTpm}/min` : ''}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
-          <View style={styles.headerAvatarGlow} />
-          <Image
-            source={{ uri: profile?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-            style={styles.headerAvatar}
+        <View style={styles.headerRight}>
+          <NotificationBell
+            hasNewCheers={nudgeModalPlayers.length > 0}
+            onNotificationPress={() => setInactiveModalVisible(true)}
           />
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+            <View style={styles.headerAvatarGlow} />
+            <Image
+              source={{ uri: profile?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+              style={styles.headerAvatar}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -916,6 +941,11 @@ export default function CoachDashboard() {
         </View>
       </Modal>
 
+      <InactivePlayersModal
+        visible={inactiveModalVisible}
+        onClose={() => setInactiveModalVisible(false)}
+        players={nudgeModalPlayers}
+      />
     </SafeAreaView>
   );
 }
@@ -1017,6 +1047,11 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
     marginRight: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerAvatar: {
     width: 56,

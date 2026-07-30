@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -57,39 +59,44 @@ export default function CoachNoteModal({
 
   return (
     <Modal visible={visible} animationType='slide' presentationStyle='pageSheet' onRequestClose={handleClose}>
-      <View style={[styles.container, { paddingTop: insets.top || 20 }]}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Note to {playerName}</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-            <Ionicons name='close' size={22} color='#1a1a2e' />
-          </TouchableOpacity>
-        </View>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={[styles.container, { paddingTop: insets.top || 20 }]}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Note to {playerName}</Text>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
+              <Ionicons name='close' size={22} color='#1a1a2e' />
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.body}>
-          <TextInput
-            style={styles.input}
-            value={message}
-            onChangeText={(t) => setMessage(t.slice(0, NOTE_MAX_LENGTH))}
-            placeholder='e.g. Loved the quick feet on those Cruyff turns today'
-            placeholderTextColor='#B0BEC5'
-            multiline
-            autoFocus
-            maxLength={NOTE_MAX_LENGTH}
-          />
-          <Text style={styles.charCount}>{message.length}/{NOTE_MAX_LENGTH}</Text>
-        </View>
+          <View style={styles.body}>
+            <TextInput
+              style={styles.input}
+              value={message}
+              onChangeText={(t) => setMessage(t.slice(0, NOTE_MAX_LENGTH))}
+              placeholder='e.g. Loved the quick feet on those Cruyff turns today'
+              placeholderTextColor='#B0BEC5'
+              multiline
+              autoFocus
+              maxLength={NOTE_MAX_LENGTH}
+            />
+            <Text style={styles.charCount}>{message.length}/{NOTE_MAX_LENGTH}</Text>
+          </View>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            style={[styles.sendBtn, (!message.trim() || isPending) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!message.trim() || isPending}
-            activeOpacity={0.8}
-          >
-            {isPending ? <ActivityIndicator color='#FFF' /> : <Text style={styles.sendBtnText}>Send Note</Text>}
-          </TouchableOpacity>
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              style={[styles.sendBtn, (!message.trim() || isPending) && styles.sendBtnDisabled]}
+              onPress={handleSend}
+              disabled={!message.trim() || isPending}
+              activeOpacity={0.8}
+            >
+              {isPending ? <ActivityIndicator color='#FFF' /> : <Text style={styles.sendBtnText}>Send Note</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
