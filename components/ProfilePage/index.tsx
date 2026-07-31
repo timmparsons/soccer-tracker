@@ -15,6 +15,7 @@ import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
+import { promptForReview } from '@/lib/rateApp';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
@@ -23,7 +24,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as StoreReview from 'expo-store-review';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -381,21 +381,7 @@ const ProfilePage = () => {
   };
 
   const handleRateApp = () => {
-    Alert.alert('Enjoying Master Touch?', "We'd love to hear your feedback!", [
-      {
-        text: 'Not really',
-        style: 'cancel',
-        onPress: handleFeedback,
-      },
-      {
-        text: 'Yes!',
-        onPress: async () => {
-          if (await StoreReview.hasAction()) {
-            StoreReview.requestReview();
-          }
-        },
-      },
-    ]);
+    promptForReview(handleFeedback);
   };
 
   const handleJoinTeam = () => {

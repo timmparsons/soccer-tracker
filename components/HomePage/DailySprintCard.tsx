@@ -2,6 +2,7 @@ import SprintTimerModal from '@/components/HomePage/ChallengeTimer/SprintTimerMo
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { ChallengeResult } from '@/hooks/useChallengeTimer';
 import { useDailySprint } from '@/hooks/useDailySprint';
+import { maybePromptForReviewAfterPR } from '@/lib/rateApp';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -33,6 +34,11 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
   if (!sprint) return null;
 
   const handleSubmit = (result: ChallengeResult) => {
+    // sprint.personalBestMs is the *prior* best — a null value means this was their
+    // first-ever attempt, which always counts as a PR but isn't a real "win" moment.
+    if (result.isPR && sprint.personalBestMs != null) {
+      maybePromptForReviewAfterPR();
+    }
     submitAttempt(result.durationMs, result.isPR, result.isCrown);
     onAttemptSubmitted?.({ ...result, comboName: sprint.comboName });
   };
