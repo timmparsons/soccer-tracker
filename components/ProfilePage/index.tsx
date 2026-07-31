@@ -23,6 +23,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as StoreReview from 'expo-store-review';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -377,6 +378,24 @@ const ProfilePage = () => {
     } else {
       Alert.alert('Send Feedback', `Email us at:\n${email}`, [{ text: 'OK' }]);
     }
+  };
+
+  const handleRateApp = () => {
+    Alert.alert('Enjoying Master Touch?', "We'd love to hear your feedback!", [
+      {
+        text: 'Not really',
+        style: 'cancel',
+        onPress: handleFeedback,
+      },
+      {
+        text: 'Yes!',
+        onPress: async () => {
+          if (await StoreReview.hasAction()) {
+            StoreReview.requestReview();
+          }
+        },
+      },
+    ]);
   };
 
   const handleJoinTeam = () => {
@@ -1472,6 +1491,14 @@ const ProfilePage = () => {
                   >
                     <Ionicons name='key' size={24} color='#1f89ee' />
                     <Text style={styles.actionButtonText}>Change Password</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleRateApp}
+                  >
+                    <Ionicons name='star' size={24} color='#ffb724' />
+                    <Text style={styles.actionButtonText}>Rate Master Touch</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
                   <TouchableOpacity

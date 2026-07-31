@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 export type ChallengeStatus = 'idle' | 'countdown' | 'active' | 'complete';
-export type CountdownValue = 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 'GO';
+export type CountdownValue = 5 | 4 | 3 | 2 | 1 | 'GO';
 
 export interface ChallengeResult {
   durationMs: number;
@@ -24,13 +24,13 @@ type TimerAction =
   | { type: 'STOP'; result: ChallengeResult }
   | { type: 'RESET' };
 
-const COUNTDOWN_SEQUENCE: CountdownValue[] = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 'GO'];
+const COUNTDOWN_SEQUENCE: CountdownValue[] = [5, 4, 3, 2, 1, 'GO'];
 const TICK_MS = 1000;
 const ELAPSED_SAMPLE_MS = 100;
 
 const initialState: TimerState = {
   status: 'idle',
-  countdownValue: 10,
+  countdownValue: 5,
   elapsedMs: 0,
   result: null,
 };
@@ -62,7 +62,7 @@ interface UseChallengeTimerArgs {
   onStop?: (result: ChallengeResult) => void;
 }
 
-// Idle -> countdown (10..1,GO) -> active (stopwatch running) -> complete (PR/Crown known).
+// Idle -> countdown (5..1,GO) -> active (stopwatch running) -> complete (PR/Crown known).
 // Retry re-enters at 'countdown'; Submit/Reset return to 'idle'. Persistence is the
 // caller's job once it has a ChallengeResult — this hook has no opinion on it.
 export function useChallengeTimer({
@@ -110,7 +110,7 @@ export function useChallengeTimer({
 
   const start = useCallback(() => {
     goTimestampRef.current = null;
-    onCountdownTick?.(10);
+    onCountdownTick?.(5);
     dispatch({ type: 'START' });
   }, [onCountdownTick]);
 
