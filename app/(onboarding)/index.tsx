@@ -553,7 +553,7 @@ function SignUpScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={s.signupScrollContent}
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
@@ -562,8 +562,8 @@ function SignUpScreen({
             source={require('../../assets/images/app-logo.png')}
             style={s.signupLogo}
           />
-          <Text style={s.title}>Create your account</Text>
-          <Text style={s.subtitle}>
+          <Text style={s.signupTitle}>Create your account</Text>
+          <Text style={s.signupSubtitle}>
             Save your progress and join the leaderboard
           </Text>
         </View>
@@ -893,15 +893,33 @@ const s = StyleSheet.create({
   },
 
   // SIGN UP SCREEN
+  signupScrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   signupHeader: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 32,
   },
   signupLogo: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
-    marginBottom: 20,
+    width: 100,
+    height: 100,
+    borderRadius: 22,
+    marginBottom: 24,
+  },
+  signupTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 8,
+  },
+  signupSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#78909C',
+    textAlign: 'center',
   },
   signupCard: {
     backgroundColor: '#FFF',
@@ -964,7 +982,7 @@ const s = StyleSheet.create({
     elevation: 0,
   },
   signupBtnText: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 0.5,
