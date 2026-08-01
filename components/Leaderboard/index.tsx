@@ -7,7 +7,9 @@ import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
+import { useGlobalJugglingLeaderboard } from '@/hooks/useGlobalJugglingLeaderboard';
 import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
+import { useClubJugglingLeaderboard } from '@/hooks/useClubJugglingLeaderboard';
 import { useSprintLeaderboard } from '@/hooks/useSprintLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useProfile } from '@/hooks/useProfile';
@@ -89,6 +91,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     }
   }, [profile?.id]);
   const [teamSubTab, setTeamSubTab] = useState<'touches' | 'juggling' | 'sprint'>('touches');
+  const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>('touches');
+  const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [clubPeriod, setClubPeriod] = useState<'week' | 'alltime'>('week');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
@@ -140,7 +144,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const getResetNote = (): string | null => {
     if (view === 'global') return 'Resets Sunday';
-    if (view === 'club') return clubPeriod === 'week' ? 'Resets Sunday' : 'Lifetime touches';
+    if (view === 'club') {
+      if (clubSubTab === 'juggling') return clubPeriod === 'week' ? 'Resets Sunday' : null;
+      return clubPeriod === 'week' ? 'Resets Sunday' : 'Lifetime touches';
+    }
     if (view === 'team') {
       if (teamSubTab === 'touches') {
         if (touchesPeriod === 'week') return 'Resets Sunday';
@@ -223,6 +230,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     refetch: refetchGlobal,
   } = useGlobalLeaderboard();
 
+  const {
+    data: globalJugglingLeaderboard = [],
+    isLoading: globalJugglingLoading,
+    refetch: refetchGlobalJuggling,
+  } = useGlobalJugglingLeaderboard();
+
   const clubId = (profile as any)?.club_id ?? undefined;
 
   const {
@@ -230,6 +243,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     isLoading: clubLoading,
     refetch: refetchClub,
   } = useClubLeaderboard(clubId, clubPeriod);
+
+  const {
+    data: clubJugglingLeaderboard = [],
+    isLoading: clubJugglingLoading,
+    refetch: refetchClubJuggling,
+  } = useClubJugglingLeaderboard(clubId, clubPeriod);
 
   const {
     data: sprintLeaderboard = [],
@@ -249,7 +268,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchTouches(), refetchJuggling(), refetchGlobal(), refetchClub(), refetchSprint()]);
+    await Promise.all([
+      refetchTouches(),
+      refetchJuggling(),
+      refetchGlobal(),
+      refetchGlobalJuggling(),
+      refetchClub(),
+      refetchClubJuggling(),
+      refetchSprint(),
+    ]);
     setRefreshing(false);
   };
 
@@ -259,9 +286,20 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchTouches();
       refetchJuggling();
       refetchGlobal();
+      refetchGlobalJuggling();
       refetchClub();
+      refetchClubJuggling();
       refetchSprint();
-    }, [refetchProfile, refetchTouches, refetchJuggling, refetchGlobal, refetchClub, refetchSprint])
+    }, [
+      refetchProfile,
+      refetchTouches,
+      refetchJuggling,
+      refetchGlobal,
+      refetchGlobalJuggling,
+      refetchClub,
+      refetchClubJuggling,
+      refetchSprint,
+    ])
   );
 
   if (isLoading && view === 'team') {
@@ -559,6 +597,38 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             >
               <Text style={[styles.subTabText, teamSubTab === 'sprint' && styles.subTabTextActive]} numberOfLines={1}>
                 Challenges
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {(view === 'club' || view === 'global') && (
+          <View style={styles.subTabsRow}>
+            <TouchableOpacity
+              style={[styles.subTab, (view === 'club' ? clubSubTab : globalSubTab) === 'touches' && styles.subTabActive]}
+              onPress={() => (view === 'club' ? setClubSubTab('touches') : setGlobalSubTab('touches'))}
+            >
+              <Text
+                style={[
+                  styles.subTabText,
+                  (view === 'club' ? clubSubTab : globalSubTab) === 'touches' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Touches
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.subTab, (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' && styles.subTabActive]}
+              onPress={() => (view === 'club' ? setClubSubTab('juggling') : setGlobalSubTab('juggling'))}
+            >
+              <Text
+                style={[
+                  styles.subTabText,
+                  (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Juggling
               </Text>
             </TouchableOpacity>
           </View>
@@ -894,20 +964,67 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {/* ── CLUB VIEW ── */}
         {view === 'club' && (
           <>
-            {clubLoading ? (
+            {clubSubTab === 'touches' ? (
+              clubLoading ? (
+                <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+              ) : clubLeaderboard.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No Club Yet</Text>
+                  <Text style={styles.emptyStateText}>
+                    Ask your coach to set up a club to see cross-team standings here.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.listContainer}>
+                  {clubLeaderboard.map((player) => {
+                    const isCurrentUser = player.id === getCurrentUserId();
+                    const rank = getDenseRank(player.touches, clubLeaderboard.map(p => p.touches));
+                    return (
+                      <TouchableOpacity
+                        key={player.id}
+                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                        onPress={() => setSelectedPlayerId(player.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.playerLeft}>
+                          <View style={styles.rankContainer}>
+                            <Text style={styles.rankNumber}>{rank}</Text>
+                          </View>
+                          <Image
+                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                            style={styles.avatar}
+                          />
+                          <View style={styles.playerInfo}>
+                            <Text style={styles.playerName}>
+                              {player.name}
+                              {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                            </Text>
+                            <Text style={styles.todayTouches}>{player.team_name}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.playerRight}>
+                          <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
+                          <Text style={styles.touchesLabel}>touches</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )
+            ) : clubJugglingLoading ? (
               <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
-            ) : clubLeaderboard.length === 0 ? (
+            ) : clubJugglingLeaderboard.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No Club Yet</Text>
+                <Text style={styles.emptyStateTitle}>No Juggling Records</Text>
                 <Text style={styles.emptyStateText}>
-                  Ask your coach to set up a club to see cross-team standings here.
+                  Club members will appear here once they set juggling high scores.
                 </Text>
               </View>
             ) : (
               <View style={styles.listContainer}>
-                {clubLeaderboard.map((player) => {
+                {clubJugglingLeaderboard.map((player) => {
                   const isCurrentUser = player.id === getCurrentUserId();
-                  const rank = getDenseRank(player.touches, clubLeaderboard.map(p => p.touches));
+                  const rank = getDenseRank(player.high_score, clubJugglingLeaderboard.map(p => p.high_score));
                   return (
                     <TouchableOpacity
                       key={player.id}
@@ -932,8 +1049,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                         </View>
                       </View>
                       <View style={styles.playerRight}>
-                        <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
-                        <Text style={styles.touchesLabel}>touches</Text>
+                        <Text style={styles.jugglingScore}>{player.high_score}</Text>
+                        <Text style={styles.touchesLabel}>juggles</Text>
                       </View>
                     </TouchableOpacity>
                   );
@@ -946,18 +1063,64 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {/* ── GLOBAL VIEW ── */}
         {view === 'global' && (
           <>
-            {globalLoading ? (
+            {globalSubTab === 'touches' ? (
+              globalLoading ? (
+                <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+              ) : globalLeaderboard.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No activity yet this week</Text>
+                  <Text style={styles.emptyStateText}>
+                    Players will appear here as they log touches.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.listContainer}>
+                  {globalLeaderboard.map((player, index) => {
+                    const isCurrentUser = player.userId === user?.id;
+                    return (
+                      <View
+                        key={player.userId}
+                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                      >
+                        <View style={styles.playerLeft}>
+                          <View style={styles.rankContainer}>
+                            <Text style={styles.rankNumber}>{index + 1}</Text>
+                          </View>
+                          <Image
+                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                            style={styles.avatar}
+                          />
+                          <View style={styles.playerInfo}>
+                            <Text style={styles.playerName}>
+                              {player.name}
+                              {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                            </Text>
+                            {player.cityState && (
+                              <Text style={styles.globalCityState}>{player.cityState}</Text>
+                            )}
+                          </View>
+                        </View>
+                        <View style={styles.playerRight}>
+                          <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
+                          <Text style={styles.touchesLabel}>touches</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )
+            ) : globalJugglingLoading ? (
               <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
-            ) : globalLeaderboard.length === 0 ? (
+            ) : globalJugglingLeaderboard.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No activity yet this week</Text>
+                <Text style={styles.emptyStateTitle}>No juggling activity yet this week</Text>
                 <Text style={styles.emptyStateText}>
-                  Players will appear here as they log touches.
+                  Players will appear here as they set juggling high scores.
                 </Text>
               </View>
             ) : (
               <View style={styles.listContainer}>
-                {globalLeaderboard.map((player, index) => {
+                {globalJugglingLeaderboard.map((player, index) => {
                   const isCurrentUser = player.userId === user?.id;
                   return (
                     <View
@@ -983,8 +1146,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                         </View>
                       </View>
                       <View style={styles.playerRight}>
-                        <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
-                        <Text style={styles.touchesLabel}>touches</Text>
+                        <Text style={styles.jugglingScore}>{player.high_score}</Text>
+                        <Text style={styles.touchesLabel}>juggles</Text>
                       </View>
                     </View>
                   );
