@@ -19,7 +19,7 @@ eas build --platform ios           # Build for App Store (uses eas.json profiles
 eas build --platform android       # Build for Play Store
 ```
 
-No test framework is configured — there are no tests to run.
+Jest (`jest-expo` preset) is configured — run with `npm test`. Specs live in `__tests__/`, mirroring `lib/` and `utils/`.
 
 ## Commits
 - **Always provide a commit message** after completing a task, but wait for explicit approval before running `git commit`. Stage only the files changed for that task.
@@ -52,7 +52,6 @@ No test framework is configured — there are no tests to run.
 - Supabase client is in `lib/supabase.ts` (uses AsyncStorage for session persistence).
 - XP/level logic lives in `lib/xp.ts` and `lib/awardXp.ts`. 1 XP per 10 juggles; teams level up at 500 XP.
 - Vinnie (AI coach) responses come from Supabase Edge Functions — see `lib/vinnie.ts`.
-- i18n uses i18next; strings live in `locales/en-US.json`, initialised in `utils/i18n.ts`.
 - Route groups: `(auth)`, `(tabs)`, `(onboarding)`, `(modals)`, `minigames`.
 - Shared UI primitives (Tile, WideTile, GradientTile, ProgressBar, PageHeader, etc.) live in `components/common/`.
 
