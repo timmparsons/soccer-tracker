@@ -1,5 +1,5 @@
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
-import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession, saveDailyChallengeCompletion } from '@/hooks/useDailyChallenge';
+import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession } from '@/hooks/useDailyChallenge';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -15,7 +15,7 @@ import {
 interface Props {
   visible: boolean;
   onClose: () => void;
-  challenge: { id: string; title: string };
+  workout: { id: string; title: string };
   steps: DailyChallengeStep[];
   profileId: string;
   onCompleted: (timeSeconds: number) => void;
@@ -29,7 +29,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s}`;
 }
 
-const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, onCompleted }: Props) => {
+const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCompleted }: Props) => {
   const [state, setState] = useState<ModalState>('ready');
   const [displaySeconds, setDisplaySeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
@@ -69,10 +69,7 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
     setSaving(true);
     try {
       const touches = calculateChallengeTouches(steps);
-      await Promise.all([
-        saveDailyChallengeCompletion(challenge.id, profileId, finalSeconds),
-        logChallengeSession(profileId, touches, finalSeconds),
-      ]);
+      await logChallengeSession(profileId, touches, finalSeconds);
       onCompleted(finalSeconds);
     } catch {
       // Completion still shown even if save fails
@@ -153,10 +150,10 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
           {state === 'done' ? (
             // DONE STATE
             <View style={styles.doneContainer}>
-              <Text style={styles.doneLabel}>CHALLENGE COMPLETE</Text>
+              <Text style={styles.doneLabel}>WORKOUT COMPLETE</Text>
               <Text style={styles.doneTime}>{formatTime(displaySeconds)}</Text>
               <Text style={styles.doneTouches}>+{estimatedTouches.toLocaleString()} touches logged</Text>
-              <Text style={styles.doneSubtext}>Nice work — get out there and do it again tomorrow.</Text>
+              <Text style={styles.doneSubtext}>Nice work — come back and run it again anytime.</Text>
               <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
                 <Text style={styles.closeButtonText}>Done</Text>
               </TouchableOpacity>
@@ -164,8 +161,8 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
           ) : (
             // READY / RUNNING STATES
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-              <Text style={styles.sectionLabel}>TODAY&apos;S CHALLENGE</Text>
-              <Text style={styles.title}>{challenge.title}</Text>
+              <Text style={styles.sectionLabel}>WORKOUT</Text>
+              <Text style={styles.title}>{workout.title}</Text>
 
               <View style={styles.gameSpeedBanner}>
                 <Ionicons name='flash' size={14} color='#ffb724' />
@@ -216,7 +213,7 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
   );
 };
 
-export default DailyChallengeModal;
+export default WorkoutRunnerModal;
 
 const styles = StyleSheet.create({
   overlay: {

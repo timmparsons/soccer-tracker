@@ -541,6 +541,22 @@ const TrainPage = () => {
               <Ionicons name='chevron-forward' size={20} color='#78909C' />
             </TouchableOpacity>
 
+            {/* Workouts */}
+            <TouchableOpacity
+              style={styles.libraryCard}
+              onPress={() => router.push('/(modals)/workouts')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.libraryIconBg}>
+                <Ionicons name='barbell' size={22} color='#1f89ee' />
+              </View>
+              <View style={styles.libraryTextBlock}>
+                <Text style={styles.libraryTitle}>Workouts</Text>
+                <Text style={styles.librarySubtitle}>Run a curated drill combo</Text>
+              </View>
+              <Ionicons name='chevron-forward' size={20} color='#78909C' />
+            </TouchableOpacity>
+
             {/* CHALLENGES */}
             {!profile?.is_coach && user?.id && (
               <View onLayout={(e) => setChallengesLayoutY(e.nativeEvent.layout.y)}>

@@ -11,6 +11,7 @@ export type DailyChallengeStep =
       drillId: string;
       drillName: string;
       videoUrl?: string;
+      note?: string;
     }
   | {
       type: 'combo';
@@ -37,9 +38,9 @@ interface DailyChallengeData {
 }
 
 // RAW STEP FORMATS (as stored in Supabase JSONB)
-type RawSingleStep = { drill_id: string; reps: number };
+type RawSingleStep = { drill_id: string; reps: number; note?: string };
 type RawComboStep = { combo_name: string; drill_ids: string[]; reps: number };
-type RawStep = RawSingleStep | RawComboStep;
+export type RawStep = RawSingleStep | RawComboStep;
 
 // DRILL ID CONSTANTS
 const D = {
@@ -85,6 +86,38 @@ export const TOUCHES_PER_REP: Record<string, number> = {
   [D.FIGURE_OF_8]:    6,
 };
 
+// Resolves raw JSONB steps (as stored in Supabase) into display-ready steps
+// by looking up each drill's name/video from a drillId -> info map. Shared
+// with hooks/useWorkouts.ts, which stores steps in the same raw shape.
+export function resolveSteps(
+  rawSteps: RawStep[],
+  drillMap: Map<string, { name: string; videoUrl?: string }>,
+): DailyChallengeStep[] {
+  return rawSteps.map((step): DailyChallengeStep => {
+    if ('drill_id' in step) {
+      const drill = drillMap.get(step.drill_id);
+      return {
+        type: 'single',
+        reps: step.reps,
+        drillId: step.drill_id,
+        drillName: drill?.name ?? 'Unknown',
+        videoUrl: drill?.videoUrl,
+        note: step.note,
+      };
+    } else {
+      return {
+        type: 'combo',
+        reps: step.reps,
+        comboName: step.combo_name,
+        drills: step.drill_ids.map((id) => {
+          const drill = drillMap.get(id);
+          return { drillId: id, drillName: drill?.name ?? 'Unknown', videoUrl: drill?.videoUrl };
+        }),
+      };
+    }
+  });
+}
+
 export function calculateChallengeTouches(steps: DailyChallengeStep[]): number {
   let total = 0;
   for (const step of steps) {
@@ -120,7 +153,7 @@ const FALLBACK_CHALLENGES: { title: string; steps: RawStep[] }[] = [
   {
     title: 'Quick Feet',
     steps: [
-      { drill_id: D.INSIDE_OUTSIDE, reps: 50 },
+      { drill_id: D.INSIDE_OUTSIDE, reps: 50, note: 'Split evenly — 25 right foot, 25 left' },
       { drill_id: D.SOLE_ROLLS, reps: 25 },
       { drill_id: D.CRUYFF_TURN, reps: 15 },
     ],
@@ -176,7 +209,7 @@ const FALLBACK_CHALLENGES: { title: string; steps: RawStep[] }[] = [
   {
     title: 'Inside Out',
     steps: [
-      { drill_id: D.INSIDE_OUTSIDE, reps: 40 },
+      { drill_id: D.INSIDE_OUTSIDE, reps: 40, note: 'Split evenly — 20 right foot, 20 left' },
       { drill_id: D.L_PULL_BACK, reps: 20 },
       { drill_id: D.SOLE_ROLLS, reps: 25 },
     ],
@@ -361,28 +394,7 @@ export function useDailyChallenge(userId: string | undefined) {
         ]),
       );
 
-      const steps: DailyChallengeStep[] = rawSteps.map((step): DailyChallengeStep => {
-        if ('drill_id' in step) {
-          const drill = drillMap.get(step.drill_id);
-          return {
-            type: 'single',
-            reps: step.reps,
-            drillId: step.drill_id,
-            drillName: drill?.name ?? 'Unknown',
-            videoUrl: drill?.videoUrl,
-          };
-        } else {
-          return {
-            type: 'combo',
-            reps: step.reps,
-            comboName: step.combo_name,
-            drills: step.drill_ids.map((id) => {
-              const drill = drillMap.get(id);
-              return { drillId: id, drillName: drill?.name ?? 'Unknown', videoUrl: drill?.videoUrl };
-            }),
-          };
-        }
-      });
+      const steps = resolveSteps(rawSteps, drillMap);
 
       const { data: completion } = await (supabase as any)
         .from('daily_challenge_completions')
