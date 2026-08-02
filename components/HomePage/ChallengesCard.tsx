@@ -69,6 +69,14 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
   const completedChallenges = challenges.filter((c) => c.status === 'completed');
   const displayedChallenges = [...activeChallenges, ...completedChallenges];
 
+  const totalActive = activeChallenges.length + activeCoachChallenges.length + groupChallenges.length;
+  const headerSubtitle =
+    pendingCount > 0
+      ? `${pendingCount} pending invite${pendingCount > 1 ? 's' : ''}`
+      : totalActive > 0
+        ? `${totalActive} active`
+        : 'Compete with teammates';
+
   type ChallengeItem =
     | { type: 'group'; data: GroupChallenge }
     | { type: 'player'; data: PlayerChallenge };
@@ -130,30 +138,25 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
 
   return (
     <>
+      <View style={styles.shadowWrap}>
       <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0 || hasUnstartedGroupChallenge) && styles.containerAlert]}>
         {/* Header — toggles dropdown */}
         <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Challenges</Text>
-            {pendingCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
-              </View>
-            )}
+          <View style={styles.headerIconBg}>
+            <Ionicons name='trophy' size={22} color='#1f89ee' />
           </View>
-          <View style={styles.headerRight}>
-            {teamId && (
-              <TouchableOpacity
-                style={styles.newChallengeBtn}
-                onPress={() => setShowPicker(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name='add' size={16} color='#1f89ee' />
-                <Text style={styles.newChallengeBtnText}>New</Text>
-              </TouchableOpacity>
-            )}
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+          <View style={styles.headerTextBlock}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.headerTitle}>Challenges</Text>
+              {pendingCount > 0 && (
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
           </View>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color='#78909C' />
         </TouchableOpacity>
 
         {/* Rows — only visible when expanded */}
@@ -249,7 +252,7 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
               <Text style={styles.emptyTitle}>No active challenges</Text>
               {teamId ? (
                 <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
+                  <Text style={styles.challengeBtnText}>⚔️ New Challenge</Text>
                 </TouchableOpacity>
               ) : (
                 <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
@@ -263,7 +266,14 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
               <Ionicons name='chevron-forward' size={16} color='#1f89ee' />
             </TouchableOpacity>
           )}
+          {teamId && !(displayedChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0) && (
+            <TouchableOpacity style={styles.newChallengeRow} onPress={() => setShowPicker(true)} activeOpacity={0.7}>
+              <Ionicons name='add-circle' size={16} color='#1f89ee' />
+              <Text style={styles.newChallengeRowText}>New Challenge</Text>
+            </TouchableOpacity>
+          )}
         </View>}
+      </View>
       </View>
 
       <Modal
@@ -597,23 +607,41 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: 
 }
 
 const styles = StyleSheet.create({
+  shadowWrap: {
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   container: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderRadius: 20,
     overflow: 'hidden',
   },
   containerAlert: {
+    borderWidth: 1.5,
     borderColor: '#EF4444',
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 14,
+  },
+  headerIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F4FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -621,9 +649,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#1a1a2e',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
   },
   pendingBadge: {
     backgroundColor: '#1f89ee',
@@ -643,25 +677,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  newChallengeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#EBF4FF',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  newChallengeBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  headerSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
   },
   rows: {
     gap: 0,
@@ -705,6 +720,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   viewAllText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  newChallengeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  newChallengeRowText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
