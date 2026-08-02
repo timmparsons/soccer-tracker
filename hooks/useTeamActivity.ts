@@ -10,6 +10,7 @@ export interface TeamActivityItem {
   avatarUrl: string | null;
   message: string;
   createdAt: string;
+  isGameSpeed?: boolean;
 }
 
 function pickForId<T>(arr: T[], id: string): T {
@@ -125,7 +126,7 @@ export function useActivityFeed(limit = 7) {
       // Fetch sessions from the past 3 days across all users
       const { data: sessions } = await supabase
         .from('daily_sessions')
-        .select('user_id, date, touches_logged, drill_id, juggle_count, created_at')
+        .select('user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed')
         .gte('date', threeDaysAgoDate)
         .order('created_at', { ascending: false })
         .limit(200);
@@ -242,10 +243,10 @@ export function useActivityFeed(limit = 7) {
       const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
       // Aggregate sessions per user per day, then pick each user's most recent day
-      type DayStats = { totalTouches: number; sessionCount: number; hasChallenge: boolean; latestAt: string };
+      type DayStats = { totalTouches: number; sessionCount: number; hasChallenge: boolean; latestAt: string; isGameSpeed: boolean };
       const userDayMap = new Map<string, Map<string, DayStats>>();
 
-      for (const s of (sessions || []) as { user_id: string; date: string; touches_logged: number; drill_id: string | null; created_at: string }[]) {
+      for (const s of (sessions || []) as { user_id: string; date: string; touches_logged: number; drill_id: string | null; created_at: string; is_game_speed: boolean | null }[]) {
         if (!profileMap.has(s.user_id)) continue;
         if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
         const dayMap = userDayMap.get(s.user_id)!;
@@ -254,8 +255,9 @@ export function useActivityFeed(limit = 7) {
           existing.totalTouches += s.touches_logged;
           existing.sessionCount += 1;
           if (s.drill_id) existing.hasChallenge = true;
+          if (s.is_game_speed) existing.isGameSpeed = true;
         } else {
-          dayMap.set(s.date, { totalTouches: s.touches_logged, sessionCount: 1, hasChallenge: !!s.drill_id, latestAt: s.created_at });
+          dayMap.set(s.date, { totalTouches: s.touches_logged, sessionCount: 1, hasChallenge: !!s.drill_id, latestAt: s.created_at, isGameSpeed: !!s.is_game_speed });
         }
       }
 
@@ -441,6 +443,7 @@ export function useActivityFeed(limit = 7) {
           avatarUrl: profile?.avatar_url ?? null,
           message: sessionMessage(name, stats.totalTouches, stats.sessionCount, stats.hasChallenge, `${userId}-${stats.latestAt}`),
           createdAt: stats.latestAt,
+          isGameSpeed: stats.isGameSpeed,
         });
         usedUsers.add(userId);
       }

@@ -21,6 +21,8 @@ export interface PlayerStats {
   week_tpm: number;
   days_active_this_week: number;
   best_juggle: number;
+  week_game_speed_touches: number;
+  game_speed_pct: number;
 }
 
 export function useCoachTeamPlayers(teamId: string | undefined) {
@@ -62,7 +64,7 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           players.map((player) =>
             supabase
               .from('daily_sessions')
-              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
+              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count, is_game_speed')
               .eq('user_id', player.id)
               .gte('date', streakWindowStartStr)
               .order('date', { ascending: false })
@@ -83,6 +85,7 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
         date: string;
         created_at: string;
         juggle_count: number | null;
+        is_game_speed: boolean | null;
       };
       const sessionsByPlayer: Record<string, SessionRow[]> = {};
       for (const { playerId, sessions } of playerSessionResults) {
@@ -106,6 +109,10 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           .reduce((sum, s) => sum + s.touches_logged, 0);
 
         const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
+        const weekGameSpeedTouches = weekSessions
+          .filter((s) => s.is_game_speed)
+          .reduce((sum, s) => sum + s.touches_logged, 0);
+        const gameSpeedPct = weekTouches > 0 ? Math.round((weekGameSpeedTouches / weekTouches) * 100) : 0;
         const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
         const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
@@ -154,6 +161,8 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           week_tpm: weekTpm,
           days_active_this_week: Math.min(uniqueWeekDays, 7),
           best_juggle: bestJuggle,
+          week_game_speed_touches: weekGameSpeedTouches,
+          game_speed_pct: gameSpeedPct,
         };
       });
 

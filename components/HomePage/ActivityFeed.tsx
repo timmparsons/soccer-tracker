@@ -4,6 +4,7 @@ import { useActivityFeed } from '@/hooks/useTeamActivity';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import {
   Image,
@@ -42,7 +43,12 @@ const ActivityFeed = () => {
                 style={styles.avatar}
               />
               <View style={styles.info}>
-                <Text style={styles.message}>{item.message}</Text>
+                <View style={styles.messageRow}>
+                  <Text style={styles.message}>{item.message}</Text>
+                  {item.isGameSpeed && (
+                    <Ionicons name='flame' size={16} color='#B23B00' />
+                  )}
+                </View>
                 <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
               </View>
             </View>
@@ -103,10 +109,16 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
   },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   message: {
     fontSize: 14,
     fontWeight: '700',
     color: '#1a1a2e',
+    flexShrink: 1,
   },
   detail: {
     fontSize: 12,

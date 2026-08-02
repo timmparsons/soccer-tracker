@@ -58,7 +58,7 @@ export function useClubLeaderboard(clubId?: string, period: 'week' | 'alltime' =
           team_name: (p.teams as any)?.name ?? '',
           touches: totals[p.id] ?? 0,
         }))
-        .sort((a, b) => b.touches - a.touches);
+        .sort((a, b) => b.touches - a.touches || a.name.localeCompare(b.name));
     },
   });
 }

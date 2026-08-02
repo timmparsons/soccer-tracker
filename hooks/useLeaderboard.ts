@@ -124,7 +124,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     };
   });
 
-  return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
+  return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches || a.name.localeCompare(b.name));
 }
 
 export function useTouchesLeaderboard(teamId: string | null | undefined, seasonStartDate?: string | null) {

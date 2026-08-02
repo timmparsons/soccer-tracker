@@ -63,7 +63,7 @@ export function useGlobalLeaderboard() {
             avatar_url: p?.avatar_url ?? null,
           };
         })
-        .sort((a, b) => b.touches - a.touches)
+        .sort((a, b) => b.touches - a.touches || a.name.localeCompare(b.name))
         .slice(0, 100);
     },
   });

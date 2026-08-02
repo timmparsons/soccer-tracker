@@ -15,6 +15,9 @@ import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { buildCoachCheerKey } from '@/lib/coachCheerKey';
 import { supabase } from '@/lib/supabase';
+import { creditTouchesForDailyCap } from '@/lib/touchCap';
+import BeastModeModal from '@/components/modals/BeastModeModal';
+import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,6 +39,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const MAX_SESSION_TOUCHES = 9999;
 
 export default function CoachDashboard() {
   const insets = useSafeAreaInsets();
@@ -63,6 +68,13 @@ export default function CoachDashboard() {
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
+  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
+  const [reflectionTouches, setReflectionTouches] = useState(0);
+  const [pendingBeastMode, setPendingBeastMode] = useState(false);
+  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
+    visible: false,
+    alreadyAtCap: false,
+  });
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -295,6 +307,10 @@ export default function CoachDashboard() {
   const totalWeekMinutes = teamPlayers?.reduce((sum, p) => sum + p.week_minutes, 0) || 0;
   const teamAvgTpm = totalWeekMinutes > 0 ? Math.round(teamWeekTouches / totalWeekMinutes) : 0;
 
+  // Team game-speed % (weighted average)
+  const teamWeekGameSpeedTouches = teamPlayers?.reduce((sum, p) => sum + p.week_game_speed_touches, 0) || 0;
+  const teamGameSpeedPct = teamWeekTouches > 0 ? Math.round((teamWeekGameSpeedTouches / teamWeekTouches) * 100) : 0;
+
   // Players who hit their target today
   const playersHitTarget = teamPlayers?.filter((p) => p.today_touches >= p.daily_target).length || 0;
 
@@ -398,6 +414,11 @@ export default function CoachDashboard() {
     const count = parseInt(editCount, 10);
     if (!count || count <= 0 || isNaN(count) || !editingSessionId) return;
 
+    if (count > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
+
     setEditSaving(true);
     try {
       const { error } = await supabase
@@ -434,6 +455,11 @@ export default function CoachDashboard() {
       return;
     }
 
+    if (count > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
+
     if (!selectedPlayer) return;
 
     setSaving(true);
@@ -442,18 +468,40 @@ export default function CoachDashboard() {
       const today = getLocalDate();
       const duration = durationMinutes ? parseInt(durationMinutes, 10) : null;
 
-      const { error } = await supabase.from('daily_sessions').insert({
-        user_id: selectedPlayer.id,
-        touches_logged: count,
-        duration_minutes: duration,
-        date: today,
-      });
+      const { data: todaySessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged')
+        .eq('user_id', selectedPlayer.id)
+        .eq('date', today);
+      const todayTotal = (todaySessions ?? []).reduce(
+        (sum: number, s: { touches_logged: number }) => sum + s.touches_logged,
+        0,
+      );
+      const capResult = creditTouchesForDailyCap(todayTotal, count);
+
+      if (capResult.atCap) {
+        setBeastMode({ visible: true, alreadyAtCap: true });
+        setSaving(false);
+        return;
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('daily_sessions')
+        .insert({
+          user_id: selectedPlayer.id,
+          touches_logged: capResult.credited,
+          raw_touches: capResult.capped ? count : null,
+          duration_minutes: duration,
+          date: today,
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
       Alert.alert(
         'Touches Logged!',
-        `${count.toLocaleString()} touches recorded for ${selectedPlayer.display_name || selectedPlayer.name}`
+        `${capResult.credited.toLocaleString()} touches recorded for ${selectedPlayer.display_name || selectedPlayer.name}`
       );
 
       await refetch();
@@ -461,10 +509,32 @@ export default function CoachDashboard() {
       setTouchCount('');
       setDurationMinutes('');
       setSelectedPlayer(null);
+
+      if (inserted?.id) {
+        setReflectionSessionId(inserted.id);
+        setReflectionTouches(capResult.credited);
+        setPendingBeastMode(capResult.capped);
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to save touches. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReflectionSelect = (focus: SessionFocus) => {
+    const sessionId = reflectionSessionId;
+    setReflectionSessionId(null);
+    if (sessionId) {
+      supabase
+        .from('daily_sessions')
+        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
+        .eq('id', sessionId)
+        .then(() => {});
+    }
+    if (pendingBeastMode) {
+      setPendingBeastMode(false);
+      setBeastMode({ visible: true, alreadyAtCap: false });
     }
   };
 
@@ -547,6 +617,7 @@ export default function CoachDashboard() {
             {activePlayers}/{totalPlayers} active today
             {playersHitTarget > 0 ? ` · ${playersHitTarget} hit target` : ''}
             {teamAvgTpm > 0 ? ` · ${teamAvgTpm}/min` : ''}
+            {teamGameSpeedPct > 0 ? ` · ${teamGameSpeedPct}% game speed` : ''}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -832,6 +903,7 @@ export default function CoachDashboard() {
                         placeholder="Enter touch count"
                         placeholderTextColor="#9CA3AF"
                         keyboardType="number-pad"
+                        maxLength={4}
                         value={touchCount}
                         onChangeText={setTouchCount}
                         autoFocus
@@ -875,6 +947,7 @@ export default function CoachDashboard() {
                         <TextInput
                           style={[styles.input, { marginBottom: 16 }]}
                           keyboardType="number-pad"
+                          maxLength={4}
                           value={editCount}
                           onChangeText={setEditCount}
                           autoFocus
@@ -931,6 +1004,17 @@ export default function CoachDashboard() {
         visible={inactiveModalVisible}
         onClose={() => setInactiveModalVisible(false)}
         players={nudgeModalPlayers}
+      />
+
+      <ReflectionModal
+        visible={reflectionSessionId != null}
+        touches={reflectionTouches}
+        onSelect={handleReflectionSelect}
+      />
+      <BeastModeModal
+        visible={beastMode.visible}
+        alreadyAtCap={beastMode.alreadyAtCap}
+        onClose={() => setBeastMode({ visible: false, alreadyAtCap: false })}
       />
     </SafeAreaView>
   );

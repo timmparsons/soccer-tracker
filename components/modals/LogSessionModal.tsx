@@ -3,8 +3,11 @@ import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useDailySprint } from '@/hooks/useDailySprint';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { creditTouchesForDailyCap, DAILY_TOUCH_CAP } from '@/lib/touchCap';
+import BeastModeModal from '@/components/modals/BeastModeModal';
+import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -63,7 +66,6 @@ const DRILL_TIPS: Record<string, string> = {
 
 const MAX_SESSION_TOUCHES = 9999;
 const MAX_SESSION_JUGGLES = 9999;
-const MAX_DAILY_TOUCHES = 15000;
 
 const LogSessionModal = ({
   visible,
@@ -92,6 +94,17 @@ const LogSessionModal = ({
   const [dialogHeight, setDialogHeight] = useState(screenHeight);
   const [kbScreenY, setKbScreenY] = useState<number | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
+  const [reflectionTouches, setReflectionTouches] = useState(0);
+  const [pendingBeastMode, setPendingBeastMode] = useState(false);
+  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
+    visible: false,
+    alreadyAtCap: false,
+  });
+  // Holds the onSessionLogged() call (celebration/badges) until the reflection
+  // and beast-mode modals it's queued behind have been dismissed — RN can't
+  // present two native Modals at once, so only one of these can be visible.
+  const pendingSessionLoggedRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -149,6 +162,9 @@ const LogSessionModal = ({
 
     const today = getLocalDate();
 
+    let creditedTouches = touchCount;
+    let rawTouches: number | null = null;
+
     if (touchCount > 0) {
       const { data: todaySessions } = await supabase
         .from('daily_sessions')
@@ -156,32 +172,36 @@ const LogSessionModal = ({
         .eq('user_id', userId)
         .eq('date', today);
       const todayTotal = (todaySessions ?? []).reduce((sum: number, s: { touches_logged: number }) => sum + s.touches_logged, 0);
-      if (todayTotal + touchCount > MAX_DAILY_TOUCHES) {
-        const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
-        Alert.alert(
-          'Daily limit reached',
-          remaining > 0
-            ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
-            : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
-        );
-        setSubmitting(false);
+      const capResult = creditTouchesForDailyCap(todayTotal, touchCount);
+
+      if (capResult.atCap) {
+        setBeastMode({ visible: true, alreadyAtCap: true });
         return;
       }
+
+      creditedTouches = capResult.credited;
+      rawTouches = capResult.capped ? touchCount : null;
     }
 
     setSubmitting(true);
 
     try {
+      const storedTouches = touchCount > 0 ? creditedTouches : juggleCount;
 
-      const { error } = await supabase.from('daily_sessions').insert({
-        user_id: userId,
-        drill_id: challengeDrillId ?? null,
-        touches_logged: touchCount > 0 ? touchCount : juggleCount,
-        duration_minutes: duration ? parseInt(duration) : null,
-        juggle_count: juggleCount > 0 ? juggleCount : null,
-        date: today,
-        focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
-      });
+      const { data: inserted, error } = await supabase
+        .from('daily_sessions')
+        .insert({
+          user_id: userId,
+          drill_id: challengeDrillId ?? null,
+          touches_logged: storedTouches,
+          raw_touches: rawTouches,
+          duration_minutes: duration ? parseInt(duration) : null,
+          juggle_count: juggleCount > 0 ? juggleCount : null,
+          date: today,
+          focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -192,12 +212,11 @@ const LogSessionModal = ({
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
-        const sessionTouches = touchCount > 0 ? touchCount : juggleCount;
         earnedBadgeIds = await checkAndAwardBadges(userId, {
           ...badgeContext,
           // Include this session's touches so milestone badges (e.g. 500k) fire
           // on the session that crosses the threshold, not the next one.
-          totalTouches: badgeContext.totalTouches + sessionTouches,
+          totalTouches: badgeContext.totalTouches + storedTouches,
           totalSessions: badgeContext.totalSessions + 1,
           jugglesThisSession: juggleCount > 0 ? juggleCount : null,
           durationMinutes,
@@ -214,17 +233,56 @@ const LogSessionModal = ({
 
       onSuccess();
       onClose();
-      onSessionLogged?.(
-        touchCount || juggleCount,
-        isChallengeMode,
-        challengeName,
-        earnedBadgeIds,
-      );
+
+      if (storedTouches > 0 && inserted?.id) {
+        // Defer the celebration until the reflection (and, if capped, beast
+        // mode) modal(s) queued in front of it have been dismissed.
+        pendingSessionLoggedRef.current = {
+          touches: storedTouches || juggleCount,
+          badgeIds: earnedBadgeIds,
+        };
+        setReflectionSessionId(inserted.id);
+        setReflectionTouches(storedTouches);
+        setPendingBeastMode(rawTouches != null);
+      } else {
+        onSessionLogged?.(
+          storedTouches || juggleCount,
+          isChallengeMode,
+          challengeName,
+          earnedBadgeIds,
+        );
+      }
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const flushPendingSessionLogged = () => {
+    const pending = pendingSessionLoggedRef.current;
+    pendingSessionLoggedRef.current = null;
+    if (pending) {
+      onSessionLogged?.(pending.touches, isChallengeMode, challengeName, pending.badgeIds);
+    }
+  };
+
+  const handleReflectionSelect = (focus: SessionFocus) => {
+    const sessionId = reflectionSessionId;
+    setReflectionSessionId(null);
+    if (sessionId) {
+      supabase
+        .from('daily_sessions')
+        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
+        .eq('id', sessionId)
+        .then(() => {});
+    }
+    if (pendingBeastMode) {
+      setPendingBeastMode(false);
+      setBeastMode({ visible: true, alreadyAtCap: false });
+    } else {
+      flushPendingSessionLogged();
     }
   };
 
@@ -243,6 +301,7 @@ const LogSessionModal = ({
     : !challengeLocked && (touchCount > 0 || juggleCount > 0);
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType='slide'
@@ -387,7 +446,7 @@ const LogSessionModal = ({
               )}
 
               {!isChallengeMode && (
-                <Text style={styles.dailyLimitNote}>Max {MAX_SESSION_TOUCHES.toLocaleString()} per session · {MAX_DAILY_TOUCHES.toLocaleString()} per day</Text>
+                <Text style={styles.dailyLimitNote}>Max {DAILY_TOUCH_CAP.toLocaleString()} per day</Text>
               )}
 
               {!isChallengeMode &&
@@ -541,6 +600,20 @@ const LogSessionModal = ({
         </View>
       </View>
     </Modal>
+    <ReflectionModal
+      visible={reflectionSessionId != null}
+      touches={reflectionTouches}
+      onSelect={handleReflectionSelect}
+    />
+    <BeastModeModal
+      visible={beastMode.visible}
+      alreadyAtCap={beastMode.alreadyAtCap}
+      onClose={() => {
+        setBeastMode({ visible: false, alreadyAtCap: false });
+        flushPendingSessionLogged();
+      }}
+    />
+    </>
   );
 };
 

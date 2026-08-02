@@ -3,6 +3,8 @@ import StreetTab from '@/components/TrainPage/StreetTab';
 import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import LogSessionModal from '@/components/modals/LogSessionModal';
+import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
+import BeastModeModal from '@/components/modals/BeastModeModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
@@ -15,6 +17,7 @@ import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
+import { creditTouchesForDailyCap, DAILY_TOUCH_CAP } from '@/lib/touchCap';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,6 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
+const MAX_SESSION_TOUCHES = 9999;
 
 const TrainPage = () => {
   const { data: user } = useUser();
@@ -79,7 +83,18 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
+  const [reflectionTouches, setReflectionTouches] = useState(0);
+  const [pendingBeastMode, setPendingBeastMode] = useState(false);
+  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
+    visible: false,
+    alreadyAtCap: false,
+  });
   const { data: allBadges = [] } = useAllBadges();
+  // Holds the Vinnie celebration (touches/badges) until the reflection and,
+  // if capped, beast-mode modals queued in front of it have been dismissed —
+  // RN can't present two native Modals at once, so only one can be visible.
+  const pendingCelebrationRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -362,6 +377,11 @@ const TrainPage = () => {
       return;
     }
 
+    if (score > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
+
     if (!user?.id) return;
 
     setSubmittingScore(true);
@@ -370,30 +390,88 @@ const TrainPage = () => {
       const today = getLocalDate();
       const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
-      const { error } = await supabase.from('daily_sessions').insert({
-        user_id: user.id,
-        drill_id: timerChallengeDrillId ?? null,
-        touches_logged: score,
-        duration_minutes: durationMinutes,
-        date: today,
-      });
+      const { data: todaySessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged')
+        .eq('user_id', user.id)
+        .eq('date', today);
+      const todayTotal = (todaySessions ?? []).reduce(
+        (sum: number, s: { touches_logged: number }) => sum + s.touches_logged,
+        0,
+      );
+
+      const capResult = creditTouchesForDailyCap(todayTotal, score);
+      if (capResult.atCap) {
+        setBeastMode({ visible: true, alreadyAtCap: true });
+        setSubmittingScore(false);
+        return;
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('daily_sessions')
+        .insert({
+          user_id: user.id,
+          drill_id: timerChallengeDrillId ?? null,
+          touches_logged: capResult.credited,
+          raw_touches: capResult.capped ? score : null,
+          duration_minutes: durationMinutes,
+          date: today,
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
       const wasChallenge = !!timerChallengeDrillId;
-      setCelebrationTouches(score);
       setScoreInput('');
       setShowScoreModal(false);
       setFreeTimerDuration(0);
       setTimerChallengeDrillId(undefined);
       setTimerChallengeName(undefined);
       handleSessionLogged(wasChallenge);
-      setShowVinnieCelebration(true);
+
+      if (capResult.credited > 0 && inserted?.id) {
+        pendingCelebrationRef.current = { touches: capResult.credited, badgeIds: [] };
+        setReflectionSessionId(inserted.id);
+        setReflectionTouches(capResult.credited);
+        setPendingBeastMode(capResult.capped);
+      } else {
+        setCelebrationTouches(capResult.credited);
+        setShowVinnieCelebration(true);
+      }
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
     } finally {
       setSubmittingScore(false);
+    }
+  };
+
+  const flushPendingCelebration = () => {
+    const pending = pendingCelebrationRef.current;
+    pendingCelebrationRef.current = null;
+    if (pending) {
+      setCelebrationTouches(pending.touches);
+      setShowVinnieCelebration(true);
+      if (pending.badgeIds.length) setEarnedBadges(pending.badgeIds);
+    }
+  };
+
+  const handleReflectionSelect = (focus: SessionFocus) => {
+    const sessionId = reflectionSessionId;
+    setReflectionSessionId(null);
+    if (sessionId) {
+      supabase
+        .from('daily_sessions')
+        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
+        .eq('id', sessionId)
+        .then(() => {});
+    }
+    if (pendingBeastMode) {
+      setPendingBeastMode(false);
+      setBeastMode({ visible: true, alreadyAtCap: false });
+    } else {
+      flushPendingCelebration();
     }
   };
 
@@ -429,6 +507,7 @@ const TrainPage = () => {
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
+  const atDailyCap = todayTouches >= DAILY_TOUCH_CAP;
 
   return (
     <View style={styles.container}>
@@ -503,6 +582,15 @@ const TrainPage = () => {
                 {Math.round(progressPercent)}% Complete
               </Text>
             </View>
+
+            {atDailyCap && (
+              <View style={styles.capNotice}>
+                <Ionicons name='flame' size={14} color='#B23B00' />
+                <Text style={styles.capNoticeText}>
+                  You&apos;ve hit today&apos;s {DAILY_TOUCH_CAP.toLocaleString()} touch cap — rest up!
+                </Text>
+              </View>
+            )}
 
             {/* Action Buttons Row */}
             <View style={styles.actionButtonsRow}>
@@ -708,6 +796,7 @@ const TrainPage = () => {
                   placeholder='Enter your score'
                   placeholderTextColor='#B0BEC5'
                   keyboardType='number-pad'
+                  maxLength={4}
                   value={scoreInput}
                   onChangeText={setScoreInput}
                   autoFocus={true}
@@ -939,6 +1028,20 @@ const TrainPage = () => {
         />
       )}
 
+      <ReflectionModal
+        visible={reflectionSessionId != null}
+        touches={reflectionTouches}
+        onSelect={handleReflectionSelect}
+      />
+      <BeastModeModal
+        visible={beastMode.visible}
+        alreadyAtCap={beastMode.alreadyAtCap}
+        onClose={() => {
+          setBeastMode({ visible: false, alreadyAtCap: false });
+          flushPendingCelebration();
+        }}
+      />
+
     </View>
   );
 };
@@ -1116,6 +1219,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  capNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  capNoticeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
   },
 
   // DRILL LIBRARY TILE
