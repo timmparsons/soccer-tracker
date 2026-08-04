@@ -430,9 +430,11 @@ export function useActivityFeed(limit = 7) {
         usedUsers.add(c.profile_id);
       }
 
-      // One story per user (their most recent training day)
+      // Plain training activity (touches/juggling/session completed) — shown
+      // for every user with recent session data, even if they also landed a
+      // rarer highlight above (win/PB/badge/etc). Ordinary activity shouldn't
+      // get crowded out just because someone also had a standout moment.
       for (const [userId, stats] of userStats.entries()) {
-        if (usedUsers.has(userId)) continue;
         const profile = profileMap.get(userId);
         const name = getDisplayName(profile);
 
@@ -445,7 +447,6 @@ export function useActivityFeed(limit = 7) {
           createdAt: stats.latestAt,
           isGameSpeed: stats.isGameSpeed,
         });
-        usedUsers.add(userId);
       }
 
       // Street challenge completions
