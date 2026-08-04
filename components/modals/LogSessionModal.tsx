@@ -3,8 +3,7 @@ import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useDailySprint } from '@/hooks/useDailySprint';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { creditTouchesForDailyCap, DAILY_TOUCH_CAP } from '@/lib/touchCap';
-import BeastModeModal from '@/components/modals/BeastModeModal';
+import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
@@ -66,6 +65,7 @@ const DRILL_TIPS: Record<string, string> = {
 
 const MAX_SESSION_TOUCHES = 9999;
 const MAX_SESSION_JUGGLES = 9999;
+const MAX_DAILY_TOUCHES = 15000;
 
 const LogSessionModal = ({
   visible,
@@ -87,6 +87,7 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   // Android keyboard handling: some devices resize the Modal's dialog window
   // for the keyboard, others leave it covering the keyboard. Track both the
   // measured dialog height and the keyboard's top edge, and reconcile at
@@ -96,14 +97,9 @@ const LogSessionModal = ({
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
   const [reflectionTouches, setReflectionTouches] = useState(0);
-  const [pendingBeastMode, setPendingBeastMode] = useState(false);
-  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
-    visible: false,
-    alreadyAtCap: false,
-  });
   // Holds the onSessionLogged() call (celebration/badges) until the reflection
-  // and beast-mode modals it's queued behind have been dismissed — RN can't
-  // present two native Modals at once, so only one of these can be visible.
+  // modal queued in front of it has been dismissed — RN can't present two
+  // native Modals at once, so only one of these can be visible.
   const pendingSessionLoggedRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
 
   useEffect(() => {
@@ -129,6 +125,7 @@ const LogSessionModal = ({
       setTouches('');
       setFreestyleMinutes('');
       setSelectedAreas([]);
+      setShowConfirm(false);
     }
   }, [visible, challengeDurationMinutes]);
 
@@ -138,6 +135,11 @@ const LogSessionModal = ({
   const challengeLocked = !isChallengeMode && sprint?.todayBestMs == null;
 
   const handleSubmit = async () => {
+    if (requiresConfirm && !showConfirm) {
+      setShowConfirm(true);
+      return;
+    }
+
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
 
@@ -162,9 +164,6 @@ const LogSessionModal = ({
 
     const today = getLocalDate();
 
-    let creditedTouches = touchCount;
-    let rawTouches: number | null = null;
-
     if (touchCount > 0) {
       const { data: todaySessions } = await supabase
         .from('daily_sessions')
@@ -172,21 +171,22 @@ const LogSessionModal = ({
         .eq('user_id', userId)
         .eq('date', today);
       const todayTotal = (todaySessions ?? []).reduce((sum: number, s: { touches_logged: number }) => sum + s.touches_logged, 0);
-      const capResult = creditTouchesForDailyCap(todayTotal, touchCount);
-
-      if (capResult.atCap) {
-        setBeastMode({ visible: true, alreadyAtCap: true });
+      if (todayTotal + touchCount > MAX_DAILY_TOUCHES) {
+        const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
+        Alert.alert(
+          'Daily limit reached',
+          remaining > 0
+            ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
+            : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
+        );
         return;
       }
-
-      creditedTouches = capResult.credited;
-      rawTouches = capResult.capped ? touchCount : null;
     }
 
     setSubmitting(true);
 
     try {
-      const storedTouches = touchCount > 0 ? creditedTouches : juggleCount;
+      const storedTouches = touchCount > 0 ? touchCount : juggleCount;
 
       const { data: inserted, error } = await supabase
         .from('daily_sessions')
@@ -194,7 +194,6 @@ const LogSessionModal = ({
           user_id: userId,
           drill_id: challengeDrillId ?? null,
           touches_logged: storedTouches,
-          raw_touches: rawTouches,
           duration_minutes: duration ? parseInt(duration) : null,
           juggle_count: juggleCount > 0 ? juggleCount : null,
           date: today,
@@ -235,15 +234,14 @@ const LogSessionModal = ({
       onClose();
 
       if (storedTouches > 0 && inserted?.id) {
-        // Defer the celebration until the reflection (and, if capped, beast
-        // mode) modal(s) queued in front of it have been dismissed.
+        // Defer the celebration until the reflection modal queued in front
+        // of it has been dismissed.
         pendingSessionLoggedRef.current = {
           touches: storedTouches || juggleCount,
           badgeIds: earnedBadgeIds,
         };
         setReflectionSessionId(inserted.id);
         setReflectionTouches(storedTouches);
-        setPendingBeastMode(rawTouches != null);
       } else {
         onSessionLogged?.(
           storedTouches || juggleCount,
@@ -255,6 +253,7 @@ const LogSessionModal = ({
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -278,12 +277,7 @@ const LogSessionModal = ({
         .eq('id', sessionId)
         .then(() => {});
     }
-    if (pendingBeastMode) {
-      setPendingBeastMode(false);
-      setBeastMode({ visible: true, alreadyAtCap: false });
-    } else {
-      flushPendingSessionLogged();
-    }
+    flushPendingSessionLogged();
   };
 
   // The keyboard's top edge (screenY) is in screen coordinates and the dialog
@@ -299,6 +293,11 @@ const LogSessionModal = ({
   const isFormValid = isChallengeMode
     ? attempted
     : !challengeLocked && (touchCount > 0 || juggleCount > 0);
+
+  const elapsedSecondsForPace = duration ? parseInt(duration) * 60 : null;
+  const pace = computePace(touchCount, elapsedSecondsForPace);
+  const suspiciousPace = pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC;
+  const requiresConfirm = (isChallengeMode && touchCount > 0) || suspiciousPace;
 
   return (
     <>
@@ -330,6 +329,19 @@ const LogSessionModal = ({
             </TouchableOpacity>
           </View>
 
+          {showConfirm ? (
+            <View style={styles.modalBody}>
+              <ConfirmSubmitCard
+                touches={touchCount > 0 ? touchCount : juggleCount}
+                elapsedSeconds={elapsedSecondsForPace}
+                itemLabel={touchCount > 0 ? (isChallengeMode ? 'score' : 'touches') : 'juggles'}
+                onConfirm={handleSubmit}
+                onCancel={() => setShowConfirm(false)}
+                submitting={submitting}
+              />
+            </View>
+          ) : (
+          <>
           <ScrollView
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
@@ -446,7 +458,9 @@ const LogSessionModal = ({
               )}
 
               {!isChallengeMode && (
-                <Text style={styles.dailyLimitNote}>Max {DAILY_TOUCH_CAP.toLocaleString()} per day</Text>
+                <Text style={styles.dailyLimitNote}>
+                  Max {MAX_SESSION_TOUCHES.toLocaleString()} per session, {MAX_DAILY_TOUCHES.toLocaleString()} per day
+                </Text>
               )}
 
               {!isChallengeMode &&
@@ -596,6 +610,8 @@ const LogSessionModal = ({
               )}
             </TouchableOpacity>
           </View>
+          </>
+          )}
           </View>
         </View>
       </View>
@@ -604,14 +620,6 @@ const LogSessionModal = ({
       visible={reflectionSessionId != null}
       touches={reflectionTouches}
       onSelect={handleReflectionSelect}
-    />
-    <BeastModeModal
-      visible={beastMode.visible}
-      alreadyAtCap={beastMode.alreadyAtCap}
-      onClose={() => {
-        setBeastMode({ visible: false, alreadyAtCap: false });
-        flushPendingSessionLogged();
-      }}
     />
     </>
   );

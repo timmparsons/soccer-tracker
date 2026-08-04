@@ -2,9 +2,9 @@ import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import StreetTab from '@/components/TrainPage/StreetTab';
 import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
+import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
 import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
-import BeastModeModal from '@/components/modals/BeastModeModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
@@ -17,7 +17,6 @@ import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
-import { creditTouchesForDailyCap, DAILY_TOUCH_CAP } from '@/lib/touchCap';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -70,6 +69,7 @@ const TrainPage = () => {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
   const [submittingScore, setSubmittingScore] = useState(false);
+  const [showScoreConfirm, setShowScoreConfirm] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [challengeDrillId, setChallengeDrillId] = useState<
@@ -85,15 +85,10 @@ const TrainPage = () => {
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
   const [reflectionTouches, setReflectionTouches] = useState(0);
-  const [pendingBeastMode, setPendingBeastMode] = useState(false);
-  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
-    visible: false,
-    alreadyAtCap: false,
-  });
   const { data: allBadges = [] } = useAllBadges();
-  // Holds the Vinnie celebration (touches/badges) until the reflection and,
-  // if capped, beast-mode modals queued in front of it have been dismissed —
-  // RN can't present two native Modals at once, so only one can be visible.
+  // Holds the Vinnie celebration (touches/badges) until the reflection modal
+  // queued in front of it has been dismissed — RN can't present two native
+  // Modals at once, so only one can be visible.
   const pendingCelebrationRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
@@ -341,6 +336,7 @@ const TrainPage = () => {
             whistleSoundRef.current?.replayAsync();
           }
           setShowTimerModal(false);
+          setShowScoreConfirm(false);
           setShowScoreModal(true);
         } else {
           pausedRemainingRef.current = remaining;
@@ -384,36 +380,25 @@ const TrainPage = () => {
 
     if (!user?.id) return;
 
+    const scorePace = computePace(score, freeTimerDuration);
+    const scoreRequiresConfirm = !!timerChallengeDrillId || (scorePace !== null && scorePace > SUSPICIOUS_TOUCHES_PER_SEC);
+    if (scoreRequiresConfirm && !showScoreConfirm) {
+      setShowScoreConfirm(true);
+      return;
+    }
+
     setSubmittingScore(true);
 
     try {
       const today = getLocalDate();
       const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
-      const { data: todaySessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged')
-        .eq('user_id', user.id)
-        .eq('date', today);
-      const todayTotal = (todaySessions ?? []).reduce(
-        (sum: number, s: { touches_logged: number }) => sum + s.touches_logged,
-        0,
-      );
-
-      const capResult = creditTouchesForDailyCap(todayTotal, score);
-      if (capResult.atCap) {
-        setBeastMode({ visible: true, alreadyAtCap: true });
-        setSubmittingScore(false);
-        return;
-      }
-
       const { data: inserted, error } = await supabase
         .from('daily_sessions')
         .insert({
           user_id: user.id,
           drill_id: timerChallengeDrillId ?? null,
-          touches_logged: capResult.credited,
-          raw_touches: capResult.capped ? score : null,
+          touches_logged: score,
           duration_minutes: durationMinutes,
           date: today,
         })
@@ -430,18 +415,18 @@ const TrainPage = () => {
       setTimerChallengeName(undefined);
       handleSessionLogged(wasChallenge);
 
-      if (capResult.credited > 0 && inserted?.id) {
-        pendingCelebrationRef.current = { touches: capResult.credited, badgeIds: [] };
+      if (score > 0 && inserted?.id) {
+        pendingCelebrationRef.current = { touches: score, badgeIds: [] };
         setReflectionSessionId(inserted.id);
-        setReflectionTouches(capResult.credited);
-        setPendingBeastMode(capResult.capped);
+        setReflectionTouches(score);
       } else {
-        setCelebrationTouches(capResult.credited);
+        setCelebrationTouches(score);
         setShowVinnieCelebration(true);
       }
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
+      setShowScoreConfirm(false);
     } finally {
       setSubmittingScore(false);
     }
@@ -467,12 +452,7 @@ const TrainPage = () => {
         .eq('id', sessionId)
         .then(() => {});
     }
-    if (pendingBeastMode) {
-      setPendingBeastMode(false);
-      setBeastMode({ visible: true, alreadyAtCap: false });
-    } else {
-      flushPendingCelebration();
-    }
+    flushPendingCelebration();
   };
 
   const closeTimer = () => {
@@ -507,7 +487,6 @@ const TrainPage = () => {
   const todayTouches = touchStats?.today_touches || 0;
   const dailyTarget = touchStats?.daily_target || 1000;
   const progressPercent = Math.min((todayTouches / dailyTarget) * 100, 100);
-  const atDailyCap = todayTouches >= DAILY_TOUCH_CAP;
 
   return (
     <View style={styles.container}>
@@ -582,15 +561,6 @@ const TrainPage = () => {
                 {Math.round(progressPercent)}% Complete
               </Text>
             </View>
-
-            {atDailyCap && (
-              <View style={styles.capNotice}>
-                <Ionicons name='flame' size={14} color='#B23B00' />
-                <Text style={styles.capNoticeText}>
-                  You&apos;ve hit today&apos;s {DAILY_TOUCH_CAP.toLocaleString()} touch cap — rest up!
-                </Text>
-              </View>
-            )}
 
             {/* Action Buttons Row */}
             <View style={styles.actionButtonsRow}>
@@ -777,6 +747,18 @@ const TrainPage = () => {
         >
           <View style={styles.scoreModalOverlay}>
             <View style={styles.scoreModalContent}>
+              {showScoreConfirm ? (
+                <ConfirmSubmitCard
+                  touches={parseInt(scoreInput) || 0}
+                  elapsedSeconds={freeTimerDuration}
+                  itemLabel='touches'
+                  title='Confirm your score'
+                  onConfirm={handleSubmitScore}
+                  onCancel={() => setShowScoreConfirm(false)}
+                  submitting={submittingScore}
+                />
+              ) : (
+              <>
               <View style={styles.scoreModalHeader}>
                 <Text style={styles.scoreModalEmoji}>🎉</Text>
                 <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
@@ -809,6 +791,7 @@ const TrainPage = () => {
                   onPress={() => {
                     setShowScoreModal(false);
                     setScoreInput('');
+                    setShowScoreConfirm(false);
                     setTimerChallengeDrillId(undefined);
                     setTimerChallengeName(undefined);
                   }}
@@ -832,6 +815,8 @@ const TrainPage = () => {
                   )}
                 </TouchableOpacity>
               </View>
+              </>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1033,14 +1018,6 @@ const TrainPage = () => {
         touches={reflectionTouches}
         onSelect={handleReflectionSelect}
       />
-      <BeastModeModal
-        visible={beastMode.visible}
-        alreadyAtCap={beastMode.alreadyAtCap}
-        onClose={() => {
-          setBeastMode({ visible: false, alreadyAtCap: false });
-          flushPendingCelebration();
-        }}
-      />
 
     </View>
   );
@@ -1220,19 +1197,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  capNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  capNoticeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-
   // DRILL LIBRARY TILE
   libraryCard: {
     backgroundColor: '#FFF',

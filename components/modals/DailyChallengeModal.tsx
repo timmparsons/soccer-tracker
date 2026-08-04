@@ -1,3 +1,4 @@
+import ConfirmSubmitCard from '@/components/modals/ConfirmSubmitCard';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession, saveDailyChallengeCompletion } from '@/hooks/useDailyChallenge';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ interface Props {
   onCompleted: (timeSeconds: number) => void;
 }
 
-type ModalState = 'ready' | 'running' | 'done';
+type ModalState = 'ready' | 'running' | 'confirm' | 'done';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -62,10 +63,23 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
     setState('running');
   };
 
-  const handleDone = async () => {
+  const handleFinish = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     const finalSeconds = Math.floor((Date.now() - startTimeRef.current!) / 1000);
     setDisplaySeconds(finalSeconds);
+    setState('confirm');
+  };
+
+  const handleResume = () => {
+    intervalRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000);
+      setDisplaySeconds(elapsed);
+    }, 200);
+    setState('running');
+  };
+
+  const handleConfirmSubmit = async () => {
+    const finalSeconds = displaySeconds;
     setSaving(true);
     try {
       const touches = calculateChallengeTouches(steps);
@@ -150,7 +164,18 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
 
-          {state === 'done' ? (
+          {state === 'confirm' ? (
+            // CONFIRM STATE
+            <ConfirmSubmitCard
+              touches={estimatedTouches}
+              elapsedSeconds={displaySeconds}
+              itemLabel='touches'
+              title='Confirm your time'
+              onConfirm={handleConfirmSubmit}
+              onCancel={handleResume}
+              submitting={saving}
+            />
+          ) : state === 'done' ? (
             // DONE STATE
             <View style={styles.doneContainer}>
               <Text style={styles.doneLabel}>CHALLENGE COMPLETE</Text>
@@ -191,12 +216,11 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[styles.doneButton, saving && styles.doneButtonDisabled]}
-                  onPress={handleDone}
-                  disabled={saving}
+                  style={styles.doneButton}
+                  onPress={handleFinish}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.doneButtonText}>{saving ? 'Saving...' : 'Done'}</Text>
+                  <Text style={styles.doneButtonText}>Done</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -404,9 +428,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-  },
-  doneButtonDisabled: {
-    opacity: 0.6,
   },
   doneButtonText: {
     color: '#FFF',

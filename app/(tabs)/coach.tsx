@@ -15,8 +15,6 @@ import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { buildCoachCheerKey } from '@/lib/coachCheerKey';
 import { supabase } from '@/lib/supabase';
-import { creditTouchesForDailyCap } from '@/lib/touchCap';
-import BeastModeModal from '@/components/modals/BeastModeModal';
 import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,11 +68,6 @@ export default function CoachDashboard() {
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
   const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
   const [reflectionTouches, setReflectionTouches] = useState(0);
-  const [pendingBeastMode, setPendingBeastMode] = useState(false);
-  const [beastMode, setBeastMode] = useState<{ visible: boolean; alreadyAtCap: boolean }>({
-    visible: false,
-    alreadyAtCap: false,
-  });
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -468,29 +461,11 @@ export default function CoachDashboard() {
       const today = getLocalDate();
       const duration = durationMinutes ? parseInt(durationMinutes, 10) : null;
 
-      const { data: todaySessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged')
-        .eq('user_id', selectedPlayer.id)
-        .eq('date', today);
-      const todayTotal = (todaySessions ?? []).reduce(
-        (sum: number, s: { touches_logged: number }) => sum + s.touches_logged,
-        0,
-      );
-      const capResult = creditTouchesForDailyCap(todayTotal, count);
-
-      if (capResult.atCap) {
-        setBeastMode({ visible: true, alreadyAtCap: true });
-        setSaving(false);
-        return;
-      }
-
       const { data: inserted, error } = await supabase
         .from('daily_sessions')
         .insert({
           user_id: selectedPlayer.id,
-          touches_logged: capResult.credited,
-          raw_touches: capResult.capped ? count : null,
+          touches_logged: count,
           duration_minutes: duration,
           date: today,
         })
@@ -501,7 +476,7 @@ export default function CoachDashboard() {
 
       Alert.alert(
         'Touches Logged!',
-        `${capResult.credited.toLocaleString()} touches recorded for ${selectedPlayer.display_name || selectedPlayer.name}`
+        `${count.toLocaleString()} touches recorded for ${selectedPlayer.display_name || selectedPlayer.name}`
       );
 
       await refetch();
@@ -512,8 +487,7 @@ export default function CoachDashboard() {
 
       if (inserted?.id) {
         setReflectionSessionId(inserted.id);
-        setReflectionTouches(capResult.credited);
-        setPendingBeastMode(capResult.capped);
+        setReflectionTouches(count);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to save touches. Please try again.');
@@ -531,10 +505,6 @@ export default function CoachDashboard() {
         .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
         .eq('id', sessionId)
         .then(() => {});
-    }
-    if (pendingBeastMode) {
-      setPendingBeastMode(false);
-      setBeastMode({ visible: true, alreadyAtCap: false });
     }
   };
 
@@ -1010,11 +980,6 @@ export default function CoachDashboard() {
         visible={reflectionSessionId != null}
         touches={reflectionTouches}
         onSelect={handleReflectionSelect}
-      />
-      <BeastModeModal
-        visible={beastMode.visible}
-        alreadyAtCap={beastMode.alreadyAtCap}
-        onClose={() => setBeastMode({ visible: false, alreadyAtCap: false })}
       />
     </SafeAreaView>
   );
