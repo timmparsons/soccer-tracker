@@ -4,7 +4,7 @@ import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
-import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
+import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
@@ -83,13 +83,8 @@ const TrainPage = () => {
   const [celebrationTouches, setCelebrationTouches] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
-  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
-  const [reflectionTouches, setReflectionTouches] = useState(0);
+  const [scoreSessionFocus, setScoreSessionFocus] = useState<SessionFocus | null>(null);
   const { data: allBadges = [] } = useAllBadges();
-  // Holds the Vinnie celebration (touches/badges) until the reflection modal
-  // queued in front of it has been dismissed — RN can't present two native
-  // Modals at once, so only one can be visible.
-  const pendingCelebrationRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -337,6 +332,7 @@ const TrainPage = () => {
           }
           setShowTimerModal(false);
           setShowScoreConfirm(false);
+          setScoreSessionFocus(null);
           setShowScoreModal(true);
         } else {
           pausedRemainingRef.current = remaining;
@@ -393,17 +389,15 @@ const TrainPage = () => {
       const today = getLocalDate();
       const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
-      const { data: inserted, error } = await supabase
-        .from('daily_sessions')
-        .insert({
-          user_id: user.id,
-          drill_id: timerChallengeDrillId ?? null,
-          touches_logged: score,
-          duration_minutes: durationMinutes,
-          date: today,
-        })
-        .select('id')
-        .single();
+      const { error } = await supabase.from('daily_sessions').insert({
+        user_id: user.id,
+        drill_id: timerChallengeDrillId ?? null,
+        touches_logged: score,
+        duration_minutes: durationMinutes,
+        date: today,
+        training_focus: scoreSessionFocus,
+        is_game_speed: scoreSessionFocus === 'match_pace',
+      });
 
       if (error) throw error;
 
@@ -415,14 +409,8 @@ const TrainPage = () => {
       setTimerChallengeName(undefined);
       handleSessionLogged(wasChallenge);
 
-      if (score > 0 && inserted?.id) {
-        pendingCelebrationRef.current = { touches: score, badgeIds: [] };
-        setReflectionSessionId(inserted.id);
-        setReflectionTouches(score);
-      } else {
-        setCelebrationTouches(score);
-        setShowVinnieCelebration(true);
-      }
+      setCelebrationTouches(score);
+      setShowVinnieCelebration(true);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
@@ -430,29 +418,6 @@ const TrainPage = () => {
     } finally {
       setSubmittingScore(false);
     }
-  };
-
-  const flushPendingCelebration = () => {
-    const pending = pendingCelebrationRef.current;
-    pendingCelebrationRef.current = null;
-    if (pending) {
-      setCelebrationTouches(pending.touches);
-      setShowVinnieCelebration(true);
-      if (pending.badgeIds.length) setEarnedBadges(pending.badgeIds);
-    }
-  };
-
-  const handleReflectionSelect = (focus: SessionFocus) => {
-    const sessionId = reflectionSessionId;
-    setReflectionSessionId(null);
-    if (sessionId) {
-      supabase
-        .from('daily_sessions')
-        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
-        .eq('id', sessionId)
-        .then(() => {});
-    }
-    flushPendingCelebration();
   };
 
   const closeTimer = () => {
@@ -747,7 +712,9 @@ const TrainPage = () => {
         >
           <View style={styles.scoreModalOverlay}>
             <View style={styles.scoreModalContent}>
-              {showScoreConfirm ? (
+              {!scoreSessionFocus ? (
+                <GameSpeedPrompt onSelect={setScoreSessionFocus} />
+              ) : showScoreConfirm ? (
                 <ConfirmSubmitCard
                   touches={parseInt(scoreInput) || 0}
                   elapsedSeconds={freeTimerDuration}
@@ -792,6 +759,7 @@ const TrainPage = () => {
                     setShowScoreModal(false);
                     setScoreInput('');
                     setShowScoreConfirm(false);
+                    setScoreSessionFocus(null);
                     setTimerChallengeDrillId(undefined);
                     setTimerChallengeName(undefined);
                   }}
@@ -1012,12 +980,6 @@ const TrainPage = () => {
           }}
         />
       )}
-
-      <ReflectionModal
-        visible={reflectionSessionId != null}
-        touches={reflectionTouches}
-        onSelect={handleReflectionSelect}
-      />
 
     </View>
   );

@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { useDailySprint } from '@/hooks/useDailySprint';
 import { getLocalDate } from '@/utils/getLocalDate';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
-import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
+import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -95,12 +95,7 @@ const LogSessionModal = ({
   const [dialogHeight, setDialogHeight] = useState(screenHeight);
   const [kbScreenY, setKbScreenY] = useState<number | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
-  const [reflectionTouches, setReflectionTouches] = useState(0);
-  // Holds the onSessionLogged() call (celebration/badges) until the reflection
-  // modal queued in front of it has been dismissed — RN can't present two
-  // native Modals at once, so only one of these can be visible.
-  const pendingSessionLoggedRef = useRef<{ touches: number; badgeIds: string[] } | null>(null);
+  const [sessionFocus, setSessionFocus] = useState<SessionFocus | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -126,6 +121,7 @@ const LogSessionModal = ({
       setFreestyleMinutes('');
       setSelectedAreas([]);
       setShowConfirm(false);
+      setSessionFocus(null);
     }
   }, [visible, challengeDurationMinutes]);
 
@@ -188,19 +184,17 @@ const LogSessionModal = ({
     try {
       const storedTouches = touchCount > 0 ? touchCount : juggleCount;
 
-      const { data: inserted, error } = await supabase
-        .from('daily_sessions')
-        .insert({
-          user_id: userId,
-          drill_id: challengeDrillId ?? null,
-          touches_logged: storedTouches,
-          duration_minutes: duration ? parseInt(duration) : null,
-          juggle_count: juggleCount > 0 ? juggleCount : null,
-          date: today,
-          focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
-        })
-        .select('id')
-        .single();
+      const { error } = await supabase.from('daily_sessions').insert({
+        user_id: userId,
+        drill_id: challengeDrillId ?? null,
+        touches_logged: storedTouches,
+        duration_minutes: duration ? parseInt(duration) : null,
+        juggle_count: juggleCount > 0 ? juggleCount : null,
+        date: today,
+        focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
+        training_focus: sessionFocus,
+        is_game_speed: sessionFocus === 'match_pace',
+      });
 
       if (error) throw error;
 
@@ -232,24 +226,12 @@ const LogSessionModal = ({
 
       onSuccess();
       onClose();
-
-      if (storedTouches > 0 && inserted?.id) {
-        // Defer the celebration until the reflection modal queued in front
-        // of it has been dismissed.
-        pendingSessionLoggedRef.current = {
-          touches: storedTouches || juggleCount,
-          badgeIds: earnedBadgeIds,
-        };
-        setReflectionSessionId(inserted.id);
-        setReflectionTouches(storedTouches);
-      } else {
-        onSessionLogged?.(
-          storedTouches || juggleCount,
-          isChallengeMode,
-          challengeName,
-          earnedBadgeIds,
-        );
-      }
+      onSessionLogged?.(
+        storedTouches || juggleCount,
+        isChallengeMode,
+        challengeName,
+        earnedBadgeIds,
+      );
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
@@ -257,27 +239,6 @@ const LogSessionModal = ({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const flushPendingSessionLogged = () => {
-    const pending = pendingSessionLoggedRef.current;
-    pendingSessionLoggedRef.current = null;
-    if (pending) {
-      onSessionLogged?.(pending.touches, isChallengeMode, challengeName, pending.badgeIds);
-    }
-  };
-
-  const handleReflectionSelect = (focus: SessionFocus) => {
-    const sessionId = reflectionSessionId;
-    setReflectionSessionId(null);
-    if (sessionId) {
-      supabase
-        .from('daily_sessions')
-        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
-        .eq('id', sessionId)
-        .then(() => {});
-    }
-    flushPendingSessionLogged();
   };
 
   // The keyboard's top edge (screenY) is in screen coordinates and the dialog
@@ -300,7 +261,6 @@ const LogSessionModal = ({
   const requiresConfirm = (isChallengeMode && touchCount > 0) || suspiciousPace;
 
   return (
-    <>
     <Modal
       visible={visible}
       animationType='slide'
@@ -329,7 +289,11 @@ const LogSessionModal = ({
             </TouchableOpacity>
           </View>
 
-          {showConfirm ? (
+          {!sessionFocus ? (
+            <View style={styles.modalBody}>
+              <GameSpeedPrompt onSelect={setSessionFocus} />
+            </View>
+          ) : showConfirm ? (
             <View style={styles.modalBody}>
               <ConfirmSubmitCard
                 touches={touchCount > 0 ? touchCount : juggleCount}
@@ -616,12 +580,6 @@ const LogSessionModal = ({
         </View>
       </View>
     </Modal>
-    <ReflectionModal
-      visible={reflectionSessionId != null}
-      touches={reflectionTouches}
-      onSelect={handleReflectionSelect}
-    />
-    </>
   );
 };
 

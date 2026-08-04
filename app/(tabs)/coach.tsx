@@ -15,7 +15,7 @@ import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
 import { buildCoachCheerKey } from '@/lib/coachCheerKey';
 import { supabase } from '@/lib/supabase';
-import ReflectionModal, { SessionFocus } from '@/components/modals/ReflectionModal';
+import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -66,8 +66,7 @@ export default function CoachDashboard() {
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
-  const [reflectionSessionId, setReflectionSessionId] = useState<string | null>(null);
-  const [reflectionTouches, setReflectionTouches] = useState(0);
+  const [sessionFocus, setSessionFocus] = useState<SessionFocus | null>(null);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -372,6 +371,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
     setModalVisible(true);
   };
 
@@ -382,6 +382,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
     setModalVisible(true);
     // Load edit sessions immediately
     handleSwitchToEdit(player.id);
@@ -437,6 +438,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
   };
 
   // Handle saving touches for a player
@@ -461,16 +463,16 @@ export default function CoachDashboard() {
       const today = getLocalDate();
       const duration = durationMinutes ? parseInt(durationMinutes, 10) : null;
 
-      const { data: inserted, error } = await supabase
+      const { error } = await supabase
         .from('daily_sessions')
         .insert({
           user_id: selectedPlayer.id,
           touches_logged: count,
           duration_minutes: duration,
           date: today,
-        })
-        .select('id')
-        .single();
+          training_focus: sessionFocus,
+          is_game_speed: sessionFocus === 'match_pace',
+        });
 
       if (error) throw error;
 
@@ -484,27 +486,11 @@ export default function CoachDashboard() {
       setTouchCount('');
       setDurationMinutes('');
       setSelectedPlayer(null);
-
-      if (inserted?.id) {
-        setReflectionSessionId(inserted.id);
-        setReflectionTouches(count);
-      }
+      setSessionFocus(null);
     } catch (error) {
       Alert.alert('Error', 'Failed to save touches. Please try again.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleReflectionSelect = (focus: SessionFocus) => {
-    const sessionId = reflectionSessionId;
-    setReflectionSessionId(null);
-    if (sessionId) {
-      supabase
-        .from('daily_sessions')
-        .update({ training_focus: focus, is_game_speed: focus === 'match_pace' })
-        .eq('id', sessionId)
-        .then(() => {});
     }
   };
 
@@ -865,6 +851,9 @@ export default function CoachDashboard() {
                 </View>
 
                 {modalTab === 'log' ? (
+                  !sessionFocus ? (
+                    <GameSpeedPrompt onSelect={setSessionFocus} />
+                  ) : (
                   <>
                     <View style={styles.inputGroup}>
                       <Text style={styles.inputLabel}>Touch Count *</Text>
@@ -907,6 +896,7 @@ export default function CoachDashboard() {
                       )}
                     </TouchableOpacity>
                   </>
+                  )
                 ) : (
                   <>
                     {loadingEditSessions ? (
@@ -974,12 +964,6 @@ export default function CoachDashboard() {
         visible={inactiveModalVisible}
         onClose={() => setInactiveModalVisible(false)}
         players={nudgeModalPlayers}
-      />
-
-      <ReflectionModal
-        visible={reflectionSessionId != null}
-        touches={reflectionTouches}
-        onSelect={handleReflectionSelect}
       />
     </SafeAreaView>
   );
