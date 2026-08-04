@@ -20,6 +20,7 @@ export interface DailySprintData {
   comboDrills: SprintComboDrill[];
   comboDrillIds: string[];
   comboReps: number;
+  comboTouches: number;
   crownThresholdMs: number;
   personalBestMs: number | null;
   todayBestMs: number | null;
@@ -179,6 +180,11 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
         ).catch((err) => console.error('Error checking squad badge:', err));
       }
 
+      const comboTouches = combo.drill_ids.reduce(
+        (sum: number, drillId: string) => sum + (TOUCHES_PER_REP[drillId] ?? 2),
+        0,
+      ) * combo.reps;
+
       return {
         dailySprintId: sprintRow.id,
         comboId: combo.id,
@@ -187,6 +193,7 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
         comboDrills,
         comboDrillIds: combo.drill_ids,
         comboReps: combo.reps,
+        comboTouches,
         crownThresholdMs: combo.crown_threshold_ms,
         personalBestMs,
         todayBestMs,
@@ -219,14 +226,9 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
       // it counts as touches the same way the Daily Challenge circuit does —
       // sprint_attempts alone never fed daily_sessions, which is why
       // completed sprints weren't showing up in Weekly Touches/streaks.
-      const touches = data.comboDrillIds.reduce(
-        (sum, drillId) => sum + (TOUCHES_PER_REP[drillId] ?? 2),
-        0,
-      ) * data.comboReps;
-
       const { error: sessionError } = await supabase.from('daily_sessions').insert({
         user_id: userId,
-        touches_logged: touches,
+        touches_logged: data.comboTouches,
         duration_minutes: Math.max(1, Math.round(durationMs / 1000 / 60)),
         date: getLocalDate(),
       });

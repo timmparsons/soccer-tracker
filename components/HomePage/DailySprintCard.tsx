@@ -119,6 +119,7 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
         visible={modalVisible}
         comboName={sprint.comboName}
         comboSteps={sprint.comboSteps}
+        comboTouches={sprint.comboTouches}
         personalBestMs={sprint.personalBestMs}
         teamPaceMs={sprint.teamPaceMs}
         crownThresholdMs={sprint.crownThresholdMs}

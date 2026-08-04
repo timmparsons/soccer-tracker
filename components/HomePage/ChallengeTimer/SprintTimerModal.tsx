@@ -1,3 +1,4 @@
+import { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import { ChallengeResult, CountdownValue, useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
@@ -24,6 +25,7 @@ interface SprintTimerModalProps {
   visible: boolean;
   comboName: string;
   comboSteps: string[];
+  comboTouches: number;
   personalBestMs: number | null;
   teamPaceMs: number | null;
   crownThresholdMs: number;
@@ -35,6 +37,7 @@ const SprintTimerModal: React.FC<SprintTimerModalProps> = ({
   visible,
   comboName,
   comboSteps,
+  comboTouches,
   personalBestMs,
   teamPaceMs,
   crownThresholdMs,
@@ -130,6 +133,7 @@ const SprintTimerModal: React.FC<SprintTimerModalProps> = ({
           <CompletionView
             comboName={comboName}
             comboSteps={comboSteps}
+            comboTouches={comboTouches}
             result={timer.result}
             teamPaceMs={teamPaceMs}
             onRetry={timer.retry}
@@ -192,14 +196,24 @@ const ActiveView: React.FC<{ elapsedMs: number; onStop: () => void }> = ({ elaps
 interface CompletionViewProps {
   comboName: string;
   comboSteps: string[];
+  comboTouches: number;
   result: ChallengeResult;
   teamPaceMs: number | null;
   onRetry: () => void;
   onSubmit: () => void;
 }
 
-const CompletionView: React.FC<CompletionViewProps> = ({ comboName, result, teamPaceMs, onRetry, onSubmit }) => {
+const CompletionView: React.FC<CompletionViewProps> = ({
+  comboName,
+  comboTouches,
+  result,
+  teamPaceMs,
+  onRetry,
+  onSubmit,
+}) => {
   const paceDeltaMs = teamPaceMs != null ? teamPaceMs - result.durationMs : null;
+  const pace = computePace(comboTouches, result.durationMs / 1000);
+  const suspiciousPace = pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC;
   const confettiRef = useRef<ConfettiCannon>(null);
   const { width } = Dimensions.get('window');
 
@@ -250,12 +264,24 @@ const CompletionView: React.FC<CompletionViewProps> = ({ comboName, result, team
         </Text>
       )}
 
+      {suspiciousPace && (
+        <View style={styles.paceWarning}>
+          <Ionicons name='alert-circle' size={18} color='#92400E' />
+          <Text style={styles.paceWarningText}>
+            That&apos;s really fast for {comboName} — are you sure {formatDuration(result.durationMs)} is right?
+          </Text>
+        </View>
+      )}
+
       <View style={styles.completionActions}>
         <Pressable style={[styles.actionButton, styles.retryButton]} onPress={onRetry}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </Pressable>
-        <Pressable style={[styles.actionButton, styles.submitButton]} onPress={onSubmit}>
-          <Text style={styles.submitButtonText}>Submit</Text>
+        <Pressable
+          style={[styles.actionButton, styles.submitButton, suspiciousPace && styles.submitButtonWarning]}
+          onPress={onSubmit}
+        >
+          <Text style={styles.submitButtonText}>{suspiciousPace ? "Yes, that's right" : 'Submit'}</Text>
         </Pressable>
       </View>
     </View>
@@ -365,6 +391,25 @@ const styles = StyleSheet.create({
     marginTop: 24,
     textAlign: 'center',
   },
+  paceWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 24,
+    width: '100%',
+  },
+  paceWarningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+    lineHeight: 18,
+  },
   completionActions: {
     flexDirection: 'row',
     gap: 12,
@@ -392,6 +437,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  submitButtonWarning: {
+    backgroundColor: '#F59E0B',
+    shadowColor: '#F59E0B',
   },
   submitButtonText: {
     color: '#FFFFFF',
