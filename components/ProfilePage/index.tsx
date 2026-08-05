@@ -1,3 +1,4 @@
+import FamilyCard from '@/components/coach/FamilyCard';
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import type { Badge } from '@/hooks/useBadges';
@@ -93,6 +94,7 @@ const ProfilePage = () => {
   const [coachClubQuery, setCoachClubQuery] = useState('');
   const [clubNameInput, setClubNameInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
+  const [uploadingClubLogo, setUploadingClubLogo] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
@@ -112,10 +114,10 @@ const ProfilePage = () => {
       if (!(team as any)?.club_id) return null;
       const { data: club } = await supabase
         .from('clubs')
-        .select('id, name, join_code')
+        .select('id, name, join_code, logo_url')
         .eq('id', (team as any).club_id)
         .single();
-      return club as { id: string; name: string; join_code: string } | null;
+      return club as { id: string; name: string; join_code: string; logo_url: string | null } | null;
     },
   });
 
@@ -447,7 +449,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: (club as any).id } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCreateClubModal(false);
@@ -477,7 +479,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: clubId } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCoachClubSearchModal(false);
@@ -487,6 +489,49 @@ const ProfilePage = () => {
       Alert.alert('Error', 'Something went wrong.');
     } finally {
       setSavingClub(false);
+    }
+  };
+
+  const handlePickClubLogo = async (clubId: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    setUploadingClubLogo(true);
+    try {
+      const binaryString = atob(result.assets[0].base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const filePath = `club-logos/${clubId}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { error: updateError } = await supabase
+        .from('clubs')
+        .update({ logo_url: publicUrl } as any)
+        .eq('id', clubId);
+      if (updateError) throw updateError;
+
+      await refetchClub();
+    } catch {
+      Alert.alert('Error', 'Failed to upload club logo. Try again.');
+    } finally {
+      setUploadingClubLogo(false);
     }
   };
 
@@ -526,7 +571,7 @@ const ProfilePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('clubs')
-        .select('id, name')
+        .select('id, name, logo_url')
         .eq('id', playerClubId)
         .single();
       return data ?? null;
@@ -1018,7 +1063,26 @@ const ProfilePage = () => {
               {teamClub ? (
                 <View style={styles.clubCard}>
                   <View style={styles.clubCardHeader}>
-                    <Ionicons name='shield' size={18} color='#1f89ee' />
+                    <TouchableOpacity
+                      onPress={() => handlePickClubLogo(teamClub.id)}
+                      disabled={uploadingClubLogo}
+                      style={styles.clubLogoContainer}
+                      activeOpacity={0.8}
+                    >
+                      {uploadingClubLogo ? (
+                        <ActivityIndicator size='small' color='#1f89ee' />
+                      ) : teamClub.logo_url ? (
+                        <Image
+                          source={{ uri: teamClub.logo_url }}
+                          style={styles.clubLogoImage}
+                        />
+                      ) : (
+                        <Ionicons name='shield' size={18} color='#1f89ee' />
+                      )}
+                      <View style={styles.clubLogoCameraBadge}>
+                        <Ionicons name='camera' size={9} color='#FFF' />
+                      </View>
+                    </TouchableOpacity>
                     <Text style={styles.clubCardTitle}>{teamClub.name}</Text>
                   </View>
                 </View>
@@ -1050,6 +1114,9 @@ const ProfilePage = () => {
               )}
             </>
           )}
+
+          {/* Family Card - coaches with managed children only */}
+          {profile?.is_coach && user?.id && <FamilyCard coachId={user.id} />}
 
           {/* Badges Card - players only */}
           {!profile?.is_coach && (
@@ -1434,7 +1501,14 @@ const ProfilePage = () => {
                             { backgroundColor: '#EDE7F6' },
                           ]}
                         >
-                          <Ionicons name='shield' size={20} color='#7E57C2' />
+                          {playerClub?.logo_url ? (
+                            <Image
+                              source={{ uri: playerClub.logo_url }}
+                              style={styles.settingsIconImage}
+                            />
+                          ) : (
+                            <Ionicons name='shield' size={20} color='#7E57C2' />
+                          )}
                         </View>
                         <View>
                           <Text style={styles.settingsLabel}>My Club</Text>
@@ -1848,6 +1922,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor:
                           (profile as any)?.club_id === club.id
@@ -1865,6 +1940,14 @@ const ProfilePage = () => {
                     disabled={savingPlayerClub}
                     activeOpacity={0.8}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -2002,6 +2085,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor: '#F5F7FA',
                         borderColor: '#E5E7EB',
@@ -2012,6 +2096,14 @@ const ProfilePage = () => {
                     onPress={() => handleJoinClubBySearch(club.id, club.name)}
                     disabled={savingClub}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -2969,6 +3061,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  settingsIconImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   settingsLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -3109,6 +3206,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
+  },
+  clubResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+  },
+  clubResultLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   nameInput: {
     backgroundColor: '#F5F7FA',
@@ -3266,6 +3374,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
+  },
+  clubLogoContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clubLogoImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  clubLogoCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#1f89ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F0F7FF',
   },
   clubCardCodeLabel: {
     fontSize: 11,
