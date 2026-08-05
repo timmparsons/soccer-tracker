@@ -173,10 +173,6 @@ export default function RosterCard({
               <Text style={styles.statChipLabel}>This Week</Text>
               <Text style={styles.statChipValue}>{player.week_touches.toLocaleString()}</Text>
             </View>
-            <View style={styles.statChip}>
-              <Text style={styles.statChipLabel}>Game Speed</Text>
-              <Text style={styles.statChipValue}>{player.game_speed_pct}%</Text>
-            </View>
           </View>
 
           {activeChallenge && (

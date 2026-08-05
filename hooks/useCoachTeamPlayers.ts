@@ -22,7 +22,6 @@ export interface PlayerStats {
   days_active_this_week: number;
   best_juggle: number;
   week_game_speed_touches: number;
-  game_speed_pct: number;
 }
 
 export function useCoachTeamPlayers(teamId: string | undefined) {
@@ -112,7 +111,6 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
         const weekGameSpeedTouches = weekSessions
           .filter((s) => s.is_game_speed)
           .reduce((sum, s) => sum + s.touches_logged, 0);
-        const gameSpeedPct = weekTouches > 0 ? Math.round((weekGameSpeedTouches / weekTouches) * 100) : 0;
         const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
         const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
@@ -162,7 +160,6 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           days_active_this_week: Math.min(uniqueWeekDays, 7),
           best_juggle: bestJuggle,
           week_game_speed_touches: weekGameSpeedTouches,
-          game_speed_pct: gameSpeedPct,
         };
       });
 

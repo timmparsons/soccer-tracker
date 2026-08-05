@@ -54,6 +54,7 @@ const COACH_STEPS = [
   'coachname',
   'coachnotif',
   'coachsignup',
+  'club',
 ] as const;
 
 type Step = (typeof PLAYER_STEPS)[number] | (typeof COACH_STEPS)[number];
@@ -123,7 +124,13 @@ export default function OnboardingScreen() {
     }
 
     await AsyncStorage.setItem('hasSeenIntro', 'true');
-    router.replace('/(tabs)');
+    if (data.persona === 'coach') {
+      // Push (not replace) so the club step stays underneath — backing out
+      // of team creation should return here, not drop to the coach tab.
+      router.push('/(modals)/create-team');
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const renderStep = () => {
@@ -846,6 +853,10 @@ function ClubSearchScreen({
           <Text style={s.clubSearchEmpty}>No clubs found for "{query}"</Text>
         )}
 
+        {query.trim().length === 0 && results.length > 0 && (
+          <Text style={s.clubSearchSectionLabel}>Clubs to check out</Text>
+        )}
+
         {results.map((club) => (
           <TouchableOpacity
             key={club.id}
@@ -856,7 +867,11 @@ function ClubSearchScreen({
             onPress={() => onSelect(selectedId === club.id ? null : club.id)}
             activeOpacity={0.8}
           >
-            <Text style={s.optionEmoji}>🏟️</Text>
+            {club.logo_url ? (
+              <Image source={{ uri: club.logo_url }} style={s.clubLogoThumb} />
+            ) : (
+              <Text style={s.optionEmoji}>🏟️</Text>
+            )}
             <Text
               style={[
                 s.optionLabel,
@@ -1099,6 +1114,11 @@ const s = StyleSheet.create({
   },
   optionEmoji: {
     fontSize: 22,
+  },
+  clubLogoThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   optionText: {
     flex: 1,
@@ -1577,6 +1597,14 @@ const s = StyleSheet.create({
     color: '#78909C',
     textAlign: 'center',
     marginBottom: 16,
+  },
+  clubSearchSectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
 
   // PAYWALL SCREEN
