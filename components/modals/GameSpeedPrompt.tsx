@@ -23,7 +23,7 @@ const OPTIONS: FocusOption[] = [
     focus: 'match_pace',
     label: '🔥 Match Pace',
     sublabel: '100% Speed',
-    bonus: 'Earns 🔥 Flame Badge on Team Feed',
+    bonus: 'Earns 🔥 Flame Badge on Activity Feed',
   },
   { focus: 'technical_mastery', label: '🧠 Learning a New Skill', sublabel: '70% Speed' },
   { focus: 'light_recovery', label: '🔋 Warmup / Easy Touches', sublabel: 'Light day' },
