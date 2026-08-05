@@ -10,7 +10,7 @@ export interface ClubPlayer {
   touches: number;
 }
 
-export function useClubLeaderboard(clubId?: string, period: 'week' | 'alltime' = 'week') {
+export function useClubLeaderboard(clubId?: string, period: 'today' | 'week' | 'alltime' = 'week') {
   const todayObj = new Date();
   const weekStartObj = new Date(todayObj);
   weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
@@ -38,7 +38,9 @@ export function useClubLeaderboard(clubId?: string, period: 'week' | 'alltime' =
         .select('user_id, touches_logged')
         .in('user_id', playerIds);
 
-      if (period === 'week') {
+      if (period === 'today') {
+        query = query.eq('date', today);
+      } else if (period === 'week') {
         query = query.gte('date', weekStart).lte('date', today);
       }
 

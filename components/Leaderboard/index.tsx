@@ -94,7 +94,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>('touches');
   const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
-  const [clubPeriod, setClubPeriod] = useState<'week' | 'alltime'>('week');
+  const [clubPeriod, setClubPeriod] = useState<'today' | 'week' | 'alltime'>('week');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
@@ -136,7 +136,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   }, []);
 
   const getPeriodLabel = () => {
-    if (view === 'club') return clubPeriod === 'week' ? 'This Week' : 'All Time';
+    if (view === 'club') return clubPeriod === 'today' ? 'Today' : clubPeriod === 'week' ? 'This Week' : 'All Time';
     if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
     const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
     return labels[touchesPeriod];
@@ -146,6 +146,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     if (view === 'global') return 'Resets Sunday';
     if (view === 'club') {
       if (clubSubTab === 'juggling') return clubPeriod === 'week' ? 'Resets Sunday' : null;
+      if (clubPeriod === 'today') return 'Resets at midnight';
       return clubPeriod === 'week' ? 'Resets Sunday' : 'Lifetime touches';
     }
     if (view === 'team') {
@@ -248,7 +249,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: clubJugglingLeaderboard = [],
     isLoading: clubJugglingLoading,
     refetch: refetchClubJuggling,
-  } = useClubJugglingLeaderboard(clubId, clubPeriod);
+  } = useClubJugglingLeaderboard(clubId, clubPeriod === 'today' ? 'week' : clubPeriod);
 
   const {
     data: sprintLeaderboard = [],
@@ -619,7 +620,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.subTab, (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' && styles.subTabActive]}
-              onPress={() => (view === 'club' ? setClubSubTab('juggling') : setGlobalSubTab('juggling'))}
+              onPress={() => {
+                if (view === 'club') {
+                  setClubSubTab('juggling');
+                  // Juggling has no "today" period — bump back to This Week if that was selected on Touches.
+                  if (clubPeriod === 'today') setClubPeriod('week');
+                } else {
+                  setGlobalSubTab('juggling');
+                }
+              }}
             >
               <Text
                 style={[
@@ -653,14 +662,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <View style={styles.pickerSheet}>
             <Text style={styles.pickerTitle}>Time Period</Text>
             {view === 'club'
-              ? (['week', 'alltime'] as const).map((p) => (
+              ? (clubSubTab === 'touches' ? (['today', 'week', 'alltime'] as const) : (['week', 'alltime'] as const)).map((p) => (
                   <TouchableOpacity
                     key={p}
                     style={[styles.pickerRow, clubPeriod === p && styles.pickerRowActive]}
                     onPress={() => { setClubPeriod(p); setPeriodPickerVisible(false); }}
                   >
                     <Text style={[styles.pickerRowText, clubPeriod === p && styles.pickerRowTextActive]}>
-                      {p === 'week' ? 'This Week' : 'All Time'}
+                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'All Time'}
                     </Text>
                     {clubPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
                   </TouchableOpacity>
@@ -1078,9 +1087,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                   {globalLeaderboard.map((player, index) => {
                     const isCurrentUser = player.userId === user?.id;
                     return (
-                      <View
+                      <TouchableOpacity
                         key={player.userId}
                         style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                        onPress={() => setSelectedPlayerId(player.userId)}
+                        activeOpacity={0.7}
                       >
                         <View style={styles.playerLeft}>
                           <View style={styles.rankContainer}>
@@ -1104,7 +1115,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
                           <Text style={styles.touchesLabel}>touches</Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -1123,9 +1134,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {globalJugglingLeaderboard.map((player, index) => {
                   const isCurrentUser = player.userId === user?.id;
                   return (
-                    <View
+                    <TouchableOpacity
                       key={player.userId}
                       style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                      onPress={() => setSelectedPlayerId(player.userId)}
+                      activeOpacity={0.7}
                     >
                       <View style={styles.playerLeft}>
                         <View style={styles.rankContainer}>
@@ -1149,7 +1162,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                         <Text style={styles.jugglingScore}>{player.high_score}</Text>
                         <Text style={styles.touchesLabel}>juggles</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -1162,6 +1175,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         playerId={selectedPlayerId}
         visible={!!selectedPlayerId}
         onClose={() => setSelectedPlayerId(null)}
+        showBadges={view === 'team'}
       />
 
       {/* INACTIVE PLAYERS MODAL (coaches only) */}
