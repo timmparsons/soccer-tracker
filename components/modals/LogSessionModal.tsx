@@ -258,7 +258,8 @@ const LogSessionModal = ({
   const elapsedSecondsForPace = duration ? parseInt(duration) * 60 : null;
   const pace = computePace(touchCount, elapsedSecondsForPace);
   const suspiciousPace = pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC;
-  const requiresConfirm = (isChallengeMode && touchCount > 0) || suspiciousPace;
+  const noDurationEntered = !duration && (touchCount > 0 || juggleCount > 0);
+  const requiresConfirm = (isChallengeMode && touchCount > 0) || suspiciousPace || noDurationEntered;
 
   return (
     <Modal
