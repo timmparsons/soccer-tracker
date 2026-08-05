@@ -1,8 +1,10 @@
+import DurationChallengeModal from '@/components/HomePage/ChallengeTimer/DurationChallengeModal';
 import SprintTimerModal from '@/components/HomePage/ChallengeTimer/SprintTimerModal';
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { ChallengeResult } from '@/hooks/useChallengeTimer';
 import { useDailySprint } from '@/hooks/useDailySprint';
 import { maybePromptForReviewAfterPR } from '@/lib/rateApp';
+import { VinnieSprintResult } from '@/lib/vinnie';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -10,15 +12,20 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 interface DailySprintCardProps {
   userId: string;
   teamId: string | null | undefined;
-  onAttemptSubmitted?: (result: ChallengeResult & { comboName: string }) => void;
+  onAttemptSubmitted?: (result: VinnieSprintResult) => void;
 }
 
 function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function formatChallengeDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} min`;
+}
+
 const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCardProps) => {
-  const { sprint, isLoading, submitAttempt } = useDailySprint(userId, teamId);
+  const { sprint, isLoading, submitAttempt, submitReps } = useDailySprint(userId, teamId);
   const [modalVisible, setModalVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [videoStep, setVideoStep] = useState<{ name: string; videoUrl: string } | null>(null);
@@ -43,6 +50,14 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
     onAttemptSubmitted?.({ ...result, comboName: sprint.comboName });
   };
 
+  const handleSubmitReps = (repsCompleted: number, isPR: boolean) => {
+    if (isPR && sprint.personalBestReps != null) {
+      maybePromptForReviewAfterPR();
+    }
+    submitReps(repsCompleted, isPR);
+    onAttemptSubmitted?.({ comboName: sprint.comboName, isPR, isCrown: false, repsCompleted });
+  };
+
   return (
     <>
       <View style={styles.card}>
@@ -55,7 +70,9 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
           </View>
           <Text style={styles.title}>{sprint.comboName}</Text>
           <Text style={styles.stepSummary} numberOfLines={2}>
-            5x {sprint.comboSteps.join(' → ')}
+            {sprint.isDurationMode
+              ? `${formatChallengeDuration(sprint.durationSeconds!)} · ${sprint.comboSteps.join(' → ')}`
+              : `5x ${sprint.comboSteps.join(' → ')}`}
           </Text>
         </TouchableOpacity>
 
@@ -83,7 +100,22 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
           </View>
         )}
 
-        {sprint.todayBestMs != null ? (
+        {sprint.isDurationMode ? (
+          sprint.todayBestReps != null ? (
+            <View style={styles.completedRow}>
+              <View style={styles.completedPill}>
+                <Text style={styles.completedPillText}>Done: {sprint.todayBestReps} reps</Text>
+              </View>
+              <TouchableOpacity style={styles.retryChip} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+                <Text style={styles.retryChipText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.startButton} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+              <Text style={styles.startButtonText}>Start Challenge</Text>
+            </TouchableOpacity>
+          )
+        ) : sprint.todayBestMs != null ? (
           <View style={styles.completedRow}>
             <View style={styles.completedPill}>
               <Text style={styles.completedPillText}>Done in {formatDuration(sprint.todayBestMs)}</Text>
@@ -98,34 +130,61 @@ const DailySprintCard = ({ userId, teamId, onAttemptSubmitted }: DailySprintCard
           </TouchableOpacity>
         )}
 
-        {(sprint.personalBestMs != null || sprint.teamLeaderName || sprint.rank != null) && (
-          <View style={styles.footerRow}>
-            {sprint.personalBestMs != null && (
-              <Text style={styles.footerText}>Personal Best: {formatDuration(sprint.personalBestMs)}</Text>
-            )}
-            {sprint.teamLeaderName && sprint.teamLeaderMs != null && (
-              <Text style={styles.footerText}>
-                Team Leader: {sprint.teamLeaderName} ({formatDuration(sprint.teamLeaderMs)})
-              </Text>
-            )}
-            {sprint.rank != null && (
-              <Text style={styles.footerText}>Rank: #{sprint.rank}</Text>
-            )}
-          </View>
+        {sprint.isDurationMode ? (
+          (sprint.personalBestReps != null || sprint.teamLeaderName) && (
+            <View style={styles.footerRow}>
+              {sprint.personalBestReps != null && (
+                <Text style={styles.footerText}>Personal Best: {sprint.personalBestReps} reps</Text>
+              )}
+              {sprint.teamLeaderName && sprint.teamLeaderReps != null && (
+                <Text style={styles.footerText}>
+                  Team Leader: {sprint.teamLeaderName} ({sprint.teamLeaderReps} reps)
+                </Text>
+              )}
+            </View>
+          )
+        ) : (
+          (sprint.personalBestMs != null || sprint.teamLeaderName || sprint.rank != null) && (
+            <View style={styles.footerRow}>
+              {sprint.personalBestMs != null && (
+                <Text style={styles.footerText}>Personal Best: {formatDuration(sprint.personalBestMs)}</Text>
+              )}
+              {sprint.teamLeaderName && sprint.teamLeaderMs != null && (
+                <Text style={styles.footerText}>
+                  Team Leader: {sprint.teamLeaderName} ({formatDuration(sprint.teamLeaderMs)})
+                </Text>
+              )}
+              {sprint.rank != null && (
+                <Text style={styles.footerText}>Rank: #{sprint.rank}</Text>
+              )}
+            </View>
+          )
         )}
       </View>
 
-      <SprintTimerModal
-        visible={modalVisible}
-        comboName={sprint.comboName}
-        comboSteps={sprint.comboSteps}
-        comboTouches={sprint.comboTouches}
-        personalBestMs={sprint.personalBestMs}
-        teamPaceMs={sprint.teamPaceMs}
-        crownThresholdMs={sprint.crownThresholdMs}
-        onClose={() => setModalVisible(false)}
-        onSubmit={handleSubmit}
-      />
+      {sprint.isDurationMode ? (
+        <DurationChallengeModal
+          visible={modalVisible}
+          drillName={sprint.comboSteps[0]}
+          durationSeconds={sprint.durationSeconds!}
+          personalBestReps={sprint.personalBestReps}
+          teamAvgReps={sprint.teamAvgReps}
+          onClose={() => setModalVisible(false)}
+          onSubmit={handleSubmitReps}
+        />
+      ) : (
+        <SprintTimerModal
+          visible={modalVisible}
+          comboName={sprint.comboName}
+          comboSteps={sprint.comboSteps}
+          comboTouches={sprint.comboTouches}
+          personalBestMs={sprint.personalBestMs}
+          teamPaceMs={sprint.teamPaceMs}
+          crownThresholdMs={sprint.crownThresholdMs}
+          onClose={() => setModalVisible(false)}
+          onSubmit={handleSubmit}
+        />
+      )}
 
       {videoStep && (
         <DrillVideoModal

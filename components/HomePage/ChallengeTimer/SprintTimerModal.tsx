@@ -1,17 +1,13 @@
+import CountdownView from '@/components/HomePage/ChallengeTimer/CountdownView';
 import { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
-import { ChallengeResult, CountdownValue, useChallengeTimer } from '@/hooks/useChallengeTimer';
+import { ChallengeResult, useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 // Placeholder tones — swap these two files for real recorded audio whenever you have it.
 const COUNTDOWN_BEEP = require('../../../assets/audio/countdown-beep.wav');
@@ -147,25 +143,6 @@ const SprintTimerModal: React.FC<SprintTimerModalProps> = ({
 
 export default SprintTimerModal;
 
-const CountdownView: React.FC<{ value: CountdownValue }> = ({ value }) => {
-  const scale = useSharedValue(0.6);
-
-  useEffect(() => {
-    scale.value = 0.6;
-    scale.value = withSequence(withTiming(1.15, { duration: 150 }), withTiming(1, { duration: 150 }));
-  }, [value, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <View style={styles.centerFill}>
-      <Animated.Text style={[styles.countdownText, animatedStyle, value === 'GO' && styles.goText]}>
-        {value}
-      </Animated.Text>
-    </View>
-  );
-};
-
 const ActiveView: React.FC<{ elapsedMs: number; onStop: () => void }> = ({ elapsedMs, onStop }) => {
   const scale = useSharedValue(1);
 
@@ -298,19 +275,6 @@ const styles = StyleSheet.create({
     top: 60,
     right: 24,
     zIndex: 10,
-  },
-  centerFill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countdownText: {
-    fontSize: 120,
-    fontWeight: '900',
-    color: '#1f89ee',
-  },
-  goText: {
-    color: '#31af4d',
   },
   activeFill: {
     flex: 1,

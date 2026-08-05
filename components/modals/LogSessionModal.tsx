@@ -128,7 +128,8 @@ const LogSessionModal = ({
   const isChallengeMode = !!challengeDrillId;
 
   const { sprint } = useDailySprint(userId, teamId);
-  const challengeLocked = !isChallengeMode && sprint?.todayBestMs == null;
+  const challengeLocked =
+    !isChallengeMode && sprint?.todayBestMs == null && sprint?.todayBestReps == null;
 
   const handleSubmit = async () => {
     if (requiresConfirm && !showConfirm) {

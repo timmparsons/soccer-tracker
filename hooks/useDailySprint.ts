@@ -1,6 +1,7 @@
 import { checkAndAwardSquadBadge } from '@/lib/checkSquadBadges';
 import { supabase } from '@/lib/supabase';
 import { TOUCHES_PER_REP } from '@/hooks/useDailyChallenge';
+import { CHALLENGE_DURATIONS } from '@/hooks/useTouchTracking';
 import { useTodayDate } from '@/hooks/useTodayDate';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -30,6 +31,15 @@ export interface DailySprintData {
   teamLeaderName: string | null;
   teamLeaderMs: number | null;
   rank: number | null;
+  // Single-drill combos run duration-mode: do the drill for a fixed window,
+  // then log your rep count, rather than racing 5 reps against the clock.
+  isDurationMode: boolean;
+  durationSeconds: number | null;
+  touchesPerRep: number;
+  personalBestReps: number | null;
+  todayBestReps: number | null;
+  teamAvgReps: number | null;
+  teamLeaderReps: number | null;
 }
 
 interface SprintCombo {
@@ -45,6 +55,17 @@ function pickComboForDate(dateStr: string, combos: SprintCombo[]): SprintCombo {
   const [y, m, d] = dateStr.split('-').map(Number);
   const seed = y * 10000 + m * 100 + d;
   return combos[seed % combos.length];
+}
+
+// Duration-mode combos (single drill) pull from the same duration pool as
+// the Daily Challenge circuit, seeded off the date + combo so it doesn't
+// collide with pickComboForDate's own rotation.
+function pickDurationForDate(dateStr: string, comboId: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const seed = y * 10000 + m * 100 + d;
+  let comboSeed = 0;
+  for (let i = 0; i < comboId.length; i++) comboSeed += comboId.charCodeAt(i);
+  return CHALLENGE_DURATIONS[(seed + comboSeed) % CHALLENGE_DURATIONS.length];
 }
 
 export function useDailySprint(userId: string | undefined, teamId: string | null | undefined) {
@@ -113,36 +134,54 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
         videoUrl: drillMap.get(id)?.videoUrl,
       }));
 
+      const isDurationMode = combo.drill_ids.length === 1;
+      const durationSeconds = isDurationMode ? pickDurationForDate(today, combo.id) : null;
+      const touchesPerRep = TOUCHES_PER_REP[combo.drill_ids[0]] ?? 2;
+
+      const metricColumn = isDurationMode ? 'reps_completed' : 'duration_ms';
+
       const [{ data: personalAttempts }, { data: todayAttempts }] = await Promise.all([
         (supabase as any)
           .from('sprint_attempts')
-          .select('duration_ms')
+          .select(metricColumn)
           .eq('profile_id', userId)
           .eq('combo_id', combo.id)
-          .order('duration_ms', { ascending: true })
+          .order(metricColumn, { ascending: !isDurationMode })
           .limit(1),
         (supabase as any)
           .from('sprint_attempts')
-          .select('profile_id, duration_ms')
+          .select(`profile_id, ${metricColumn}`)
           .eq('daily_sprint_id', sprintRow.id),
       ]);
 
-      const personalBestMs = personalAttempts && personalAttempts.length > 0 ? personalAttempts[0].duration_ms : null;
+      const personalBestMetric =
+        personalAttempts && personalAttempts.length > 0 ? personalAttempts[0][metricColumn] : null;
+      const personalBestMs = isDurationMode ? null : personalBestMetric;
+      const personalBestReps = isDurationMode ? personalBestMetric : null;
+
+      // "best" means fastest (lowest ms) in race mode, most reps in duration mode.
+      const isBetter = (a: number, b: number) => (isDurationMode ? a > b : a < b);
 
       const bestByProfile = new Map<string, number>();
       for (const attempt of todayAttempts || []) {
+        const value = attempt[metricColumn];
+        if (value == null) continue;
         const current = bestByProfile.get(attempt.profile_id);
-        if (current == null || attempt.duration_ms < current) {
-          bestByProfile.set(attempt.profile_id, attempt.duration_ms);
+        if (current == null || isBetter(value, current)) {
+          bestByProfile.set(attempt.profile_id, value);
         }
       }
-      const todayBestMs = bestByProfile.get(userId) ?? null;
+      const todayBestMetric = bestByProfile.get(userId) ?? null;
+      const todayBestMs = isDurationMode ? null : todayBestMetric;
+      const todayBestReps = isDurationMode ? todayBestMetric : null;
 
       let rosterSize = 0;
       let completedCount = bestByProfile.size;
       let teamPaceMs: number | null = null;
+      let teamAvgReps: number | null = null;
       let teamLeaderName: string | null = null;
       let teamLeaderMs: number | null = null;
+      let teamLeaderReps: number | null = null;
       let rank: number | null = null;
 
       if (teamId) {
@@ -157,19 +196,22 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
         const profileMap = new Map((roster || []).map((r) => [r.id, r]));
         const teamEntries = [...bestByProfile.entries()].filter(([profileId]) => rosterIds.has(profileId));
         completedCount = teamEntries.length;
-        const teamTimes = teamEntries.map(([, ms]) => ms);
-        teamPaceMs = teamTimes.length > 0
-          ? Math.round(teamTimes.reduce((sum, ms) => sum + ms, 0) / teamTimes.length)
+        const teamValues = teamEntries.map(([, value]) => value);
+        const teamAvg = teamValues.length > 0
+          ? Math.round(teamValues.reduce((sum, value) => sum + value, 0) / teamValues.length)
           : null;
+        teamPaceMs = isDurationMode ? null : teamAvg;
+        teamAvgReps = isDurationMode ? teamAvg : null;
 
-        const sortedTeam = [...teamEntries].sort((a, b) => a[1] - b[1]);
+        const sortedTeam = [...teamEntries].sort((a, b) => (isDurationMode ? b[1] - a[1] : a[1] - b[1]));
         if (sortedTeam.length > 0) {
-          const [leaderId, leaderMs] = sortedTeam[0];
+          const [leaderId, leaderValue] = sortedTeam[0];
           teamLeaderName = getDisplayName(profileMap.get(leaderId));
-          teamLeaderMs = leaderMs;
+          teamLeaderMs = isDurationMode ? null : leaderValue;
+          teamLeaderReps = isDurationMode ? leaderValue : null;
         }
-        if (todayBestMs != null) {
-          rank = sortedTeam.filter(([, ms]) => ms < todayBestMs).length + 1;
+        if (todayBestMetric != null) {
+          rank = sortedTeam.filter(([, value]) => isBetter(value, todayBestMetric)).length + 1;
         }
 
         checkAndAwardSquadBadge(
@@ -191,6 +233,13 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
         comboName: combo.name,
         comboSteps,
         comboDrills,
+        isDurationMode,
+        durationSeconds,
+        touchesPerRep,
+        personalBestReps,
+        todayBestReps,
+        teamAvgReps,
+        teamLeaderReps,
         comboDrillIds: combo.drill_ids,
         comboReps: combo.reps,
         comboTouches,
@@ -207,6 +256,16 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
     },
     enabled: !!userId,
   });
+
+  const invalidateAfterAttempt = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey });
+    queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    queryClient.invalidateQueries({ queryKey: ['touch-tracking', userId] });
+    queryClient.invalidateQueries({ queryKey: ['active-streak', userId] });
+    queryClient.invalidateQueries({ queryKey: ['recent-sessions', userId] });
+    queryClient.invalidateQueries({ queryKey: ['daily-touch-history', userId] });
+    queryClient.invalidateQueries({ queryKey: ['heatmap-stats', userId] });
+  }, [queryClient, queryKey, userId]);
 
   const submitAttempt = useCallback(
     async (durationMs: number, isPR: boolean, isCrown: boolean) => {
@@ -234,18 +293,42 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
       });
       if (sessionError) throw sessionError;
 
-      queryClient.invalidateQueries({ queryKey });
-      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
-      queryClient.invalidateQueries({ queryKey: ['touch-tracking', userId] });
-      queryClient.invalidateQueries({ queryKey: ['active-streak', userId] });
-      queryClient.invalidateQueries({ queryKey: ['recent-sessions', userId] });
-      queryClient.invalidateQueries({ queryKey: ['daily-touch-history', userId] });
-      queryClient.invalidateQueries({ queryKey: ['heatmap-stats', userId] });
+      invalidateAfterAttempt();
     },
-    [userId, data, queryClient, queryKey],
+    [userId, data, invalidateAfterAttempt],
   );
 
-  return { sprint: data ?? null, isLoading, submitAttempt };
+  // Duration-mode combos (single drill) have no time to race, so the "attempt"
+  // is a self-reported rep count logged after the fixed window runs out.
+  const submitReps = useCallback(
+    async (repsCompleted: number, isPR: boolean) => {
+      if (!userId || !data || data.durationSeconds == null) return;
+
+      const { error } = await (supabase as any).from('sprint_attempts').insert({
+        daily_sprint_id: data.dailySprintId,
+        combo_id: data.comboId,
+        profile_id: userId,
+        duration_ms: data.durationSeconds * 1000,
+        reps_completed: repsCompleted,
+        is_pr: isPR,
+        is_crown: false,
+      });
+      if (error) throw error;
+
+      const { error: sessionError } = await supabase.from('daily_sessions').insert({
+        user_id: userId,
+        touches_logged: repsCompleted * data.touchesPerRep,
+        duration_minutes: Math.max(1, Math.round(data.durationSeconds / 60)),
+        date: getLocalDate(),
+      });
+      if (sessionError) throw sessionError;
+
+      invalidateAfterAttempt();
+    },
+    [userId, data, invalidateAfterAttempt],
+  );
+
+  return { sprint: data ?? null, isLoading, submitAttempt, submitReps };
 }
 
 // Count of sprint_attempts flagged is_pr for this profile within the

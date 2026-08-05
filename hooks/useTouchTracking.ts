@@ -272,8 +272,10 @@ export const useDrills = () => {
   });
 };
 
-// Time durations for challenges (in seconds)
-const CHALLENGE_DURATIONS = [60, 120, 180, 240]; // 3, 4, 5, 6 minutes
+// Time durations for challenges (in seconds). Also reused by useDailySprint
+// for single-drill sprint combos, which run duration-mode instead of racing
+// the clock over a handful of reps.
+export const CHALLENGE_DURATIONS = [60, 120, 180]; // 1, 2, 3 minutes
 
 export const useJugglingRecord = (userId: string | undefined) => {
   return useQuery({

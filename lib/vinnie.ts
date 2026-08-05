@@ -7,9 +7,12 @@ export interface VinnieState {
 
 export interface VinnieSprintResult {
   comboName: string;
-  durationMs: number;
   isPR: boolean;
   isCrown: boolean;
+  // Race-mode combos report durationMs; duration-mode (single-drill) combos
+  // have no time to race and report repsCompleted instead.
+  durationMs?: number;
+  repsCompleted?: number;
 }
 
 export interface VinnieContext {
@@ -250,10 +253,17 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
       ? [...GOAL_MESSAGES[skillFocus], ...MESSAGES.encouraging]
       : MESSAGES.encouraging;
 
-  // A just-logged sprint time — highest priority, it's the most immediate
-  // feedback a player can get right after tapping STOP.
+  // A just-logged sprint result — highest priority, it's the most immediate
+  // feedback a player can get right after finishing.
   if (lastSprintResult) {
-    const seconds = (lastSprintResult.durationMs / 1000).toFixed(2);
+    if (lastSprintResult.repsCompleted != null) {
+      const reps = lastSprintResult.repsCompleted;
+      if (lastSprintResult.isPR) {
+        return { mood: 'hype', message: `New PR! ${lastSprintResult.comboName}: ${reps} reps. You just beat your best 🔥` };
+      }
+      return { mood: 'happy', message: `Sprint logged — ${lastSprintResult.comboName}: ${reps} reps. Chase that PR next time!` };
+    }
+    const seconds = ((lastSprintResult.durationMs ?? 0) / 1000).toFixed(2);
     if (lastSprintResult.isCrown) {
       return { mood: 'hype', message: `CROWN PACE! ${lastSprintResult.comboName} in ${seconds}s — that's elite speed! 👑` };
     }
