@@ -94,7 +94,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>('touches');
   const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>('touches');
   const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
-  const [clubPeriod, setClubPeriod] = useState<'today' | 'week' | 'alltime'>('week');
+  const [clubPeriod, setClubPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
+  const [globalPeriod, setGlobalPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
@@ -136,18 +137,27 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   }, []);
 
   const getPeriodLabel = () => {
-    if (view === 'club') return clubPeriod === 'today' ? 'Today' : clubPeriod === 'week' ? 'This Week' : 'All Time';
+    if (view === 'club' || view === 'global') {
+      const subTab = view === 'club' ? clubSubTab : globalSubTab;
+      const period = view === 'club' ? clubPeriod : globalPeriod;
+      if (subTab === 'juggling') return period === 'week' ? 'This Week' : 'All Time';
+      const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
+      return labels[period];
+    }
     if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
     const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
     return labels[touchesPeriod];
   };
 
   const getResetNote = (): string | null => {
-    if (view === 'global') return 'Resets Sunday';
-    if (view === 'club') {
-      if (clubSubTab === 'juggling') return clubPeriod === 'week' ? 'Resets Sunday' : null;
-      if (clubPeriod === 'today') return 'Resets at midnight';
-      return clubPeriod === 'week' ? 'Resets Sunday' : 'Lifetime touches';
+    if (view === 'club' || view === 'global') {
+      const subTab = view === 'club' ? clubSubTab : globalSubTab;
+      const period = view === 'club' ? clubPeriod : globalPeriod;
+      if (subTab === 'juggling') return period === 'week' ? 'Resets Sunday' : null;
+      if (period === 'today') return 'Resets at midnight';
+      if (period === 'week') return 'Resets Sunday';
+      if (period === 'alltime') return 'Best single week ever';
+      return null;
     }
     if (view === 'team') {
       if (teamSubTab === 'touches') {
@@ -229,13 +239,13 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: globalLeaderboard = [],
     isLoading: globalLoading,
     refetch: refetchGlobal,
-  } = useGlobalLeaderboard();
+  } = useGlobalLeaderboard(globalPeriod);
 
   const {
     data: globalJugglingLeaderboard = [],
     isLoading: globalJugglingLoading,
     refetch: refetchGlobalJuggling,
-  } = useGlobalJugglingLeaderboard();
+  } = useGlobalJugglingLeaderboard(globalPeriod === 'week' || globalPeriod === 'alltime' ? globalPeriod : 'week');
 
   const clubId = (profile as any)?.club_id ?? undefined;
 
@@ -249,7 +259,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: clubJugglingLeaderboard = [],
     isLoading: clubJugglingLoading,
     refetch: refetchClubJuggling,
-  } = useClubJugglingLeaderboard(clubId, clubPeriod === 'today' ? 'week' : clubPeriod);
+  } = useClubJugglingLeaderboard(clubId, clubPeriod === 'week' || clubPeriod === 'alltime' ? clubPeriod : 'week');
 
   const {
     data: sprintLeaderboard = [],
@@ -554,22 +564,20 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           </TouchableOpacity>
         </View>
 
-        {view !== 'global' && (
-          <View style={styles.periodRow}>
-            {teamSubTab === 'sprint' ? (
-              <Text style={styles.periodDropdownText}>Today</Text>
-            ) : (
-              <TouchableOpacity
-                style={styles.periodDropdownBtn}
-                onPress={() => setPeriodPickerVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
-                <Ionicons name='chevron-down' size={14} color='#6B7280' />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <View style={styles.periodRow}>
+          {view === 'team' && teamSubTab === 'sprint' ? (
+            <Text style={styles.periodDropdownText}>Today</Text>
+          ) : (
+            <TouchableOpacity
+              style={styles.periodDropdownBtn}
+              onPress={() => setPeriodPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
+              <Ionicons name='chevron-down' size={14} color='#6B7280' />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Controls — segmented control (full width, equal pills) */}
@@ -623,10 +631,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               onPress={() => {
                 if (view === 'club') {
                   setClubSubTab('juggling');
-                  // Juggling has no "today" period — bump back to This Week if that was selected on Touches.
-                  if (clubPeriod === 'today') setClubPeriod('week');
+                  // Juggling only supports This Week / All Time — bump off Today or Last Week if selected on Touches.
+                  if (clubPeriod === 'today' || clubPeriod === 'last_week') setClubPeriod('week');
                 } else {
                   setGlobalSubTab('juggling');
+                  if (globalPeriod === 'today' || globalPeriod === 'last_week') setGlobalPeriod('week');
                 }
               }}
             >
@@ -661,19 +670,24 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         >
           <View style={styles.pickerSheet}>
             <Text style={styles.pickerTitle}>Time Period</Text>
-            {view === 'club'
-              ? (clubSubTab === 'touches' ? (['today', 'week', 'alltime'] as const) : (['week', 'alltime'] as const)).map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[styles.pickerRow, clubPeriod === p && styles.pickerRowActive]}
-                    onPress={() => { setClubPeriod(p); setPeriodPickerVisible(false); }}
-                  >
-                    <Text style={[styles.pickerRowText, clubPeriod === p && styles.pickerRowTextActive]}>
-                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'All Time'}
-                    </Text>
-                    {clubPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
-                  </TouchableOpacity>
-                ))
+            {view === 'club' || view === 'global'
+              ? (() => {
+                  const subTab = view === 'club' ? clubSubTab : globalSubTab;
+                  const period = view === 'club' ? clubPeriod : globalPeriod;
+                  const setPeriod = view === 'club' ? setClubPeriod : setGlobalPeriod;
+                  return (subTab === 'touches' ? (['today', 'week', 'last_week', 'alltime'] as const) : (['week', 'alltime'] as const)).map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[styles.pickerRow, period === p && styles.pickerRowActive]}
+                      onPress={() => { setPeriod(p); setPeriodPickerVisible(false); }}
+                    >
+                      <Text style={[styles.pickerRowText, period === p && styles.pickerRowTextActive]}>
+                        {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'last_week' ? 'Last Week' : subTab === 'touches' ? 'Best Week' : 'All Time'}
+                      </Text>
+                      {period === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
+                    </TouchableOpacity>
+                  ));
+                })()
               : teamSubTab === 'touches'
               ? (['today', 'week', 'last_week', 'alltime'] as const).map((p) => (
                   <TouchableOpacity

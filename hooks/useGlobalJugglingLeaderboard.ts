@@ -12,7 +12,7 @@ export interface GlobalJugglingPlayer {
   avatar_url: string | null;
 }
 
-export function useGlobalJugglingLeaderboard() {
+export function useGlobalJugglingLeaderboard(period: 'week' | 'alltime' = 'week') {
   const todayObj = new Date();
   const weekStartObj = new Date(todayObj);
   weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
@@ -20,7 +20,7 @@ export function useGlobalJugglingLeaderboard() {
   const today = getLocalDate();
 
   return useQuery({
-    queryKey: ['global-juggling-leaderboard', weekStart],
+    queryKey: ['global-juggling-leaderboard', period, weekStart],
     staleTime: 2 * 60 * 1000,
     queryFn: async (): Promise<GlobalJugglingPlayer[]> => {
       const { data: profiles } = await supabase
@@ -33,15 +33,20 @@ export function useGlobalJugglingLeaderboard() {
 
       const profileIds = profiles.map((p) => p.id);
 
-      const { data: sessions } = await supabase
+      let query = supabase
         .from('daily_sessions')
         .select('user_id, juggle_count, date')
         .in('user_id', profileIds)
         .not('juggle_count', 'is', null)
-        .gt('juggle_count', 0)
-        .gte('date', weekStart)
-        .lte('date', today)
-        .limit(10000);
+        .gt('juggle_count', 0);
+
+      if (period === 'week') {
+        query = query.gte('date', weekStart).lte('date', today).limit(10000);
+      } else {
+        query = query.limit(50000);
+      }
+
+      const { data: sessions } = await query;
 
       const best: Record<string, { high_score: number; date_achieved: string }> = {};
       for (const s of sessions ?? []) {
