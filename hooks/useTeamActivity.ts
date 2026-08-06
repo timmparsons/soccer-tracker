@@ -175,16 +175,21 @@ export function useActivityFeed(limit = 7) {
       // Fetch recent daily sprint completions
       const { data: sprintCompletions } = await (supabase as any)
         .from('sprint_attempts')
-        .select('id, profile_id, combo_id, duration_ms, is_pr, is_crown, created_at')
+        .select('id, profile_id, combo_id, duration_ms, reps_completed, is_pr, is_crown, created_at')
         .gte('created_at', threeDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(30);
 
       const comboIds = [...new Set((sprintCompletions || []).map((c: any) => c.combo_id as string))];
       const { data: sprintCombos } = comboIds.length > 0
-        ? await (supabase as any).from('sprint_combos').select('id, name').in('id', comboIds)
+        ? await (supabase as any).from('sprint_combos').select('id, name, drill_ids').in('id', comboIds)
         : { data: [] };
       const comboNameMap = new Map((sprintCombos || []).map((c: any) => [c.id, c.name]));
+      // Duration-mode combos (single drill, fixed time window) are scored by
+      // rep count, not duration — the duration is a constant, not a record.
+      const comboDurationModeMap = new Map(
+        (sprintCombos || []).map((c: any) => [c.id, (c.drill_ids?.length ?? 0) === 1]),
+      );
 
       // Each user's best juggle_count session within the recent window —
       // candidate for a "broke their juggling record" feed event.
@@ -364,6 +369,7 @@ export function useActivityFeed(limit = 7) {
         profile_id: string;
         combo_id: string;
         duration_ms: number;
+        reps_completed: number | null;
         is_pr: boolean;
         is_crown: boolean;
         created_at: string;
@@ -372,27 +378,40 @@ export function useActivityFeed(limit = 7) {
         const profile = profileMap.get(c.profile_id);
         if (!profile) continue;
         const name = getDisplayName(profile);
-        const seconds = (c.duration_ms / 1000).toFixed(2);
         const comboName = comboNameMap.get(c.combo_id) ?? 'today’s sprint';
+        const isDurationMode = comboDurationModeMap.get(c.combo_id) ?? false;
+        const seconds = (c.duration_ms / 1000).toFixed(2);
+        const reps = c.reps_completed ?? 0;
+        const metric = isDurationMode ? `${reps} reps` : `${seconds}s`;
 
         let message: string;
         if (c.is_crown) {
-          message = pickForId([
-            `${name} set today's pace at ${seconds}s!`,
-            `${name} is setting the pace — ${seconds}s on ${comboName}`,
-            `${name} is the one to beat today — ${seconds}s`,
+          message = isDurationMode ? pickForId([
+            `${name} set today's pace with ${metric}!`,
+            `${name} is setting the pace — ${metric} on ${comboName}`,
+            `${name} is the one to beat today — ${metric}`,
+          ], c.id) : pickForId([
+            `${name} set today's pace at ${metric}!`,
+            `${name} is setting the pace — ${metric} on ${comboName}`,
+            `${name} is the one to beat today — ${metric}`,
           ], c.id);
-        } else if (c.is_pr) {
+        } else if (c.is_pr && !isDurationMode) {
+          // Duration-mode "PR" isn't a reliable history comparison (it fires
+          // on a player's very first attempt too), so just show the count below.
           message = pickForId([
-            `${name} hit a NEW PR of ${seconds}s!`,
-            `${name} smashed their PR — ${seconds}s on ${comboName}`,
-            `${name} just beat their best time — ${seconds}s`,
+            `${name} hit a NEW PR of ${metric}!`,
+            `${name} smashed their PR — ${metric} on ${comboName}`,
+            `${name} just beat their best time — ${metric}`,
           ], c.id);
         } else {
-          message = pickForId([
-            `${name} logged today's sprint in ${seconds}s`,
-            `${name} completed ${comboName} in ${seconds}s`,
-            `${name} clocked ${seconds}s on today's sprint`,
+          message = isDurationMode ? pickForId([
+            `${name} logged ${metric} on today's sprint`,
+            `${name} completed ${comboName} with ${metric}`,
+            `${name} put up ${metric} on today's sprint`,
+          ], c.id) : pickForId([
+            `${name} logged today's sprint in ${metric}`,
+            `${name} completed ${comboName} in ${metric}`,
+            `${name} clocked ${metric} on today's sprint`,
           ], c.id);
         }
 

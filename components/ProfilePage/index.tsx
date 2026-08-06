@@ -1,4 +1,3 @@
-import FamilyCard from '@/components/coach/FamilyCard';
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
 import BadgeGrid from '@/components/common/BadgeGrid';
 import type { Badge } from '@/hooks/useBadges';
@@ -1114,9 +1113,6 @@ const ProfilePage = () => {
               )}
             </>
           )}
-
-          {/* Family Card - coaches with managed children only */}
-          {profile?.is_coach && user?.id && <FamilyCard coachId={user.id} />}
 
           {/* Badges Card - players only */}
           {!profile?.is_coach && (
