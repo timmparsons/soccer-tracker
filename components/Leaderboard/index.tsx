@@ -972,7 +972,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             </View>
                           </View>
                           <View style={styles.playerRight}>
-                            <Text style={styles.weeklyTouches}>{(entry.durationMs / 1000).toFixed(2)}s</Text>
+                            {entry.isDurationMode ? (
+                              <>
+                                <Text style={styles.jugglingScore}>{entry.reps ?? 0}</Text>
+                                <Text style={styles.touchesLabel}>reps</Text>
+                              </>
+                            ) : (
+                              <Text style={styles.weeklyTouches}>{((entry.durationMs ?? 0) / 1000).toFixed(2)}s</Text>
+                            )}
                           </View>
                         </TouchableOpacity>
                       );
