@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -108,7 +110,10 @@ export default function CoachChallengeModal({
 
   return (
     <Modal visible={visible} animationType='slide' presentationStyle='pageSheet' onRequestClose={handleClose}>
-      <View style={[styles.container, { paddingTop: insets.top || 20 }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { paddingTop: insets.top || 20 }]}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Assign Challenge</Text>
@@ -197,7 +202,7 @@ export default function CoachChallengeModal({
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
