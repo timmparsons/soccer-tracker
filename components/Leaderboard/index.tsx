@@ -1,25 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import InactivePlayersModal from '@/components/common/InactivePlayersModal';
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
-import { useCoachTeams } from '@/hooks/useCoachTeams';
-import { useInactivePlayers } from '@/hooks/useInactivePlayers';
-import { type TeamMemberStats, useTouchesLeaderboard } from '@/hooks/useLeaderboard';
-import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
-import { useGlobalJugglingLeaderboard } from '@/hooks/useGlobalJugglingLeaderboard';
-import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
 import { useClubJugglingLeaderboard } from '@/hooks/useClubJugglingLeaderboard';
+import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
+import { useCoachTeams } from '@/hooks/useCoachTeams';
+import { useGlobalJugglingLeaderboard } from '@/hooks/useGlobalJugglingLeaderboard';
+import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
+import { useInactivePlayers } from '@/hooks/useInactivePlayers';
+import {
+  type TeamMemberStats,
+  useTouchesLeaderboard,
+} from '@/hooks/useLeaderboard';
+import { useProfile } from '@/hooks/useProfile';
 import { useSprintLeaderboard } from '@/hooks/useSprintLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
-import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { getTeamDisplayNames } from '@/utils/teamLeaderboardName';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -40,25 +43,30 @@ const SPRINT_BADGE_INFO: Record<
   crown: {
     icon: '👑',
     label: 'Crown',
-    message: "Beat today's crown threshold — the target pace set for this sprint combo.",
+    message:
+      "Beat today's crown threshold — the target pace set for this challenge combo.",
     bg: '#FEF9EC',
   },
   pr: {
     icon: '📈',
     label: 'PR',
-    message: 'Personal record — the fastest this player has ever run this sprint combo.',
+    message:
+      'Personal record — the fastest this player has ever run this challenge combo.',
     bg: '#EFF6FF',
   },
   earlyBird: {
     icon: '🌅',
     label: 'Early Bird',
-    message: "First team member to log a time on today's sprint.",
+    message: "First team member to log a time on today's challenge.",
     bg: '#FFF4E5',
   },
 };
 
-const getBeswickLevel = (score: number): { label: string; color: string; bg: string } => {
-  if (score >= 2500) return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
+const getBeswickLevel = (
+  score: number,
+): { label: string; color: string; bg: string } => {
+  if (score >= 2500)
+    return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
   if (score >= 1000) return { label: 'Win', color: '#1565C0', bg: '#E3F2FD' };
   return { label: 'Turn Up', color: '#78909C', bg: '#F0F2F5' };
 };
@@ -90,29 +98,48 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       setView(hasTeam ? 'team' : hasClub ? 'club' : 'global');
     }
   }, [profile?.id]);
-  const [teamSubTab, setTeamSubTab] = useState<'touches' | 'juggling' | 'sprint'>('touches');
-  const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>('touches');
-  const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>('touches');
-  const [touchesPeriod, setTouchesPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
-  const [clubPeriod, setClubPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
-  const [globalPeriod, setGlobalPeriod] = useState<'today' | 'week' | 'last_week' | 'alltime'>('today');
-  const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>('week');
+  const [teamSubTab, setTeamSubTab] = useState<
+    'touches' | 'juggling' | 'sprint'
+  >('touches');
+  const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>(
+    'touches',
+  );
+  const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>(
+    'touches',
+  );
+  const [touchesPeriod, setTouchesPeriod] = useState<
+    'today' | 'week' | 'last_week' | 'alltime'
+  >('today');
+  const [clubPeriod, setClubPeriod] = useState<
+    'today' | 'week' | 'last_week' | 'alltime'
+  >('today');
+  const [globalPeriod, setGlobalPeriod] = useState<
+    'today' | 'week' | 'last_week' | 'alltime'
+  >('today');
+  const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>(
+    'week',
+  );
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
   const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [periodPickerVisible, setPeriodPickerVisible] = useState(false);
-  const [badgeInfoModal, setBadgeInfoModal] = useState<keyof typeof SPRINT_BADGE_INFO | null>(null);
+  const [badgeInfoModal, setBadgeInfoModal] = useState<
+    keyof typeof SPRINT_BADGE_INFO | null
+  >(null);
 
-  const { data: coachTeams = [] } = useCoachTeams(profile?.is_coach ? user?.id : undefined);
+  const { data: coachTeams = [] } = useCoachTeams(
+    profile?.is_coach ? user?.id : undefined,
+  );
   const { data: inactivePlayers = [] } = useInactivePlayers(
     profile?.is_coach ? profile?.team_id : null,
   );
 
   const effectiveTeamId = profile?.team_id ?? undefined;
   const activeTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
-  const seasonStartDate = activeTeamData?.season_start_date ?? team?.season_start_date ?? null;
+  const seasonStartDate =
+    activeTeamData?.season_start_date ?? team?.season_start_date ?? null;
   const displayTeamName = activeTeamData?.name ?? team?.name ?? 'My Team';
 
   const handleSwitchTeam = async (teamId: string) => {
@@ -121,7 +148,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       return;
     }
     setSwitchingTeam(true);
-    await supabase.from('profiles').update({ team_id: teamId }).eq('id', user.id);
+    await supabase
+      .from('profiles')
+      .update({ team_id: teamId })
+      .eq('id', user.id);
     await refetchProfile();
     setSwitchingTeam(false);
     setTeamPickerVisible(false);
@@ -140,12 +170,24 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     if (view === 'club' || view === 'global') {
       const subTab = view === 'club' ? clubSubTab : globalSubTab;
       const period = view === 'club' ? clubPeriod : globalPeriod;
-      if (subTab === 'juggling') return period === 'week' ? 'This Week' : 'All Time';
-      const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
+      if (subTab === 'juggling')
+        return period === 'week' ? 'This Week' : 'All Time';
+      const labels = {
+        today: 'Today',
+        week: 'This Week',
+        last_week: 'Last Week',
+        alltime: 'Best Week',
+      };
       return labels[period];
     }
-    if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
-    const labels = { today: 'Today', week: 'This Week', last_week: 'Last Week', alltime: 'Best Week' };
+    if (teamSubTab === 'juggling')
+      return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
+    const labels = {
+      today: 'Today',
+      week: 'This Week',
+      last_week: 'Last Week',
+      alltime: 'Best Week',
+    };
     return labels[touchesPeriod];
   };
 
@@ -153,7 +195,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     if (view === 'club' || view === 'global') {
       const subTab = view === 'club' ? clubSubTab : globalSubTab;
       const period = view === 'club' ? clubPeriod : globalPeriod;
-      if (subTab === 'juggling') return period === 'week' ? 'Resets Sunday' : null;
+      if (subTab === 'juggling')
+        return period === 'week' ? 'Resets Sunday' : null;
       if (period === 'today') return 'Resets at midnight';
       if (period === 'week') return 'Resets Sunday';
       if (period === 'alltime') return 'Best single week ever';
@@ -164,7 +207,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         if (touchesPeriod === 'week') return 'Resets Sunday';
         if (touchesPeriod === 'alltime') return 'Best single week ever';
       }
-      if (teamSubTab === 'juggling') return jugglingPeriod === 'week' ? 'Resets Sunday' : null;
+      if (teamSubTab === 'juggling')
+        return jugglingPeriod === 'week' ? 'Resets Sunday' : null;
       if (teamSubTab === 'sprint') return "Today's sprint only — resets daily";
     }
     return null;
@@ -181,7 +225,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
   } = useQuery({
-    queryKey: ['team-juggling-leaderboard', effectiveTeamId, jugglingPeriod, seasonStartDate],
+    queryKey: [
+      'team-juggling-leaderboard',
+      effectiveTeamId,
+      jugglingPeriod,
+      seasonStartDate,
+    ],
     queryFn: async () => {
       if (!effectiveTeamId) return [];
 
@@ -224,12 +273,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             high_score: bestSession?.juggle_count || 0,
             date_achieved: bestSession?.date || getLocalDate(),
           };
-        })
+        }),
       );
 
       return memberRecords
         .filter((r) => r.high_score > 0)
-        .sort((a, b) => b.high_score - a.high_score || a.name.localeCompare(b.name));
+        .sort(
+          (a, b) => b.high_score - a.high_score || a.name.localeCompare(b.name),
+        );
     },
     enabled: !!profile?.team_id,
     refetchInterval: 60_000,
@@ -245,7 +296,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: globalJugglingLeaderboard = [],
     isLoading: globalJugglingLoading,
     refetch: refetchGlobalJuggling,
-  } = useGlobalJugglingLeaderboard(globalPeriod === 'week' || globalPeriod === 'alltime' ? globalPeriod : 'week');
+  } = useGlobalJugglingLeaderboard(
+    globalPeriod === 'week' || globalPeriod === 'alltime'
+      ? globalPeriod
+      : 'week',
+  );
 
   const clubId = (profile as any)?.club_id ?? undefined;
 
@@ -259,7 +314,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: clubJugglingLeaderboard = [],
     isLoading: clubJugglingLoading,
     refetch: refetchClubJuggling,
-  } = useClubJugglingLeaderboard(clubId, clubPeriod === 'week' || clubPeriod === 'alltime' ? clubPeriod : 'week');
+  } = useClubJugglingLeaderboard(
+    clubId,
+    clubPeriod === 'week' || clubPeriod === 'alltime' ? clubPeriod : 'week',
+  );
 
   const {
     data: sprintLeaderboard = [],
@@ -271,7 +329,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   useEffect(() => {
     if (!touchesLeaderboard.length || !user?.id) return;
-    const lastWeekWinner = [...touchesLeaderboard].sort((a, b) => b.last_week_touches - a.last_week_touches)[0];
+    const lastWeekWinner = [...touchesLeaderboard].sort(
+      (a, b) => b.last_week_touches - a.last_week_touches,
+    )[0];
     if (lastWeekWinner.last_week_touches > 0) {
       recordWeeklyWin(lastWeekStart, lastWeekWinner.id, user.id);
     }
@@ -310,7 +370,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchClub,
       refetchClubJuggling,
       refetchSprint,
-    ])
+    ]),
   );
 
   if (isLoading && view === 'team') {
@@ -324,8 +384,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const sortedTouches = [...touchesLeaderboard].sort((a, b) => {
     let diff = 0;
     if (touchesPeriod === 'today') diff = b.today_touches - a.today_touches;
-    else if (touchesPeriod === 'week') diff = b.weekly_touches - a.weekly_touches;
-    else if (touchesPeriod === 'last_week') diff = b.last_week_touches - a.last_week_touches;
+    else if (touchesPeriod === 'week')
+      diff = b.weekly_touches - a.weekly_touches;
+    else if (touchesPeriod === 'last_week')
+      diff = b.last_week_touches - a.last_week_touches;
     else diff = b.alltime_best_week - a.alltime_best_week;
     return diff !== 0 ? diff : a.name.localeCompare(b.name);
   });
@@ -337,15 +399,19 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     return player.alltime_best_week;
   };
 
-  const teamDisplayNames = getTeamDisplayNames([...touchesLeaderboard, ...jugglingLeaderboard]);
-  const teamName = (p: { id: string; name: string }) => teamDisplayNames[p.id] ?? p.name;
+  const teamDisplayNames = getTeamDisplayNames([
+    ...touchesLeaderboard,
+    ...jugglingLeaderboard,
+  ]);
+  const teamName = (p: { id: string; name: string }) =>
+    teamDisplayNames[p.id] ?? p.name;
 
-  const scoredPlayers = sortedTouches.filter(p => getTouchScore(p) > 0);
+  const scoredPlayers = sortedTouches.filter((p) => getTouchScore(p) > 0);
   const showTouchesPodium = scoredPlayers.length >= 1;
   const podiumCount = Math.min(scoredPlayers.length, 3);
 
   const getDenseRank = (score: number, scores: number[]) =>
-    new Set(scores.filter(s => s > score)).size + 1;
+    new Set(scores.filter((s) => s > score)).size + 1;
 
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -353,8 +419,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     if (rank === 3) return '🥉';
     return '';
   };
-
-
 
   const showSprintBadgeInfo = (badge: keyof typeof SPRINT_BADGE_INFO) => {
     setBadgeInfoModal(badge);
@@ -366,7 +430,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     const date = new Date(dateString + 'T00:00:00');
     const today = new Date();
     const diffDays = Math.floor(
-      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
     );
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
@@ -379,86 +443,226 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     return (
       <View style={styles.podium}>
         {/* 1st — left when 1 or 2, centre when 3 */}
-        {(podiumCount === 1 || podiumCount === 2) && (() => {
-          const p = scoredPlayers[0];
-          const score = getTouchScore(p);
-          const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
-          const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
-          return (
-            <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
-              <View style={styles.podiumAvatarContainer}>
-                <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
-                {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
-              </View>
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
-            </TouchableOpacity>
-          );
-        })()}
+        {(podiumCount === 1 || podiumCount === 2) &&
+          (() => {
+            const p = scoredPlayers[0];
+            const score = getTouchScore(p);
+            const rank = getDenseRank(
+              score,
+              scoredPlayers.map((q) => getTouchScore(q)),
+            );
+            const level =
+              score > 0 && touchesPeriod === 'today'
+                ? getBeswickLevel(score)
+                : null;
+            return (
+              <TouchableOpacity
+                style={[styles.podiumSpot, styles.podiumFirst]}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.crownContainer}>
+                  <Text style={styles.crown}>👑</Text>
+                </View>
+                <View style={styles.podiumAvatarContainer}>
+                  <Image
+                    source={{
+                      uri:
+                        p.avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar1}
+                  />
+                  {p.today_touches >= p.daily_target && (
+                    <Text style={styles.podiumTargetIcon}>🎯</Text>
+                  )}
+                </View>
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>
+                  {score.toLocaleString()}
+                </Text>
+                {level && (
+                  <View
+                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
+                  >
+                    <Text
+                      style={[styles.beswickBadgeText, { color: level.color }]}
+                    >
+                      {level.label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
         {/* 2nd — right when 2, left when 3 */}
-        {podiumCount >= 2 && (() => {
-          const p = scoredPlayers[1];
-          const score = getTouchScore(p);
-          const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
-          const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
-          return (
-            <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.podiumAvatarContainer}>
-                <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
-                {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
-              </View>
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
-            </TouchableOpacity>
-          );
-        })()}
+        {podiumCount >= 2 &&
+          (() => {
+            const p = scoredPlayers[1];
+            const score = getTouchScore(p);
+            const rank = getDenseRank(
+              score,
+              scoredPlayers.map((q) => getTouchScore(q)),
+            );
+            const level =
+              score > 0 && touchesPeriod === 'today'
+                ? getBeswickLevel(score)
+                : null;
+            return (
+              <TouchableOpacity
+                style={styles.podiumSpot}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.podiumAvatarContainer}>
+                  <Image
+                    source={{
+                      uri:
+                        p.avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar2}
+                  />
+                  {p.today_touches >= p.daily_target && (
+                    <Text style={styles.podiumTargetIcon}>🎯</Text>
+                  )}
+                </View>
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>
+                  {score.toLocaleString()}
+                </Text>
+                {level && (
+                  <View
+                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
+                  >
+                    <Text
+                      style={[styles.beswickBadgeText, { color: level.color }]}
+                    >
+                      {level.label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
         {/* 1st — centre when 3 */}
-        {podiumCount === 3 && (() => {
-          const p = scoredPlayers[0];
-          const score = getTouchScore(p);
-          const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
-          const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
-          return (
-            <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
-              <View style={styles.podiumAvatarContainer}>
-                <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
-                {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
-              </View>
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
-            </TouchableOpacity>
-          );
-        })()}
+        {podiumCount === 3 &&
+          (() => {
+            const p = scoredPlayers[0];
+            const score = getTouchScore(p);
+            const rank = getDenseRank(
+              score,
+              scoredPlayers.map((q) => getTouchScore(q)),
+            );
+            const level =
+              score > 0 && touchesPeriod === 'today'
+                ? getBeswickLevel(score)
+                : null;
+            return (
+              <TouchableOpacity
+                style={[styles.podiumSpot, styles.podiumFirst]}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.crownContainer}>
+                  <Text style={styles.crown}>👑</Text>
+                </View>
+                <View style={styles.podiumAvatarContainer}>
+                  <Image
+                    source={{
+                      uri:
+                        p.avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar1}
+                  />
+                  {p.today_touches >= p.daily_target && (
+                    <Text style={styles.podiumTargetIcon}>🎯</Text>
+                  )}
+                </View>
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>
+                  {score.toLocaleString()}
+                </Text>
+                {level && (
+                  <View
+                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
+                  >
+                    <Text
+                      style={[styles.beswickBadgeText, { color: level.color }]}
+                    >
+                      {level.label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
         {/* 3rd */}
-        {podiumCount >= 3 && (() => {
-          const p = scoredPlayers[2];
-          const score = getTouchScore(p);
-          const rank = getDenseRank(score, scoredPlayers.map(q => getTouchScore(q)));
-          const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
-          return (
-            <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.podiumAvatarContainer}>
-                <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
-                {p.today_touches >= p.daily_target && <Text style={styles.podiumTargetIcon}>🎯</Text>}
-              </View>
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{score.toLocaleString()}</Text>
-              {level && <View style={[styles.beswickBadge, { backgroundColor: level.bg }]}><Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text></View>}
-            </TouchableOpacity>
-          );
-        })()}
+        {podiumCount >= 3 &&
+          (() => {
+            const p = scoredPlayers[2];
+            const score = getTouchScore(p);
+            const rank = getDenseRank(
+              score,
+              scoredPlayers.map((q) => getTouchScore(q)),
+            );
+            const level =
+              score > 0 && touchesPeriod === 'today'
+                ? getBeswickLevel(score)
+                : null;
+            return (
+              <TouchableOpacity
+                style={styles.podiumSpot}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.podiumAvatarContainer}>
+                  <Image
+                    source={{
+                      uri:
+                        p.avatar_url ||
+                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                    }}
+                    style={styles.podiumAvatar3}
+                  />
+                  {p.today_touches >= p.daily_target && (
+                    <Text style={styles.podiumTargetIcon}>🎯</Text>
+                  )}
+                </View>
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>
+                  {score.toLocaleString()}
+                </Text>
+                {level && (
+                  <View
+                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
+                  >
+                    <Text
+                      style={[styles.beswickBadgeText, { color: level.color }]}
+                    >
+                      {level.label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
       </View>
     );
   };
@@ -468,56 +672,128 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     if (jPodiumCount === 0) return null;
     return (
       <View style={styles.podium}>
-        {(jPodiumCount === 1 || jPodiumCount === 2) && (() => {
-          const p = jugglingLeaderboard[0];
-          const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
-          return (
-            <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
-              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{p.high_score}</Text>
-            </TouchableOpacity>
-          );
-        })()}
-        {jPodiumCount >= 2 && (() => {
-          const p = jugglingLeaderboard[1];
-          const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
-          return (
-            <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar2} />
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{p.high_score}</Text>
-            </TouchableOpacity>
-          );
-        })()}
-        {jPodiumCount === 3 && (() => {
-          const p = jugglingLeaderboard[0];
-          const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
-          return (
-            <TouchableOpacity style={[styles.podiumSpot, styles.podiumFirst]} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <View style={styles.crownContainer}><Text style={styles.crown}>👑</Text></View>
-              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar1} />
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{p.high_score}</Text>
-            </TouchableOpacity>
-          );
-        })()}
-        {jPodiumCount >= 3 && (() => {
-          const p = jugglingLeaderboard[2];
-          const rank = getDenseRank(p.high_score, jugglingLeaderboard.map(q => q.high_score));
-          return (
-            <TouchableOpacity style={styles.podiumSpot} onPress={() => setSelectedPlayerId(p.id)} activeOpacity={0.7}>
-              <Image source={{ uri: p.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }} style={styles.podiumAvatar3} />
-              <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-              <Text style={styles.podiumName} numberOfLines={1}>{teamName(p)}</Text>
-              <Text style={styles.podiumTouches}>{p.high_score}</Text>
-            </TouchableOpacity>
-          );
-        })()}
+        {(jPodiumCount === 1 || jPodiumCount === 2) &&
+          (() => {
+            const p = jugglingLeaderboard[0];
+            const rank = getDenseRank(
+              p.high_score,
+              jugglingLeaderboard.map((q) => q.high_score),
+            );
+            return (
+              <TouchableOpacity
+                style={[styles.podiumSpot, styles.podiumFirst]}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.crownContainer}>
+                  <Text style={styles.crown}>👑</Text>
+                </View>
+                <Image
+                  source={{
+                    uri:
+                      p.avatar_url ||
+                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                  }}
+                  style={styles.podiumAvatar1}
+                />
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>{p.high_score}</Text>
+              </TouchableOpacity>
+            );
+          })()}
+        {jPodiumCount >= 2 &&
+          (() => {
+            const p = jugglingLeaderboard[1];
+            const rank = getDenseRank(
+              p.high_score,
+              jugglingLeaderboard.map((q) => q.high_score),
+            );
+            return (
+              <TouchableOpacity
+                style={styles.podiumSpot}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={{
+                    uri:
+                      p.avatar_url ||
+                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                  }}
+                  style={styles.podiumAvatar2}
+                />
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>{p.high_score}</Text>
+              </TouchableOpacity>
+            );
+          })()}
+        {jPodiumCount === 3 &&
+          (() => {
+            const p = jugglingLeaderboard[0];
+            const rank = getDenseRank(
+              p.high_score,
+              jugglingLeaderboard.map((q) => q.high_score),
+            );
+            return (
+              <TouchableOpacity
+                style={[styles.podiumSpot, styles.podiumFirst]}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.crownContainer}>
+                  <Text style={styles.crown}>👑</Text>
+                </View>
+                <Image
+                  source={{
+                    uri:
+                      p.avatar_url ||
+                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                  }}
+                  style={styles.podiumAvatar1}
+                />
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>{p.high_score}</Text>
+              </TouchableOpacity>
+            );
+          })()}
+        {jPodiumCount >= 3 &&
+          (() => {
+            const p = jugglingLeaderboard[2];
+            const rank = getDenseRank(
+              p.high_score,
+              jugglingLeaderboard.map((q) => q.high_score),
+            );
+            return (
+              <TouchableOpacity
+                style={styles.podiumSpot}
+                onPress={() => setSelectedPlayerId(p.id)}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={{
+                    uri:
+                      p.avatar_url ||
+                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                  }}
+                  style={styles.podiumAvatar3}
+                />
+                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {teamName(p)}
+                </Text>
+                <Text style={styles.podiumTouches}>{p.high_score}</Text>
+              </TouchableOpacity>
+            );
+          })()}
       </View>
     );
   };
@@ -545,7 +821,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               style={[styles.tab, view === 'team' && styles.tabActive]}
               onPress={() => setView('team')}
             >
-              <Text style={[styles.tabText, view === 'team' && styles.tabTextActive]}>Team</Text>
+              <Text
+                style={[
+                  styles.tabText,
+                  view === 'team' && styles.tabTextActive,
+                ]}
+              >
+                Team
+              </Text>
             </TouchableOpacity>
           )}
           {hasClub && (
@@ -553,14 +836,28 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               style={[styles.tab, view === 'club' && styles.tabActive]}
               onPress={() => setView('club')}
             >
-              <Text style={[styles.tabText, view === 'club' && styles.tabTextActive]}>Club</Text>
+              <Text
+                style={[
+                  styles.tabText,
+                  view === 'club' && styles.tabTextActive,
+                ]}
+              >
+                Club
+              </Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={[styles.tab, view === 'global' && styles.tabActive]}
             onPress={() => setView('global')}
           >
-            <Text style={[styles.tabText, view === 'global' && styles.tabTextActive]}>Global</Text>
+            <Text
+              style={[
+                styles.tabText,
+                view === 'global' && styles.tabTextActive,
+              ]}
+            >
+              Global
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -585,26 +882,53 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {view === 'team' && (
           <View style={styles.subTabsRow}>
             <TouchableOpacity
-              style={[styles.subTab, teamSubTab === 'touches' && styles.subTabActive]}
+              style={[
+                styles.subTab,
+                teamSubTab === 'touches' && styles.subTabActive,
+              ]}
               onPress={() => setTeamSubTab('touches')}
             >
-              <Text style={[styles.subTabText, teamSubTab === 'touches' && styles.subTabTextActive]} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.subTabText,
+                  teamSubTab === 'touches' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
                 Touches
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.subTab, teamSubTab === 'juggling' && styles.subTabActive]}
+              style={[
+                styles.subTab,
+                teamSubTab === 'juggling' && styles.subTabActive,
+              ]}
               onPress={() => setTeamSubTab('juggling')}
             >
-              <Text style={[styles.subTabText, teamSubTab === 'juggling' && styles.subTabTextActive]} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.subTabText,
+                  teamSubTab === 'juggling' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
                 Juggling
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.subTab, teamSubTab === 'sprint' && styles.subTabActive]}
+              style={[
+                styles.subTab,
+                teamSubTab === 'sprint' && styles.subTabActive,
+              ]}
               onPress={() => setTeamSubTab('sprint')}
             >
-              <Text style={[styles.subTabText, teamSubTab === 'sprint' && styles.subTabTextActive]} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.subTabText,
+                  teamSubTab === 'sprint' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
                 Challenges
               </Text>
             </TouchableOpacity>
@@ -613,13 +937,22 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         {(view === 'club' || view === 'global') && (
           <View style={styles.subTabsRow}>
             <TouchableOpacity
-              style={[styles.subTab, (view === 'club' ? clubSubTab : globalSubTab) === 'touches' && styles.subTabActive]}
-              onPress={() => (view === 'club' ? setClubSubTab('touches') : setGlobalSubTab('touches'))}
+              style={[
+                styles.subTab,
+                (view === 'club' ? clubSubTab : globalSubTab) === 'touches' &&
+                  styles.subTabActive,
+              ]}
+              onPress={() =>
+                view === 'club'
+                  ? setClubSubTab('touches')
+                  : setGlobalSubTab('touches')
+              }
             >
               <Text
                 style={[
                   styles.subTabText,
-                  (view === 'club' ? clubSubTab : globalSubTab) === 'touches' && styles.subTabTextActive,
+                  (view === 'club' ? clubSubTab : globalSubTab) === 'touches' &&
+                    styles.subTabTextActive,
                 ]}
                 numberOfLines={1}
               >
@@ -627,22 +960,29 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.subTab, (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' && styles.subTabActive]}
+              style={[
+                styles.subTab,
+                (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' &&
+                  styles.subTabActive,
+              ]}
               onPress={() => {
                 if (view === 'club') {
                   setClubSubTab('juggling');
                   // Juggling only supports This Week / All Time — bump off Today or Last Week if selected on Touches.
-                  if (clubPeriod === 'today' || clubPeriod === 'last_week') setClubPeriod('week');
+                  if (clubPeriod === 'today' || clubPeriod === 'last_week')
+                    setClubPeriod('week');
                 } else {
                   setGlobalSubTab('juggling');
-                  if (globalPeriod === 'today' || globalPeriod === 'last_week') setGlobalPeriod('week');
+                  if (globalPeriod === 'today' || globalPeriod === 'last_week')
+                    setGlobalPeriod('week');
                 }
               }}
             >
               <Text
                 style={[
                   styles.subTabText,
-                  (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' && styles.subTabTextActive,
+                  (view === 'club' ? clubSubTab : globalSubTab) ===
+                    'juggling' && styles.subTabTextActive,
                 ]}
                 numberOfLines={1}
               >
@@ -674,45 +1014,109 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               ? (() => {
                   const subTab = view === 'club' ? clubSubTab : globalSubTab;
                   const period = view === 'club' ? clubPeriod : globalPeriod;
-                  const setPeriod = view === 'club' ? setClubPeriod : setGlobalPeriod;
-                  return (subTab === 'touches' ? (['today', 'week', 'last_week', 'alltime'] as const) : (['week', 'alltime'] as const)).map((p) => (
+                  const setPeriod =
+                    view === 'club' ? setClubPeriod : setGlobalPeriod;
+                  return (
+                    subTab === 'touches'
+                      ? (['today', 'week', 'last_week', 'alltime'] as const)
+                      : (['week', 'alltime'] as const)
+                  ).map((p) => (
                     <TouchableOpacity
                       key={p}
-                      style={[styles.pickerRow, period === p && styles.pickerRowActive]}
-                      onPress={() => { setPeriod(p); setPeriodPickerVisible(false); }}
+                      style={[
+                        styles.pickerRow,
+                        period === p && styles.pickerRowActive,
+                      ]}
+                      onPress={() => {
+                        setPeriod(p);
+                        setPeriodPickerVisible(false);
+                      }}
                     >
-                      <Text style={[styles.pickerRowText, period === p && styles.pickerRowTextActive]}>
-                        {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'last_week' ? 'Last Week' : subTab === 'touches' ? 'Best Week' : 'All Time'}
+                      <Text
+                        style={[
+                          styles.pickerRowText,
+                          period === p && styles.pickerRowTextActive,
+                        ]}
+                      >
+                        {p === 'today'
+                          ? 'Today'
+                          : p === 'week'
+                            ? 'This Week'
+                            : p === 'last_week'
+                              ? 'Last Week'
+                              : subTab === 'touches'
+                                ? 'Best Week'
+                                : 'All Time'}
                       </Text>
-                      {period === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
+                      {period === p && (
+                        <Ionicons name='checkmark' size={18} color='#1f89ee' />
+                      )}
                     </TouchableOpacity>
                   ));
                 })()
               : teamSubTab === 'touches'
-              ? (['today', 'week', 'last_week', 'alltime'] as const).map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[styles.pickerRow, touchesPeriod === p && styles.pickerRowActive]}
-                    onPress={() => { setTouchesPeriod(p); setPeriodPickerVisible(false); }}
-                  >
-                    <Text style={[styles.pickerRowText, touchesPeriod === p && styles.pickerRowTextActive]}>
-                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'last_week' ? 'Last Week' : 'Best Week'}
-                    </Text>
-                    {touchesPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
-                  </TouchableOpacity>
-                ))
-              : (['week', 'alltime'] as const).map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[styles.pickerRow, jugglingPeriod === p && styles.pickerRowActive]}
-                    onPress={() => { setJugglingPeriod(p); setPeriodPickerVisible(false); }}
-                  >
-                    <Text style={[styles.pickerRowText, jugglingPeriod === p && styles.pickerRowTextActive]}>
-                      {p === 'week' ? 'This Week' : 'All Time'}
-                    </Text>
-                    {jugglingPeriod === p && <Ionicons name='checkmark' size={18} color='#1f89ee' />}
-                  </TouchableOpacity>
-                ))}
+                ? (['today', 'week', 'last_week', 'alltime'] as const).map(
+                    (p) => (
+                      <TouchableOpacity
+                        key={p}
+                        style={[
+                          styles.pickerRow,
+                          touchesPeriod === p && styles.pickerRowActive,
+                        ]}
+                        onPress={() => {
+                          setTouchesPeriod(p);
+                          setPeriodPickerVisible(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.pickerRowText,
+                            touchesPeriod === p && styles.pickerRowTextActive,
+                          ]}
+                        >
+                          {p === 'today'
+                            ? 'Today'
+                            : p === 'week'
+                              ? 'This Week'
+                              : p === 'last_week'
+                                ? 'Last Week'
+                                : 'Best Week'}
+                        </Text>
+                        {touchesPeriod === p && (
+                          <Ionicons
+                            name='checkmark'
+                            size={18}
+                            color='#1f89ee'
+                          />
+                        )}
+                      </TouchableOpacity>
+                    ),
+                  )
+                : (['week', 'alltime'] as const).map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles.pickerRow,
+                        jugglingPeriod === p && styles.pickerRowActive,
+                      ]}
+                      onPress={() => {
+                        setJugglingPeriod(p);
+                        setPeriodPickerVisible(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerRowText,
+                          jugglingPeriod === p && styles.pickerRowTextActive,
+                        ]}
+                      >
+                        {p === 'week' ? 'This Week' : 'All Time'}
+                      </Text>
+                      {jugglingPeriod === p && (
+                        <Ionicons name='checkmark' size={18} color='#1f89ee' />
+                      )}
+                    </TouchableOpacity>
+                  ))}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -732,12 +1136,27 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <View style={styles.badgeInfoSheet}>
             {badgeInfoModal && (
               <>
-                <View style={[styles.badgeInfoIconBg, { backgroundColor: SPRINT_BADGE_INFO[badgeInfoModal].bg }]}>
-                  <Text style={styles.badgeInfoIcon}>{SPRINT_BADGE_INFO[badgeInfoModal].icon}</Text>
+                <View
+                  style={[
+                    styles.badgeInfoIconBg,
+                    { backgroundColor: SPRINT_BADGE_INFO[badgeInfoModal].bg },
+                  ]}
+                >
+                  <Text style={styles.badgeInfoIcon}>
+                    {SPRINT_BADGE_INFO[badgeInfoModal].icon}
+                  </Text>
                 </View>
-                <Text style={styles.badgeInfoTitle}>{SPRINT_BADGE_INFO[badgeInfoModal].label}</Text>
-                <Text style={styles.badgeInfoMessage}>{SPRINT_BADGE_INFO[badgeInfoModal].message}</Text>
-                <TouchableOpacity style={styles.badgeInfoButton} onPress={() => setBadgeInfoModal(null)} activeOpacity={0.8}>
+                <Text style={styles.badgeInfoTitle}>
+                  {SPRINT_BADGE_INFO[badgeInfoModal].label}
+                </Text>
+                <Text style={styles.badgeInfoMessage}>
+                  {SPRINT_BADGE_INFO[badgeInfoModal].message}
+                </Text>
+                <TouchableOpacity
+                  style={styles.badgeInfoButton}
+                  onPress={() => setBadgeInfoModal(null)}
+                  activeOpacity={0.8}
+                >
                   <Text style={styles.badgeInfoButtonText}>Got it</Text>
                 </TouchableOpacity>
               </>
@@ -754,7 +1173,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           activeOpacity={0.7}
         >
           <Text style={styles.teamPickerText}>{displayTeamName}</Text>
-          <Ionicons name="chevron-down" size={14} color="#6B7280" />
+          <Ionicons name='chevron-down' size={14} color='#6B7280' />
         </TouchableOpacity>
       )}
 
@@ -762,7 +1181,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       <Modal
         transparent
         visible={teamPickerVisible}
-        animationType="slide"
+        animationType='slide'
         onRequestClose={() => setTeamPickerVisible(false)}
       >
         <TouchableOpacity
@@ -775,17 +1194,25 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             {coachTeams.map((t) => (
               <TouchableOpacity
                 key={t.id}
-                style={[styles.pickerRow, t.id === effectiveTeamId && styles.pickerRowActive]}
+                style={[
+                  styles.pickerRow,
+                  t.id === effectiveTeamId && styles.pickerRowActive,
+                ]}
                 onPress={() => handleSwitchTeam(t.id)}
                 disabled={switchingTeam}
               >
-                <Text style={[styles.pickerRowText, t.id === effectiveTeamId && styles.pickerRowTextActive]}>
+                <Text
+                  style={[
+                    styles.pickerRowText,
+                    t.id === effectiveTeamId && styles.pickerRowTextActive,
+                  ]}
+                >
                   {t.name}
                 </Text>
                 {switchingTeam && t.id !== effectiveTeamId ? (
-                  <ActivityIndicator size="small" color="#1f89ee" />
+                  <ActivityIndicator size='small' color='#1f89ee' />
                 ) : t.id === effectiveTeamId ? (
-                  <Ionicons name="checkmark" size={18} color="#1f89ee" />
+                  <Ionicons name='checkmark' size={18} color='#1f89ee' />
                 ) : null}
               </TouchableOpacity>
             ))}
@@ -796,7 +1223,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor='#1f89ee' />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor='#1f89ee'
+          />
         }
       >
         {/* ── TEAM VIEW ── */}
@@ -810,12 +1241,21 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                   {sortedTouches.slice(podiumCount).map((player) => {
                     const isCurrentUser = player.id === getCurrentUserId();
                     const score = getTouchScore(player);
-                    const rank = getDenseRank(score, sortedTouches.map(p => getTouchScore(p)));
-                    const level = score > 0 && touchesPeriod === 'today' ? getBeswickLevel(score) : null;
+                    const rank = getDenseRank(
+                      score,
+                      sortedTouches.map((p) => getTouchScore(p)),
+                    );
+                    const level =
+                      score > 0 && touchesPeriod === 'today'
+                        ? getBeswickLevel(score)
+                        : null;
                     return (
                       <TouchableOpacity
                         key={player.id}
-                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                        style={[
+                          styles.playerCard,
+                          isCurrentUser && styles.currentUserCard,
+                        ]}
                         onPress={() => setSelectedPlayerId(player.id)}
                         activeOpacity={0.7}
                       >
@@ -824,33 +1264,60 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             <Text style={styles.rankNumber}>{rank}</Text>
                           </View>
                           <Image
-                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                            source={{
+                              uri:
+                                player.avatar_url ||
+                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                            }}
                             style={styles.avatar}
                           />
                           <View style={styles.playerInfo}>
                             <View style={styles.nameRow}>
                               <Text style={styles.playerName}>
                                 {teamName(player)}
-                                {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                                {isCurrentUser && (
+                                  <Text style={styles.youBadge}> (You)</Text>
+                                )}
                               </Text>
                             </View>
                             <View style={styles.statsRow}>
                               <Text style={styles.todayTouches}>
-                                {touchesPeriod === 'today' && `${player.today_touches.toLocaleString()} today`}
-                                {touchesPeriod === 'week' && `${player.today_touches.toLocaleString()} today`}
-                                {touchesPeriod === 'last_week' && `${player.weekly_touches.toLocaleString()} this week`}
-                                {touchesPeriod === 'alltime' && `${player.weekly_touches.toLocaleString()} this week`}
+                                {touchesPeriod === 'today' &&
+                                  `${player.today_touches.toLocaleString()} today`}
+                                {touchesPeriod === 'week' &&
+                                  `${player.today_touches.toLocaleString()} today`}
+                                {touchesPeriod === 'last_week' &&
+                                  `${player.weekly_touches.toLocaleString()} this week`}
+                                {touchesPeriod === 'alltime' &&
+                                  `${player.weekly_touches.toLocaleString()} this week`}
                               </Text>
                             </View>
                             {level && (
-                              <View style={[styles.beswickBadge, { backgroundColor: level.bg, alignSelf: 'flex-start' }]}>
-                                <Text style={[styles.beswickBadgeText, { color: level.color }]}>{level.label}</Text>
+                              <View
+                                style={[
+                                  styles.beswickBadge,
+                                  {
+                                    backgroundColor: level.bg,
+                                    alignSelf: 'flex-start',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.beswickBadgeText,
+                                    { color: level.color },
+                                  ]}
+                                >
+                                  {level.label}
+                                </Text>
                               </View>
                             )}
                           </View>
                         </View>
                         <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>{score.toLocaleString()}</Text>
+                          <Text style={styles.weeklyTouches}>
+                            {score.toLocaleString()}
+                          </Text>
                           <Text style={styles.touchesLabel}>touches</Text>
                         </View>
                       </TouchableOpacity>
@@ -864,9 +1331,12 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               <>
                 {jugglingLeaderboard.length === 0 && !jugglingLoading && (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>No Juggling Records</Text>
+                    <Text style={styles.emptyStateTitle}>
+                      No Juggling Records
+                    </Text>
                     <Text style={styles.emptyStateText}>
-                      Team members will appear here once they set juggling high scores.
+                      Team members will appear here once they set juggling high
+                      scores.
                     </Text>
                   </View>
                 )}
@@ -874,41 +1344,59 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 {renderJugglingPodium()}
 
                 <View style={styles.listContainer}>
-                  {jugglingLeaderboard.slice(Math.min(jugglingLeaderboard.length, 3)).map((player) => {
-                    const isCurrentUser = player.id === getCurrentUserId();
-                    const rank = getDenseRank(player.high_score, jugglingLeaderboard.map(p => p.high_score));
-                    return (
-                      <TouchableOpacity
-                        key={player.id}
-                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
-                        onPress={() => setSelectedPlayerId(player.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.playerLeft}>
-                          <View style={styles.rankContainer}>
-                            <Text style={styles.rankNumber}>{rank}</Text>
-                          </View>
-                          <Image
-                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-                            style={styles.avatar}
-                          />
-                          <View style={styles.playerInfo}>
-                            <View style={styles.nameRow}>
-                              <Text style={styles.playerName}>
-                                {teamName(player)}
-                                {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                  {jugglingLeaderboard
+                    .slice(Math.min(jugglingLeaderboard.length, 3))
+                    .map((player) => {
+                      const isCurrentUser = player.id === getCurrentUserId();
+                      const rank = getDenseRank(
+                        player.high_score,
+                        jugglingLeaderboard.map((p) => p.high_score),
+                      );
+                      return (
+                        <TouchableOpacity
+                          key={player.id}
+                          style={[
+                            styles.playerCard,
+                            isCurrentUser && styles.currentUserCard,
+                          ]}
+                          onPress={() => setSelectedPlayerId(player.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.playerLeft}>
+                            <View style={styles.rankContainer}>
+                              <Text style={styles.rankNumber}>{rank}</Text>
+                            </View>
+                            <Image
+                              source={{
+                                uri:
+                                  player.avatar_url ||
+                                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                              }}
+                              style={styles.avatar}
+                            />
+                            <View style={styles.playerInfo}>
+                              <View style={styles.nameRow}>
+                                <Text style={styles.playerName}>
+                                  {teamName(player)}
+                                  {isCurrentUser && (
+                                    <Text style={styles.youBadge}> (You)</Text>
+                                  )}
+                                </Text>
+                              </View>
+                              <Text style={styles.jugglingDate}>
+                                {formatDate(player.date_achieved)}
                               </Text>
                             </View>
-                            <Text style={styles.jugglingDate}>{formatDate(player.date_achieved)}</Text>
                           </View>
-                        </View>
-                        <View style={styles.playerRight}>
-                          <Text style={styles.jugglingScore}>{player.high_score}</Text>
-                          <Text style={styles.touchesLabel}>juggles</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                          <View style={styles.playerRight}>
+                            <Text style={styles.jugglingScore}>
+                              {player.high_score}
+                            </Text>
+                            <Text style={styles.touchesLabel}>juggles</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
               </>
             )}
@@ -916,12 +1404,19 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             {teamSubTab === 'sprint' && (
               <>
                 {sprintLoading ? (
-                  <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+                  <ActivityIndicator
+                    size='large'
+                    color='#1f89ee'
+                    style={{ marginTop: 40 }}
+                  />
                 ) : sprintLeaderboard.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>No Sprint Times Yet</Text>
+                    <Text style={styles.emptyStateTitle}>
+                      No Sprint Times Yet
+                    </Text>
                     <Text style={styles.emptyStateText}>
-                      Team members will appear here once they log today&apos;s sprint.
+                      Team members will appear here once they log today&apos;s
+                      sprint.
                     </Text>
                   </View>
                 ) : (
@@ -931,7 +1426,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                       return (
                         <TouchableOpacity
                           key={entry.userId}
-                          style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                          style={[
+                            styles.playerCard,
+                            isCurrentUser && styles.currentUserCard,
+                          ]}
                           onPress={() => setSelectedPlayerId(entry.userId)}
                           activeOpacity={0.7}
                         >
@@ -940,31 +1438,63 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                               <Text style={styles.rankNumber}>{index + 1}</Text>
                             </View>
                             <Image
-                              source={{ uri: entry.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                              source={{
+                                uri:
+                                  entry.avatarUrl ||
+                                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                              }}
                               style={styles.avatar}
                             />
                             <View style={styles.playerInfo}>
                               <View style={styles.nameRow}>
                                 <Text style={styles.playerName}>
                                   {entry.name}
-                                  {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                                  {isCurrentUser && (
+                                    <Text style={styles.youBadge}> (You)</Text>
+                                  )}
                                 </Text>
                               </View>
-                              {(entry.isCrown || entry.isPR || entry.isEarlyBird) && (
+                              {(entry.isCrown ||
+                                entry.isPR ||
+                                entry.isEarlyBird) && (
                                 <View style={styles.sprintBadgeRow}>
                                   {entry.isCrown && (
-                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('crown'); }} hitSlop={6}>
-                                      <Text style={styles.sprintBadgeText}>👑 Crown</Text>
+                                    <TouchableOpacity
+                                      onPress={(e) => {
+                                        e.stopPropagation();
+                                        showSprintBadgeInfo('crown');
+                                      }}
+                                      hitSlop={6}
+                                    >
+                                      <Text style={styles.sprintBadgeText}>
+                                        👑 Crown
+                                      </Text>
                                     </TouchableOpacity>
                                   )}
                                   {entry.isPR && (
-                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('pr'); }} hitSlop={6}>
-                                      <Text style={styles.sprintBadgeText}>📈 PR</Text>
+                                    <TouchableOpacity
+                                      onPress={(e) => {
+                                        e.stopPropagation();
+                                        showSprintBadgeInfo('pr');
+                                      }}
+                                      hitSlop={6}
+                                    >
+                                      <Text style={styles.sprintBadgeText}>
+                                        📈 PR
+                                      </Text>
                                     </TouchableOpacity>
                                   )}
                                   {entry.isEarlyBird && (
-                                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); showSprintBadgeInfo('earlyBird'); }} hitSlop={6}>
-                                      <Text style={styles.sprintBadgeText}>🌅 Early Bird</Text>
+                                    <TouchableOpacity
+                                      onPress={(e) => {
+                                        e.stopPropagation();
+                                        showSprintBadgeInfo('earlyBird');
+                                      }}
+                                      hitSlop={6}
+                                    >
+                                      <Text style={styles.sprintBadgeText}>
+                                        🌅 Early Bird
+                                      </Text>
                                     </TouchableOpacity>
                                   )}
                                 </View>
@@ -974,11 +1504,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <View style={styles.playerRight}>
                             {entry.isDurationMode ? (
                               <>
-                                <Text style={styles.jugglingScore}>{entry.reps ?? 0}</Text>
+                                <Text style={styles.jugglingScore}>
+                                  {entry.reps ?? 0}
+                                </Text>
                                 <Text style={styles.touchesLabel}>reps</Text>
                               </>
                             ) : (
-                              <Text style={styles.weeklyTouches}>{((entry.durationMs ?? 0) / 1000).toFixed(2)}s</Text>
+                              <Text style={styles.weeklyTouches}>
+                                {((entry.durationMs ?? 0) / 1000).toFixed(2)}s
+                              </Text>
                             )}
                           </View>
                         </TouchableOpacity>
@@ -996,23 +1530,34 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <>
             {clubSubTab === 'touches' ? (
               clubLoading ? (
-                <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+                <ActivityIndicator
+                  size='large'
+                  color='#1f89ee'
+                  style={{ marginTop: 40 }}
+                />
               ) : clubLeaderboard.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyStateTitle}>No Club Yet</Text>
                   <Text style={styles.emptyStateText}>
-                    Ask your coach to set up a club to see cross-team standings here.
+                    Ask your coach to set up a club to see cross-team standings
+                    here.
                   </Text>
                 </View>
               ) : (
                 <View style={styles.listContainer}>
                   {clubLeaderboard.map((player) => {
                     const isCurrentUser = player.id === getCurrentUserId();
-                    const rank = getDenseRank(player.touches, clubLeaderboard.map(p => p.touches));
+                    const rank = getDenseRank(
+                      player.touches,
+                      clubLeaderboard.map((p) => p.touches),
+                    );
                     return (
                       <TouchableOpacity
                         key={player.id}
-                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                        style={[
+                          styles.playerCard,
+                          isCurrentUser && styles.currentUserCard,
+                        ]}
                         onPress={() => setSelectedPlayerId(player.id)}
                         activeOpacity={0.7}
                       >
@@ -1021,19 +1566,29 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             <Text style={styles.rankNumber}>{rank}</Text>
                           </View>
                           <Image
-                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                            source={{
+                              uri:
+                                player.avatar_url ||
+                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                            }}
                             style={styles.avatar}
                           />
                           <View style={styles.playerInfo}>
                             <Text style={styles.playerName}>
                               {player.name}
-                              {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                              {isCurrentUser && (
+                                <Text style={styles.youBadge}> (You)</Text>
+                              )}
                             </Text>
-                            <Text style={styles.todayTouches}>{player.team_name}</Text>
+                            <Text style={styles.todayTouches}>
+                              {player.team_name}
+                            </Text>
                           </View>
                         </View>
                         <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
+                          <Text style={styles.weeklyTouches}>
+                            {player.touches.toLocaleString()}
+                          </Text>
                           <Text style={styles.touchesLabel}>touches</Text>
                         </View>
                       </TouchableOpacity>
@@ -1042,23 +1597,34 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 </View>
               )
             ) : clubJugglingLoading ? (
-              <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+              <ActivityIndicator
+                size='large'
+                color='#1f89ee'
+                style={{ marginTop: 40 }}
+              />
             ) : clubJugglingLeaderboard.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateTitle}>No Juggling Records</Text>
                 <Text style={styles.emptyStateText}>
-                  Club members will appear here once they set juggling high scores.
+                  Club members will appear here once they set juggling high
+                  scores.
                 </Text>
               </View>
             ) : (
               <View style={styles.listContainer}>
                 {clubJugglingLeaderboard.map((player) => {
                   const isCurrentUser = player.id === getCurrentUserId();
-                  const rank = getDenseRank(player.high_score, clubJugglingLeaderboard.map(p => p.high_score));
+                  const rank = getDenseRank(
+                    player.high_score,
+                    clubJugglingLeaderboard.map((p) => p.high_score),
+                  );
                   return (
                     <TouchableOpacity
                       key={player.id}
-                      style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                      style={[
+                        styles.playerCard,
+                        isCurrentUser && styles.currentUserCard,
+                      ]}
                       onPress={() => setSelectedPlayerId(player.id)}
                       activeOpacity={0.7}
                     >
@@ -1067,19 +1633,29 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <Text style={styles.rankNumber}>{rank}</Text>
                         </View>
                         <Image
-                          source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          source={{
+                            uri:
+                              player.avatar_url ||
+                              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                          }}
                           style={styles.avatar}
                         />
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>
                             {player.name}
-                            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                            {isCurrentUser && (
+                              <Text style={styles.youBadge}> (You)</Text>
+                            )}
                           </Text>
-                          <Text style={styles.todayTouches}>{player.team_name}</Text>
+                          <Text style={styles.todayTouches}>
+                            {player.team_name}
+                          </Text>
                         </View>
                       </View>
                       <View style={styles.playerRight}>
-                        <Text style={styles.jugglingScore}>{player.high_score}</Text>
+                        <Text style={styles.jugglingScore}>
+                          {player.high_score}
+                        </Text>
                         <Text style={styles.touchesLabel}>juggles</Text>
                       </View>
                     </TouchableOpacity>
@@ -1095,10 +1671,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <>
             {globalSubTab === 'touches' ? (
               globalLoading ? (
-                <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+                <ActivityIndicator
+                  size='large'
+                  color='#1f89ee'
+                  style={{ marginTop: 40 }}
+                />
               ) : globalLeaderboard.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>No activity yet this week</Text>
+                  <Text style={styles.emptyStateTitle}>
+                    No activity yet this week
+                  </Text>
                   <Text style={styles.emptyStateText}>
                     Players will appear here as they log touches.
                   </Text>
@@ -1110,7 +1692,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                     return (
                       <TouchableOpacity
                         key={player.userId}
-                        style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                        style={[
+                          styles.playerCard,
+                          isCurrentUser && styles.currentUserCard,
+                        ]}
                         onPress={() => setSelectedPlayerId(player.userId)}
                         activeOpacity={0.7}
                       >
@@ -1119,21 +1704,31 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                             <Text style={styles.rankNumber}>{index + 1}</Text>
                           </View>
                           <Image
-                            source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                            source={{
+                              uri:
+                                player.avatar_url ||
+                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                            }}
                             style={styles.avatar}
                           />
                           <View style={styles.playerInfo}>
                             <Text style={styles.playerName}>
                               {player.name}
-                              {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                              {isCurrentUser && (
+                                <Text style={styles.youBadge}> (You)</Text>
+                              )}
                             </Text>
                             {player.cityState && (
-                              <Text style={styles.globalCityState}>{player.cityState}</Text>
+                              <Text style={styles.globalCityState}>
+                                {player.cityState}
+                              </Text>
                             )}
                           </View>
                         </View>
                         <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>{player.touches.toLocaleString()}</Text>
+                          <Text style={styles.weeklyTouches}>
+                            {player.touches.toLocaleString()}
+                          </Text>
                           <Text style={styles.touchesLabel}>touches</Text>
                         </View>
                       </TouchableOpacity>
@@ -1142,10 +1737,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                 </View>
               )
             ) : globalJugglingLoading ? (
-              <ActivityIndicator size='large' color='#1f89ee' style={{ marginTop: 40 }} />
+              <ActivityIndicator
+                size='large'
+                color='#1f89ee'
+                style={{ marginTop: 40 }}
+              />
             ) : globalJugglingLeaderboard.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No juggling activity yet this week</Text>
+                <Text style={styles.emptyStateTitle}>
+                  No juggling activity yet this week
+                </Text>
                 <Text style={styles.emptyStateText}>
                   Players will appear here as they set juggling high scores.
                 </Text>
@@ -1157,7 +1758,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                   return (
                     <TouchableOpacity
                       key={player.userId}
-                      style={[styles.playerCard, isCurrentUser && styles.currentUserCard]}
+                      style={[
+                        styles.playerCard,
+                        isCurrentUser && styles.currentUserCard,
+                      ]}
                       onPress={() => setSelectedPlayerId(player.userId)}
                       activeOpacity={0.7}
                     >
@@ -1166,21 +1770,31 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
                           <Text style={styles.rankNumber}>{index + 1}</Text>
                         </View>
                         <Image
-                          source={{ uri: player.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+                          source={{
+                            uri:
+                              player.avatar_url ||
+                              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
+                          }}
                           style={styles.avatar}
                         />
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>
                             {player.name}
-                            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
+                            {isCurrentUser && (
+                              <Text style={styles.youBadge}> (You)</Text>
+                            )}
                           </Text>
                           {player.cityState && (
-                            <Text style={styles.globalCityState}>{player.cityState}</Text>
+                            <Text style={styles.globalCityState}>
+                              {player.cityState}
+                            </Text>
                           )}
                         </View>
                       </View>
                       <View style={styles.playerRight}>
-                        <Text style={styles.jugglingScore}>{player.high_score}</Text>
+                        <Text style={styles.jugglingScore}>
+                          {player.high_score}
+                        </Text>
                         <Text style={styles.touchesLabel}>juggles</Text>
                       </View>
                     </TouchableOpacity>
@@ -1208,7 +1822,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     </View>
   );
 };
-
 
 export default Leaderboard;
 
