@@ -281,7 +281,7 @@ export default function Paywall() {
         </Text>
 
         <View style={styles.legalLinks}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://www.notion.so/Master-Touch-Privacy-Policy-2e56b6912afb802fa2ebd2ceb9a50b2c')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://mastertouch.app/privacy')}>
             <Text style={styles.legalLink}>Privacy Policy</Text>
           </TouchableOpacity>
           <Text style={styles.legalLinkSeparator}>·</Text>

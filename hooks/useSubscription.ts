@@ -8,6 +8,11 @@ import Purchases from 'react-native-purchases';
 const DEV_PRO_OVERRIDE: boolean | null = null;
 const DEV_COACH_OVERRIDE: boolean | null = null;
 
+// Pro/Coach purchases are temporarily disabled while Android billing is reconfigured.
+// Flip back to true once RevenueCat + Play Console are set up for Android — everyone
+// gets full access in the meantime since there's no way to buy it right now.
+const PAYWALL_ENABLED = false;
+
 export function useSubscription() {
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
@@ -29,6 +34,10 @@ export function useSubscription() {
     },
     staleTime: 1000 * 60 * 5,
   });
+
+  if (!PAYWALL_ENABLED) {
+    return { isPremium: true, isCoach: true, isLoading: false };
+  }
 
   if (DEV_PRO_OVERRIDE !== null || DEV_COACH_OVERRIDE !== null) {
     const isCoach = DEV_COACH_OVERRIDE ?? false;

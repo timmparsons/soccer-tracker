@@ -9,6 +9,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const signIn = async () => {
     if (!email || !password) {
@@ -116,13 +118,23 @@ export default function Auth() {
                 <Ionicons name='lock-closed-outline' size={20} color='#78909C' />
                 <TextInput
                   placeholder='Enter your password'
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   autoCapitalize='none'
                   value={password}
                   onChangeText={setPassword}
                   style={styles.input}
                   placeholderTextColor='#B0BEC5'
                 />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color='#78909C'
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -161,6 +173,22 @@ export default function Auth() {
               <Text style={styles.switchLink}>Create account</Text>
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.legalLinks}>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://mastertouch.app/privacy')}
+            >
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalLinkSeparator}>·</Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')
+              }
+            >
+              <Text style={styles.legalLink}>Terms of Use</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -284,5 +312,22 @@ const styles = StyleSheet.create({
   switchLink: {
     color: '#1f89ee',
     fontWeight: '900',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  legalLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78909C',
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
+    color: '#78909C',
   },
 });
