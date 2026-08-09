@@ -16,6 +16,7 @@ import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
+import { getDisplayName } from '@/utils/getDisplayName';
 import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -712,10 +713,10 @@ const ProfilePage = () => {
     },
   });
 
-  const displayName =
-    profile?.name ||
-    profile?.display_name ||
-    (profile?.is_coach ? 'Coach' : 'Player');
+  const displayName = getDisplayName(
+    profile,
+    profile?.is_coach ? 'Coach' : 'Player',
+  );
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = touchStats?.current_streak || 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
