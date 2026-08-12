@@ -78,7 +78,6 @@ const LogSessionModal = ({
 }: LogSessionModalProps) => {
   const { bottom: bottomInset } = useSafeAreaInsets();
   const [touches, setTouches] = useState('');
-  const [freestyleMinutes, setFreestyleMinutes] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
@@ -112,7 +111,6 @@ const LogSessionModal = ({
       );
       setAttempted(false);
       setTouches('');
-      setFreestyleMinutes('');
       setSelectedAreas([]);
     }
   }, [visible, challengeDurationMinutes]);
@@ -124,6 +122,8 @@ const LogSessionModal = ({
   const challengeLocked = !isChallengeMode && !(challengeStats?.completedToday ?? false);
 
   const handleSubmit = async () => {
+    if (submitting) return;
+
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
 
@@ -146,6 +146,10 @@ const LogSessionModal = ({
       return;
     }
 
+    // Set before any awaits so rapid double-taps can't both slip past the
+    // disabled-button guard and insert duplicate sessions.
+    setSubmitting(true);
+
     const today = getLocalDate();
 
     if (touchCount > 0) {
@@ -167,8 +171,6 @@ const LogSessionModal = ({
         return;
       }
     }
-
-    setSubmitting(true);
 
     try {
 
@@ -205,7 +207,6 @@ const LogSessionModal = ({
 
       // Reset form
       setTouches('');
-      setFreestyleMinutes('');
       setDuration('');
       setJuggles('');
       setAttempted(false);
@@ -340,10 +341,7 @@ const LogSessionModal = ({
                       returnKeyType='done'
                       maxLength={4}
                       value={touches}
-                      onChangeText={(val) => {
-                        setTouches(val);
-                        if (val) setFreestyleMinutes('');
-                      }}
+                      onChangeText={setTouches}
                       />
                     <View style={styles.inputIconBg}>
                       {isChallengeMode ? (
@@ -406,33 +404,6 @@ const LogSessionModal = ({
                   </View>
                 )}
             </View>
-
-            {/* Freestyle shortcut — compact inline row */}
-            {!isChallengeMode && (
-              <View style={styles.freestyleRow}>
-                <Ionicons name='flash' size={14} color='#ffb724' />
-                <Text style={styles.freestyleRowLabel}>Freestyle min</Text>
-                <TextInput
-                  style={styles.freestyleRowInput}
-                  placeholder='0'
-                  placeholderTextColor='#B0BEC5'
-                  keyboardType='number-pad'
-                  returnKeyType='done'
-                  value={freestyleMinutes}
-                  onChangeText={(val) => {
-                    setFreestyleMinutes(val);
-                    const mins = parseInt(val);
-                    if (val && mins > 0) setTouches(String(mins * 100));
-                    else if (!val) setTouches('');
-                  }}
-                />
-                <Text style={styles.freestyleRowCalc}>
-                  {freestyleMinutes && parseInt(freestyleMinutes) > 0
-                    ? `= ${(parseInt(freestyleMinutes) * 100).toLocaleString()} touches`
-                    : '1 min = 100 touches'}
-                </Text>
-              </View>
-            )}
 
             {/* Focus areas */}
             <View style={styles.focusSection}>
@@ -840,37 +811,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     marginTop: 4,
-  },
-  freestyleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  freestyleRowLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  freestyleRowInput: {
-    backgroundColor: '#F0F2F5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a2e',
-    borderWidth: 1.5,
-    borderColor: '#DDE1E7',
-    width: 56,
-    textAlign: 'center',
-  },
-  freestyleRowCalc: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ffb724',
-    flex: 1,
   },
   focusSection: {
     marginBottom: 16,
