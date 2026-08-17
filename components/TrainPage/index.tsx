@@ -12,7 +12,7 @@ import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics';
@@ -179,6 +179,7 @@ const TrainPage = () => {
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
+  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -968,7 +969,7 @@ const TrainPage = () => {
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
             totalTouches: touchStats?.total_touches ?? 0,
-            currentStreak: touchStats?.current_streak ?? 0,
+            currentStreak: activeStreakStats?.currentStreak ?? 0,
             previousJugglePB: jugglePB,
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,

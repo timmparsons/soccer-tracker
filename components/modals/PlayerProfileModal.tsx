@@ -2,7 +2,7 @@ import BadgeGrid from '@/components/common/BadgeGrid';
 import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
 import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { useDailyTouchHistory, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useActiveStreak, useDailyTouchHistory, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,7 @@ export default function PlayerProfileModal({ playerId, visible, onClose, showBad
   const [challengeSetupVisible, setChallengeSetupVisible] = useState(false);
   const { data: profile } = useProfile(playerId ?? undefined);
   const { data: touchStats } = useTouchTracking(playerId ?? undefined);
+  const { data: activeStreakStats } = useActiveStreak(playerId ?? undefined);
   const { data: jugglePB = 0 } = useJugglingRecord(playerId ?? undefined);
   const { data: dailyHistory = [] } = useDailyTouchHistory(playerId ?? undefined);
   const { data: allBadges = [] } = useAllBadges();
@@ -102,7 +103,7 @@ export default function PlayerProfileModal({ playerId, visible, onClose, showBad
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                      <Text style={styles.statValue}>{touchStats?.current_streak ?? 0}</Text>
+                      <Text style={styles.statValue}>{activeStreakStats?.currentStreak ?? 0}</Text>
                       <Text style={styles.statLabel}>Day Streak</Text>
                     </View>
                     <View style={styles.statDivider} />

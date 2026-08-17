@@ -9,6 +9,7 @@ import { useDailySprint } from '@/hooks/useDailySprint';
 import { useProfile } from '@/hooks/useProfile';
 import { VinnieSprintResult } from '@/lib/vinnie';
 import {
+  useActiveStreak,
   useChallengeStats,
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
@@ -47,6 +48,9 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
+  const { data: activeStreakStats, refetch: refetchActiveStreak } =
+    useActiveStreak(user?.id);
+
   const { sprint } = useDailySprint(user?.id, profile?.team_id);
 
   const handleRefresh = useCallback(async () => {
@@ -55,20 +59,22 @@ const HomeScreen = () => {
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
+      refetchActiveStreak(),
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] }),
       queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, refetchActiveStreak, queryClient, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
+      refetchActiveStreak();
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
-    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]),
+    }, [refetchProfile, refetchStats, refetchChallengeStats, refetchActiveStreak, queryClient, user?.id]),
   );
 
   if (statsLoading) {
@@ -80,7 +86,8 @@ const HomeScreen = () => {
   }
 
   const displayName = getDisplayName(profile);
-  const streak = touchStats?.current_streak || 0;
+  const streak = activeStreakStats?.currentStreak || 0;
+  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
   const todayTouches = touchStats?.today_touches || 0;
@@ -165,6 +172,7 @@ const HomeScreen = () => {
                 compact
                 trainedToday={(touchStats?.today_touches || 0) > 0}
                 streak={streak}
+                freezesAvailable={freezesAvailable}
                 challengeStreak={challengeStreak}
                 skillFocus={profile?.skill_focus ?? null}
                 todayTouches={todayTouches}
@@ -187,6 +195,7 @@ const HomeScreen = () => {
           <VinnieCard
             trainedToday={(touchStats?.today_touches || 0) > 0}
             streak={streak}
+            freezesAvailable={freezesAvailable}
             challengeStreak={challengeStreak}
             skillFocus={profile?.skill_focus ?? null}
             todayTouches={todayTouches}

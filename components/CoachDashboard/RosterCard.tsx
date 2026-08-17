@@ -109,7 +109,14 @@ export default function RosterCard({
               {player.today_touches.toLocaleString()} today
             </Text>
           </View>
-          {player.current_streak > 0 && <Text style={styles.streakText}>🔥 {player.current_streak}</Text>}
+          {player.current_streak > 0 && (
+            <View style={styles.streakRow}>
+              <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
+              {player.freezes_available > 0 && (
+                <Ionicons name='snow-outline' size={11} color='#1f89ee' />
+              )}
+            </View>
+          )}
         </View>
 
         <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
@@ -291,6 +298,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: '#1f89ee',
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   streakText: {
     fontSize: 11,

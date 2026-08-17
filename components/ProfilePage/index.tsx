@@ -11,7 +11,7 @@ import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserSquadBadges } from '@/hooks/useSquadBadges';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
@@ -635,6 +635,7 @@ const ProfilePage = () => {
 
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
@@ -655,7 +656,7 @@ const ProfilePage = () => {
     checkAndAwardBadges(user.id, {
       totalSessions: touchStats.total_sessions ?? 0,
       totalTouches: touchStats.total_touches ?? 0,
-      currentStreak: touchStats.current_streak ?? 0,
+      currentStreak: activeStreakStats?.currentStreak ?? 0,
       // If the user already has a juggle PB, treat it as a beaten record so the badge backfills
       jugglesThisSession: jugglePB > 0 ? jugglePB : null,
       previousJugglePB: jugglePB > 0 ? jugglePB - 1 : 0,
@@ -668,7 +669,7 @@ const ProfilePage = () => {
   }, [
     user?.id,
     touchStats?.total_touches,
-    touchStats?.current_streak,
+    activeStreakStats?.currentStreak,
     jugglePB,
   ]);
 
@@ -702,7 +703,6 @@ const ProfilePage = () => {
           total_sessions: 0,
           days_active: 0,
           avg_daily_touches: 0,
-          longest_streak: 0,
         };
       }
 
@@ -714,33 +714,11 @@ const ProfilePage = () => {
       const avgDaily =
         uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
 
-      // Calculate longest streak
-      const dates = [...new Set(sessions.map((s) => s.date))].sort();
-      let longestStreak = 0;
-      let currentStreak = 1;
-
-      for (let i = 1; i < dates.length; i++) {
-        const prev = new Date(dates[i - 1]);
-        const curr = new Date(dates[i]);
-        const diffDays = Math.floor(
-          (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (diffDays === 1) {
-          currentStreak++;
-        } else {
-          longestStreak = Math.max(longestStreak, currentStreak);
-          currentStreak = 1;
-        }
-      }
-      longestStreak = Math.max(longestStreak, currentStreak);
-
       return {
         lifetime_touches: lifetimeTouches,
         total_sessions: sessions.length,
         days_active: uniqueDays,
         avg_daily_touches: avgDaily,
-        longest_streak: longestStreak,
       };
     },
   });
@@ -750,7 +728,9 @@ const ProfilePage = () => {
     profile?.display_name ||
     (profile?.is_coach ? 'Coach' : 'Player');
   const dailyTarget = touchStats?.daily_target || 1000;
-  const currentStreak = touchStats?.current_streak || 0;
+  const currentStreak = activeStreakStats?.currentStreak || 0;
+  const longestStreak = activeStreakStats?.longestStreak || 0;
+  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
     profile?.total_xp ?? 0,
   );
@@ -961,13 +941,20 @@ const ProfilePage = () => {
                     <Text style={styles.streakEmoji}>⭐</Text>
                   </View>
                   <View style={styles.streakInfo}>
-                    <Text style={styles.streakValue}>
-                      {lifetimeStats?.longest_streak || 0}
-                    </Text>
+                    <Text style={styles.streakValue}>{longestStreak}</Text>
                     <Text style={styles.streakLabel}>Best Streak</Text>
                   </View>
                 </View>
               </View>
+
+              {freezesAvailable > 0 && (
+                <View style={styles.freezeBanner}>
+                  <Ionicons name='snow-outline' size={14} color='#1f89ee' />
+                  <Text style={styles.freezeBannerText}>
+                    {freezesAvailable} streak freeze{freezesAvailable > 1 ? 's' : ''} banked — miss a day and it&apos;s covered
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -2475,6 +2462,21 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#E0E0E0',
     marginHorizontal: 16,
+  },
+  freezeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  freezeBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1f89ee',
   },
 
   // INFO CARD

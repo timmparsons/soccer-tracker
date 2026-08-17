@@ -5,6 +5,7 @@ import { Animated, Easing, Image, StyleSheet, Text, View, ViewStyle } from 'reac
 interface VinnieCardProps {
   trainedToday: boolean;
   streak: number;
+  freezesAvailable?: number;
   challengeStreak?: number;
   skillFocus?: string | null;
   todayTouches?: number;
@@ -33,7 +34,7 @@ const PIVOT_Y = HAND_H / 2;
 // Starting angle offset — positive = clockwise, moves hand away from face
 const HAND_ANGLE_OFFSET = 20;
 
-const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult, compact = false, style }: VinnieCardProps) => {
+const VinnieCard = ({ trainedToday, streak, freezesAvailable = 0, challengeStreak = 0, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult, compact = false, style }: VinnieCardProps) => {
   const now = new Date();
   const hour = now.getHours();
   const dayOfWeek = now.getDay();
@@ -86,9 +87,9 @@ const VinnieCard = ({ trainedToday, streak, challengeStreak = 0, skillFocus, tod
   });
 
   const { message } = useMemo(
-    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult }),
+    () => getVinnieMood({ trainedToday, streak, hour, dayOfWeek, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult, freezesAvailable }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainedToday, streak, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult],
+    [trainedToday, streak, challengeStreak, skillFocus, todayTouches, dailyTarget, weekTpm, weekSessions, totalTouches, lastSprintResult, freezesAvailable],
   );
 
   if (compact) {

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { calculateStreak, StreakStats } from '@/lib/streak';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -162,7 +163,7 @@ export const useTouchTracking = (userId: string | undefined) => {
 export const useActiveStreak = (userId: string | undefined) => {
   return useQuery({
     queryKey: ['active-streak', userId],
-    queryFn: async (): Promise<number> => {
+    queryFn: async (): Promise<StreakStats> => {
       if (!userId) throw new Error('No user ID');
 
       const [{ data: sessions }, { data: attempts }] = await Promise.all([
@@ -179,26 +180,7 @@ export const useActiveStreak = (userId: string | undefined) => {
         if (a.daily_sprints?.date) dateSet.add(a.daily_sprints.date);
       });
 
-      const uniqueDates = [...dateSet].sort((a, b) => b.localeCompare(a));
-
-      let streak = 0;
-      let checkDate = new Date();
-
-      for (const dateStr of uniqueDates) {
-        const sessionDate = new Date(dateStr + 'T00:00:00');
-        const daysDiff = Math.floor(
-          (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (daysDiff === 0 || daysDiff === 1) {
-          streak++;
-          checkDate = sessionDate;
-        } else {
-          break;
-        }
-      }
-
-      return streak;
+      return calculateStreak([...dateSet]);
     },
     enabled: !!userId,
   });

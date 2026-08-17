@@ -1,3 +1,4 @@
+import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ export interface PlayerStats {
   total_sessions: number;
   last_session_date: string | null;
   current_streak: number;
+  freezes_available: number;
   daily_target: number;
   week_minutes: number;
   week_tpm: number;
@@ -121,24 +123,8 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           return jc > max ? jc : max;
         }, 0);
 
-        // Calculate streak (fixed: use local midnight to avoid UTC offset issues)
-        const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
-        let streak = 0;
-        let checkDate = new Date();
-
-        for (const dateStr of uniqueDates) {
-          const sessionDate = new Date(dateStr + 'T00:00:00');
-          const diffDays = Math.floor(
-            (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          if (diffDays <= 1) {
-            streak++;
-            checkDate = sessionDate;
-          } else {
-            break;
-          }
-        }
+        const uniqueDates = [...new Set(allSessions.map((s) => s.date))];
+        const { currentStreak, freezesAvailable } = calculateStreak(uniqueDates);
 
         return {
           id: player.id,
@@ -153,7 +139,8 @@ export function useCoachTeamPlayers(teamId: string | undefined) {
           total_touches: totalTouches,
           total_sessions: allSessions.length,
           last_session_date: allSessions[0]?.created_at || null,
-          current_streak: streak,
+          current_streak: currentStreak,
+          freezes_available: freezesAvailable,
           daily_target: targetByPlayer[player.id] || 1000,
           week_minutes: weekMinutes,
           week_tpm: weekTpm,

@@ -28,6 +28,7 @@ export interface VinnieContext {
   weekSessions?: number;
   totalTouches?: number;
   lastSprintResult?: VinnieSprintResult | null;
+  freezesAvailable?: number;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -245,7 +246,7 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   const {
     trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus,
     todayTouches = 0, dailyTarget = 1000, weekTpm = 0, weekSessions = 0, totalTouches = 0,
-    lastSprintResult,
+    lastSprintResult, freezesAvailable = 0,
   } = ctx;
 
   const encouragingPool =
@@ -329,8 +330,15 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
     return { mood: 'firm', message: pickRandom(LOW_SESSIONS_MESSAGES) };
   }
 
-  // Streak at risk late in the day
+  // Streak at risk late in the day — softer tone if a freeze is banked,
+  // since the streak genuinely isn't on the line the way the nag implies.
   if (streak > 3 && hour >= 20) {
+    if (freezesAvailable > 0) {
+      return {
+        mood: 'encouraging',
+        message: `Haven't trained today, but you've got a freeze banked — your ${streak}-day streak is safe either way. Get a session in if you can ⚽`,
+      };
+    }
     return {
       mood: 'anxious',
       message: `Don't break that ${streak}-day streak. I'm watching. ⚽`,

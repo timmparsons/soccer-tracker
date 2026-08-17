@@ -34,6 +34,8 @@ import {
 
 // Track which milestones have been celebrated this app session
 const shownMilestones = new Set<number>();
+// Track which auto-protected freeze dates have been called out this app session
+const shownFreezeDates = new Set<string>();
 
 const ProgressPage = () => {
   const { data: user } = useUser();
@@ -68,13 +70,13 @@ const ProgressPage = () => {
 
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
-  const { data: activeStreakValue } = useActiveStreak(user?.id);
+  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: monthlyPRCount = 0 } = useMonthlyPRCount(user?.id);
   const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
 
   useEffect(() => {
-    const streak = touchStats?.current_streak || 0;
+    const streak = activeStreakStats?.currentStreak || 0;
     const trainedToday = (touchStats?.today_touches || 0) > 0;
     if (!trainedToday || streak === 0) return;
 
@@ -85,7 +87,26 @@ const ProgressPage = () => {
       setMilestoneMessage(VINNIE_STREAK_MESSAGES[milestone]);
       setShowVinnieMilestone(true);
     }
-  }, [touchStats?.current_streak, touchStats?.today_touches]);
+  }, [activeStreakStats?.currentStreak, touchStats?.today_touches]);
+
+  // One-time callout when a freeze just protected the streak — checks
+  // whether yesterday was auto-frozen, so it fires as soon as the freeze
+  // takes effect rather than waiting on a specific screen visit.
+  useEffect(() => {
+    const frozenDates = activeStreakStats?.frozenDates ?? [];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = getLocalDate(yesterday);
+
+    if (!frozenDates.includes(yesterdayStr) || shownFreezeDates.has(yesterdayStr)) return;
+
+    shownFreezeDates.add(yesterdayStr);
+    setMilestoneStreak(activeStreakStats?.currentStreak ?? 0);
+    setMilestoneMessage(
+      `Missed a day, but a freeze covered you — your ${activeStreakStats?.currentStreak ?? 0}-day streak is still alive. ❄️`,
+    );
+    setShowVinnieMilestone(true);
+  }, [activeStreakStats?.frozenDates, activeStreakStats?.currentStreak]);
 
   // Get heatmap data — a generous 26-week (182-day) sliding window ending
   // today, independent of the Week/Month toggle (which still drives the
@@ -166,7 +187,8 @@ const ProgressPage = () => {
   };
 
   const weekTouches = touchStats?.this_week_touches || 0;
-  const activeStreak = activeStreakValue || 0;
+  const activeStreak = activeStreakStats?.currentStreak || 0;
+  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
 
   const squadBadgeCounts = useMemo(() => {
@@ -280,7 +302,16 @@ const ProgressPage = () => {
             </View>
             <Text style={[styles.statValue, { color: '#ffb724' }]}>{activeStreak}</Text>
             <Text style={styles.statLabel}>Active Streak</Text>
-            <Text style={styles.statSubtext}>Keep it going!</Text>
+            {freezesAvailable > 0 ? (
+              <View style={styles.freezeRow}>
+                <Ionicons name='snow-outline' size={12} color='#1f89ee' />
+                <Text style={[styles.statSubtext, styles.freezeText]}>
+                  {freezesAvailable} freeze{freezesAvailable > 1 ? 's' : ''} banked
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.statSubtext}>Keep it going!</Text>
+            )}
           </View>
 
           <View style={[styles.statCard, styles.statBest]}>
@@ -577,6 +608,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
+  },
+  freezeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  freezeText: {
+    color: '#1f89ee',
   },
 
   // SESSION HISTORY
