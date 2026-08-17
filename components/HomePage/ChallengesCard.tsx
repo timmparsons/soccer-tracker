@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const VISIBLE_LIMIT = 3;
 
@@ -33,6 +34,7 @@ interface ChallengesCardProps {
 }
 
 export default function ChallengesCard({ userId, teamId, playerName, expandSignal }: ChallengesCardProps) {
+  const insets = useSafeAreaInsets();
   const { data: challenges = [] } = usePlayerChallenges(userId);
   const { data: coachChallenges = [] } = usePlayerCoachChallenges(userId);
   const { data: groupChallenges = [] } = useGroupChallenges(userId);
@@ -283,7 +285,7 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
         onRequestClose={() => setShowHistory(false)}
       >
         <View style={styles.historyContainer}>
-          <View style={styles.historyHeader}>
+          <View style={[styles.historyHeader, { paddingTop: insets.top + 16 }]}>
             <Text style={styles.historyTitle}>All Challenges</Text>
             <TouchableOpacity onPress={() => setShowHistory(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name='close' size={26} color='#1a1a2e' />

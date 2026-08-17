@@ -18,6 +18,7 @@ import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { promptForReview } from '@/lib/rateApp';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
+import { getDisplayName } from '@/utils/getDisplayName';
 import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -76,8 +77,12 @@ const ProfilePage = () => {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [savingGoal, setSavingGoal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [hometownCity, setHometownCity] = useState('');
   const [hometownState, setHometownState] = useState('');
@@ -326,6 +331,10 @@ const ProfilePage = () => {
   };
 
   const handleChangePassword = async () => {
+    if (!currentPassword) {
+      Alert.alert('Missing Field', 'Please enter your current password.');
+      return;
+    }
     if (newPassword.length < 6) {
       Alert.alert('Too short', 'Password must be at least 6 characters.');
       return;
@@ -334,12 +343,25 @@ const ProfilePage = () => {
       Alert.alert('Mismatch', 'Passwords do not match.');
       return;
     }
+    if (!user?.email) return;
+
     setChangingPassword(true);
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (verifyError) {
+      setChangingPassword(false);
+      Alert.alert('Error', 'Current password is incorrect.');
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setChangingPassword(false);
     if (error) {
       Alert.alert('Error', error.message);
     } else {
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setShowChangePasswordModal(false);
@@ -351,19 +373,16 @@ const ProfilePage = () => {
     if (!user?.id) return;
 
     try {
-      // Delete all user data from tables
-      await supabase.from('daily_sessions').delete().eq('user_id', user.id);
-      await supabase.from('user_targets').delete().eq('user_id', user.id);
-      await supabase.from('profiles').delete().eq('id', user.id);
-
-      // Attempt to delete the auth user via a database function (requires
-      // a `delete_user` function with SECURITY DEFINER set up in Supabase).
-      // If the function doesn't exist this will fail silently and we sign out.
-      await supabase.rpc('delete_user').throwOnError();
-    } catch {
-      // Data tables are already cleared — sign out regardless
-    } finally {
+      // Deleting the auth user cascades to profiles, daily_sessions,
+      // user_targets, and every other table with an ON DELETE CASCADE
+      // foreign key — see the delete_user() SECURITY DEFINER function.
+      const { error } = await supabase.rpc('delete_user');
+      if (error) throw error;
       await supabase.auth.signOut();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Something went wrong.';
+      Alert.alert('Error', `Could not delete your account: ${msg}`);
     }
   };
 
@@ -723,10 +742,10 @@ const ProfilePage = () => {
     },
   });
 
-  const displayName =
-    profile?.name ||
-    profile?.display_name ||
-    (profile?.is_coach ? 'Coach' : 'Player');
+  const displayName = getDisplayName(
+    profile,
+    profile?.is_coach ? 'Coach' : 'Player',
+  );
   const dailyTarget = touchStats?.daily_target || 1000;
   const currentStreak = activeStreakStats?.currentStreak || 0;
   const longestStreak = activeStreakStats?.longestStreak || 0;
@@ -1614,23 +1633,70 @@ const ProfilePage = () => {
                 Choose a new password for your account
               </Text>
 
-              <TextInput
-                style={styles.sheetInput}
-                placeholder='New password'
-                placeholderTextColor='#9CA3AF'
-                secureTextEntry
-                value={newPassword}
-                onChangeText={setNewPassword}
-                autoFocus
-              />
-              <TextInput
-                style={styles.sheetInput}
-                placeholder='Confirm new password'
-                placeholderTextColor='#9CA3AF'
-                secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
+              <View style={styles.sheetInputWrapper}>
+                <TextInput
+                  style={styles.sheetInputInner}
+                  placeholder='Current password'
+                  placeholderTextColor='#9CA3AF'
+                  secureTextEntry={!showCurrentPassword}
+                  autoCapitalize='none'
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  autoFocus
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCurrentPassword((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={showCurrentPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color='#78909C'
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.sheetInputWrapper}>
+                <TextInput
+                  style={styles.sheetInputInner}
+                  placeholder='New password'
+                  placeholderTextColor='#9CA3AF'
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize='none'
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color='#78909C'
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.sheetInputWrapper}>
+                <TextInput
+                  style={styles.sheetInputInner}
+                  placeholder='Confirm new password'
+                  placeholderTextColor='#9CA3AF'
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize='none'
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color='#78909C'
+                  />
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -2761,6 +2827,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a2e',
     marginBottom: 12,
+  },
+  sheetInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  sheetInputInner: {
+    flex: 1,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a1a2e',
   },
   sheetSaveButton: {
     backgroundColor: '#1f89ee',

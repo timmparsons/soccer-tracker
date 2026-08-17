@@ -177,6 +177,7 @@ export default function OnboardingScreen() {
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
             onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
+            onExistingAccount={() => router.replace('/(tabs)')}
           />
         );
       case 'coachsocial':
@@ -200,6 +201,7 @@ export default function OnboardingScreen() {
             onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
             onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
             onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
+            onExistingAccount={() => router.replace('/(tabs)')}
           />
         );
       default:
@@ -209,7 +211,8 @@ export default function OnboardingScreen() {
 
   const showProgress = currentStep !== 'welcome';
   const showBack = stepIndex > 1;
-  const progressPct = totalSteps > 1 ? (stepIndex / (totalSteps - 1)) * 100 : 0;
+  // "welcome" doesn't count as a numbered step, so subtract it from the total
+  const stepLabel = `${stepIndex}/${totalSteps - 1}`;
 
   if (currentStep === 'welcome' || currentStep === 'processing') {
     return renderStep() as React.ReactElement;
@@ -230,10 +233,14 @@ export default function OnboardingScreen() {
           ) : (
             <View style={s.backBtn} />
           )}
-          <View style={s.progressTrack}>
-            <View style={[s.progressFill, { width: `${progressPct}%` }]} />
-          </View>
-          <View style={s.backBtn} />
+          <Text style={s.stepLabel}>{stepLabel}</Text>
+          <TouchableOpacity
+            onPress={() => router.replace('/(auth)')}
+            style={s.skipBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={s.skipBtnText}>Skip</Text>
+          </TouchableOpacity>
         </View>
       )}
       {renderStep()}
@@ -267,9 +274,21 @@ function PrimaryButton({
 // SCREEN 1 — WELCOME
 
 function WelcomeScreen({ onNext }: { onNext: () => void }) {
+  const router = useRouter();
   return (
     <View style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={s.welcomeSkipRow}>
+          <TouchableOpacity
+            onPress={() => router.replace('/(auth)')}
+            style={s.skipBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={[s.skipBtnText, { color: 'rgba(255,255,255,0.6)' }]}>
+              Skip
+            </Text>
+          </TouchableOpacity>
+        </View>
         <View style={s.welcomeContainer}>
           <View style={s.welcomeTop}>
             <Text style={s.welcomeAppName}>MASTER TOUCH</Text>
@@ -567,6 +586,7 @@ interface SignUpScreenProps {
   onChangeEmail: (v: string) => void;
   onChangePassword: (v: string) => void;
   onNext: () => void;
+  onExistingAccount: () => void;
 }
 
 function SignUpScreen({
@@ -575,6 +595,7 @@ function SignUpScreen({
   onChangeEmail,
   onChangePassword,
   onNext,
+  onExistingAccount,
 }: SignUpScreenProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -609,7 +630,10 @@ function SignUpScreen({
             setError('That email is already registered. Please check your password.');
             return;
           }
-          onNext();
+          // This is an existing account, not a new signup — don't run the rest
+          // of the wizard over it or handleFinish will overwrite their profile
+          // (name, is_coach, club_id, etc.) with this onboarding session's answers.
+          onExistingAccount();
           return;
         }
         throw signUpError;
@@ -926,17 +950,23 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  progressTrack: {
+  stepLabel: {
     flex: 1,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    overflow: 'hidden',
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#1f89ee',
-    borderRadius: 2,
+  skipBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  skipBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78909C',
   },
 
   // SCREEN WRAPPER
@@ -1139,6 +1169,12 @@ const s = StyleSheet.create({
   },
 
   // WELCOME SCREEN
+  welcomeSkipRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   welcomeContainer: {
     flex: 1,
     paddingHorizontal: 24,
