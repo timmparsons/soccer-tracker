@@ -1,11 +1,9 @@
 import ActivityFeed from '@/components/HomePage/ActivityFeed';
 import DailySprintCard from '@/components/HomePage/DailySprintCard';
-import TeamUnlockProgressBar from '@/components/HomePage/TeamUnlockProgressBar';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
-import { useDailySprint } from '@/hooks/useDailySprint';
 import { useProfile } from '@/hooks/useProfile';
 import { VinnieSprintResult } from '@/lib/vinnie';
 import {
@@ -51,7 +49,6 @@ const HomeScreen = () => {
   const { data: activeStreakStats, refetch: refetchActiveStreak } =
     useActiveStreak(user?.id);
 
-  const { sprint } = useDailySprint(user?.id, profile?.team_id);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -229,10 +226,6 @@ const HomeScreen = () => {
             </View>
           </View>
           </>
-        )}
-
-        {profile?.team_id && sprint && sprint.rosterSize > 0 && (
-          <TeamUnlockProgressBar completedCount={sprint.completedCount} rosterSize={sprint.rosterSize} />
         )}
 
         {/* TEAM ACTIVITY */}
