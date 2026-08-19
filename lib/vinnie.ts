@@ -144,6 +144,35 @@ export const VINNIE_STREAK_MESSAGES: Record<number, string> = {
   100: "100 DAYS! That's elite. Absolutely elite. I have no words 🏆🔥",
 };
 
+const VINNIE_STREAK_FIRST_DAY_MESSAGES: string[] = [
+  "Day one. Let's build something great ⚽",
+  "Every streak starts with a single session. Nice start!",
+  "That's the first brick laid. Let's keep stacking them.",
+];
+
+const VINNIE_STREAK_COMEBACK_MESSAGES: string[] = [
+  "Your last streak ended, but that comeback is exactly what champions do 💪",
+  "New streak, new chance. Let's go again!",
+  "Streaks break. Champions restart. Good on you for getting back out here.",
+];
+
+const VINNIE_STREAK_CONTINUING_MESSAGES: string[] = [
+  'Keep the momentum going!',
+  'Another day, another step forward ⚽',
+  "That's the consistency that separates you from the rest.",
+  'No days off! You keep showing up.',
+];
+
+export function getStreakCelebrationMessage(currentStreak: number, longestStreak: number): string {
+  if (VINNIE_STREAK_MESSAGES[currentStreak]) return VINNIE_STREAK_MESSAGES[currentStreak];
+  if (currentStreak <= 1) {
+    return longestStreak > 1
+      ? pickRandom(VINNIE_STREAK_COMEBACK_MESSAGES)
+      : pickRandom(VINNIE_STREAK_FIRST_DAY_MESSAGES);
+  }
+  return pickRandom(VINNIE_STREAK_CONTINUING_MESSAGES);
+}
+
 export const MOOD_EMOJI: Record<VinnieMood, string> = {
   happy: '😄',
   hype: '🔥',
