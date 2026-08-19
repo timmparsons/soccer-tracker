@@ -171,6 +171,7 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
               elapsedSeconds={displaySeconds}
               itemLabel='touches'
               title='Confirm your time'
+              warningText="That pace means you couldn't have finished every rep for real. Only confirm if you completed every step above, in full."
               onConfirm={handleConfirmSubmit}
               onCancel={handleResume}
               submitting={saving}
@@ -194,7 +195,9 @@ const DailyChallengeModal = ({ visible, onClose, challenge, steps, profileId, on
 
               <View style={styles.gameSpeedBanner}>
                 <Ionicons name='flash' size={14} color='#ffb724' />
-                <Text style={styles.gameSpeedText}>All reps must be done at game speed</Text>
+                <Text style={styles.gameSpeedText}>
+                  Complete every step below in full, in order, at game speed — then hit Done
+                </Text>
               </View>
 
               <View style={styles.stepsList}>

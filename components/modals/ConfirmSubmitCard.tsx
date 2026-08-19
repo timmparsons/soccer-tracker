@@ -13,6 +13,7 @@ interface ConfirmSubmitCardProps {
   elapsedSeconds?: number | null;
   itemLabel?: string;
   title?: string;
+  warningText?: string;
   onConfirm: () => void;
   onCancel: () => void;
   submitting?: boolean;
@@ -23,6 +24,7 @@ const ConfirmSubmitCard = ({
   elapsedSeconds,
   itemLabel = 'touches',
   title = 'Confirm your score',
+  warningText,
   onConfirm,
   onCancel,
   submitting = false,
@@ -43,8 +45,8 @@ const ConfirmSubmitCard = ({
         <View style={styles.warningBanner}>
           <Ionicons name='alert-circle' size={18} color='#92400E' />
           <Text style={styles.warningText}>
-            That&apos;s {pace.toFixed(1)} {itemLabel}/sec — faster than looks realistic. Double-check
-            your count before submitting.
+            {warningText ??
+              `That's ${pace.toFixed(1)} ${itemLabel}/sec — faster than looks realistic. Double-check your count before submitting.`}
           </Text>
         </View>
       )}
