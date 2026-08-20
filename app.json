@@ -2,7 +2,7 @@
   "expo": {
     "name": "Master Touch",
     "slug": "soccer-tracker",
-    "version": "3.0.24",
+    "version": "3.0.25",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
     "scheme": "mastertouch",
@@ -26,11 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.timmparsons.mastertouch",
-      "permissions": [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES"
-      ]
+      "package": "com.timmparsons.mastertouch"
     },
     "plugins": [
       "expo-router",

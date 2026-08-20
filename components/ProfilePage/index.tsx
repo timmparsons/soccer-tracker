@@ -152,17 +152,6 @@ const ProfilePage = () => {
   }, [profile?.id]);
 
   const handlePickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photo library to change your avatar.',
-      );
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
