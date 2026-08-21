@@ -132,6 +132,10 @@ const LogSessionModal = ({
         Alert.alert('Did you attempt it?', 'Check the box to confirm you attempted this challenge');
         return;
       }
+      if (touchCount <= 0 && juggleCount <= 0) {
+        Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
+        return;
+      }
     } else if (touchCount <= 0 && juggleCount <= 0) {
       Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
       return;
