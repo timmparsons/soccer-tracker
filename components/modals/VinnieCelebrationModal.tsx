@@ -19,6 +19,7 @@ interface VinnieCelebrationModalProps {
   isChallenge?: boolean;
   drillName?: string;
   overrideMessage?: string;
+  isFreestyle?: boolean;
 }
 
 const VinnieCelebrationModal = ({
@@ -30,6 +31,7 @@ const VinnieCelebrationModal = ({
   isChallenge,
   drillName,
   overrideMessage,
+  isFreestyle,
 }: VinnieCelebrationModalProps) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const [message, setMessage] = useState(getVinnieCelebration());
@@ -53,7 +55,9 @@ const VinnieCelebrationModal = ({
   const sessionLabel =
     isChallenge && drillName
       ? `${drillName} challenge`
-      : `${touchCount.toLocaleString()} touches logged`;
+      : isFreestyle && touchCount <= 0
+        ? 'Freestyle session logged'
+        : `${touchCount.toLocaleString()} touches logged`;
 
   return (
     <Modal

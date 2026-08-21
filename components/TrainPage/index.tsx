@@ -19,6 +19,7 @@ import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { MAX_SESSION_TOUCHES, MAX_DAILY_TOUCHES, getTodayTouchTotal } from '@/lib/touchLimits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -44,7 +45,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const FREE_TIMER_SECONDS = new Set([60, 300]); // 1 min + 5 min
-const MAX_SESSION_TOUCHES = 9999;
 
 const TrainPage = () => {
   const { data: user } = useUser();
@@ -81,6 +81,7 @@ const TrainPage = () => {
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [showGameSpeedModal, setShowGameSpeedModal] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
+  const [celebrationFreestyle, setCelebrationFreestyle] = useState(false);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [scoreSessionFocus, setScoreSessionFocus] = useState<SessionFocus | null>(null);
@@ -384,10 +385,22 @@ const TrainPage = () => {
       return;
     }
 
+    const today = getLocalDate();
+    const todayTotal = await getTodayTouchTotal(user.id, today);
+    if (todayTotal + score > MAX_DAILY_TOUCHES) {
+      const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
+      Alert.alert(
+        'Daily limit reached',
+        remaining > 0
+          ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
+          : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
+      );
+      return;
+    }
+
     setSubmittingScore(true);
 
     try {
-      const today = getLocalDate();
       const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
       const { error } = await supabase.from('daily_sessions').insert({
@@ -932,6 +945,7 @@ const TrainPage = () => {
       <VinnieCelebrationModal
         visible={showVinnieCelebration}
         touchCount={celebrationTouches}
+        isFreestyle={celebrationFreestyle}
         onClose={() => {
           setShowVinnieCelebration(false);
           if (earnedBadges.length) setShowBadgeModal(true);
@@ -974,8 +988,9 @@ const TrainPage = () => {
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,
           }}
-          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
+          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds, isFreestyle) => {
             setCelebrationTouches(tc);
+            setCelebrationFreestyle(!!isFreestyle);
             setShowVinnieCelebration(true);
             if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
           }}

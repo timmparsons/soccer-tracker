@@ -386,12 +386,13 @@ export function useActivityFeed(limit = 7) {
 
       if (allUserIds.length === 0) return [];
 
-      // Fetch all relevant profiles, excluding coaches
+      // Fetch all relevant profiles, excluding coaches and test accounts
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url')
         .in('id', allUserIds)
-        .eq('is_coach', false);
+        .eq('is_coach', false)
+        .eq('is_test_account', false);
 
       if (!profiles || profiles.length === 0) return [];
 

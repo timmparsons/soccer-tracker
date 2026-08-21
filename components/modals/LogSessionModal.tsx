@@ -5,6 +5,7 @@ import { useDailySprint } from '@/hooks/useDailySprint';
 import { getLocalDate } from '@/utils/getLocalDate';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
+import { MAX_SESSION_TOUCHES, MAX_SESSION_JUGGLES, MAX_DAILY_TOUCHES, getTodayTouchTotal } from '@/lib/touchLimits';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
@@ -37,6 +38,7 @@ interface LogSessionModalProps {
     isChallenge: boolean,
     drillName?: string,
     earnedBadgeIds?: string[],
+    isFreestyle?: boolean,
   ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
@@ -46,6 +48,7 @@ interface LogSessionModalProps {
 }
 
 const FOCUS_AREAS = [
+  { key: 'freestyle', label: 'Freestyle' },
   { key: 'juggling', label: 'Juggling' },
   { key: 'dribbling', label: 'Dribbling' },
   { key: 'ball_mastery', label: 'Ball Mastery' },
@@ -62,10 +65,6 @@ const DRILL_TIPS: Record<string, string> = {
   advanced:
     'Game speed every rep. No breaks — this is where champions are made! 🔥',
 };
-
-const MAX_SESSION_TOUCHES = 9999;
-const MAX_SESSION_JUGGLES = 9999;
-const MAX_DAILY_TOUCHES = 15000;
 
 const LogSessionModal = ({
   visible,
@@ -124,6 +123,7 @@ const LogSessionModal = ({
   }, [visible, challengeDurationMinutes]);
 
   const isChallengeMode = !!challengeDrillId;
+  const isFreestyleMode = !isChallengeMode && selectedAreas.includes('freestyle');
 
   const { sprint } = useDailySprint(userId, teamId);
   const challengeLocked =
@@ -139,14 +139,20 @@ const LogSessionModal = ({
 
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
+    const durationCount = duration ? parseInt(duration) : 0;
 
     if (isChallengeMode) {
       if (!attempted) {
         Alert.alert('Did you attempt it?', 'Check the box to confirm you attempted this challenge');
         return;
       }
-    } else if (touchCount <= 0 && juggleCount <= 0) {
-      Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
+    } else if (touchCount <= 0 && juggleCount <= 0 && !(isFreestyleMode && durationCount > 0)) {
+      Alert.alert(
+        'Invalid Input',
+        isFreestyleMode
+          ? 'Enter how many minutes you were out there'
+          : 'Please enter touches or a juggling record',
+      );
       return;
     }
 
@@ -166,12 +172,7 @@ const LogSessionModal = ({
     const today = getLocalDate();
 
     if (touchCount > 0) {
-      const { data: todaySessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged')
-        .eq('user_id', userId)
-        .eq('date', today);
-      const todayTotal = (todaySessions ?? []).reduce((sum: number, s: { touches_logged: number }) => sum + s.touches_logged, 0);
+      const todayTotal = await getTodayTouchTotal(userId, today);
       if (todayTotal + touchCount > MAX_DAILY_TOUCHES) {
         const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
         Alert.alert(
@@ -180,6 +181,7 @@ const LogSessionModal = ({
             ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
             : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
         );
+        setSubmitting(false);
         return;
       }
     }
@@ -233,6 +235,7 @@ const LogSessionModal = ({
         isChallengeMode,
         challengeName,
         earnedBadgeIds,
+        isFreestyleMode,
       );
     } catch (error) {
       console.error('Error logging session:', error);
@@ -255,7 +258,8 @@ const LogSessionModal = ({
   const juggleCount = juggles ? parseInt(juggles) : 0;
   const isFormValid = isChallengeMode
     ? attempted
-    : !challengeLocked && (touchCount > 0 || juggleCount > 0);
+    : !challengeLocked &&
+      (touchCount > 0 || juggleCount > 0 || (isFreestyleMode && !!duration && parseInt(duration) > 0));
 
   const elapsedSecondsForPace = duration ? parseInt(duration) * 60 : null;
   const pace = computePace(touchCount, elapsedSecondsForPace);
@@ -443,6 +447,12 @@ const LogSessionModal = ({
                     </Text>
                   </View>
                 )}
+
+              {isFreestyleMode && (
+                <Text style={styles.sectionHint}>
+                  Freestyle tagged — touches are optional, just log your minutes!
+                </Text>
+              )}
             </View>
 
             {/* Focus areas */}
@@ -532,6 +542,8 @@ const LogSessionModal = ({
                     ? touchCount > 0
                       ? `LOG CHALLENGE • ${touchCount.toLocaleString()}`
                       : 'LOG ATTEMPT'
+                    : isFreestyleMode && touchCount <= 0 && juggleCount <= 0
+                    ? 'LOG FREESTYLE SESSION'
                     : touchCount > 0 && juggleCount > 0
                         ? 'LOG ' +
                           touchCount.toLocaleString() +
