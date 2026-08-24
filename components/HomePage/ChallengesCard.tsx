@@ -17,6 +17,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const VISIBLE_LIMIT = 3;
 
 
+function rankBadgeColor(index: number) {
+  if (index === 0) return '#FFD700';
+  if (index === 1) return '#C0C0C0';
+  if (index === 2) return '#CD7F32';
+  return '#F0F4F8';
+}
+
+function rankBadgeTextColor(index: number) {
+  if (index === 0) return '#7A5900';
+  if (index === 1) return '#4A4A4A';
+  if (index === 2) return '#5C3A1E';
+  return '#78909C';
+}
+
 function timeRemaining(isoDate: string) {
   const ms = new Date(isoDate).getTime() - Date.now();
   if (ms <= 0) return 'Expired';
@@ -70,6 +84,14 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
   const activeChallenges = challenges.filter((c) => c.status !== 'completed');
   const completedChallenges = challenges.filter((c) => c.status === 'completed');
   const displayedChallenges = [...activeChallenges, ...completedChallenges];
+
+  const totalActive = activeChallenges.length + activeCoachChallenges.length + groupChallenges.length;
+  const headerSubtitle =
+    pendingCount > 0
+      ? `${pendingCount} pending invite${pendingCount > 1 ? 's' : ''}`
+      : totalActive > 0
+        ? `${totalActive} active`
+        : 'Compete with teammates';
 
   type ChallengeItem =
     | { type: 'group'; data: GroupChallenge }
@@ -132,30 +154,25 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
 
   return (
     <>
+      <View style={styles.shadowWrap}>
       <View style={[styles.container, (pendingCount > 0 || activeCoachChallenges.length > 0 || hasUnstartedGroupChallenge) && styles.containerAlert]}>
         {/* Header — toggles dropdown */}
         <TouchableOpacity style={styles.header} onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Challenges</Text>
-            {pendingCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
-              </View>
-            )}
+          <View style={styles.headerIconBg}>
+            <Ionicons name='trophy' size={22} color='#1f89ee' />
           </View>
-          <View style={styles.headerRight}>
-            {teamId && (
-              <TouchableOpacity
-                style={styles.newChallengeBtn}
-                onPress={() => setShowPicker(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name='add' size={16} color='#1f89ee' />
-                <Text style={styles.newChallengeBtnText}>New</Text>
-              </TouchableOpacity>
-            )}
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color='#78909C' />
+          <View style={styles.headerTextBlock}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.headerTitle}>Challenges</Text>
+              {pendingCount > 0 && (
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
           </View>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color='#78909C' />
         </TouchableOpacity>
 
         {/* Rows — only visible when expanded */}
@@ -171,8 +188,13 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
                     <Text style={styles.coachRowDetail}>Due {c.due_date}</Text>
                     <View style={styles.coachStatusRow}>
                       <View style={styles.coachBadge}>
+                        <Ionicons
+                          name={c.accepted_at ? 'walk' : 'flag'}
+                          size={12}
+                          color='#D97706'
+                        />
                         <Text style={styles.coachBadgeText}>
-                          {c.accepted_at ? '🏃 In Progress' : '🎯 Coach Challenge'}
+                          {c.accepted_at ? 'In Progress' : 'Coach Challenge'}
                         </Text>
                       </View>
                     </View>
@@ -251,7 +273,8 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
               <Text style={styles.emptyTitle}>No active challenges</Text>
               {teamId ? (
                 <TouchableOpacity style={styles.challengeBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-                  <Text style={styles.challengeBtnText}>⚔️ Challenge Teammates</Text>
+                  <Ionicons name='people' size={16} color='#FFF' />
+                  <Text style={styles.challengeBtnText}>New Challenge</Text>
                 </TouchableOpacity>
               ) : (
                 <Text style={styles.emptySubtitle}>Join a team to challenge teammates</Text>
@@ -265,7 +288,14 @@ export default function ChallengesCard({ userId, teamId, playerName, expandSigna
               <Ionicons name='chevron-forward' size={16} color='#1f89ee' />
             </TouchableOpacity>
           )}
+          {teamId && !(displayedChallenges.length === 0 && groupChallenges.length === 0 && activeCoachChallenges.length === 0) && (
+            <TouchableOpacity style={styles.newChallengeRow} onPress={() => setShowPicker(true)} activeOpacity={0.7}>
+              <Ionicons name='add-circle' size={16} color='#1f89ee' />
+              <Text style={styles.newChallengeRowText}>New Challenge</Text>
+            </TouchableOpacity>
+          )}
         </View>}
+      </View>
       </View>
 
       <Modal
@@ -366,8 +396,6 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
   const creatorParticipant = gc.participants.find((p) => p.user_id === gc.created_by);
   const creatorName = gc.created_by === userId ? 'You' : (creatorParticipant?.name ?? 'Someone');
 
-  const medals = ['🥇', '🥈', '🥉'];
-
   const rankedParticipants = showResults
     ? [...gc.participants].sort((a, b) => {
         if (a.time_seconds === null) return 1;
@@ -382,7 +410,10 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
     <View style={[styles.groupRow, needsAction && styles.groupRowActive]}>
       <View style={styles.groupHeader}>
         <View style={styles.groupHeaderLeft}>
-          <Text style={styles.groupTitle}>⚔️ Group Challenge</Text>
+          <View style={styles.groupTitleRow}>
+            <Ionicons name='people' size={14} color='#1a1a2e' />
+            <Text style={styles.groupTitle}>Group Challenge</Text>
+          </View>
           <Text style={styles.groupMeta}>
             {gc.participants.length} players · {gc.touches_target} touches · by {creatorName}
           </Text>
@@ -398,7 +429,11 @@ function GroupChallengeCard({ challenge: gc, userId, onAttempt, onCancel }: Grou
             const isMe = p.user_id === userId;
             return (
               <View key={p.id} style={[styles.groupResultRow, isMe && styles.groupResultRowMe]}>
-                <Text style={styles.groupMedal}>{medals[i] ?? '·'}</Text>
+                <View style={[styles.groupRankBadge, { backgroundColor: rankBadgeColor(i) }]}>
+                  <Text style={[styles.groupRankBadgeText, { color: rankBadgeTextColor(i) }]}>
+                    {i + 1}
+                  </Text>
+                </View>
                 <Image
                   source={{ uri: p.avatar_url ?? 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
                   style={styles.groupAvatar}
@@ -599,23 +634,41 @@ function ChallengeRow({ challenge: c, userId, onRespond, onAttempt, onCancel }: 
 }
 
 const styles = StyleSheet.create({
+  shadowWrap: {
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   container: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderRadius: 20,
     overflow: 'hidden',
   },
   containerAlert: {
+    borderWidth: 1.5,
     borderColor: '#EF4444',
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 14,
+  },
+  headerIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F4FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -623,9 +676,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#1a1a2e',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
   },
   pendingBadge: {
     backgroundColor: '#1f89ee',
@@ -645,25 +704,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  newChallengeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#EBF4FF',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  newChallengeBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  headerSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
   },
   rows: {
     gap: 0,
@@ -688,6 +728,10 @@ const styles = StyleSheet.create({
   },
   challengeBtn: {
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: '#1f89ee',
     borderRadius: 12,
     paddingVertical: 12,
@@ -707,6 +751,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   viewAllText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1f89ee',
+  },
+  newChallengeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  newChallengeRowText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#1f89ee',
@@ -788,6 +846,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   coachBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#FFF3CD',
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -1029,6 +1090,11 @@ const styles = StyleSheet.create({
     gap: 2,
     flex: 1,
   },
+  groupTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   groupTitle: {
     fontSize: 14,
     fontWeight: '900',
@@ -1097,9 +1163,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   groupResultRowMe: {},
-  groupMedal: {
-    fontSize: 16,
-    width: 24,
+  groupRankBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupRankBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
   },
   groupResultName: {
     flex: 1,

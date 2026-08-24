@@ -2,7 +2,7 @@ import BadgeGrid from '@/components/common/BadgeGrid';
 import ChallengeSetupModal from '@/components/modals/ChallengeSetupModal';
 import { useAllBadges, useUserBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useActiveStreak, useDailyTouchHistory, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getLevelFromXp, getRankName } from '@/lib/xp';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,20 +23,26 @@ interface PlayerProfileModalProps {
   playerId: string | null;
   visible: boolean;
   onClose: () => void;
+  // Club/Global don't share a team with the viewer, so badges (a team-relative
+  // flex) are left out there — only Team shows the full profile.
+  showBadges?: boolean;
 }
 
-export default function PlayerProfileModal({ playerId, visible, onClose }: PlayerProfileModalProps) {
+export default function PlayerProfileModal({ playerId, visible, onClose, showBadges = true }: PlayerProfileModalProps) {
   const insets = useSafeAreaInsets();
   const { data: currentUser } = useUser();
   const { data: currentUserProfile } = useProfile(currentUser?.id);
   const [challengeSetupVisible, setChallengeSetupVisible] = useState(false);
   const { data: profile } = useProfile(playerId ?? undefined);
   const { data: touchStats } = useTouchTracking(playerId ?? undefined);
+  const { data: activeStreakStats } = useActiveStreak(playerId ?? undefined);
   const { data: jugglePB = 0 } = useJugglingRecord(playerId ?? undefined);
+  const { data: dailyHistory = [] } = useDailyTouchHistory(playerId ?? undefined);
   const { data: allBadges = [] } = useAllBadges();
   const { data: userBadges = [] } = useUserBadges(playerId ?? undefined);
 
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+  const last7DaysTouches = dailyHistory.reduce((sum, n) => sum + n, 0);
   const { level } = getLevelFromXp(profile?.total_xp ?? 0);
   const rank = getRankName(level);
 
@@ -89,26 +95,65 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
 
               {/* Stats row */}
               <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{(profile?.total_xp ?? 0).toLocaleString()}</Text>
-                  <Text style={styles.statLabel}>XP</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{touchStats?.current_streak ?? 0}</Text>
-                  <Text style={styles.statLabel}>Day Streak</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{(touchStats?.total_touches ?? 0).toLocaleString()}</Text>
-                  <Text style={styles.statLabel}>Total Touches</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{jugglePB}</Text>
-                  <Text style={styles.statLabel}>Juggle PB</Text>
-                </View>
+                {showBadges ? (
+                  <>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{(profile?.total_xp ?? 0).toLocaleString()}</Text>
+                      <Text style={styles.statLabel}>XP</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{activeStreakStats?.currentStreak ?? 0}</Text>
+                      <Text style={styles.statLabel}>Day Streak</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{(touchStats?.total_touches ?? 0).toLocaleString()}</Text>
+                      <Text style={styles.statLabel}>Total Touches</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{jugglePB}</Text>
+                      <Text style={styles.statLabel}>Juggle PB</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{last7DaysTouches.toLocaleString()}</Text>
+                      <Text style={styles.statLabel}>Last 7 Days</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{jugglePB}</Text>
+                      <Text style={styles.statLabel}>Juggle PB</Text>
+                    </View>
+                  </>
+                )}
               </View>
+
+              {/* Last 3 days breakdown */}
+              {dailyHistory.length === 7 && (
+                <View style={styles.recentDaysSection}>
+                  <Text style={styles.recentDaysTitle}>Last 3 Days</Text>
+                  <View style={styles.recentDaysRow}>
+                    {dailyHistory.slice(4).map((touches, i) => {
+                      const isToday = i === 2;
+                      const dayDate = new Date();
+                      dayDate.setDate(dayDate.getDate() - (2 - i));
+                      const dayLabel = isToday
+                        ? 'Today'
+                        : dayDate.toLocaleDateString('en-US', { weekday: 'short' });
+                      return (
+                        <View key={i} style={styles.recentDayItem}>
+                          <Text style={styles.recentDayValue}>{touches.toLocaleString()}</Text>
+                          <Text style={styles.recentDayLabel}>{dayLabel}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
               {/* Challenge button — only shown for other players, not coaches */}
               {currentUser && playerId && currentUser.id !== playerId && !currentUserProfile?.is_coach && (
@@ -121,15 +166,17 @@ export default function PlayerProfileModal({ playerId, visible, onClose }: Playe
               )}
 
               {/* Badges */}
-              <View style={styles.badgesSection}>
-                <View style={styles.badgesHeader}>
-                  <Text style={styles.badgesTitle}>Badges</Text>
-                  <Text style={styles.badgesCount}>
-                    {earnedBadgeIds.size}/{allBadges.length}
-                  </Text>
+              {showBadges && (
+                <View style={styles.badgesSection}>
+                  <View style={styles.badgesHeader}>
+                    <Text style={styles.badgesTitle}>Badges</Text>
+                    <Text style={styles.badgesCount}>
+                      {earnedBadgeIds.size}/{allBadges.length}
+                    </Text>
+                  </View>
+                  <BadgeGrid allBadges={allBadges} earnedIds={earnedBadgeIds} compact />
                 </View>
-                <BadgeGrid allBadges={allBadges} earnedIds={earnedBadgeIds} compact />
-              </View>
+              )}
             </ScrollView>
           )}
 
@@ -235,6 +282,36 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: '#E5E7EB',
     marginVertical: 4,
+  },
+  recentDaysSection: {
+    marginBottom: 20,
+  },
+  recentDaysTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  recentDaysRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 16,
+    padding: 16,
+  },
+  recentDayItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  recentDayValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  recentDayLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
   },
   badgesSection: {
     marginBottom: 20,
