@@ -10,10 +10,12 @@ import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useUserSquadBadges } from '@/hooks/useSquadBadges';
+import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
+import { promptForReview } from '@/lib/rateApp';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { getDisplayName } from '@/utils/getDisplayName';
@@ -96,6 +98,7 @@ const ProfilePage = () => {
   const [coachClubQuery, setCoachClubQuery] = useState('');
   const [clubNameInput, setClubNameInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
+  const [uploadingClubLogo, setUploadingClubLogo] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
@@ -115,10 +118,10 @@ const ProfilePage = () => {
       if (!(team as any)?.club_id) return null;
       const { data: club } = await supabase
         .from('clubs')
-        .select('id, name, join_code')
+        .select('id, name, join_code, logo_url')
         .eq('id', (team as any).club_id)
         .single();
-      return club as { id: string; name: string; join_code: string } | null;
+      return club as { id: string; name: string; join_code: string; logo_url: string | null } | null;
     },
   });
 
@@ -373,9 +376,9 @@ const ProfilePage = () => {
   };
 
   const handleFeedback = async () => {
-    const email = 'timmparsons85@gmail.com';
+    const email = 'tim@mastertouch.app';
     const subject = 'Master Touch Feedback';
-    const body = `\n\n---\nApp Version: 3.0.11\nUser: ${user?.email || 'Unknown'}`;
+    const body = `\n\n---\nUser: ${user?.email || 'Unknown'}`;
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     const canOpen = await Linking.canOpenURL(url);
@@ -384,6 +387,10 @@ const ProfilePage = () => {
     } else {
       Alert.alert('Send Feedback', `Email us at:\n${email}`, [{ text: 'OK' }]);
     }
+  };
+
+  const handleRateApp = () => {
+    promptForReview(handleFeedback);
   };
 
   const handleJoinTeam = () => {
@@ -449,7 +456,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: (club as any).id } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCreateClubModal(false);
@@ -479,7 +486,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: clubId } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCoachClubSearchModal(false);
@@ -489,6 +496,49 @@ const ProfilePage = () => {
       Alert.alert('Error', 'Something went wrong.');
     } finally {
       setSavingClub(false);
+    }
+  };
+
+  const handlePickClubLogo = async (clubId: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    setUploadingClubLogo(true);
+    try {
+      const binaryString = atob(result.assets[0].base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const filePath = `club-logos/${clubId}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { error: updateError } = await supabase
+        .from('clubs')
+        .update({ logo_url: publicUrl } as any)
+        .eq('id', clubId);
+      if (updateError) throw updateError;
+
+      await refetchClub();
+    } catch {
+      Alert.alert('Error', 'Failed to upload club logo. Try again.');
+    } finally {
+      setUploadingClubLogo(false);
     }
   };
 
@@ -528,7 +578,7 @@ const ProfilePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('clubs')
-        .select('id, name')
+        .select('id, name, logo_url')
         .eq('id', playerClubId)
         .single();
       return data ?? null;
@@ -593,6 +643,7 @@ const ProfilePage = () => {
 
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
@@ -604,6 +655,7 @@ const ProfilePage = () => {
   const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
     useChallengeRecord(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+  const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
   const BACKFILL_ENABLED = true;
@@ -612,7 +664,7 @@ const ProfilePage = () => {
     checkAndAwardBadges(user.id, {
       totalSessions: touchStats.total_sessions ?? 0,
       totalTouches: touchStats.total_touches ?? 0,
-      currentStreak: touchStats.current_streak ?? 0,
+      currentStreak: activeStreakStats?.currentStreak ?? 0,
       // If the user already has a juggle PB, treat it as a beaten record so the badge backfills
       jugglesThisSession: jugglePB > 0 ? jugglePB : null,
       previousJugglePB: jugglePB > 0 ? jugglePB - 1 : 0,
@@ -625,7 +677,7 @@ const ProfilePage = () => {
   }, [
     user?.id,
     touchStats?.total_touches,
-    touchStats?.current_streak,
+    activeStreakStats?.currentStreak,
     jugglePB,
   ]);
 
@@ -659,7 +711,6 @@ const ProfilePage = () => {
           total_sessions: 0,
           days_active: 0,
           avg_daily_touches: 0,
-          longest_streak: 0,
         };
       }
 
@@ -671,33 +722,11 @@ const ProfilePage = () => {
       const avgDaily =
         uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
 
-      // Calculate longest streak
-      const dates = [...new Set(sessions.map((s) => s.date))].sort();
-      let longestStreak = 0;
-      let currentStreak = 1;
-
-      for (let i = 1; i < dates.length; i++) {
-        const prev = new Date(dates[i - 1]);
-        const curr = new Date(dates[i]);
-        const diffDays = Math.floor(
-          (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (diffDays === 1) {
-          currentStreak++;
-        } else {
-          longestStreak = Math.max(longestStreak, currentStreak);
-          currentStreak = 1;
-        }
-      }
-      longestStreak = Math.max(longestStreak, currentStreak);
-
       return {
         lifetime_touches: lifetimeTouches,
         total_sessions: sessions.length,
         days_active: uniqueDays,
         avg_daily_touches: avgDaily,
-        longest_streak: longestStreak,
       };
     },
   });
@@ -707,7 +736,9 @@ const ProfilePage = () => {
     profile?.is_coach ? 'Coach' : 'Player',
   );
   const dailyTarget = touchStats?.daily_target || 1000;
-  const currentStreak = touchStats?.current_streak || 0;
+  const currentStreak = activeStreakStats?.currentStreak || 0;
+  const longestStreak = activeStreakStats?.longestStreak || 0;
+  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
     profile?.total_xp ?? 0,
   );
@@ -918,13 +949,20 @@ const ProfilePage = () => {
                     <Text style={styles.streakEmoji}>⭐</Text>
                   </View>
                   <View style={styles.streakInfo}>
-                    <Text style={styles.streakValue}>
-                      {lifetimeStats?.longest_streak || 0}
-                    </Text>
+                    <Text style={styles.streakValue}>{longestStreak}</Text>
                     <Text style={styles.streakLabel}>Best Streak</Text>
                   </View>
                 </View>
               </View>
+
+              {freezesAvailable > 0 && (
+                <View style={styles.freezeBanner}>
+                  <Ionicons name='snow-outline' size={14} color='#1f89ee' />
+                  <Text style={styles.freezeBannerText}>
+                    {freezesAvailable} streak freeze{freezesAvailable > 1 ? 's' : ''} banked — miss a day and it&apos;s covered
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1019,7 +1057,26 @@ const ProfilePage = () => {
               {teamClub ? (
                 <View style={styles.clubCard}>
                   <View style={styles.clubCardHeader}>
-                    <Ionicons name='shield' size={18} color='#1f89ee' />
+                    <TouchableOpacity
+                      onPress={() => handlePickClubLogo(teamClub.id)}
+                      disabled={uploadingClubLogo}
+                      style={styles.clubLogoContainer}
+                      activeOpacity={0.8}
+                    >
+                      {uploadingClubLogo ? (
+                        <ActivityIndicator size='small' color='#1f89ee' />
+                      ) : teamClub.logo_url ? (
+                        <Image
+                          source={{ uri: teamClub.logo_url }}
+                          style={styles.clubLogoImage}
+                        />
+                      ) : (
+                        <Ionicons name='shield' size={18} color='#1f89ee' />
+                      )}
+                      <View style={styles.clubLogoCameraBadge}>
+                        <Ionicons name='camera' size={9} color='#FFF' />
+                      </View>
+                    </TouchableOpacity>
                     <Text style={styles.clubCardTitle}>{teamClub.name}</Text>
                   </View>
                 </View>
@@ -1070,6 +1127,31 @@ const ProfilePage = () => {
                   setSelectedBadge({ badge, isEarned })
                 }
               />
+            </View>
+          )}
+
+          {/* Squad Trophies Card - team badges earned together */}
+          {!profile?.is_coach && squadBadges.length > 0 && (
+            <View style={styles.badgesCard}>
+              <View style={styles.badgesHeader}>
+                <Text style={styles.badgesTitle}>Squad Trophies</Text>
+                <Text style={styles.badgesCount}>{squadBadges.length} earned</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.squadTrophyRow}>
+                {squadBadges.map((sb) => (
+                  <View key={sb.squadBadgeId} style={styles.squadTrophyChip}>
+                    <View style={styles.squadTrophyIcon}>
+                      <Ionicons name={sb.badgeIcon as any} size={22} color='#ffb724' />
+                    </View>
+                    <Text style={styles.squadTrophyName} numberOfLines={2}>
+                      {sb.badgeName}
+                    </Text>
+                    <Text style={styles.squadTrophyDate}>
+                      {new Date(sb.achievedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
         </ScrollView>
@@ -1410,7 +1492,14 @@ const ProfilePage = () => {
                             { backgroundColor: '#EDE7F6' },
                           ]}
                         >
-                          <Ionicons name='shield' size={20} color='#7E57C2' />
+                          {playerClub?.logo_url ? (
+                            <Image
+                              source={{ uri: playerClub.logo_url }}
+                              style={styles.settingsIconImage}
+                            />
+                          ) : (
+                            <Ionicons name='shield' size={20} color='#7E57C2' />
+                          )}
                         </View>
                         <View>
                           <Text style={styles.settingsLabel}>My Club</Text>
@@ -1453,6 +1542,14 @@ const ProfilePage = () => {
                   >
                     <Ionicons name='key' size={24} color='#1f89ee' />
                     <Text style={styles.actionButtonText}>Change Password</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleRateApp}
+                  >
+                    <Ionicons name='star' size={24} color='#ffb724' />
+                    <Text style={styles.actionButtonText}>Rate Master Touch</Text>
                   </TouchableOpacity>
                   <View style={styles.actionDivider} />
                   <TouchableOpacity
@@ -1863,6 +1960,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor:
                           (profile as any)?.club_id === club.id
@@ -1880,6 +1978,14 @@ const ProfilePage = () => {
                     disabled={savingPlayerClub}
                     activeOpacity={0.8}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -2017,6 +2123,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor: '#F5F7FA',
                         borderColor: '#E5E7EB',
@@ -2027,6 +2134,14 @@ const ProfilePage = () => {
                     onPress={() => handleJoinClubBySearch(club.id, club.name)}
                     disabled={savingClub}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -2402,6 +2517,21 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#E0E0E0',
     marginHorizontal: 16,
+  },
+  freezeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  freezeBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1f89ee',
   },
 
   // INFO CARD
@@ -2826,6 +2956,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#A78BFA',
   },
+  squadTrophyRow: {
+    gap: 12,
+  },
+  squadTrophyChip: {
+    width: 84,
+    alignItems: 'center',
+  },
+  squadTrophyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ffb72422',
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  squadTrophyName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+  },
+  squadTrophyDate: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#A78BFA',
+    marginTop: 2,
+  },
   badgeModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -2970,6 +3130,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  settingsIconImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   settingsLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -3110,6 +3275,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
+  },
+  clubResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+  },
+  clubResultLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   nameInput: {
     backgroundColor: '#F5F7FA',
@@ -3267,6 +3443,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
+  },
+  clubLogoContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clubLogoImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  clubLogoCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#1f89ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F0F7FF',
   },
   clubCardCodeLabel: {
     fontSize: 11,

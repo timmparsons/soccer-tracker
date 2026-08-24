@@ -192,7 +192,7 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
             <Text style={styles.codeButtonText}>Share</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.codeButton} onPress={() => setAddPlayerVisible(true)}>
-            <Ionicons name="person-add-outline" size={18} color="#1f89ee" />
+            <Ionicons name="person-outline" size={18} color="#1f89ee" />
             <Text style={styles.codeButtonText}>Add Player</Text>
           </TouchableOpacity>
         </View>
@@ -285,7 +285,7 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
             </TouchableOpacity>
 
             <View style={styles.modalHeader}>
-              <Ionicons name="person-add" size={32} color="#1f89ee" />
+              <Ionicons name="person" size={32} color="#1f89ee" />
               <Text style={styles.modalTitle}>Add Player</Text>
             </View>
 
