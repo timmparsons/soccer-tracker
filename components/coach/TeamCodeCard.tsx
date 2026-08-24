@@ -1,3 +1,4 @@
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useEndSeason, useStartNewSeason } from '@/hooks/useSeasons';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +35,7 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
   const [addPlayerEmail, setAddPlayerEmail] = useState('');
   const [addPlayerPassword, setAddPlayerPassword] = useState('');
   const [addPlayerSaving, setAddPlayerSaving] = useState(false);
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
   const [newSeasonCode, setNewSeasonCode] = useState<string | null>(null);
   const { mutateAsync: startNewSeason, isPending: startingNewSeason } = useStartNewSeason();
   const { mutateAsync: endSeason, isPending: endingSeason } = useEndSeason();
@@ -267,15 +269,16 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
         onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.overlay}
+          onLayout={onDialogLayout}
         >
           <TouchableOpacity
             activeOpacity={1}
             style={{ flex: 1 }}
             onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
           />
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16, marginBottom: kbOverlap }]}>
             <View style={styles.handle} />
             <TouchableOpacity
               style={styles.closeBtn}

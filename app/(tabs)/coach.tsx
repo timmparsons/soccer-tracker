@@ -7,6 +7,7 @@ import { useAwardCoachPick, useCoachPickForDate, useRemoveCoachPick } from '@/ho
 import { PlayerStats, useCoachTeamPlayers } from '@/hooks/useCoachTeamPlayers';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { useNudgePlayer } from '@/hooks/useNudgePlayer';
@@ -57,6 +58,7 @@ export default function CoachDashboard() {
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
   const [modalTab, setModalTab] = useState<'log' | 'edit'>('log');
   const [touchCount, setTouchCount] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
@@ -817,12 +819,12 @@ export default function CoachDashboard() {
 
       {/* ADD TOUCHES MODAL */}
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} onLayout={onDialogLayout}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-              <View style={[styles.modalContent, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(40, insets.bottom + 24), marginBottom: kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Ionicons name="football" size={32} color="#1f89ee" />
                   <Text style={styles.modalTitle}>

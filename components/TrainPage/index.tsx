@@ -13,6 +13,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { pickDailyCircuit, useWorkoutLibrary } from '@/hooks/useWorkouts';
 import { useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics';
@@ -72,6 +73,8 @@ const TrainPage = () => {
   const [showScoreConfirm, setShowScoreConfirm] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const { onDialogLayout: onScoreDialogLayout, kbOverlap: scoreKbOverlap } = useAndroidModalKeyboard();
+  const { onDialogLayout: onTimerPickerDialogLayout, kbOverlap: timerPickerKbOverlap } = useAndroidModalKeyboard();
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [showGameSpeedModal, setShowGameSpeedModal] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
@@ -644,11 +647,12 @@ const TrainPage = () => {
         onRequestClose={() => setShowScoreModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={onScoreDialogLayout}
         >
           <View style={styles.scoreModalOverlay}>
-            <View style={styles.scoreModalContent}>
+            <View style={[styles.scoreModalContent, { marginBottom: scoreKbOverlap }]}>
               {!scoreSessionFocus ? (
                 <GameSpeedPrompt onSelect={setScoreSessionFocus} />
               ) : showScoreConfirm ? (
@@ -725,131 +729,132 @@ const TrainPage = () => {
       {/* Timer Picker Modal */}
       <Modal
         visible={showTimerPicker}
-        animationType='slide'
-        transparent={true}
+        animationType='fade'
+        transparent={false}
         statusBarTranslucent={Platform.OS === 'android'}
         hardwareAccelerated
         onRequestClose={() => setShowTimerPicker(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.timerPickerModal}
+          onLayout={onTimerPickerDialogLayout}
         >
-          <View style={styles.timerPickerOverlay}>
-            <View style={styles.timerPickerContent}>
-              <View style={styles.timerPickerHeader}>
-                <View style={styles.scoreModalIconBg}>
-                  <Ionicons name='timer' size={36} color='#1f89ee' />
-                </View>
-                <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
-                <Text style={styles.timerPickerSubtitle}>
-                  Choose a duration for your session
-                </Text>
-              </View>
+          <TouchableOpacity
+            style={[styles.timerCloseButton, { top: insets.top + 12 }]}
+            onPress={() => {
+              setShowTimerPicker(false);
+              setCustomMinutes('');
+              setCustomSeconds('');
+            }}
+            hitSlop={12}
+          >
+            <Ionicons name='close' size={28} color='#78909C' />
+          </TouchableOpacity>
 
-              <View style={styles.timerOptionsGrid}>
-                {TIMER_OPTIONS.map((option) => {
-                  const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
-                  return (
-                    <TouchableOpacity
-                      key={option.seconds}
-                      style={[styles.timerOption, locked && styles.timerOptionLocked]}
-                      onPress={() => {
-                        if (locked) {
-                          router.push('/(modals)/paywall');
-                          return;
-                        }
-                        startFreeTimer(option.seconds);
-                      }}
-                    >
-                      {locked && (
-                        <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.7)' style={{ marginBottom: 2 }} />
-                      )}
-                      <Text style={styles.timerOptionText}>{option.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+          <ScrollView
+            contentContainerStyle={[styles.timerPickerScrollContent, { marginBottom: timerPickerKbOverlap }]}
+            keyboardShouldPersistTaps='handled'
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.timerPickerIconBg}>
+              <Ionicons name='timer' size={36} color='#1f89ee' />
+            </View>
+            <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
+            <Text style={styles.timerPickerSubtitle}>
+              Choose a duration for your session
+            </Text>
 
-
-              <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
-                <View style={styles.customTimerLabelRow}>
-                  <Text style={styles.customTimerLabel}>Custom duration</Text>
-                  {!isPremium && (
-                    <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
-                      <Ionicons name='lock-closed' size={12} color='#78909C' />
-                      <Text style={styles.proLockText}>Pro</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.customTimerRow}>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customMinutes}
-                      onChangeText={setCustomMinutes}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>min</Text>
-                  </View>
-                  <Text style={styles.customTimerSeparator}>:</Text>
-                  <View style={styles.customTimerInputGroup}>
-                    <TextInput
-                      style={styles.customTimerInput}
-                      placeholder='0'
-                      placeholderTextColor='#B0BEC5'
-                      keyboardType='number-pad'
-                      value={customSeconds}
-                      onChangeText={(v) => {
-                        const n = parseInt(v);
-                        if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
-                      }}
-                      editable={isPremium}
-                    />
-                    <Text style={styles.customTimerUnit}>sec</Text>
-                  </View>
+            <View style={styles.timerOptionsGrid}>
+              {TIMER_OPTIONS.map((option) => {
+                const locked = !isPremium && !FREE_TIMER_SECONDS.has(option.seconds);
+                return (
                   <TouchableOpacity
-                    style={[
-                      styles.customTimerButton,
-                      (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
-                      !isPremium && styles.customTimerButtonDisabled,
-                    ]}
+                    key={option.seconds}
+                    style={[styles.timerOption, locked && styles.timerOptionLocked]}
                     onPress={() => {
-                      if (!isPremium) {
+                      if (locked) {
                         router.push('/(modals)/paywall');
                         return;
                       }
-                      const mins = parseInt(customMinutes) || 0;
-                      const secs = parseInt(customSeconds) || 0;
-                      const total = mins * 60 + secs;
-                      if (total > 0) {
-                        startFreeTimer(total);
-                        setCustomMinutes('');
-                        setCustomSeconds('');
-                      }
+                      startFreeTimer(option.seconds);
                     }}
-                    disabled={!isPremium && !customMinutes && !customSeconds}
                   >
-                    <Text style={styles.customTimerButtonText}>Go</Text>
+                    {locked && (
+                      <Ionicons name='lock-closed' size={12} color='rgba(255,255,255,0.85)' style={{ marginBottom: 2 }} />
+                    )}
+                    <Text style={styles.timerOptionText}>{option.label}</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.timerPickerCancel}
-                onPress={() => {
-                  setShowTimerPicker(false);
-                  setCustomMinutes('');
-                  setCustomSeconds('');
-                }}
-              >
-                <Text style={styles.timerPickerCancelText}>Cancel</Text>
-              </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
+
+            <View style={[styles.customTimerSection, !isPremium && styles.customTimerSectionLocked]}>
+              <View style={styles.customTimerLabelRow}>
+                <Text style={styles.customTimerLabel}>Custom duration</Text>
+                {!isPremium && (
+                  <TouchableOpacity onPress={() => router.push('/(modals)/paywall')} style={styles.proLockBadge}>
+                    <Ionicons name='lock-closed' size={12} color='#78909C' />
+                    <Text style={styles.proLockText}>Pro</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={styles.customTimerRow}>
+                <View style={styles.customTimerInputGroup}>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={customMinutes}
+                    onChangeText={setCustomMinutes}
+                    editable={isPremium}
+                  />
+                  <Text style={styles.customTimerUnit}>min</Text>
+                </View>
+                <Text style={styles.customTimerSeparator}>:</Text>
+                <View style={styles.customTimerInputGroup}>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    placeholder='0'
+                    placeholderTextColor='#B0BEC5'
+                    keyboardType='number-pad'
+                    value={customSeconds}
+                    onChangeText={(v) => {
+                      const n = parseInt(v);
+                      if (!v || (n >= 0 && n < 60)) setCustomSeconds(v);
+                    }}
+                    editable={isPremium}
+                  />
+                  <Text style={styles.customTimerUnit}>sec</Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.customTimerButton,
+                    (!customMinutes && !customSeconds) && styles.customTimerButtonDisabled,
+                    !isPremium && styles.customTimerButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    if (!isPremium) {
+                      router.push('/(modals)/paywall');
+                      return;
+                    }
+                    const mins = parseInt(customMinutes) || 0;
+                    const secs = parseInt(customSeconds) || 0;
+                    const total = mins * 60 + secs;
+                    if (total > 0) {
+                      startFreeTimer(total);
+                      setCustomMinutes('');
+                      setCustomSeconds('');
+                    }
+                  }}
+                  disabled={!isPremium && !customMinutes && !customSeconds}
+                >
+                  <Text style={styles.customTimerButtonText}>Go</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1276,50 +1281,57 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 
-  // TIMER PICKER MODAL
-  timerPickerOverlay: {
+  // TIMER PICKER MODAL — white, matches the Free Practice ready screen
+  timerPickerModal: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#FFFFFF',
+  },
+  timerPickerScrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 40,
+  },
+  timerPickerIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(31, 137, 238, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-  },
-  timerPickerContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 28,
-    width: '100%',
-    maxWidth: 340,
-  },
-  timerPickerHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   timerPickerTitle: {
     fontSize: 24,
     fontWeight: '900',
     color: '#1a1a2e',
     marginBottom: 8,
+    textAlign: 'center',
   },
   timerPickerSubtitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
+    marginBottom: 32,
   },
   timerOptionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 24,
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 28,
   },
   timerOption: {
     width: '30%',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1f89ee',
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
-    shadowColor: '#4CAF50',
+    shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -1333,12 +1345,14 @@ const styles = StyleSheet.create({
   customTimerSection: {
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingTop: 20,
-    marginBottom: 16,
+    paddingTop: 24,
+    width: '100%',
+    maxWidth: 360,
   },
   timerOptionLocked: {
     backgroundColor: '#B0BEC5',
-    shadowColor: '#B0BEC5',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   customTimerSectionLocked: {
     opacity: 0.6,
@@ -1353,7 +1367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -1403,7 +1417,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   customTimerButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1f89ee',
     paddingHorizontal: 28,
     paddingVertical: 16,
     borderRadius: 14,
@@ -1417,14 +1431,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#FFF',
-  },
-  timerPickerCancel: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  timerPickerCancelText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#78909C',
   },
 });

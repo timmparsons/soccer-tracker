@@ -1,3 +1,4 @@
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useCreateGroupChallenge } from '@/hooks/useGroupChallenges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -54,6 +55,7 @@ export default function ChallengeSetupModal({
   const [isCustom, setIsCustom] = useState(false);
   const [selectedHours, setSelectedHours] = useState(24);
   const { mutate: createGroupChallenge, isPending } = useCreateGroupChallenge();
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
 
   const touchesTarget = isCustom ? parseInt(customTouches, 10) || 0 : selectedTouches;
   const canSend = touchesTarget > 0 && touchesTarget <= 10000;
@@ -90,9 +92,10 @@ export default function ChallengeSetupModal({
     <Modal visible={visible} animationType='slide' transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        onLayout={onDialogLayout}
       >
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16, marginBottom: kbOverlap }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled'>
           <View style={styles.handle} />
 

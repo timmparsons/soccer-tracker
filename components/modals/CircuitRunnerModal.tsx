@@ -1,4 +1,5 @@
 import CountdownView from '@/components/HomePage/ChallengeTimer/CountdownView';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { IntervalPhase, useIntervalTimer } from '@/hooks/useIntervalTimer';
 import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession } from '@/hooks/useDailyChallenge';
@@ -9,6 +10,7 @@ import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   StyleSheet,
@@ -170,6 +172,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   };
 
   const isDark = state === 'running' || state === 'countdown';
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
 
   return (
     <Modal
@@ -180,7 +183,11 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
       hardwareAccelerated
       onRequestClose={handleClose}
     >
-      <View style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}
+        onLayout={onDialogLayout}
+      >
         <TouchableOpacity style={styles.closeButton} onPress={handleClosePress} hitSlop={12}>
           <Ionicons name='close' size={28} color={isDark ? '#FFF' : '#78909C'} />
         </TouchableOpacity>
@@ -229,7 +236,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
         )}
 
         {state === 'earlyExit' && (
-          <View style={styles.content}>
+          <View style={[styles.content, { marginBottom: kbOverlap }]}>
             <Text style={styles.doneLabel}>END CIRCUIT</Text>
             <Text style={styles.subtitle}>
               How many touches did you get before stopping?
@@ -267,7 +274,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

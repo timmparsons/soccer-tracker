@@ -6,6 +6,7 @@ import {
   useLeaderboardWinCount,
   useUserBadges,
 } from '@/hooks/useBadges';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
@@ -99,6 +100,12 @@ const ProfilePage = () => {
   const [clubNameInput, setClubNameInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
   const [uploadingClubLogo, setUploadingClubLogo] = useState(false);
+  const changePasswordKb = useAndroidModalKeyboard();
+  const targetModalKb = useAndroidModalKeyboard();
+  const nameModalKb = useAndroidModalKeyboard();
+  const playerClubModalKb = useAndroidModalKeyboard();
+  const createClubModalKb = useAndroidModalKeyboard();
+  const coachClubSearchModalKb = useAndroidModalKeyboard();
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
@@ -1596,8 +1603,9 @@ const ProfilePage = () => {
           onRequestClose={() => setShowChangePasswordModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.changePasswordOverlay}
+            onLayout={changePasswordKb.onDialogLayout}
           >
             <TouchableOpacity
               style={{ flex: 1 }}
@@ -1607,7 +1615,7 @@ const ProfilePage = () => {
             <View
               style={[
                 styles.changePasswordSheet,
-                { paddingBottom: insets.bottom + 16 },
+                { paddingBottom: insets.bottom + 16, marginBottom: changePasswordKb.kbOverlap },
               ]}
             >
               <View style={styles.sheetHandle} />
@@ -1715,11 +1723,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowTargetModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
+            onLayout={targetModalKb.onDialogLayout}
           >
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { marginBottom: targetModalKb.kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalEmoji}>🎯</Text>
                   <Text style={styles.modalTitle}>Set Daily Target</Text>
@@ -1823,11 +1832,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowNameModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
+            onLayout={nameModalKb.onDialogLayout}
           >
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { marginBottom: nameModalKb.kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalEmoji}>✏️</Text>
                   <Text style={styles.modalTitle}>Edit Name</Text>
@@ -1888,11 +1898,12 @@ const ProfilePage = () => {
         }}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={playerClubModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={[styles.modalContent, { maxHeight: '80%', marginBottom: playerClubModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🏟️</Text>
                 <Text style={styles.modalTitle}>Find Your Club</Text>
@@ -2023,11 +2034,12 @@ const ProfilePage = () => {
         onRequestClose={() => setShowCreateClubModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={createClubModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { marginBottom: createClubModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🏆</Text>
                 <Text style={styles.modalTitle}>Create a Club</Text>
@@ -2084,11 +2096,12 @@ const ProfilePage = () => {
         }}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={coachClubSearchModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={[styles.modalContent, { maxHeight: '80%', marginBottom: coachClubSearchModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🔍</Text>
                 <Text style={styles.modalTitle}>Find Your Club</Text>
