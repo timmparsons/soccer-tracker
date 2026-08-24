@@ -35,7 +35,7 @@ const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length
 
 const MESSAGES: Record<VinnieMood, string[]> = {
   happy: [
-    "That's what I'm talking about! Keep the ball rolling 💪",
+    "That's what I'm talking about! Keep the ball rolling.",
     "Good session! Champions build habits, one day at a time.",
     "You showed up today. That's half the battle won.",
     "Nice work. Don't stop there — tomorrow we go again.",

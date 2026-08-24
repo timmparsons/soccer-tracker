@@ -1,6 +1,6 @@
 import CheerRow from '@/components/HomePage/CheerRow';
 import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
-import { useActivityFeed } from '@/hooks/useTeamActivity';
+import { ActivityIntensity, useActivityFeed } from '@/hooks/useTeamActivity';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
@@ -15,6 +15,22 @@ import {
 
 const FALLBACK_AVATAR =
   'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
+
+const intensityLabels: Record<ActivityIntensity, string> = {
+  light: 'Light Pace',
+  moderate: 'Moderate Pace',
+  intense: 'Intense Pace',
+};
+const intensityStyles: Record<ActivityIntensity, { backgroundColor: string }> = {
+  light: { backgroundColor: '#F0F4F8' },
+  moderate: { backgroundColor: '#EFF6FF' },
+  intense: { backgroundColor: '#FFF1E8' },
+};
+const intensityTextStyles: Record<ActivityIntensity, { color: string }> = {
+  light: { color: '#78909C' },
+  moderate: { color: '#1f89ee' },
+  intense: { color: '#B23B00' },
+};
 
 const ActivityFeed = () => {
   const { data: activity = [] } = useActivityFeed(7);
@@ -49,7 +65,22 @@ const ActivityFeed = () => {
                     <Ionicons name='flame' size={16} color='#B23B00' />
                   )}
                 </View>
-                <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
+                  {item.intensity && (
+                    <View style={[styles.intensityBadge, intensityStyles[item.intensity]]}>
+                      <Text style={[styles.intensityBadgeText, intensityTextStyles[item.intensity]]}>
+                        {intensityLabels[item.intensity]}
+                      </Text>
+                    </View>
+                  )}
+                  {!!item.streak && item.streak >= 2 && (
+                    <View style={styles.streakTag}>
+                      <Ionicons name='flame' size={11} color='#ffb724' />
+                      <Text style={styles.streakTagText}>{item.streak}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
             {!isOwn && !isCoach && user?.id && (
@@ -125,5 +156,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     marginTop: 2,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  intensityBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginTop: 2,
+  },
+  intensityBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  streakTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+  },
+  streakTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffb724',
   },
 });

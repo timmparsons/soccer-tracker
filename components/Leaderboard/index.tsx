@@ -2,31 +2,23 @@ import InactivePlayersModal from '@/components/common/InactivePlayersModal';
 import PageHeader from '@/components/common/PageHeader';
 import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
-import { useClubJugglingLeaderboard } from '@/hooks/useClubJugglingLeaderboard';
-import { useClubLeaderboard } from '@/hooks/useClubLeaderboard';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
-import { useGlobalJugglingLeaderboard } from '@/hooks/useGlobalJugglingLeaderboard';
-import { useGlobalLeaderboard } from '@/hooks/useGlobalLeaderboard';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
-import {
-  type TeamMemberStats,
-  useTouchesLeaderboard,
-} from '@/hooks/useLeaderboard';
+import { useJugglingLeaderboard } from '@/hooks/useJugglingLeaderboard';
+import { useTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
-import { useSprintLeaderboard } from '@/hooks/useSprintLeaderboard';
+import { useTabataLeaderboard } from '@/hooks/useTabataLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
+import { computeRankAndDeficit } from '@/lib/leaderboardRank';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { getTeamDisplayNames } from '@/utils/teamLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -35,99 +27,24 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-const SPRINT_BADGE_INFO: Record<
-  'crown' | 'pr' | 'earlyBird',
-  { icon: string; label: string; message: string; bg: string }
-> = {
-  crown: {
-    icon: '👑',
-    label: 'Crown',
-    message:
-      "Beat today's crown threshold — the target pace set for this challenge combo.",
-    bg: '#FEF9EC',
-  },
-  pr: {
-    icon: '📈',
-    label: 'PR',
-    message:
-      'Personal record — the fastest this player has ever run this challenge combo.',
-    bg: '#EFF6FF',
-  },
-  earlyBird: {
-    icon: '🌅',
-    label: 'Early Bird',
-    message: "First team member to log a time on today's challenge.",
-    bg: '#FFF4E5',
-  },
-};
-
-const getBeswickLevel = (
-  score: number,
-): { label: string; color: string; bg: string } => {
-  if (score >= 2500)
-    return { label: 'Dominate', color: '#D84315', bg: '#FBE9E7' };
-  if (score >= 1000) return { label: 'Win', color: '#1565C0', bg: '#E3F2FD' };
-  return { label: 'Turn Up', color: '#78909C', bg: '#F0F2F5' };
-};
-
-interface JugglingRecord {
-  id: string;
-  name: string;
-  avatar_url: string | null;
-  high_score: number;
-  date_achieved: string;
-}
+import JugglingHighScoresView from './JugglingHighScoresView';
+import StickyRankBanner from './StickyRankBanner';
+import Switcher, { CompeteView } from './Switcher';
+import TabataHighScoresView from './TabataHighScoresView';
+import WeeklyTouchesView from './WeeklyTouchesView';
 
 const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
   const challengeNotifications = useChallengeNotifications();
   const { data: team } = useTeam(user?.id);
-  const router = useRouter();
 
-  const hasTeam = !!profile?.team_id;
-  const hasClub = !!(profile as any)?.club_id;
-
-  const [view, setView] = useState<'team' | 'club' | 'global'>('global');
-  const viewInitialized = useRef(false);
-
-  useEffect(() => {
-    if (profile && !viewInitialized.current) {
-      viewInitialized.current = true;
-      setView(hasTeam ? 'team' : hasClub ? 'club' : 'global');
-    }
-  }, [profile?.id]);
-  const [teamSubTab, setTeamSubTab] = useState<
-    'touches' | 'juggling' | 'sprint'
-  >('touches');
-  const [clubSubTab, setClubSubTab] = useState<'touches' | 'juggling'>(
-    'touches',
-  );
-  const [globalSubTab, setGlobalSubTab] = useState<'touches' | 'juggling'>(
-    'touches',
-  );
-  const [touchesPeriod, setTouchesPeriod] = useState<
-    'today' | 'week' | 'last_week' | 'alltime'
-  >('today');
-  const [clubPeriod, setClubPeriod] = useState<
-    'today' | 'week' | 'last_week' | 'alltime'
-  >('today');
-  const [globalPeriod, setGlobalPeriod] = useState<
-    'today' | 'week' | 'last_week' | 'alltime'
-  >('today');
-  const [jugglingPeriod, setJugglingPeriod] = useState<'week' | 'alltime'>(
-    'week',
-  );
+  const [activeView, setActiveView] = useState<CompeteView>('touches');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
   const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [periodPickerVisible, setPeriodPickerVisible] = useState(false);
-  const [badgeInfoModal, setBadgeInfoModal] = useState<
-    keyof typeof SPRINT_BADGE_INFO | null
-  >(null);
 
   const { data: coachTeams = [] } = useCoachTeams(
     profile?.is_coach ? user?.id : undefined,
@@ -166,54 +83,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     return getLocalDate(lastSunday);
   }, []);
 
-  const getPeriodLabel = () => {
-    if (view === 'club' || view === 'global') {
-      const subTab = view === 'club' ? clubSubTab : globalSubTab;
-      const period = view === 'club' ? clubPeriod : globalPeriod;
-      if (subTab === 'juggling')
-        return period === 'week' ? 'This Week' : 'All Time';
-      const labels = {
-        today: 'Today',
-        week: 'This Week',
-        last_week: 'Last Week',
-        alltime: 'Best Week',
-      };
-      return labels[period];
-    }
-    if (teamSubTab === 'juggling')
-      return jugglingPeriod === 'week' ? 'This Week' : 'All Time';
-    const labels = {
-      today: 'Today',
-      week: 'This Week',
-      last_week: 'Last Week',
-      alltime: 'Best Week',
-    };
-    return labels[touchesPeriod];
-  };
-
-  const getResetNote = (): string | null => {
-    if (view === 'club' || view === 'global') {
-      const subTab = view === 'club' ? clubSubTab : globalSubTab;
-      const period = view === 'club' ? clubPeriod : globalPeriod;
-      if (subTab === 'juggling')
-        return period === 'week' ? 'Resets Sunday' : null;
-      if (period === 'today') return 'Resets at midnight';
-      if (period === 'week') return 'Resets Sunday';
-      if (period === 'alltime') return 'Best single week ever';
-      return null;
-    }
-    if (view === 'team') {
-      if (teamSubTab === 'touches') {
-        if (touchesPeriod === 'week') return 'Resets Sunday';
-        if (touchesPeriod === 'alltime') return 'Best single week ever';
-      }
-      if (teamSubTab === 'juggling')
-        return jugglingPeriod === 'week' ? 'Resets Sunday' : null;
-      if (teamSubTab === 'sprint') return "Today's sprint only — resets daily";
-    }
-    return null;
-  };
-
   const {
     data: touchesLeaderboard = [],
     isLoading: touchesLoading,
@@ -221,111 +90,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   } = useTouchesLeaderboard(effectiveTeamId, seasonStartDate);
 
   const {
+    data: tabataLeaderboard = [],
+    isLoading: tabataLoading,
+    refetch: refetchTabata,
+  } = useTabataLeaderboard(effectiveTeamId);
+
+  const {
     data: jugglingLeaderboard = [],
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
-  } = useQuery({
-    queryKey: [
-      'team-juggling-leaderboard',
-      effectiveTeamId,
-      jugglingPeriod,
-      seasonStartDate,
-    ],
-    queryFn: async () => {
-      if (!effectiveTeamId) return [];
-
-      const today = getLocalDate();
-      const todayObj = new Date();
-      const weekStartObj = new Date();
-      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay());
-      const weekStartDate = getLocalDate(weekStartObj);
-
-      const { data: teamMembers, error: membersError } = await supabase
-        .from('profiles')
-        .select('id, name, display_name, avatar_url')
-        .eq('team_id', effectiveTeamId)
-        .eq('is_coach', false);
-
-      if (membersError) throw membersError;
-      if (!teamMembers || teamMembers.length === 0) return [];
-
-      const memberRecords: JugglingRecord[] = await Promise.all(
-        teamMembers.map(async (member) => {
-          let query = supabase
-            .from('daily_sessions')
-            .select('juggle_count, date')
-            .eq('user_id', member.id)
-            .not('juggle_count', 'is', null)
-            .gt('juggle_count', 0)
-            .order('juggle_count', { ascending: false })
-            .limit(1);
-
-          if (jugglingPeriod === 'week') {
-            query = query.gte('date', weekStartDate).lte('date', today);
-          }
-
-          const { data: bestSession } = await query.single();
-
-          return {
-            id: member.id,
-            name: member.name || member.display_name || 'Unknown Player',
-            avatar_url: member.avatar_url,
-            high_score: bestSession?.juggle_count || 0,
-            date_achieved: bestSession?.date || getLocalDate(),
-          };
-        }),
-      );
-
-      return memberRecords
-        .filter((r) => r.high_score > 0)
-        .sort(
-          (a, b) => b.high_score - a.high_score || a.name.localeCompare(b.name),
-        );
-    },
-    enabled: !!profile?.team_id,
-    refetchInterval: 60_000,
-  });
-
-  const {
-    data: globalLeaderboard = [],
-    isLoading: globalLoading,
-    refetch: refetchGlobal,
-  } = useGlobalLeaderboard(globalPeriod);
-
-  const {
-    data: globalJugglingLeaderboard = [],
-    isLoading: globalJugglingLoading,
-    refetch: refetchGlobalJuggling,
-  } = useGlobalJugglingLeaderboard(
-    globalPeriod === 'week' || globalPeriod === 'alltime'
-      ? globalPeriod
-      : 'week',
-  );
-
-  const clubId = (profile as any)?.club_id ?? undefined;
-
-  const {
-    data: clubLeaderboard = [],
-    isLoading: clubLoading,
-    refetch: refetchClub,
-  } = useClubLeaderboard(clubId, clubPeriod);
-
-  const {
-    data: clubJugglingLeaderboard = [],
-    isLoading: clubJugglingLoading,
-    refetch: refetchClubJuggling,
-  } = useClubJugglingLeaderboard(
-    clubId,
-    clubPeriod === 'week' || clubPeriod === 'alltime' ? clubPeriod : 'week',
-  );
-
-  const {
-    data: sprintLeaderboard = [],
-    isLoading: sprintLoading,
-    refetch: refetchSprint,
-  } = useSprintLeaderboard(effectiveTeamId);
-
-  const isLoading = touchesLoading || jugglingLoading;
+  } = useJugglingLeaderboard(effectiveTeamId);
 
   useEffect(() => {
     if (!touchesLeaderboard.length || !user?.id) return;
@@ -339,15 +113,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      refetchTouches(),
-      refetchJuggling(),
-      refetchGlobal(),
-      refetchGlobalJuggling(),
-      refetchClub(),
-      refetchClubJuggling(),
-      refetchSprint(),
-    ]);
+    await Promise.all([refetchTouches(), refetchTabata(), refetchJuggling()]);
     setRefreshing(false);
   };
 
@@ -355,448 +121,35 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     useCallback(() => {
       refetchProfile();
       refetchTouches();
+      refetchTabata();
       refetchJuggling();
-      refetchGlobal();
-      refetchGlobalJuggling();
-      refetchClub();
-      refetchClubJuggling();
-      refetchSprint();
-    }, [
-      refetchProfile,
-      refetchTouches,
-      refetchJuggling,
-      refetchGlobal,
-      refetchGlobalJuggling,
-      refetchClub,
-      refetchClubJuggling,
-      refetchSprint,
-    ]),
+    }, [refetchProfile, refetchTouches, refetchTabata, refetchJuggling]),
   );
 
-  if (isLoading && view === 'team') {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#1f89ee' />
-      </View>
+  const rankBanner = useMemo(() => {
+    if (activeView === 'touches') {
+      const result = computeRankAndDeficit(
+        touchesLeaderboard,
+        user?.id,
+        'weekly_touches',
+      );
+      return result && { ...result, unitLabel: 'touches to pass' };
+    }
+    if (activeView === 'tabata') {
+      const result = computeRankAndDeficit(
+        tabataLeaderboard,
+        user?.id,
+        'max_reps',
+      );
+      return result && { ...result, unitLabel: 'reps to pass' };
+    }
+    const result = computeRankAndDeficit(
+      jugglingLeaderboard,
+      user?.id,
+      'high_score',
     );
-  }
-
-  const sortedTouches = [...touchesLeaderboard].sort((a, b) => {
-    let diff = 0;
-    if (touchesPeriod === 'today') diff = b.today_touches - a.today_touches;
-    else if (touchesPeriod === 'week')
-      diff = b.weekly_touches - a.weekly_touches;
-    else if (touchesPeriod === 'last_week')
-      diff = b.last_week_touches - a.last_week_touches;
-    else diff = b.alltime_best_week - a.alltime_best_week;
-    return diff !== 0 ? diff : a.name.localeCompare(b.name);
-  });
-
-  const getTouchScore = (player: TeamMemberStats) => {
-    if (touchesPeriod === 'today') return player.today_touches;
-    if (touchesPeriod === 'week') return player.weekly_touches;
-    if (touchesPeriod === 'last_week') return player.last_week_touches;
-    return player.alltime_best_week;
-  };
-
-  const teamDisplayNames = getTeamDisplayNames([
-    ...touchesLeaderboard,
-    ...jugglingLeaderboard,
-  ]);
-  const teamName = (p: { id: string; name: string }) =>
-    teamDisplayNames[p.id] ?? p.name;
-
-  const scoredPlayers = sortedTouches.filter((p) => getTouchScore(p) > 0);
-  const showTouchesPodium = scoredPlayers.length >= 1;
-  const podiumCount = Math.min(scoredPlayers.length, 3);
-
-  const getDenseRank = (score: number, scores: number[]) =>
-    new Set(scores.filter((s) => s > score)).size + 1;
-
-  const getMedalEmoji = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return '';
-  };
-
-  const showSprintBadgeInfo = (badge: keyof typeof SPRINT_BADGE_INFO) => {
-    setBadgeInfoModal(badge);
-  };
-
-  const getCurrentUserId = () => user?.id;
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00');
-    const today = new Date();
-    const diffDays = Math.floor(
-      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const renderTouchesPodium = () => {
-    if (!showTouchesPodium) return null;
-    return (
-      <View style={styles.podium}>
-        {/* 1st — left when 1 or 2, centre when 3 */}
-        {(podiumCount === 1 || podiumCount === 2) &&
-          (() => {
-            const p = scoredPlayers[0];
-            const score = getTouchScore(p);
-            const rank = getDenseRank(
-              score,
-              scoredPlayers.map((q) => getTouchScore(q)),
-            );
-            const level =
-              score > 0 && touchesPeriod === 'today'
-                ? getBeswickLevel(score)
-                : null;
-            return (
-              <TouchableOpacity
-                style={[styles.podiumSpot, styles.podiumFirst]}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.crownContainer}>
-                  <Text style={styles.crown}>👑</Text>
-                </View>
-                <View style={styles.podiumAvatarContainer}>
-                  <Image
-                    source={{
-                      uri:
-                        p.avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar1}
-                  />
-                  {p.today_touches >= p.daily_target && (
-                    <Text style={styles.podiumTargetIcon}>🎯</Text>
-                  )}
-                </View>
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>
-                  {score.toLocaleString()}
-                </Text>
-                {level && (
-                  <View
-                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
-                  >
-                    <Text
-                      style={[styles.beswickBadgeText, { color: level.color }]}
-                    >
-                      {level.label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })()}
-
-        {/* 2nd — right when 2, left when 3 */}
-        {podiumCount >= 2 &&
-          (() => {
-            const p = scoredPlayers[1];
-            const score = getTouchScore(p);
-            const rank = getDenseRank(
-              score,
-              scoredPlayers.map((q) => getTouchScore(q)),
-            );
-            const level =
-              score > 0 && touchesPeriod === 'today'
-                ? getBeswickLevel(score)
-                : null;
-            return (
-              <TouchableOpacity
-                style={styles.podiumSpot}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.podiumAvatarContainer}>
-                  <Image
-                    source={{
-                      uri:
-                        p.avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar2}
-                  />
-                  {p.today_touches >= p.daily_target && (
-                    <Text style={styles.podiumTargetIcon}>🎯</Text>
-                  )}
-                </View>
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>
-                  {score.toLocaleString()}
-                </Text>
-                {level && (
-                  <View
-                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
-                  >
-                    <Text
-                      style={[styles.beswickBadgeText, { color: level.color }]}
-                    >
-                      {level.label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })()}
-
-        {/* 1st — centre when 3 */}
-        {podiumCount === 3 &&
-          (() => {
-            const p = scoredPlayers[0];
-            const score = getTouchScore(p);
-            const rank = getDenseRank(
-              score,
-              scoredPlayers.map((q) => getTouchScore(q)),
-            );
-            const level =
-              score > 0 && touchesPeriod === 'today'
-                ? getBeswickLevel(score)
-                : null;
-            return (
-              <TouchableOpacity
-                style={[styles.podiumSpot, styles.podiumFirst]}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.crownContainer}>
-                  <Text style={styles.crown}>👑</Text>
-                </View>
-                <View style={styles.podiumAvatarContainer}>
-                  <Image
-                    source={{
-                      uri:
-                        p.avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar1}
-                  />
-                  {p.today_touches >= p.daily_target && (
-                    <Text style={styles.podiumTargetIcon}>🎯</Text>
-                  )}
-                </View>
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>
-                  {score.toLocaleString()}
-                </Text>
-                {level && (
-                  <View
-                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
-                  >
-                    <Text
-                      style={[styles.beswickBadgeText, { color: level.color }]}
-                    >
-                      {level.label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })()}
-
-        {/* 3rd */}
-        {podiumCount >= 3 &&
-          (() => {
-            const p = scoredPlayers[2];
-            const score = getTouchScore(p);
-            const rank = getDenseRank(
-              score,
-              scoredPlayers.map((q) => getTouchScore(q)),
-            );
-            const level =
-              score > 0 && touchesPeriod === 'today'
-                ? getBeswickLevel(score)
-                : null;
-            return (
-              <TouchableOpacity
-                style={styles.podiumSpot}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.podiumAvatarContainer}>
-                  <Image
-                    source={{
-                      uri:
-                        p.avatar_url ||
-                        'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                    }}
-                    style={styles.podiumAvatar3}
-                  />
-                  {p.today_touches >= p.daily_target && (
-                    <Text style={styles.podiumTargetIcon}>🎯</Text>
-                  )}
-                </View>
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>
-                  {score.toLocaleString()}
-                </Text>
-                {level && (
-                  <View
-                    style={[styles.beswickBadge, { backgroundColor: level.bg }]}
-                  >
-                    <Text
-                      style={[styles.beswickBadgeText, { color: level.color }]}
-                    >
-                      {level.label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })()}
-      </View>
-    );
-  };
-
-  const renderJugglingPodium = () => {
-    const jPodiumCount = Math.min(jugglingLeaderboard.length, 3);
-    if (jPodiumCount === 0) return null;
-    return (
-      <View style={styles.podium}>
-        {(jPodiumCount === 1 || jPodiumCount === 2) &&
-          (() => {
-            const p = jugglingLeaderboard[0];
-            const rank = getDenseRank(
-              p.high_score,
-              jugglingLeaderboard.map((q) => q.high_score),
-            );
-            return (
-              <TouchableOpacity
-                style={[styles.podiumSpot, styles.podiumFirst]}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.crownContainer}>
-                  <Text style={styles.crown}>👑</Text>
-                </View>
-                <Image
-                  source={{
-                    uri:
-                      p.avatar_url ||
-                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                  }}
-                  style={styles.podiumAvatar1}
-                />
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              </TouchableOpacity>
-            );
-          })()}
-        {jPodiumCount >= 2 &&
-          (() => {
-            const p = jugglingLeaderboard[1];
-            const rank = getDenseRank(
-              p.high_score,
-              jugglingLeaderboard.map((q) => q.high_score),
-            );
-            return (
-              <TouchableOpacity
-                style={styles.podiumSpot}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <Image
-                  source={{
-                    uri:
-                      p.avatar_url ||
-                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                  }}
-                  style={styles.podiumAvatar2}
-                />
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              </TouchableOpacity>
-            );
-          })()}
-        {jPodiumCount === 3 &&
-          (() => {
-            const p = jugglingLeaderboard[0];
-            const rank = getDenseRank(
-              p.high_score,
-              jugglingLeaderboard.map((q) => q.high_score),
-            );
-            return (
-              <TouchableOpacity
-                style={[styles.podiumSpot, styles.podiumFirst]}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.crownContainer}>
-                  <Text style={styles.crown}>👑</Text>
-                </View>
-                <Image
-                  source={{
-                    uri:
-                      p.avatar_url ||
-                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                  }}
-                  style={styles.podiumAvatar1}
-                />
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              </TouchableOpacity>
-            );
-          })()}
-        {jPodiumCount >= 3 &&
-          (() => {
-            const p = jugglingLeaderboard[2];
-            const rank = getDenseRank(
-              p.high_score,
-              jugglingLeaderboard.map((q) => q.high_score),
-            );
-            return (
-              <TouchableOpacity
-                style={styles.podiumSpot}
-                onPress={() => setSelectedPlayerId(p.id)}
-                activeOpacity={0.7}
-              >
-                <Image
-                  source={{
-                    uri:
-                      p.avatar_url ||
-                      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                  }}
-                  style={styles.podiumAvatar3}
-                />
-                <Text style={styles.podiumMedal}>{getMedalEmoji(rank)}</Text>
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {teamName(p)}
-                </Text>
-                <Text style={styles.podiumTouches}>{p.high_score}</Text>
-              </TouchableOpacity>
-            );
-          })()}
-      </View>
-    );
-  };
+    return result && { ...result, unitLabel: 'juggles to pass' };
+  }, [activeView, touchesLeaderboard, tabataLeaderboard, jugglingLeaderboard, user?.id]);
 
   return (
     <View style={styles.container}>
@@ -813,360 +166,11 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         />
       )}
 
-      {/* TOP VIEW TABS: underline style, period dropdown inline on the right */}
-      <View style={styles.tabsContainer}>
-        <View style={styles.tabsLeft}>
-          {hasTeam && (
-            <TouchableOpacity
-              style={[styles.tab, view === 'team' && styles.tabActive]}
-              onPress={() => setView('team')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  view === 'team' && styles.tabTextActive,
-                ]}
-              >
-                Team
-              </Text>
-            </TouchableOpacity>
-          )}
-          {hasClub && (
-            <TouchableOpacity
-              style={[styles.tab, view === 'club' && styles.tabActive]}
-              onPress={() => setView('club')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  view === 'club' && styles.tabTextActive,
-                ]}
-              >
-                Club
-              </Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[styles.tab, view === 'global' && styles.tabActive]}
-            onPress={() => setView('global')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                view === 'global' && styles.tabTextActive,
-              ]}
-            >
-              Global
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.periodRow}>
-          {view === 'team' && teamSubTab === 'sprint' ? (
-            <Text style={styles.periodDropdownText}>Today</Text>
-          ) : (
-            <TouchableOpacity
-              style={styles.periodDropdownBtn}
-              onPress={() => setPeriodPickerVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.periodDropdownText}>{getPeriodLabel()}</Text>
-              <Ionicons name='chevron-down' size={14} color='#6B7280' />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Controls — segmented control (full width, equal pills) */}
       <View style={styles.controlsRow}>
-        {view === 'team' && (
-          <View style={styles.subTabsRow}>
-            <TouchableOpacity
-              style={[
-                styles.subTab,
-                teamSubTab === 'touches' && styles.subTabActive,
-              ]}
-              onPress={() => setTeamSubTab('touches')}
-            >
-              <Text
-                style={[
-                  styles.subTabText,
-                  teamSubTab === 'touches' && styles.subTabTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                Touches
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.subTab,
-                teamSubTab === 'juggling' && styles.subTabActive,
-              ]}
-              onPress={() => setTeamSubTab('juggling')}
-            >
-              <Text
-                style={[
-                  styles.subTabText,
-                  teamSubTab === 'juggling' && styles.subTabTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                Juggling
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.subTab,
-                teamSubTab === 'sprint' && styles.subTabActive,
-              ]}
-              onPress={() => setTeamSubTab('sprint')}
-            >
-              <Text
-                style={[
-                  styles.subTabText,
-                  teamSubTab === 'sprint' && styles.subTabTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                Challenges
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        {(view === 'club' || view === 'global') && (
-          <View style={styles.subTabsRow}>
-            <TouchableOpacity
-              style={[
-                styles.subTab,
-                (view === 'club' ? clubSubTab : globalSubTab) === 'touches' &&
-                  styles.subTabActive,
-              ]}
-              onPress={() =>
-                view === 'club'
-                  ? setClubSubTab('touches')
-                  : setGlobalSubTab('touches')
-              }
-            >
-              <Text
-                style={[
-                  styles.subTabText,
-                  (view === 'club' ? clubSubTab : globalSubTab) === 'touches' &&
-                    styles.subTabTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                Touches
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.subTab,
-                (view === 'club' ? clubSubTab : globalSubTab) === 'juggling' &&
-                  styles.subTabActive,
-              ]}
-              onPress={() => {
-                if (view === 'club') {
-                  setClubSubTab('juggling');
-                  // Juggling only supports This Week / All Time — bump off Today or Last Week if selected on Touches.
-                  if (clubPeriod === 'today' || clubPeriod === 'last_week')
-                    setClubPeriod('week');
-                } else {
-                  setGlobalSubTab('juggling');
-                  if (globalPeriod === 'today' || globalPeriod === 'last_week')
-                    setGlobalPeriod('week');
-                }
-              }}
-            >
-              <Text
-                style={[
-                  styles.subTabText,
-                  (view === 'club' ? clubSubTab : globalSubTab) ===
-                    'juggling' && styles.subTabTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                Juggling
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <Switcher active={activeView} onChange={setActiveView} />
       </View>
 
-      {/* Reset note — always rendered to prevent layout jump */}
-      <Text style={styles.resetNote}>{getResetNote() ?? ''}</Text>
-
-      {/* Period picker modal */}
-      <Modal
-        transparent
-        visible={periodPickerVisible}
-        animationType='slide'
-        onRequestClose={() => setPeriodPickerVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.pickerOverlay}
-          activeOpacity={1}
-          onPress={() => setPeriodPickerVisible(false)}
-        >
-          <View style={styles.pickerSheet}>
-            <Text style={styles.pickerTitle}>Time Period</Text>
-            {view === 'club' || view === 'global'
-              ? (() => {
-                  const subTab = view === 'club' ? clubSubTab : globalSubTab;
-                  const period = view === 'club' ? clubPeriod : globalPeriod;
-                  const setPeriod =
-                    view === 'club' ? setClubPeriod : setGlobalPeriod;
-                  return (
-                    subTab === 'touches'
-                      ? (['today', 'week', 'last_week', 'alltime'] as const)
-                      : (['week', 'alltime'] as const)
-                  ).map((p) => (
-                    <TouchableOpacity
-                      key={p}
-                      style={[
-                        styles.pickerRow,
-                        period === p && styles.pickerRowActive,
-                      ]}
-                      onPress={() => {
-                        setPeriod(p);
-                        setPeriodPickerVisible(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerRowText,
-                          period === p && styles.pickerRowTextActive,
-                        ]}
-                      >
-                        {p === 'today'
-                          ? 'Today'
-                          : p === 'week'
-                            ? 'This Week'
-                            : p === 'last_week'
-                              ? 'Last Week'
-                              : subTab === 'touches'
-                                ? 'Best Week'
-                                : 'All Time'}
-                      </Text>
-                      {period === p && (
-                        <Ionicons name='checkmark' size={18} color='#1f89ee' />
-                      )}
-                    </TouchableOpacity>
-                  ));
-                })()
-              : teamSubTab === 'touches'
-                ? (['today', 'week', 'last_week', 'alltime'] as const).map(
-                    (p) => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[
-                          styles.pickerRow,
-                          touchesPeriod === p && styles.pickerRowActive,
-                        ]}
-                        onPress={() => {
-                          setTouchesPeriod(p);
-                          setPeriodPickerVisible(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.pickerRowText,
-                            touchesPeriod === p && styles.pickerRowTextActive,
-                          ]}
-                        >
-                          {p === 'today'
-                            ? 'Today'
-                            : p === 'week'
-                              ? 'This Week'
-                              : p === 'last_week'
-                                ? 'Last Week'
-                                : 'Best Week'}
-                        </Text>
-                        {touchesPeriod === p && (
-                          <Ionicons
-                            name='checkmark'
-                            size={18}
-                            color='#1f89ee'
-                          />
-                        )}
-                      </TouchableOpacity>
-                    ),
-                  )
-                : (['week', 'alltime'] as const).map((p) => (
-                    <TouchableOpacity
-                      key={p}
-                      style={[
-                        styles.pickerRow,
-                        jugglingPeriod === p && styles.pickerRowActive,
-                      ]}
-                      onPress={() => {
-                        setJugglingPeriod(p);
-                        setPeriodPickerVisible(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerRowText,
-                          jugglingPeriod === p && styles.pickerRowTextActive,
-                        ]}
-                      >
-                        {p === 'week' ? 'This Week' : 'All Time'}
-                      </Text>
-                      {jugglingPeriod === p && (
-                        <Ionicons name='checkmark' size={18} color='#1f89ee' />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Sprint badge info — explains what Crown/PR/Early Bird mean */}
-      <Modal
-        transparent
-        visible={badgeInfoModal !== null}
-        animationType='slide'
-        onRequestClose={() => setBadgeInfoModal(null)}
-      >
-        <TouchableOpacity
-          style={styles.pickerOverlay}
-          activeOpacity={1}
-          onPress={() => setBadgeInfoModal(null)}
-        >
-          <View style={styles.badgeInfoSheet}>
-            {badgeInfoModal && (
-              <>
-                <View
-                  style={[
-                    styles.badgeInfoIconBg,
-                    { backgroundColor: SPRINT_BADGE_INFO[badgeInfoModal].bg },
-                  ]}
-                >
-                  <Text style={styles.badgeInfoIcon}>
-                    {SPRINT_BADGE_INFO[badgeInfoModal].icon}
-                  </Text>
-                </View>
-                <Text style={styles.badgeInfoTitle}>
-                  {SPRINT_BADGE_INFO[badgeInfoModal].label}
-                </Text>
-                <Text style={styles.badgeInfoMessage}>
-                  {SPRINT_BADGE_INFO[badgeInfoModal].message}
-                </Text>
-                <TouchableOpacity
-                  style={styles.badgeInfoButton}
-                  onPress={() => setBadgeInfoModal(null)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.badgeInfoButtonText}>Got it</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Team picker — coaches with 2+ teams, team view only */}
-      {view === 'team' && profile?.is_coach && coachTeams.length > 1 && (
+      {profile?.is_coach && coachTeams.length > 1 && (
         <TouchableOpacity
           style={styles.teamPickerPill}
           onPress={() => setTeamPickerVisible(true)}
@@ -1177,7 +181,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         </TouchableOpacity>
       )}
 
-      {/* Team picker bottom sheet */}
       <Modal
         transparent
         visible={teamPickerVisible}
@@ -1221,7 +224,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       </Modal>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          rankBanner ? styles.contentWithBanner : undefined,
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1230,590 +236,52 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           />
         }
       >
-        {/* ── TEAM VIEW ── */}
-        {view === 'team' && (
-          <>
-            {teamSubTab === 'touches' && (
-              <>
-                {renderTouchesPodium()}
-
-                <View style={styles.listContainer}>
-                  {sortedTouches.slice(podiumCount).map((player) => {
-                    const isCurrentUser = player.id === getCurrentUserId();
-                    const score = getTouchScore(player);
-                    const rank = getDenseRank(
-                      score,
-                      sortedTouches.map((p) => getTouchScore(p)),
-                    );
-                    const level =
-                      score > 0 && touchesPeriod === 'today'
-                        ? getBeswickLevel(score)
-                        : null;
-                    return (
-                      <TouchableOpacity
-                        key={player.id}
-                        style={[
-                          styles.playerCard,
-                          isCurrentUser && styles.currentUserCard,
-                        ]}
-                        onPress={() => setSelectedPlayerId(player.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.playerLeft}>
-                          <View style={styles.rankContainer}>
-                            <Text style={styles.rankNumber}>{rank}</Text>
-                          </View>
-                          <Image
-                            source={{
-                              uri:
-                                player.avatar_url ||
-                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                            }}
-                            style={styles.avatar}
-                          />
-                          <View style={styles.playerInfo}>
-                            <View style={styles.nameRow}>
-                              <Text style={styles.playerName}>
-                                {teamName(player)}
-                                {isCurrentUser && (
-                                  <Text style={styles.youBadge}> (You)</Text>
-                                )}
-                              </Text>
-                            </View>
-                            <View style={styles.statsRow}>
-                              <Text style={styles.todayTouches}>
-                                {touchesPeriod === 'today' &&
-                                  `${player.today_touches.toLocaleString()} today`}
-                                {touchesPeriod === 'week' &&
-                                  `${player.today_touches.toLocaleString()} today`}
-                                {touchesPeriod === 'last_week' &&
-                                  `${player.weekly_touches.toLocaleString()} this week`}
-                                {touchesPeriod === 'alltime' &&
-                                  `${player.weekly_touches.toLocaleString()} this week`}
-                              </Text>
-                            </View>
-                            {level && (
-                              <View
-                                style={[
-                                  styles.beswickBadge,
-                                  {
-                                    backgroundColor: level.bg,
-                                    alignSelf: 'flex-start',
-                                  },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.beswickBadgeText,
-                                    { color: level.color },
-                                  ]}
-                                >
-                                  {level.label}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                        <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>
-                            {score.toLocaleString()}
-                          </Text>
-                          <Text style={styles.touchesLabel}>touches</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {teamSubTab === 'juggling' && (
-              <>
-                {jugglingLeaderboard.length === 0 && !jugglingLoading && (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>
-                      No Juggling Records
-                    </Text>
-                    <Text style={styles.emptyStateText}>
-                      Team members will appear here once they set juggling high
-                      scores.
-                    </Text>
-                  </View>
-                )}
-
-                {renderJugglingPodium()}
-
-                <View style={styles.listContainer}>
-                  {jugglingLeaderboard
-                    .slice(Math.min(jugglingLeaderboard.length, 3))
-                    .map((player) => {
-                      const isCurrentUser = player.id === getCurrentUserId();
-                      const rank = getDenseRank(
-                        player.high_score,
-                        jugglingLeaderboard.map((p) => p.high_score),
-                      );
-                      return (
-                        <TouchableOpacity
-                          key={player.id}
-                          style={[
-                            styles.playerCard,
-                            isCurrentUser && styles.currentUserCard,
-                          ]}
-                          onPress={() => setSelectedPlayerId(player.id)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.playerLeft}>
-                            <View style={styles.rankContainer}>
-                              <Text style={styles.rankNumber}>{rank}</Text>
-                            </View>
-                            <Image
-                              source={{
-                                uri:
-                                  player.avatar_url ||
-                                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                              }}
-                              style={styles.avatar}
-                            />
-                            <View style={styles.playerInfo}>
-                              <View style={styles.nameRow}>
-                                <Text style={styles.playerName}>
-                                  {teamName(player)}
-                                  {isCurrentUser && (
-                                    <Text style={styles.youBadge}> (You)</Text>
-                                  )}
-                                </Text>
-                              </View>
-                              <Text style={styles.jugglingDate}>
-                                {formatDate(player.date_achieved)}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.playerRight}>
-                            <Text style={styles.jugglingScore}>
-                              {player.high_score}
-                            </Text>
-                            <Text style={styles.touchesLabel}>juggles</Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
-              </>
-            )}
-
-            {teamSubTab === 'sprint' && (
-              <>
-                {sprintLoading ? (
-                  <ActivityIndicator
-                    size='large'
-                    color='#1f89ee'
-                    style={{ marginTop: 40 }}
-                  />
-                ) : sprintLeaderboard.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>
-                      No Sprint Times Yet
-                    </Text>
-                    <Text style={styles.emptyStateText}>
-                      Team members will appear here once they log today&apos;s
-                      sprint.
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.listContainer}>
-                    {sprintLeaderboard.map((entry, index) => {
-                      const isCurrentUser = entry.userId === getCurrentUserId();
-                      return (
-                        <TouchableOpacity
-                          key={entry.userId}
-                          style={[
-                            styles.playerCard,
-                            isCurrentUser && styles.currentUserCard,
-                          ]}
-                          onPress={() => setSelectedPlayerId(entry.userId)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.playerLeft}>
-                            <View style={styles.rankContainer}>
-                              <Text style={styles.rankNumber}>{index + 1}</Text>
-                            </View>
-                            <Image
-                              source={{
-                                uri:
-                                  entry.avatarUrl ||
-                                  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                              }}
-                              style={styles.avatar}
-                            />
-                            <View style={styles.playerInfo}>
-                              <View style={styles.nameRow}>
-                                <Text style={styles.playerName}>
-                                  {entry.name}
-                                  {isCurrentUser && (
-                                    <Text style={styles.youBadge}> (You)</Text>
-                                  )}
-                                </Text>
-                              </View>
-                              {(entry.isCrown ||
-                                entry.isPR ||
-                                entry.isEarlyBird) && (
-                                <View style={styles.sprintBadgeRow}>
-                                  {entry.isCrown && (
-                                    <TouchableOpacity
-                                      onPress={(e) => {
-                                        e.stopPropagation();
-                                        showSprintBadgeInfo('crown');
-                                      }}
-                                      hitSlop={6}
-                                    >
-                                      <Text style={styles.sprintBadgeText}>
-                                        👑 Crown
-                                      </Text>
-                                    </TouchableOpacity>
-                                  )}
-                                  {entry.isPR && (
-                                    <TouchableOpacity
-                                      onPress={(e) => {
-                                        e.stopPropagation();
-                                        showSprintBadgeInfo('pr');
-                                      }}
-                                      hitSlop={6}
-                                    >
-                                      <Text style={styles.sprintBadgeText}>
-                                        📈 PR
-                                      </Text>
-                                    </TouchableOpacity>
-                                  )}
-                                  {entry.isEarlyBird && (
-                                    <TouchableOpacity
-                                      onPress={(e) => {
-                                        e.stopPropagation();
-                                        showSprintBadgeInfo('earlyBird');
-                                      }}
-                                      hitSlop={6}
-                                    >
-                                      <Text style={styles.sprintBadgeText}>
-                                        🌅 Early Bird
-                                      </Text>
-                                    </TouchableOpacity>
-                                  )}
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                          <View style={styles.playerRight}>
-                            {entry.isDurationMode ? (
-                              <>
-                                <Text style={styles.jugglingScore}>
-                                  {entry.reps ?? 0}
-                                </Text>
-                                <Text style={styles.touchesLabel}>reps</Text>
-                              </>
-                            ) : (
-                              <Text style={styles.weeklyTouches}>
-                                {((entry.durationMs ?? 0) / 1000).toFixed(2)}s
-                              </Text>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {/* ── CLUB VIEW ── */}
-        {view === 'club' && (
-          <>
-            {clubSubTab === 'touches' ? (
-              clubLoading ? (
-                <ActivityIndicator
-                  size='large'
-                  color='#1f89ee'
-                  style={{ marginTop: 40 }}
-                />
-              ) : clubLeaderboard.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>No Club Yet</Text>
-                  <Text style={styles.emptyStateText}>
-                    Ask your coach to set up a club to see cross-team standings
-                    here.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.listContainer}>
-                  {clubLeaderboard.map((player) => {
-                    const isCurrentUser = player.id === getCurrentUserId();
-                    const rank = getDenseRank(
-                      player.touches,
-                      clubLeaderboard.map((p) => p.touches),
-                    );
-                    return (
-                      <TouchableOpacity
-                        key={player.id}
-                        style={[
-                          styles.playerCard,
-                          isCurrentUser && styles.currentUserCard,
-                        ]}
-                        onPress={() => setSelectedPlayerId(player.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.playerLeft}>
-                          <View style={styles.rankContainer}>
-                            <Text style={styles.rankNumber}>{rank}</Text>
-                          </View>
-                          <Image
-                            source={{
-                              uri:
-                                player.avatar_url ||
-                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                            }}
-                            style={styles.avatar}
-                          />
-                          <View style={styles.playerInfo}>
-                            <Text style={styles.playerName}>
-                              {player.name}
-                              {isCurrentUser && (
-                                <Text style={styles.youBadge}> (You)</Text>
-                              )}
-                            </Text>
-                            <Text style={styles.todayTouches}>
-                              {player.team_name}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>
-                            {player.touches.toLocaleString()}
-                          </Text>
-                          <Text style={styles.touchesLabel}>touches</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )
-            ) : clubJugglingLoading ? (
-              <ActivityIndicator
-                size='large'
-                color='#1f89ee'
-                style={{ marginTop: 40 }}
-              />
-            ) : clubJugglingLeaderboard.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No Juggling Records</Text>
-                <Text style={styles.emptyStateText}>
-                  Club members will appear here once they set juggling high
-                  scores.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.listContainer}>
-                {clubJugglingLeaderboard.map((player) => {
-                  const isCurrentUser = player.id === getCurrentUserId();
-                  const rank = getDenseRank(
-                    player.high_score,
-                    clubJugglingLeaderboard.map((p) => p.high_score),
-                  );
-                  return (
-                    <TouchableOpacity
-                      key={player.id}
-                      style={[
-                        styles.playerCard,
-                        isCurrentUser && styles.currentUserCard,
-                      ]}
-                      onPress={() => setSelectedPlayerId(player.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.playerLeft}>
-                        <View style={styles.rankContainer}>
-                          <Text style={styles.rankNumber}>{rank}</Text>
-                        </View>
-                        <Image
-                          source={{
-                            uri:
-                              player.avatar_url ||
-                              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                          }}
-                          style={styles.avatar}
-                        />
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>
-                            {player.name}
-                            {isCurrentUser && (
-                              <Text style={styles.youBadge}> (You)</Text>
-                            )}
-                          </Text>
-                          <Text style={styles.todayTouches}>
-                            {player.team_name}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.playerRight}>
-                        <Text style={styles.jugglingScore}>
-                          {player.high_score}
-                        </Text>
-                        <Text style={styles.touchesLabel}>juggles</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
-
-        {/* ── GLOBAL VIEW ── */}
-        {view === 'global' && (
-          <>
-            {globalSubTab === 'touches' ? (
-              globalLoading ? (
-                <ActivityIndicator
-                  size='large'
-                  color='#1f89ee'
-                  style={{ marginTop: 40 }}
-                />
-              ) : globalLeaderboard.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>
-                    No activity yet this week
-                  </Text>
-                  <Text style={styles.emptyStateText}>
-                    Players will appear here as they log touches.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.listContainer}>
-                  {globalLeaderboard.map((player, index) => {
-                    const isCurrentUser = player.userId === user?.id;
-                    return (
-                      <TouchableOpacity
-                        key={player.userId}
-                        style={[
-                          styles.playerCard,
-                          isCurrentUser && styles.currentUserCard,
-                        ]}
-                        onPress={() => setSelectedPlayerId(player.userId)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.playerLeft}>
-                          <View style={styles.rankContainer}>
-                            <Text style={styles.rankNumber}>{index + 1}</Text>
-                          </View>
-                          <Image
-                            source={{
-                              uri:
-                                player.avatar_url ||
-                                'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                            }}
-                            style={styles.avatar}
-                          />
-                          <View style={styles.playerInfo}>
-                            <Text style={styles.playerName}>
-                              {player.name}
-                              {isCurrentUser && (
-                                <Text style={styles.youBadge}> (You)</Text>
-                              )}
-                            </Text>
-                            {player.cityState && (
-                              <Text style={styles.globalCityState}>
-                                {player.cityState}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                        <View style={styles.playerRight}>
-                          <Text style={styles.weeklyTouches}>
-                            {player.touches.toLocaleString()}
-                          </Text>
-                          <Text style={styles.touchesLabel}>touches</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )
-            ) : globalJugglingLoading ? (
-              <ActivityIndicator
-                size='large'
-                color='#1f89ee'
-                style={{ marginTop: 40 }}
-              />
-            ) : globalJugglingLeaderboard.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>
-                  No juggling activity yet this week
-                </Text>
-                <Text style={styles.emptyStateText}>
-                  Players will appear here as they set juggling high scores.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.listContainer}>
-                {globalJugglingLeaderboard.map((player, index) => {
-                  const isCurrentUser = player.userId === user?.id;
-                  return (
-                    <TouchableOpacity
-                      key={player.userId}
-                      style={[
-                        styles.playerCard,
-                        isCurrentUser && styles.currentUserCard,
-                      ]}
-                      onPress={() => setSelectedPlayerId(player.userId)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.playerLeft}>
-                        <View style={styles.rankContainer}>
-                          <Text style={styles.rankNumber}>{index + 1}</Text>
-                        </View>
-                        <Image
-                          source={{
-                            uri:
-                              player.avatar_url ||
-                              'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                          }}
-                          style={styles.avatar}
-                        />
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>
-                            {player.name}
-                            {isCurrentUser && (
-                              <Text style={styles.youBadge}> (You)</Text>
-                            )}
-                          </Text>
-                          {player.cityState && (
-                            <Text style={styles.globalCityState}>
-                              {player.cityState}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.playerRight}>
-                        <Text style={styles.jugglingScore}>
-                          {player.high_score}
-                        </Text>
-                        <Text style={styles.touchesLabel}>juggles</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </>
+        {!effectiveTeamId ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No Team Yet</Text>
+            <Text style={styles.emptyStateText}>
+              Join a team to see how you stack up against your teammates.
+            </Text>
+          </View>
+        ) : activeView === 'touches' ? (
+          <WeeklyTouchesView
+            players={touchesLeaderboard}
+            isLoading={touchesLoading}
+            currentUserId={user?.id}
+            onSelectPlayer={setSelectedPlayerId}
+          />
+        ) : activeView === 'tabata' ? (
+          <TabataHighScoresView
+            records={tabataLeaderboard}
+            isLoading={tabataLoading}
+            currentUserId={user?.id}
+            onSelectPlayer={setSelectedPlayerId}
+          />
+        ) : (
+          <JugglingHighScoresView
+            players={jugglingLeaderboard}
+            isLoading={jugglingLoading}
+            currentUserId={user?.id}
+            onSelectPlayer={setSelectedPlayerId}
+          />
         )}
       </ScrollView>
+
+      {rankBanner && (
+        <StickyRankBanner
+          rank={rankBanner.rank}
+          deficit={rankBanner.deficit}
+          unitLabel={rankBanner.unitLabel}
+        />
+      )}
 
       <PlayerProfileModal
         playerId={selectedPlayerId}
         visible={!!selectedPlayerId}
         onClose={() => setSelectedPlayerId(null)}
-        showBadges={view === 'team'}
+        showBadges={true}
       />
 
-      {/* INACTIVE PLAYERS MODAL (coaches only) */}
       <InactivePlayersModal
         visible={inactiveModalVisible}
         onClose={() => setInactiveModalVisible(false)}
@@ -1826,12 +294,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 export default Leaderboard;
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1841,380 +303,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 20,
   },
-
-  // TOP VIEW TABS (Team / Club / Global) — underline style, period dropdown inline on the right
-  tabsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  contentWithBanner: {
+    paddingBottom: 80,
   },
-  tabsLeft: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  tab: {
-    paddingVertical: 10,
-    paddingBottom: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
-  },
-  tabActive: {
-    borderBottomColor: '#1a1a2e',
-  },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#9CA3AF',
-  },
-  tabTextActive: {
-    color: '#1a1a2e',
-    fontWeight: '800',
-  },
-
-  // CONTROLS — period dropdown row, then full-width segmented control row
   controlsRow: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 6,
-    gap: 10,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
-  },
-  periodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 20,
-  },
-  periodDropdownBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  periodDropdownText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-
-  // SUB-TABS (Touches / Juggling / Sprint) — full-width segmented control, equal-width pills
-  subTabsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F4F8',
-    borderRadius: 10,
-    padding: 3,
-  },
-  subTab: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-  },
-  subTabActive: {
-    backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  subTabText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  subTabTextActive: {
-    color: '#1a1a2e',
-  },
-
-  resetNote: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#78909C',
-    paddingHorizontal: 20,
-    marginBottom: 6,
-    minHeight: 16,
-  },
-
-  // PERIOD PILLS
-  periodPillRow: {
-    marginBottom: 16,
-    flexDirection: 'row',
-    gap: 6,
-  },
-  periodPillRowContent: {
-    flexGrow: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  periodPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#F0F4F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  periodPillActive: {
-    backgroundColor: '#1f89ee',
-  },
-  periodPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#78909C',
-    textAlign: 'center',
-  },
-  periodPillTextActive: {
-    color: '#FFF',
-  },
-
-  // PODIUM
-  podium: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    marginBottom: 24,
-    gap: 16,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 8,
-  },
-  podiumSpot: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  podiumFirst: {
-    marginBottom: 20,
-  },
-  crownContainer: {
-    marginBottom: 8,
-  },
-  crown: {
-    fontSize: 32,
-  },
-  podiumAvatar1: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    borderColor: '#FFD700',
-    marginBottom: 8,
-  },
-  podiumAvatar2: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 4,
-    borderColor: '#C0C0C0',
-    marginBottom: 8,
-  },
-  podiumAvatar3: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 4,
-    borderColor: '#CD7F32',
-    marginBottom: 8,
-  },
-  podiumMedal: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  podiumName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  podiumTouches: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1f89ee',
-    marginBottom: 8,
-  },
-
-  // LIST
-  listContainer: {
-    gap: 12,
-  },
-  playerCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  currentUserCard: {
-    borderWidth: 2,
-    borderColor: '#1f89ee',
-    backgroundColor: '#F3F4FF',
-  },
-  playerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  rankContainer: {
-    width: 32,
-    alignItems: 'center',
-  },
-  rankNumber: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  playerName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1a1a2e',
-  },
-  youBadge: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  globalCityState: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-    marginTop: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  todayTouches: {
-    fontSize: 13,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  jugglingDate: {
-    fontSize: 13,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  sprintBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  sprintBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78909C',
-  },
-  podiumAvatarContainer: {
-    position: 'relative',
-  },
-  podiumTargetIcon: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    fontSize: 16,
-  },
-  beswickBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'center',
-  },
-  beswickBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  playerRight: {
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 72,
-  },
-  weeklyTouches: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1f89ee',
-    marginBottom: 1,
-  },
-  jugglingScore: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#ffb724',
-    marginBottom: 1,
-  },
-  touchesLabel: {
-    fontSize: 10,
-    color: '#78909C',
-    fontWeight: '700',
-  },
-  globalAvatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F0F2F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-  },
-
-  // EMPTY STATE
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#2C3E50',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyStateText: {
-    fontSize: 15,
-    color: '#78909C',
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '500',
   },
   teamPickerPill: {
     flexDirection: 'row',
@@ -2273,52 +369,24 @@ const styles = StyleSheet.create({
   pickerRowTextActive: {
     color: '#1f89ee',
   },
-
-  // Sprint badge info sheet
-  badgeInfoSheet: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 40,
+  emptyState: {
     alignItems: 'center',
-  },
-  badgeInfoIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#2C3E50',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  badgeInfoIcon: {
-    fontSize: 26,
-  },
-  badgeInfoTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  badgeInfoMessage: {
-    fontSize: 14,
-    fontWeight: '600',
+  emptyStateText: {
+    fontSize: 15,
     color: '#78909C',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  badgeInfoButton: {
-    width: '100%',
-    backgroundColor: '#1f89ee',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  badgeInfoButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFF',
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });

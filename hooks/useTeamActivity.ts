@@ -1,7 +1,10 @@
+import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
+
+export type ActivityIntensity = 'light' | 'moderate' | 'intense';
 
 export interface TeamActivityItem {
   id: string;
@@ -11,6 +14,16 @@ export interface TeamActivityItem {
   message: string;
   createdAt: string;
   isGameSpeed?: boolean;
+  intensity?: ActivityIntensity;
+  streak?: number;
+}
+
+function getIntensity(totalTouches: number, durationMinutes: number): ActivityIntensity | undefined {
+  if (durationMinutes <= 0) return undefined;
+  const tpm = totalTouches / durationMinutes;
+  if (tpm >= 50) return 'intense';
+  if (tpm >= 20) return 'moderate';
+  return 'light';
 }
 
 function pickForId<T>(arr: T[], id: string): T {
@@ -201,7 +214,7 @@ export function useActivityFeed(limit = 7) {
       const { data: sessions } = await supabase
         .from('daily_sessions')
         .select(
-          'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed',
+          'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes',
         )
         .gte('date', threeDaysAgoDate)
         .order('created_at', { ascending: false })
@@ -401,6 +414,7 @@ export function useActivityFeed(limit = 7) {
       // Aggregate sessions per user per day, then pick each user's most recent day
       type DayStats = {
         totalTouches: number;
+        totalMinutes: number;
         sessionCount: number;
         hasChallenge: boolean;
         latestAt: string;
@@ -415,6 +429,7 @@ export function useActivityFeed(limit = 7) {
         drill_id: string | null;
         created_at: string;
         is_game_speed: boolean | null;
+        duration_minutes: number | null;
       }[]) {
         if (!profileMap.has(s.user_id)) continue;
         if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
@@ -422,12 +437,14 @@ export function useActivityFeed(limit = 7) {
         const existing = dayMap.get(s.date);
         if (existing) {
           existing.totalTouches += s.touches_logged;
+          existing.totalMinutes += s.duration_minutes ?? 0;
           existing.sessionCount += 1;
           if (s.drill_id) existing.hasChallenge = true;
           if (s.is_game_speed) existing.isGameSpeed = true;
         } else {
           dayMap.set(s.date, {
             totalTouches: s.touches_logged,
+            totalMinutes: s.duration_minutes ?? 0,
             sessionCount: 1,
             hasChallenge: !!s.drill_id,
             latestAt: s.created_at,
@@ -678,6 +695,7 @@ export function useActivityFeed(limit = 7) {
           ),
           createdAt: stats.latestAt,
           isGameSpeed: stats.isGameSpeed,
+          intensity: getIntensity(stats.totalTouches, stats.totalMinutes),
         });
       }
 
@@ -702,12 +720,35 @@ export function useActivityFeed(limit = 7) {
         });
       }
 
-      return items
+      const finalItems = items
         .sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         )
         .slice(0, limit);
+
+      // Streak needs full session history, not the 3-day window above —
+      // fetch it only for the handful of users who actually made the feed.
+      const finalUserIds = [...new Set(finalItems.map((i) => i.userId))];
+      if (finalUserIds.length > 0) {
+        const { data: historyRows } = await supabase
+          .from('daily_sessions')
+          .select('user_id, date')
+          .in('user_id', finalUserIds);
+
+        const datesByUser = new Map<string, string[]>();
+        for (const row of (historyRows || []) as { user_id: string; date: string }[]) {
+          if (!datesByUser.has(row.user_id)) datesByUser.set(row.user_id, []);
+          datesByUser.get(row.user_id)!.push(row.date);
+        }
+
+        for (const item of finalItems) {
+          const dates = datesByUser.get(item.userId);
+          if (dates) item.streak = calculateStreak(dates).currentStreak;
+        }
+      }
+
+      return finalItems;
     },
   });
 }

@@ -14,6 +14,7 @@ export interface Workout {
   category: string;
   steps: DailyChallengeStep[];
   estimatedTouches: number;
+  durationSeconds: number | null;
 }
 
 interface RawWorkout {
@@ -21,6 +22,7 @@ interface RawWorkout {
   title: string;
   category: string;
   steps: RawStep[];
+  duration_seconds: number | null;
 }
 
 export function useWorkoutLibrary() {
@@ -31,7 +33,7 @@ export function useWorkoutLibrary() {
     queryFn: async (): Promise<RawWorkout[]> => {
       const { data, error } = await (supabase as any)
         .from('workouts')
-        .select('id, title, category, steps')
+        .select('id, title, category, steps, duration_seconds')
         .order('category')
         .order('title');
       if (error) throw error;
@@ -54,6 +56,7 @@ export function useWorkoutLibrary() {
       category: w.category,
       steps,
       estimatedTouches: calculateChallengeTouches(steps),
+      durationSeconds: w.duration_seconds,
     };
   });
 
@@ -61,4 +64,17 @@ export function useWorkoutLibrary() {
     workouts,
     isLoading: isLoading || !drills,
   };
+}
+
+// Deterministic pick so every player sees the same circuit on a given day
+// (rotates as more variants are authored).
+export function pickDailyCircuit(
+  workouts: Workout[],
+  durationSeconds: number,
+  date: Date = new Date(),
+): Workout | undefined {
+  const matches = workouts.filter((w) => w.durationSeconds === durationSeconds);
+  if (matches.length === 0) return undefined;
+  const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+  return matches[seed % matches.length];
 }

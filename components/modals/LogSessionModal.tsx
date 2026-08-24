@@ -2,6 +2,7 @@ import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useDailySprint } from '@/hooks/useDailySprint';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { getLocalDate } from '@/utils/getLocalDate';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
@@ -60,10 +61,10 @@ const FOCUS_AREAS = [
 
 const DRILL_TIPS: Record<string, string> = {
   beginner:
-    'Focus on clean touches, not speed. Get comfortable with the ball first! ⚽',
-  intermediate: 'Keep your head up and work both feet. Consistency is key! 💪',
+    'Focus on clean touches, not speed. Get comfortable with the ball first!',
+  intermediate: 'Keep your head up and work both feet. Consistency is key!',
   advanced:
-    'Game speed every rep. No breaks — this is where champions are made! 🔥',
+    'Game speed every rep. No breaks — this is where champions are made!',
 };
 
 const LogSessionModal = ({
@@ -126,8 +127,13 @@ const LogSessionModal = ({
   const isFreestyleMode = !isChallengeMode && selectedAreas.includes('freestyle');
 
   const { sprint } = useDailySprint(userId, teamId);
+  const { data: touchStats } = useTouchTracking(userId);
+  const trainedToday = (touchStats?.today_touches ?? 0) > 0;
   const challengeLocked =
-    !isChallengeMode && sprint?.todayBestMs == null && sprint?.todayBestReps == null;
+    !isChallengeMode &&
+    !trainedToday &&
+    sprint?.todayBestMs == null &&
+    sprint?.todayBestReps == null;
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -436,8 +442,10 @@ const LogSessionModal = ({
                 duration &&
                 parseInt(duration) > 0 && (
                   <View style={styles.tpmPreview}>
+                    <Ionicons name='flash' size={14} color='#FF9800' />
                     <Text style={styles.tpmPreviewText}>
-                      ⚡ {Math.round(parseInt(touches) / parseInt(duration))}{' '}
+                      {' '}
+                      {Math.round(parseInt(touches) / parseInt(duration))}{' '}
                       touches/min
                       {parseInt(touches) / parseInt(duration) >= 50
                         ? ' - Game speed!'
@@ -522,7 +530,7 @@ const LogSessionModal = ({
               <View style={styles.lockedBanner}>
                 <Ionicons name='lock-closed' size={18} color='#F57C00' />
                 <Text style={styles.lockedMessage}>
-                  Finish today&apos;s sprint on the Home tab to unlock session logging
+                  Complete a workout or today&apos;s sprint to unlock session logging
                 </Text>
               </View>
             )}
@@ -677,7 +685,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     padding: 12,
     borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tpmPreviewText: {
     fontSize: 14,

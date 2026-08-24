@@ -8,8 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-// Shared by SprintTimerModal (race mode) and DurationChallengeModal (duration
-// mode) — both count down 5..1,GO before starting their respective timers.
+// Shared 5..1,GO countdown lead-in used before tabata/circuit/free-practice timers start.
 const CountdownView: React.FC<{ value: CountdownValue }> = ({ value }) => {
   const scale = useSharedValue(0.6);
 

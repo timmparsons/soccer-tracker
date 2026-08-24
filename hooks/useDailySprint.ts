@@ -50,7 +50,7 @@ interface SprintCombo {
   crown_threshold_ms: number;
 }
 
-// Same date-seeded rotation approach as getFallbackForDate in useDailyChallenge.ts.
+// Date-seeded rotation so every player sees the same combo on a given day.
 function pickComboForDate(dateStr: string, combos: SprintCombo[]): SprintCombo {
   const [y, m, d] = dateStr.split('-').map(Number);
   const seed = y * 10000 + m * 100 + d;
@@ -329,30 +329,4 @@ export function useDailySprint(userId: string | undefined, teamId: string | null
   );
 
   return { sprint: data ?? null, isLoading, submitAttempt, submitReps };
-}
-
-// Count of sprint_attempts flagged is_pr for this profile within the
-// current calendar month — powers the "Challenge PRs" stat on Progress.
-export function useMonthlyPRCount(userId: string | undefined) {
-  const today = useTodayDate();
-
-  return useQuery({
-    queryKey: ['monthly-pr-count', userId, today],
-    queryFn: async (): Promise<number> => {
-      if (!userId) throw new Error('No user ID');
-
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const { count } = await (supabase as any)
-        .from('sprint_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('profile_id', userId)
-        .eq('is_pr', true)
-        .gte('created_at', monthStart.toISOString());
-
-      return count || 0;
-    },
-    enabled: !!userId,
-  });
 }

@@ -5,7 +5,6 @@ import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
-import { useMonthlyPRCount } from '@/hooks/useDailySprint';
 import { useUserSquadBadges } from '@/hooks/useSquadBadges';
 import {
   useActiveStreak,
@@ -71,7 +70,6 @@ const ProgressPage = () => {
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
   const { data: activeStreakStats } = useActiveStreak(user?.id);
-  const { data: monthlyPRCount = 0 } = useMonthlyPRCount(user?.id);
   const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
 
@@ -324,16 +322,6 @@ const ProgressPage = () => {
             <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
 
-          <View style={[styles.statCard, styles.statAvg]}>
-            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
-              <Text style={styles.statIcon}>📈</Text>
-            </View>
-            <Text style={[styles.statValue, { color: '#ffb724' }]}>
-              {monthlyPRCount}
-            </Text>
-            <Text style={styles.statLabel}>Challenge PRs</Text>
-            <Text style={styles.statSubtext}>PRs set this month</Text>
-          </View>
         </View>
 
         {/* Squad Badges */}
@@ -581,7 +569,6 @@ const styles = StyleSheet.create({
   statWeek: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
   statStreak: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
   statBest: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
-  statAvg: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
   statIconBg: {
     width: 38,
     height: 38,
