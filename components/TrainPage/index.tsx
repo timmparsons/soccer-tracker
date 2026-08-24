@@ -1,30 +1,26 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
+import StreetTab from '@/components/TrainPage/StreetTab';
 import PageHeader from '@/components/common/PageHeader';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
-import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
-import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
-import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
-import { pickDailyCircuit, useWorkoutLibrary } from '@/hooks/useWorkouts';
 import { useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { MAX_SESSION_TOUCHES, MAX_DAILY_TOUCHES, getTodayTouchTotal } from '@/lib/touchLimits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -52,16 +48,16 @@ const TrainPage = () => {
   const { isPremium } = useSubscription();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [trainView, setTrainView] = useState<'academy' | 'street'>('academy');
   const [modalVisible, setModalVisible] = useState(false);
-  const { workouts: circuitWorkouts } = useWorkoutLibrary();
-  const fiveMinCircuit = pickDailyCircuit(circuitWorkouts, 300);
-  const tenMinCircuit = pickDailyCircuit(circuitWorkouts, 600);
 
   useFocusEffect(
     useCallback(() => {
       track('train_viewed');
     }, []),
   );
+  const [challengeDurationMinutes, setChallengeDurationMinutes] = useState<number | undefined>();
+  const [challengeDifficulty, setChallengeDifficulty] = useState<string | undefined>();
   // Timer state
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -69,16 +65,19 @@ const TrainPage = () => {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreInput, setScoreInput] = useState('');
   const [submittingScore, setSubmittingScore] = useState(false);
-  const [showScoreConfirm, setShowScoreConfirm] = useState(false);
   const [freeTimerDuration, setFreeTimerDuration] = useState(0);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const [challengeDrillId, setChallengeDrillId] = useState<
+    string | undefined
+  >();
+  const [challengeName, setChallengeName] = useState<string | undefined>();
+  const [timerChallengeDrillId, setTimerChallengeDrillId] = useState<string | undefined>();
+  const [timerChallengeName, setTimerChallengeName] = useState<string | undefined>();
   const [showVinnieCelebration, setShowVinnieCelebration] = useState(false);
   const [showGameSpeedModal, setShowGameSpeedModal] = useState(false);
   const [celebrationTouches, setCelebrationTouches] = useState(0);
-  const [celebrationFreestyle, setCelebrationFreestyle] = useState(false);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
-  const [scoreSessionFocus, setScoreSessionFocus] = useState<SessionFocus | null>(null);
   const { data: allBadges = [] } = useAllBadges();
   const [customMinutes, setCustomMinutes] = useState('');
   const [customSeconds, setCustomSeconds] = useState('');
@@ -88,17 +87,6 @@ const TrainPage = () => {
   const pausedRemainingRef = useRef<number>(0);
   const timerNotificationIdRef = useRef<string | null>(null);
   const whistlePlayedRef = useRef<boolean>(false);
-  const [hasStartedTimer, setHasStartedTimer] = useState(false);
-
-  // Pre-start countdown (10..1,GO) shown once before the free-practice timer
-  // actually begins counting down — reuses the same lead-in as the Daily
-  // Sprint timer. Only the 'countdown' phase of this hook is used; its own
-  // 'active' stopwatch/PR logic doesn't apply to a count-down practice timer.
-  const preTimer = useChallengeTimer({
-    personalBestMs: null,
-    crownThresholdMs: Infinity,
-    onGo: () => setTimerRunning(true),
-  });
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
@@ -130,9 +118,24 @@ const TrainPage = () => {
     };
   }, []);
 
-  // Show Vinnie's game-speed pep talk once per day on first visit to Train.
+  // Triggered when navigated here from Home's "Start Challenge" button
+  const params = useLocalSearchParams<{
+    startChallengeDrillId?: string;
+    startChallengeDuration?: string;
+    startChallengeName?: string;
+    startChallengeDifficulty?: string;
+  }>();
+
+  // Capture once at mount — stable for the lifetime of this component instance.
+  // Using a ref (not state) so changing params later doesn't re-trigger the effect.
+  const openedWithChallengeRef = useRef(!!params.startChallengeDrillId);
+
+  // Show Vinnie's game-speed pep talk once per day on first visit to Train —
+  // but not if we were navigated here via Start Challenge, since the Alert and
+  // Vinnie modal collide. Depends only on user.id so clearing the route params
+  // (router.setParams after the Alert fires) never re-triggers this.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || openedWithChallengeRef.current) return;
     const today = getLocalDate();
     const key = `vinnieGameSpeedShownDate-${user.id}`;
     AsyncStorage.getItem(key).then((stored) => {
@@ -148,6 +151,7 @@ const TrainPage = () => {
   const [challengeExpandSignal, setChallengeExpandSignal] = useState(0);
 
   const handleScrollToChallenges = useCallback(() => {
+    setTrainView('academy');
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: challengesLayoutY, animated: true });
       setChallengeExpandSignal((s) => s + 1);
@@ -158,7 +162,6 @@ const TrainPage = () => {
 
   const queryClient = useQueryClient();
   const { data: touchStats, isLoading, refetch } = useTouchTracking(user?.id);
-  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -188,6 +191,58 @@ const TrainPage = () => {
     [],
   );
 
+  const handleStartChallenge = useCallback(
+    (drillId: string, durationMinutes: number, drillName: string, difficulty: string) => {
+      Alert.alert(
+        drillName,
+        'How do you want to log this challenge?',
+        [
+          {
+            text: 'Log Manually',
+            onPress: () => {
+              setChallengeDrillId(drillId);
+              setChallengeDurationMinutes(durationMinutes);
+              setChallengeName(drillName);
+              setChallengeDifficulty(difficulty);
+              setModalVisible(true);
+            },
+          },
+          {
+            text: 'Use Timer',
+            onPress: () => {
+              setTimerChallengeDrillId(drillId);
+              setTimerChallengeName(drillName);
+              startFreeTimer(durationMinutes * 60);
+            },
+          },
+        ],
+      );
+    },
+    [startFreeTimer],
+  );
+
+  useEffect(() => {
+    if (!params.startChallengeDrillId) return;
+    const drillId = params.startChallengeDrillId;
+    const durationMinutes = Number(params.startChallengeDuration ?? 0);
+    const drillName = params.startChallengeName ?? '';
+    const difficulty = params.startChallengeDifficulty ?? '';
+    // Delay so the alert isn't dropped mid tab-transition. Clear params only
+    // after firing — clearing upfront re-renders before the timeout runs and
+    // cancels it via effect cleanup.
+    const timeout = setTimeout(() => {
+      handleStartChallenge(drillId, durationMinutes, drillName, difficulty);
+      router.setParams({
+        startChallengeDrillId: undefined,
+        startChallengeDuration: undefined,
+        startChallengeName: undefined,
+        startChallengeDifficulty: undefined,
+      });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.startChallengeDrillId]);
+
   // Timer logic
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -198,22 +253,14 @@ const TrainPage = () => {
   }, []);
 
   const pauseResumeTimer = useCallback(() => {
-    // First start (not a resume-from-pause) gets the 10s countdown lead-in.
-    if (!timerRunning && !hasStartedTimer) {
-      setHasStartedTimer(true);
-      preTimer.start();
-      return;
-    }
     setTimerRunning((prev) => !prev);
-  }, [timerRunning, hasStartedTimer, preTimer]);
+  }, []);
 
   const resetTimer = useCallback(() => {
     stopTimer();
-    preTimer.reset();
-    setHasStartedTimer(false);
     pausedRemainingRef.current = freeTimerDuration;
     setTimeRemaining(freeTimerDuration);
-  }, [stopTimer, preTimer, freeTimerDuration]);
+  }, [stopTimer, freeTimerDuration]);
 
   useEffect(() => {
     if (timerRunning) {
@@ -224,7 +271,7 @@ const TrainPage = () => {
       // Schedule an OS-level notification so the alarm fires even if phone sleeps
       Notifications.scheduleNotificationAsync({
         content: {
-          title: "Time's up!",
+          title: "Time's up! ⚽",
           body: 'Your training session is complete. Log your touches!',
           // No sound here — in-app replayAsync() handles it when the app is foregrounded.
           // The notification only fires if the phone sleeps mid-session (no in-app sound needed then).
@@ -259,8 +306,6 @@ const TrainPage = () => {
             whistleSoundRef.current?.replayAsync();
           }
           setShowTimerModal(false);
-          setShowScoreConfirm(false);
-          setScoreSessionFocus(null);
           setShowScoreModal(true);
         } else {
           pausedRemainingRef.current = remaining;
@@ -297,60 +342,36 @@ const TrainPage = () => {
       return;
     }
 
-    if (score > MAX_SESSION_TOUCHES) {
-      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
-      return;
-    }
-
     if (!user?.id) return;
-
-    const scorePace = computePace(score, freeTimerDuration);
-    const scoreRequiresConfirm = scorePace !== null && scorePace > SUSPICIOUS_TOUCHES_PER_SEC;
-    if (scoreRequiresConfirm && !showScoreConfirm) {
-      setShowScoreConfirm(true);
-      return;
-    }
-
-    const today = getLocalDate();
-    const todayTotal = await getTodayTouchTotal(user.id, today);
-    if (todayTotal + score > MAX_DAILY_TOUCHES) {
-      const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
-      Alert.alert(
-        'Daily limit reached',
-        remaining > 0
-          ? `You've logged ${todayTotal.toLocaleString()} touches today. You can log up to ${remaining.toLocaleString()} more.`
-          : `You've hit the ${MAX_DAILY_TOUCHES.toLocaleString()} touch daily limit. Quality over quantity — rest up!`,
-      );
-      return;
-    }
 
     setSubmittingScore(true);
 
     try {
+      const today = getLocalDate();
       const durationMinutes = Math.ceil(freeTimerDuration / 60);
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: user.id,
+        drill_id: timerChallengeDrillId ?? null,
         touches_logged: score,
         duration_minutes: durationMinutes,
         date: today,
-        training_focus: scoreSessionFocus,
-        is_game_speed: scoreSessionFocus === 'match_pace',
       });
 
       if (error) throw error;
 
+      const wasChallenge = !!timerChallengeDrillId;
+      setCelebrationTouches(score);
       setScoreInput('');
       setShowScoreModal(false);
       setFreeTimerDuration(0);
-      handleSessionLogged();
-
-      setCelebrationTouches(score);
+      setTimerChallengeDrillId(undefined);
+      setTimerChallengeName(undefined);
+      handleSessionLogged(wasChallenge);
       setShowVinnieCelebration(true);
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to save your score. Please try again.');
-      setShowScoreConfirm(false);
     } finally {
       setSubmittingScore(false);
     }
@@ -358,10 +379,10 @@ const TrainPage = () => {
 
   const closeTimer = () => {
     stopTimer();
-    preTimer.reset();
-    setHasStartedTimer(false);
     setShowTimerModal(false);
     setTimeRemaining(0);
+    setTimerChallengeDrillId(undefined);
+    setTimerChallengeName(undefined);
   };
 
   const cancelTimer = () => {
@@ -396,6 +417,30 @@ const TrainPage = () => {
         challengeNotifications={challengeNotifications}
       />
 
+      {/* Academy / Street segmented control — non-coaches only */}
+      {!profile?.is_coach && (
+        <View style={styles.segmentedRow}>
+          <View style={styles.segmentedContainer}>
+            <TouchableOpacity
+              style={[styles.segmentedTab, trainView === 'academy' && styles.segmentedTabActive]}
+              onPress={() => setTrainView('academy')}
+            >
+              <Text style={[styles.segmentedTabText, trainView === 'academy' && styles.segmentedTabTextActive]}>
+                Academy
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.segmentedTab, trainView === 'street' && styles.segmentedTabActive]}
+              onPress={() => setTrainView('street')}
+            >
+              <Text style={[styles.segmentedTabText, trainView === 'street' && styles.segmentedTabTextActive]}>
+                Freestyle
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
@@ -407,135 +452,89 @@ const TrainPage = () => {
           />
         }
       >
-        {/* Today's Progress */}
-        <View style={styles.progressCard}>
-          <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
-          <View style={styles.touchesRow}>
-            <Text style={styles.touchesValue}>
-              {todayTouches.toLocaleString()}
-            </Text>
-            <Text style={styles.touchesDivider}>/</Text>
-            <Text style={styles.touchesTarget}>
-              {dailyTarget.toLocaleString()}
-            </Text>
-          </View>
-          <Text style={styles.touchesLabel}>touches</Text>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-            />
-          </View>
-          <Text style={styles.progressPercentText}>
-            {Math.round(progressPercent)}% Complete
-          </Text>
-        </View>
-
-        {/* Structured Workout Engine — 4 launch cards */}
-        <View style={styles.launchGrid}>
-          <TouchableOpacity
-            style={styles.launchCard}
-            onPress={() => router.push('/(modals)/tabata')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.launchIconBg}>
-              <Ionicons name='flash' size={22} color='#ffb724' />
+        {trainView === 'street' && !profile?.is_coach ? (
+          <StreetTab />
+        ) : (
+          <>
+            {/* Today's Progress */}
+            <View style={styles.progressCard}>
+              <View style={styles.progressSparkle}>
+                <Text style={styles.sparkleEmoji}>✨</Text>
+              </View>
+              <Text style={styles.progressLabel}>{"Today's Progress"}</Text>
+              <View style={styles.touchesRow}>
+                <Text style={styles.touchesValue}>
+                  {todayTouches.toLocaleString()}
+                </Text>
+                <Text style={styles.touchesDivider}>/</Text>
+                <Text style={styles.touchesTarget}>
+                  {dailyTarget.toLocaleString()}
+                </Text>
+              </View>
+              <Text style={styles.touchesLabel}>touches</Text>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
+                />
+              </View>
+              <Text style={styles.progressPercentText}>
+                {Math.round(progressPercent)}% Complete
+              </Text>
             </View>
-            <Text style={styles.launchTitle}>4-Min Burst</Text>
-            <Text style={styles.launchSubtitle}>8 rounds · 20s work / 10s rest</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.launchCard, !fiveMinCircuit && styles.launchCardDisabled]}
-            onPress={() =>
-              fiveMinCircuit &&
-              router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit.id } })
-            }
-            activeOpacity={0.85}
-            disabled={!fiveMinCircuit}
-          >
-            <View style={styles.launchIconBg}>
-              <Ionicons name='barbell' size={22} color='#1f89ee' />
+            {/* Action Buttons Row */}
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={styles.logButton}
+                onPress={() => setModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name='add-circle' size={24} color='#FFF' />
+                <Text style={styles.logButtonText}>LOG SESSION</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.timerButton}
+                onPress={() => setShowTimerPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name='timer' size={24} color='#FFF' />
+                <Text style={styles.timerButtonText}>START TIMER</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.launchTitle}>5-Min Circuit</Text>
-            <Text style={styles.launchSubtitle}>5 stations · ≈500 touches</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.launchCard, !tenMinCircuit && styles.launchCardDisabled]}
-            onPress={() =>
-              tenMinCircuit &&
-              router.push({ pathname: '/(modals)/circuit', params: { id: tenMinCircuit.id } })
-            }
-            activeOpacity={0.85}
-            disabled={!tenMinCircuit}
-          >
-            <View style={styles.launchIconBg}>
-              <Ionicons name='barbell' size={22} color='#1f89ee' />
-            </View>
-            <Text style={styles.launchTitle}>10-Min Circuit</Text>
-            <Text style={styles.launchSubtitle}>10 stations · ≈1,000 touches</Text>
-          </TouchableOpacity>
+            {/* Drill Library */}
+            <TouchableOpacity
+              style={styles.libraryCard}
+              onPress={() => router.push('/(modals)/drill-library')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.libraryIconBg}>
+                <Ionicons name='book' size={22} color='#1f89ee' />
+              </View>
+              <View style={styles.libraryTextBlock}>
+                <Text style={styles.libraryTitle}>Drill Library</Text>
+                <Text style={styles.librarySubtitle}>Browse & log drills</Text>
+              </View>
+              <Ionicons name='chevron-forward' size={20} color='#78909C' />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.launchCard}
-            onPress={() => setShowTimerPicker(true)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.launchIconBg}>
-              <Ionicons name='timer' size={22} color='#1f89ee' />
-            </View>
-            <Text style={styles.launchTitle}>Free Play</Text>
-            <Text style={styles.launchSubtitle}>Custom timer, any duration</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Manual Log Session */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='add-circle' size={22} color='#1f89ee' />
-          </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Manual Log Session</Text>
-            <Text style={styles.librarySubtitle}>Already trained? Log it directly</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
-
-        {/* Drill Library */}
-        <TouchableOpacity
-          style={styles.libraryCard}
-          onPress={() => router.push('/(modals)/drill-library')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='book' size={22} color='#1f89ee' />
-          </View>
-          <View style={styles.libraryTextBlock}>
-            <Text style={styles.libraryTitle}>Drill Library</Text>
-            <Text style={styles.librarySubtitle}>Browse & log drills</Text>
-          </View>
-          <Ionicons name='chevron-forward' size={20} color='#78909C' />
-        </TouchableOpacity>
-
-        {/* CHALLENGES */}
-        {!profile?.is_coach && user?.id && (
-          <View onLayout={(e) => setChallengesLayoutY(e.nativeEvent.layout.y)}>
-            <ChallengesCard
-              userId={user.id}
-              teamId={profile?.team_id}
-              playerName={getDisplayName(profile)}
-              expandSignal={challengeExpandSignal}
-            />
-          </View>
+            {/* CHALLENGES */}
+            {!profile?.is_coach && user?.id && (
+              <View onLayout={(e) => setChallengesLayoutY(e.nativeEvent.layout.y)}>
+                <ChallengesCard
+                  userId={user.id}
+                  teamId={profile?.team_id}
+                  playerName={getDisplayName(profile)}
+                  expandSignal={challengeExpandSignal}
+                />
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
-      {/* Timer Modal — visually matches the Daily Sprint timer: white for
-          not-yet-started/countdown, dark navy once it's actually running. */}
+      {/* Timer Modal */}
       <Modal
         visible={showTimerModal}
         animationType='fade'
@@ -544,93 +543,60 @@ const TrainPage = () => {
         hardwareAccelerated
         onRequestClose={cancelTimer}
       >
-        <View
-          style={[
-            styles.timerModal,
-            { backgroundColor: hasStartedTimer && preTimer.status !== 'countdown' ? '#1a1a2e' : '#FFFFFF' },
-          ]}
-        >
+        <View style={styles.timerModal}>
           <TouchableOpacity
             style={[styles.timerCloseButton, { top: insets.top + 12 }]}
             onPress={closeTimer}
             hitSlop={12}
           >
-            <Ionicons
-              name='close'
-              size={28}
-              color={hasStartedTimer && preTimer.status !== 'countdown' ? '#FFF' : '#78909C'}
-            />
+            <Ionicons name='close' size={28} color='#FFF' />
           </TouchableOpacity>
+          <View style={styles.timerContent}>
+            <Text style={styles.timerChallengeName}>{timerChallengeName ?? 'Free Practice'}</Text>
+            <Text style={styles.timerInstructions}>
+              {timerChallengeName ? `Timer for: ${timerChallengeName}` : 'Get as many touches as you can!'}
+            </Text>
 
-          {preTimer.status === 'countdown' ? (
-            <View style={styles.timerContent}>
-              <Text style={styles.timerReadyLabel}>Get Ready</Text>
-              <Text
-                style={[
-                  styles.preCountdownText,
-                  preTimer.countdownValue === 'GO' && styles.preCountdownGo,
-                ]}
-              >
-                {preTimer.countdownValue}
-              </Text>
-            </View>
-          ) : hasStartedTimer ? (
-            <View style={styles.timerContent}>
-              <Text style={styles.timerActiveLabel}>Free Practice</Text>
-              <Text style={styles.timerActiveTime}>{formatTime(timeRemaining)}</Text>
-              <Text style={styles.timerActiveSubtext}>
+            <View style={styles.timerCircle}>
+              <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
+              <Text style={styles.timerSubtext}>
                 {timerRunning ? 'remaining' : 'paused'}
               </Text>
-
-              <View style={styles.timerControlButtons}>
-                <TouchableOpacity
-                  style={styles.timerSecondaryButton}
-                  onPress={resetTimer}
-                >
-                  <Ionicons
-                    name='refresh'
-                    size={20}
-                    color='rgba(255,255,255,0.8)'
-                  />
-                  <Text style={styles.timerSecondaryText}>Reset</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.timerStartPauseButton}
-                  onPress={pauseResumeTimer}
-                >
-                  <Ionicons
-                    name={timerRunning ? 'pause' : 'play'}
-                    size={30}
-                    color='#1f89ee'
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.timerSecondaryButton}
-                  onPress={cancelTimer}
-                >
-                  <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
-                  <Text style={styles.timerSecondaryText}>Stop</Text>
-                </TouchableOpacity>
-              </View>
             </View>
-          ) : (
-            <View style={styles.timerContent}>
-              <Text style={styles.timerReadyLabel}>Free Practice</Text>
-              <Text style={styles.timerReadySubtitle}>Get as many touches as you can!</Text>
-              <Text style={styles.timerReadyTime}>{formatTime(timeRemaining)}</Text>
+
+            <View style={styles.timerControlButtons}>
+              <TouchableOpacity
+                style={styles.timerSecondaryButton}
+                onPress={resetTimer}
+              >
+                <Ionicons
+                  name='refresh'
+                  size={20}
+                  color='rgba(255,255,255,0.8)'
+                />
+                <Text style={styles.timerSecondaryText}>Reset</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.timerPrimaryButton}
+                style={styles.timerStartPauseButton}
                 onPress={pauseResumeTimer}
-                activeOpacity={0.85}
               >
-                <Ionicons name='play' size={26} color='#FFF' />
-                <Text style={styles.timerPrimaryButtonText}>Start</Text>
+                <Ionicons
+                  name={timerRunning ? 'pause' : 'play'}
+                  size={30}
+                  color='#1f89ee'
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.timerSecondaryButton}
+                onPress={cancelTimer}
+              >
+                <Ionicons name='stop' size={20} color='rgba(255,255,255,0.8)' />
+                <Text style={styles.timerSecondaryText}>Stop</Text>
               </TouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
       </Modal>
 
@@ -649,25 +615,14 @@ const TrainPage = () => {
         >
           <View style={styles.scoreModalOverlay}>
             <View style={styles.scoreModalContent}>
-              {!scoreSessionFocus ? (
-                <GameSpeedPrompt onSelect={setScoreSessionFocus} />
-              ) : showScoreConfirm ? (
-                <ConfirmSubmitCard
-                  touches={parseInt(scoreInput) || 0}
-                  elapsedSeconds={freeTimerDuration}
-                  itemLabel='touches'
-                  title='Confirm your score'
-                  onConfirm={handleSubmitScore}
-                  onCancel={() => setShowScoreConfirm(false)}
-                  submitting={submittingScore}
-                />
-              ) : (
-              <>
               <View style={styles.scoreModalHeader}>
-                <View style={styles.scoreModalIconBg}>
-                  <Ionicons name='checkmark-circle' size={40} color='#31af4d' />
-                </View>
+                <Text style={styles.scoreModalEmoji}>🎉</Text>
                 <Text style={styles.scoreModalTitle}>Time&apos;s Up!</Text>
+                {timerChallengeName && (
+                  <View style={styles.scoreChallengeBanner}>
+                    <Text style={styles.scoreChallengeBannerText}>Challenge: {timerChallengeName}</Text>
+                  </View>
+                )}
                 <Text style={styles.scoreModalSubtitle}>
                   How many touches did you get?
                 </Text>
@@ -679,7 +634,6 @@ const TrainPage = () => {
                   placeholder='Enter your score'
                   placeholderTextColor='#B0BEC5'
                   keyboardType='number-pad'
-                  maxLength={4}
                   value={scoreInput}
                   onChangeText={setScoreInput}
                   autoFocus={true}
@@ -692,8 +646,8 @@ const TrainPage = () => {
                   onPress={() => {
                     setShowScoreModal(false);
                     setScoreInput('');
-                    setShowScoreConfirm(false);
-                    setScoreSessionFocus(null);
+                    setTimerChallengeDrillId(undefined);
+                    setTimerChallengeName(undefined);
                   }}
                 >
                   <Text style={styles.skipButtonText}>Skip</Text>
@@ -715,8 +669,6 @@ const TrainPage = () => {
                   )}
                 </TouchableOpacity>
               </View>
-              </>
-              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -738,9 +690,7 @@ const TrainPage = () => {
           <View style={styles.timerPickerOverlay}>
             <View style={styles.timerPickerContent}>
               <View style={styles.timerPickerHeader}>
-                <View style={styles.scoreModalIconBg}>
-                  <Ionicons name='timer' size={36} color='#1f89ee' />
-                </View>
+                <Text style={styles.timerPickerEmoji}>⏱️</Text>
                 <Text style={styles.timerPickerTitle}>Start Practice Timer</Text>
                 <Text style={styles.timerPickerSubtitle}>
                   Choose a duration for your session
@@ -844,6 +794,8 @@ const TrainPage = () => {
                   setShowTimerPicker(false);
                   setCustomMinutes('');
                   setCustomSeconds('');
+                  setTimerChallengeDrillId(undefined);
+                  setTimerChallengeName(undefined);
                 }}
               >
                 <Text style={styles.timerPickerCancelText}>Cancel</Text>
@@ -863,7 +815,6 @@ const TrainPage = () => {
       <VinnieCelebrationModal
         visible={showVinnieCelebration}
         touchCount={celebrationTouches}
-        isFreestyle={celebrationFreestyle}
         onClose={() => {
           setShowVinnieCelebration(false);
           if (earnedBadges.length) setShowBadgeModal(true);
@@ -884,21 +835,29 @@ const TrainPage = () => {
       {user?.id && (
         <LogSessionModal
           visible={modalVisible}
-          onClose={() => setModalVisible(false)}
+          onClose={() => {
+            setModalVisible(false);
+            setChallengeDrillId(undefined);
+            setChallengeName(undefined);
+            setChallengeDurationMinutes(undefined);
+            setChallengeDifficulty(undefined);
+          }}
           userId={user.id}
-          teamId={profile?.team_id}
-          onSuccess={() => handleSessionLogged()}
+          onSuccess={() => handleSessionLogged(!!challengeDrillId)}
+          challengeDrillId={challengeDrillId}
+          challengeName={challengeName}
+          challengeDurationMinutes={challengeDurationMinutes}
+          challengeDifficulty={challengeDifficulty}
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
             totalTouches: touchStats?.total_touches ?? 0,
-            currentStreak: activeStreakStats?.currentStreak ?? 0,
+            currentStreak: touchStats?.current_streak ?? 0,
             previousJugglePB: jugglePB,
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,
           }}
-          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds, isFreestyle) => {
+          onSessionLogged={(tc, isChallenge, drillName, earnedBadgeIds) => {
             setCelebrationTouches(tc);
-            setCelebrationFreestyle(!!isFreestyle);
             setShowVinnieCelebration(true);
             if (earnedBadgeIds?.length) setEarnedBadges(earnedBadgeIds);
           }}
@@ -939,6 +898,14 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     position: 'relative',
+  },
+  progressSparkle: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  sparkleEmoji: {
+    fontSize: 22,
   },
   progressLabel: {
     fontSize: 13,
@@ -993,49 +960,89 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // LAUNCH GRID
-  launchGrid: {
+  // SEGMENTED CONTROL
+  segmentedRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  segmentedContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    backgroundColor: '#F0F4F8',
+    borderRadius: 10,
+    padding: 3,
+  },
+  segmentedTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  segmentedTabActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  segmentedTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  segmentedTabTextActive: {
+    color: '#1a1a2e',
+  },
+
+  // ACTION BUTTONS ROW
+  actionButtonsRow: {
+    flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
   },
-  launchCard: {
-    width: '47%',
-    backgroundColor: '#FFF',
+  logButton: {
+    flex: 1,
+    backgroundColor: '#1f89ee',
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EEF2F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  launchCardDisabled: {
-    opacity: 0.5,
-  },
-  launchIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#F5F8FB',
+    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    gap: 8,
+    shadowColor: '#1f89ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  launchTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 2,
+  logButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  launchSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
+  timerButton: {
+    flex: 1,
+    backgroundColor: '#ffb724',
+    borderRadius: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#ffb724',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
+  timerButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
   // DRILL LIBRARY TILE
   libraryCard: {
     backgroundColor: '#FFF',
@@ -1075,10 +1082,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // TIMER MODAL — matches the Daily Sprint timer's look: white while
-  // not-yet-started/counting down, dark navy once actually running.
+  // TIMER MODAL
   timerModal: {
     flex: 1,
+    backgroundColor: '#1f89ee',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1092,79 +1099,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  // Ready-to-start screen (white bg)
-  timerReadyLabel: {
+  timerChallengeName: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
     textAlign: 'center',
     marginBottom: 8,
   },
-  timerReadySubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#78909C',
-    textAlign: 'center',
-    marginBottom: 40,
-  },
-  timerReadyTime: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    fontVariant: ['tabular-nums'],
-    marginBottom: 40,
-  },
-  timerPrimaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#1f89ee',
-    paddingVertical: 18,
-    paddingHorizontal: 44,
-    borderRadius: 18,
-    shadowColor: '#1f89ee',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  timerPrimaryButtonText: {
-    color: '#FFF',
+  timerInstructions: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 40,
   },
-  // Pre-start countdown (white bg, matches the shared CountdownView)
-  preCountdownText: {
-    fontSize: 120,
-    fontWeight: '900',
-    color: '#1f89ee',
-    marginTop: 40,
+  timerCircle: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 40,
+    borderWidth: 6,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  preCountdownGo: {
-    color: '#31af4d',
-  },
-  // Active/paused screen (dark navy bg)
-  timerActiveLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.75)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  timerActiveTime: {
-    fontSize: 72,
+  timerText: {
+    fontSize: 64,
     fontWeight: '900',
     color: '#FFF',
-    fontVariant: ['tabular-nums'],
   },
-  timerActiveSubtext: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 48,
+  timerSubtext: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 8,
   },
   timerControlButtons: {
     flexDirection: 'row',
@@ -1215,7 +1183,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  scoreModalIconBg: {
+  scoreModalEmoji: {
+    fontSize: 48,
     marginBottom: 12,
   },
   scoreModalTitle: {
@@ -1229,6 +1198,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
+  },
+  scoreChallengeBanner: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#31af4d',
+    alignSelf: 'stretch',
+  },
+  scoreChallengeBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#388E3C',
   },
   scoreInputContainer: {
     marginBottom: 24,
@@ -1294,6 +1279,10 @@ const styles = StyleSheet.create({
   timerPickerHeader: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  timerPickerEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
   },
   timerPickerTitle: {
     fontSize: 24,

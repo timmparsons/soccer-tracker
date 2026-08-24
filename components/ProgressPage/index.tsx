@@ -1,13 +1,11 @@
-import ActivityHeatmap from '@/components/ProgressPage/ActivityHeatmap';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
-import { useUserSquadBadges } from '@/hooks/useSquadBadges';
 import {
-  useActiveStreak,
+  useChallengeStats,
   useDailyTouchHistory,
   useRecentSessions,
   useTouchTracking,
@@ -15,26 +13,26 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { track } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
-import { SQUAD_BADGE_POOL } from '@/lib/squadBadges';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+
+const screenWidth = Dimensions.get('window').width;
 
 // Track which milestones have been celebrated this app session
 const shownMilestones = new Set<number>();
-// Track which auto-protected freeze dates have been called out this app session
-const shownFreezeDates = new Set<string>();
 
 const ProgressPage = () => {
   const { data: user } = useUser();
@@ -44,7 +42,6 @@ const ProgressPage = () => {
 
   const router = useRouter();
   const [timeFilter, setTimeFilter] = useState<'week' | 'month'>('week');
-  const [heatmapWeeks, setHeatmapWeeks] = useState(5);
   const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);
   const [milestoneMessage, setMilestoneMessage] = useState('');
   const [milestoneStreak, setMilestoneStreak] = useState(0);
@@ -69,12 +66,11 @@ const ProgressPage = () => {
 
   // Get touch stats for streak milestone detection
   const { data: touchStats } = useTouchTracking(user?.id);
-  const { data: activeStreakStats } = useActiveStreak(user?.id);
-  const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
+  const { data: challengeStats } = useChallengeStats(user?.id, undefined);
   const { data: dailyHistory = [0, 0, 0, 0, 0, 0, 0] } = useDailyTouchHistory(user?.id);
 
   useEffect(() => {
-    const streak = activeStreakStats?.currentStreak || 0;
+    const streak = touchStats?.current_streak || 0;
     const trainedToday = (touchStats?.today_touches || 0) > 0;
     if (!trainedToday || streak === 0) return;
 
@@ -85,63 +81,58 @@ const ProgressPage = () => {
       setMilestoneMessage(VINNIE_STREAK_MESSAGES[milestone]);
       setShowVinnieMilestone(true);
     }
-  }, [activeStreakStats?.currentStreak, touchStats?.today_touches]);
+  }, [touchStats?.current_streak, touchStats?.today_touches]);
 
-  // One-time callout when a freeze just protected the streak — checks
-  // whether yesterday was auto-frozen, so it fires as soon as the freeze
-  // takes effect rather than waiting on a specific screen visit.
-  useEffect(() => {
-    const frozenDates = activeStreakStats?.frozenDates ?? [];
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = getLocalDate(yesterday);
-
-    if (!frozenDates.includes(yesterdayStr) || shownFreezeDates.has(yesterdayStr)) return;
-
-    shownFreezeDates.add(yesterdayStr);
-    setMilestoneStreak(activeStreakStats?.currentStreak ?? 0);
-    setMilestoneMessage(
-      `Missed a day, but a freeze covered you — your ${activeStreakStats?.currentStreak ?? 0}-day streak is still alive. ❄️`,
-    );
-    setShowVinnieMilestone(true);
-  }, [activeStreakStats?.frozenDates, activeStreakStats?.currentStreak]);
-
-  // Get heatmap data — a generous 26-week (182-day) sliding window ending
-  // today, independent of the Week/Month toggle (which still drives the
-  // stats/focus-breakdown sections below). ActivityHeatmap measures the
-  // card width and trims this down to however many full weeks actually
-  // fit, GitHub-style, so wider screens show more history instead of
-  // leaving blank space next to a fixed 5-week grid.
-  const { data: heatmapCells = [] } = useQuery({
-    queryKey: ['heatmap-stats', user?.id, getLocalDate()],
+  // Get chart data
+  const { data: chartStats } = useQuery({
+    queryKey: ['chart-stats', user?.id, timeFilter, getLocalDate()],
     enabled: !!user?.id,
-    queryFn: async (): Promise<{ date: string; value: number }[]> => {
+    queryFn: async () => {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const rangeStart = new Date(today);
-      rangeStart.setDate(rangeStart.getDate() - 181);
+      const daysToFetch = timeFilter === 'week' ? 7 : 28;
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - daysToFetch + 1);
 
       const { data: sessions } = await supabase
         .from('daily_sessions')
         .select('touches_logged, date')
         .eq('user_id', user!.id)
-        .gte('date', getLocalDate(rangeStart))
+        .gte('date', getLocalDate(startDate))
         .order('date', { ascending: true });
 
+      // Group by date
       const byDate: Record<string, number> = {};
       sessions?.forEach((s) => {
         byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
       });
 
-      const cells: { date: string; value: number }[] = [];
-      const cursor = new Date(rangeStart);
-      while (cursor <= today) {
-        const dateStr = getLocalDate(cursor);
-        cells.push({ date: dateStr, value: byDate[dateStr] || 0 });
-        cursor.setDate(cursor.getDate() + 1);
-      }
+      if (timeFilter === 'week') {
+        const labels: string[] = [];
+        const data: number[] = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-      return cells;
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(startDate);
+          d.setDate(d.getDate() + i);
+          const dateStr = getLocalDate(d);
+          labels.push(dayNames[d.getDay()]);
+          data.push(byDate[dateStr] || 0);
+        }
+        return { labels, data };
+      } else {
+        // Monthly - group by week
+        const labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+        const data = [0, 0, 0, 0];
+
+        for (let i = 0; i < 28; i++) {
+          const d = new Date(startDate);
+          d.setDate(d.getDate() + i);
+          const dateStr = getLocalDate(d);
+          const weekIndex = Math.floor(i / 7);
+          data[weekIndex] += byDate[dateStr] || 0;
+        }
+        return { labels, data };
+      }
     },
   });
 
@@ -185,25 +176,9 @@ const ProgressPage = () => {
   };
 
   const weekTouches = touchStats?.this_week_touches || 0;
-  const activeStreak = activeStreakStats?.currentStreak || 0;
-  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
+  const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
-
-  const squadBadgeCounts = useMemo(() => {
-    const map = new Map<string, { name: string; icon: string; count: number }>();
-    squadBadges.forEach((sb) => {
-      const existing = map.get(sb.badgeName);
-      if (existing) {
-        existing.count++;
-      } else {
-        map.set(sb.badgeName, { name: sb.badgeName, icon: sb.badgeIcon, count: 1 });
-      }
-    });
-    return [...map.values()];
-  }, [squadBadges]);
-
-  const getSquadBadgeColor = (icon: string) =>
-    SQUAD_BADGE_POOL.find((b) => b.icon === icon)?.color || '#ffb724';
+  const challengeStreak = challengeStats?.challengeStreak || 0;
 
   // Format time ago
   const formatTimeAgo = (dateStr: string) => {
@@ -217,6 +192,21 @@ const ProgressPage = () => {
     if (diffHours < 24) return `${diffHours} hours ago`;
     if (diffDays === 1) return 'Yesterday';
     return `${diffDays} days ago`;
+  };
+
+  const chartData = {
+    labels:
+      chartStats?.labels ||
+      (timeFilter === 'week'
+        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        : ['Week 1', 'Week 2', 'Week 3', 'Week 4']),
+    datasets: [
+      {
+        data: chartStats?.data?.length ? chartStats.data : [0],
+        color: (opacity = 1) => `rgba(43, 159, 255, ${opacity})`,
+        strokeWidth: 3,
+      },
+    ],
   };
 
   return (
@@ -274,10 +264,48 @@ const ProgressPage = () => {
         {/* Chart Card */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Last {heatmapWeeks} Weeks</Text>
+            <Text style={styles.chartTitle}>
+              {timeFilter === 'week' ? 'This Week' : 'This Month'}
+            </Text>
+            <View style={styles.chartLegend}>
+              <View style={styles.legendDot} />
+              <Text style={styles.legendText}>Touches</Text>
+            </View>
           </View>
 
-          <ActivityHeatmap cells={heatmapCells} onWeeksVisibleChange={setHeatmapWeeks} />
+          <LineChart
+            data={chartData}
+            width={screenWidth - 80}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#FFF',
+              backgroundGradientFrom: '#FFF',
+              backgroundGradientTo: '#FFF',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(43, 159, 255, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(120, 144, 156, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: '6',
+                strokeWidth: '2',
+                stroke: '#1f89ee',
+              },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: '#F5F7FA',
+              },
+            }}
+            bezier
+            style={styles.chart}
+            withInnerLines={true}
+            withOuterLines={false}
+            withVerticalLines={false}
+            withHorizontalLines={true}
+            withDots={true}
+            withShadow={false}
+          />
         </View>
 
         {/* This Week Stats */}
@@ -289,7 +317,7 @@ const ProgressPage = () => {
             <Text style={[styles.statValue, { color: '#1f89ee' }]}>
               {weekTouches.toLocaleString()}
             </Text>
-            <Text style={styles.statLabel}>Weekly Touches</Text>
+            <Text style={styles.statLabel}>This Week</Text>
             <Text style={styles.statSubtext}>Resets Sunday</Text>
             <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
@@ -298,18 +326,9 @@ const ProgressPage = () => {
             <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
-            <Text style={[styles.statValue, { color: '#ffb724' }]}>{activeStreak}</Text>
-            <Text style={styles.statLabel}>Active Streak</Text>
-            {freezesAvailable > 0 ? (
-              <View style={styles.freezeRow}>
-                <Ionicons name='snow-outline' size={12} color='#1f89ee' />
-                <Text style={[styles.statSubtext, styles.freezeText]}>
-                  {freezesAvailable} freeze{freezesAvailable > 1 ? 's' : ''} banked
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.statSubtext}>Keep it going!</Text>
-            )}
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>{streak}</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+            <Text style={styles.statSubtext}>Keep it going!</Text>
           </View>
 
           <View style={[styles.statCard, styles.statBest]}>
@@ -322,40 +341,19 @@ const ProgressPage = () => {
             <MiniSparkline data={dailyHistory} color='#1f89ee' />
           </View>
 
-        </View>
-
-        {/* Squad Badges */}
-        {squadBadgeCounts.length > 0 && (
-          <View style={styles.badgesCard}>
-            <Text style={styles.sectionTitle}>Earned Squad Badges</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.squadBadgeRow}
-            >
-              {squadBadgeCounts.map((badge) => (
-                <View key={badge.name} style={styles.squadBadgeChip}>
-                  <View
-                    style={[
-                      styles.squadBadgeIconBg,
-                      { backgroundColor: `${getSquadBadgeColor(badge.icon)}22` },
-                    ]}
-                  >
-                    <Ionicons
-                      name={badge.icon as any}
-                      size={22}
-                      color={getSquadBadgeColor(badge.icon)}
-                    />
-                  </View>
-                  <Text style={styles.squadBadgeName} numberOfLines={2}>
-                    {badge.name}
-                  </Text>
-                  <Text style={styles.squadBadgeCount}>x{badge.count}</Text>
-                </View>
-              ))}
-            </ScrollView>
+          <View style={[styles.statCard, styles.statAvg]}>
+            <View style={[styles.statIconBg, { backgroundColor: '#FEF9EC' }]}>
+              <Text style={styles.statIcon}>⚽</Text>
+            </View>
+            <Text style={[styles.statValue, { color: '#ffb724' }]}>
+              {challengeStreak}
+            </Text>
+            <Text style={styles.statLabel}>Challenge Streak</Text>
+            <Text style={styles.statSubtext}>
+              {challengeStreak === 0 ? "Do today's challenge!" : 'Days in a row'}
+            </Text>
           </View>
-        )}
+        </View>
 
         {/* Training Focus Breakdown */}
         {focusBreakdown.length > 0 && (
@@ -542,6 +540,27 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1a1a2e',
   },
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#1f89ee',
+  },
+  legendText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#78909C',
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+
   sectionTitle: {
     fontSize: 20,
     fontWeight: '900',
@@ -569,6 +588,7 @@ const styles = StyleSheet.create({
   statWeek: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
   statStreak: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
   statBest: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#1f89ee' },
+  statAvg: { backgroundColor: '#FFFFFF', borderTopWidth: 4, borderTopColor: '#ffb724' },
   statIconBg: {
     width: 38,
     height: 38,
@@ -595,14 +615,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78909C',
-  },
-  freezeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  freezeText: {
-    color: '#1f89ee',
   },
 
   // SESSION HISTORY
@@ -763,43 +775,4 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
 
-  // SQUAD BADGES
-  badgesCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  squadBadgeRow: {
-    gap: 12,
-  },
-  squadBadgeChip: {
-    alignItems: 'center',
-    width: 84,
-  },
-  squadBadgeIconBg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  squadBadgeName: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    textAlign: 'center',
-  },
-  squadBadgeCount: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78909C',
-    marginTop: 2,
-  },
 });

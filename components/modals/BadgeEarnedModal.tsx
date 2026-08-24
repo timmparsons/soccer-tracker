@@ -18,10 +18,6 @@ const CONFETTI_BADGE_IDS = new Set([
   'challenge_streak_3',
   'challenge_streak_7',
   'challenge_streak_30',
-  'perf_pb',
-  'perf_sky_high_bronze',
-  'perf_sky_high_silver',
-  'perf_sky_high_gold',
 ]);
 
 interface BadgeEarnedModalProps {

@@ -9,11 +9,11 @@ import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -44,17 +44,6 @@ export default function RootLayout() {
   useEffect(() => {
     const t = setTimeout(() => setMinTimeDone(true), 1500);
     return () => clearTimeout(t);
-  }, []);
-
-  // RN doesn't get a browser visibilitychange event, so without this React
-  // Query never knows the app came back to the foreground — date-keyed
-  // queries (daily sprint/challenge, streaks) can sit on yesterday's cached
-  // result indefinitely if the app was only backgrounded, not killed.
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
-      focusManager.setFocused(status === 'active');
-    });
-    return () => subscription.remove();
   }, []);
 
   // 🔐 Load session, fetch profile, determine target route

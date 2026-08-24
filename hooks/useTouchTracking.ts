@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { calculateStreak, StreakStats } from '@/lib/streak';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -154,74 +153,6 @@ export const useTouchTracking = (userId: string | undefined) => {
   });
 };
 
-export type WeekDayStatus = 'done' | 'frozen' | 'missed' | 'future';
-
-export interface WeekDay {
-  date: string; // YYYY-MM-DD
-  dayOfWeek: number; // 0=Sun..6=Sat
-  isToday: boolean;
-  status: WeekDayStatus;
-}
-
-export interface ActiveStreakData extends StreakStats {
-  weekActivity: WeekDay[]; // 7 entries, Sun→Sat, current calendar week
-}
-
-// Unified streak: a day counts as "active" if it has a raw touch log
-// (daily_sessions) OR a Daily Sprint attempt (sprint_attempts, joined
-// through daily_sprints for its calendar date). This is a strict superset
-// of the touches-only streak in useTouchTracking, so it can only ever be
-// equal to or higher than that value — never lower — which keeps existing
-// long streaks (140+ days) intact.
-export const useActiveStreak = (userId: string | undefined) => {
-  return useQuery({
-    queryKey: ['active-streak', userId],
-    queryFn: async (): Promise<ActiveStreakData> => {
-      if (!userId) throw new Error('No user ID');
-
-      const [{ data: sessions }, { data: attempts }] = await Promise.all([
-        supabase.from('daily_sessions').select('date').eq('user_id', userId),
-        (supabase as any)
-          .from('sprint_attempts')
-          .select('daily_sprints(date)')
-          .eq('profile_id', userId),
-      ]);
-
-      const dateSet = new Set<string>();
-      sessions?.forEach((s) => dateSet.add(s.date));
-      (attempts || []).forEach((a: { daily_sprints: { date: string } | null }) => {
-        if (a.daily_sprints?.date) dateSet.add(a.daily_sprints.date);
-      });
-
-      const stats = calculateStreak([...dateSet]);
-      const frozenSet = new Set(stats.frozenDates);
-
-      const today = new Date();
-      const todayStr = getLocalDate(today);
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-
-      const weekActivity: WeekDay[] = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const dateStr = getLocalDate(d);
-        const status: WeekDayStatus =
-          dateStr > todayStr
-            ? 'future'
-            : dateSet.has(dateStr)
-              ? 'done'
-              : frozenSet.has(dateStr)
-                ? 'frozen'
-                : 'missed';
-        return { date: dateStr, dayOfWeek: i, isToday: dateStr === todayStr, status };
-      });
-
-      return { ...stats, weekActivity };
-    },
-    enabled: !!userId,
-  });
-};
-
 export const useRecentSessions = (userId: string | undefined, limit = 10) => {
   return useQuery({
     queryKey: ['recent-sessions', userId, limit],
@@ -290,10 +221,8 @@ export const useDrills = () => {
   });
 };
 
-// Time durations for challenges (in seconds). Also reused by useDailySprint
-// for single-drill sprint combos, which run duration-mode instead of racing
-// the clock over a handful of reps.
-export const CHALLENGE_DURATIONS = [60, 120, 180]; // 1, 2, 3 minutes
+// Time durations for challenges (in seconds)
+const CHALLENGE_DURATIONS = [60, 120, 180, 240]; // 3, 4, 5, 6 minutes
 
 export const useJugglingRecord = (userId: string | undefined) => {
   return useQuery({

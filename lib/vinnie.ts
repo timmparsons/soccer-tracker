@@ -5,16 +5,6 @@ export interface VinnieState {
   message: string;
 }
 
-export interface VinnieSprintResult {
-  comboName: string;
-  isPR: boolean;
-  isCrown: boolean;
-  // Race-mode combos report durationMs; duration-mode (single-drill) combos
-  // have no time to race and report repsCompleted instead.
-  durationMs?: number;
-  repsCompleted?: number;
-}
-
 export interface VinnieContext {
   trainedToday: boolean;
   streak: number;
@@ -27,15 +17,13 @@ export interface VinnieContext {
   weekTpm?: number;
   weekSessions?: number;
   totalTouches?: number;
-  lastSprintResult?: VinnieSprintResult | null;
-  freezesAvailable?: number;
 }
 
 const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 const MESSAGES: Record<VinnieMood, string[]> = {
   happy: [
-    "That's what I'm talking about! Keep the ball rolling.",
+    "That's what I'm talking about! Keep the ball rolling 💪",
     "Good session! Champions build habits, one day at a time.",
     "You showed up today. That's half the battle won.",
     "Nice work. Don't stop there — tomorrow we go again.",
@@ -144,35 +132,6 @@ export const VINNIE_STREAK_MESSAGES: Record<number, string> = {
   100: "100 DAYS! That's elite. Absolutely elite. I have no words 🏆🔥",
 };
 
-const VINNIE_STREAK_FIRST_DAY_MESSAGES: string[] = [
-  "Day one. Let's build something great ⚽",
-  "Every streak starts with a single session. Nice start!",
-  "That's the first brick laid. Let's keep stacking them.",
-];
-
-const VINNIE_STREAK_COMEBACK_MESSAGES: string[] = [
-  "Your last streak ended, but that comeback is exactly what champions do 💪",
-  "New streak, new chance. Let's go again!",
-  "Streaks break. Champions restart. Good on you for getting back out here.",
-];
-
-const VINNIE_STREAK_CONTINUING_MESSAGES: string[] = [
-  'Keep the momentum going!',
-  'Another day, another step forward ⚽',
-  "That's the consistency that separates you from the rest.",
-  'No days off! You keep showing up.',
-];
-
-export function getStreakCelebrationMessage(currentStreak: number, longestStreak: number): string {
-  if (VINNIE_STREAK_MESSAGES[currentStreak]) return VINNIE_STREAK_MESSAGES[currentStreak];
-  if (currentStreak <= 1) {
-    return longestStreak > 1
-      ? pickRandom(VINNIE_STREAK_COMEBACK_MESSAGES)
-      : pickRandom(VINNIE_STREAK_FIRST_DAY_MESSAGES);
-  }
-  return pickRandom(VINNIE_STREAK_CONTINUING_MESSAGES);
-}
-
 export const MOOD_EMOJI: Record<VinnieMood, string> = {
   happy: '😄',
   hype: '🔥',
@@ -275,33 +234,12 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
   const {
     trainedToday, streak, hour, dayOfWeek, challengeStreak = 0, skillFocus,
     todayTouches = 0, dailyTarget = 1000, weekTpm = 0, weekSessions = 0, totalTouches = 0,
-    lastSprintResult, freezesAvailable = 0,
   } = ctx;
 
   const encouragingPool =
     skillFocus && GOAL_MESSAGES[skillFocus]
       ? [...GOAL_MESSAGES[skillFocus], ...MESSAGES.encouraging]
       : MESSAGES.encouraging;
-
-  // A just-logged sprint result — highest priority, it's the most immediate
-  // feedback a player can get right after finishing.
-  if (lastSprintResult) {
-    if (lastSprintResult.repsCompleted != null) {
-      const reps = lastSprintResult.repsCompleted;
-      if (lastSprintResult.isPR) {
-        return { mood: 'hype', message: `New PR! ${lastSprintResult.comboName}: ${reps} reps. You just beat your best 🔥` };
-      }
-      return { mood: 'happy', message: `Sprint logged — ${lastSprintResult.comboName}: ${reps} reps. Chase that PR next time!` };
-    }
-    const seconds = ((lastSprintResult.durationMs ?? 0) / 1000).toFixed(2);
-    if (lastSprintResult.isCrown) {
-      return { mood: 'hype', message: `CROWN PACE! ${lastSprintResult.comboName} in ${seconds}s — that's elite speed! 👑` };
-    }
-    if (lastSprintResult.isPR) {
-      return { mood: 'hype', message: `New PR! ${lastSprintResult.comboName} in ${seconds}s. You just beat your best 🔥` };
-    }
-    return { mood: 'happy', message: `Sprint logged — ${lastSprintResult.comboName} in ${seconds}s. Chase that PR next time!` };
-  }
 
   // Total touches milestones — highest priority regardless of anything else
   const milestone = [100000, 50000, 25000, 10000, 5000, 1000].find((m) => totalTouches === m);
@@ -359,15 +297,8 @@ export const getVinnieMood = (ctx: VinnieContext): VinnieState => {
     return { mood: 'firm', message: pickRandom(LOW_SESSIONS_MESSAGES) };
   }
 
-  // Streak at risk late in the day — softer tone if a freeze is banked,
-  // since the streak genuinely isn't on the line the way the nag implies.
+  // Streak at risk late in the day
   if (streak > 3 && hour >= 20) {
-    if (freezesAvailable > 0) {
-      return {
-        mood: 'encouraging',
-        message: `Haven't trained today, but you've got a freeze banked — your ${streak}-day streak is safe either way. Get a session in if you can ⚽`,
-      };
-    }
     return {
       mood: 'anxious',
       message: `Don't break that ${streak}-day streak. I'm watching. ⚽`,

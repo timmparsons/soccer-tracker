@@ -1,29 +1,21 @@
 import ActivityFeed from '@/components/HomePage/ActivityFeed';
-import QuickLaunchButton from '@/components/HomePage/QuickLaunchButton';
-import StreakBanner from '@/components/HomePage/StreakBanner';
+import TodayChallengeCard from '@/components/HomePage/TodayChallengeCard';
 import CircularProgress from '@/components/common/CircularProgress';
 import PageHeader from '@/components/common/PageHeader';
 import VinnieCard from '@/components/common/VinnieCard';
-import StreakModal from '@/components/modals/StreakModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useProfile } from '@/hooks/useProfile';
-import { pickDailyCircuit, useWorkoutLibrary } from '@/hooks/useWorkouts';
 import {
-  useActiveStreak,
   useChallengeStats,
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
-import { getLocalDate } from '@/utils/getLocalDate';
-import { syncStreakDangerNotification } from '@/lib/streakDanger';
-import { syncFreezeUsedNotification } from '@/lib/streakFreeze';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -40,7 +32,6 @@ const HomeScreen = () => {
   const challengeNotifications = useChallengeNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
-  const [streakModalVisible, setStreakModalVisible] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -52,76 +43,27 @@ const HomeScreen = () => {
   const { data: challengeStats, refetch: refetchChallengeStats } =
     useChallengeStats(user?.id, undefined);
 
-  const { data: activeStreakStats, refetch: refetchActiveStreak } =
-    useActiveStreak(user?.id);
-
-  const { workouts: circuitWorkouts } = useWorkoutLibrary();
-  const fiveMinCircuit = pickDailyCircuit(circuitWorkouts, 300);
-
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refetchProfile(),
       refetchStats(),
       refetchChallengeStats(),
-      refetchActiveStreak(),
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] }),
       queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchStats, refetchChallengeStats, refetchActiveStreak, queryClient, user?.id]);
+  }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
       refetchProfile();
       refetchStats();
       refetchChallengeStats();
-      refetchActiveStreak();
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       queryClient.invalidateQueries({ queryKey: ['activity-reactions-unviewed', user?.id] });
-    }, [refetchProfile, refetchStats, refetchChallengeStats, refetchActiveStreak, queryClient, user?.id]),
+    }, [refetchProfile, refetchStats, refetchChallengeStats, queryClient, user?.id]),
   );
-
-  // Reacts to the underlying query values (not just focus/refresh events), so
-  // it re-syncs once an in-flight refetch actually resolves with fresh data.
-  useEffect(() => {
-    if (!user?.id) return;
-    syncStreakDangerNotification(
-      activeStreakStats?.currentStreak || 0,
-      touchStats?.today_touches || 0,
-    );
-  }, [user?.id, activeStreakStats?.currentStreak, touchStats?.today_touches]);
-
-  useEffect(() => {
-    if (!user?.id || !activeStreakStats?.frozenDates.length) return;
-    syncFreezeUsedNotification(
-      user.id,
-      activeStreakStats.frozenDates,
-      activeStreakStats.freezesAvailable,
-    );
-  }, [user?.id, activeStreakStats?.frozenDates, activeStreakStats?.freezesAvailable]);
-
-  // Auto-show the streak modal once per calendar day, the first time
-  // Home has a real streak to show.
-  useEffect(() => {
-    if (!user?.id || !activeStreakStats?.currentStreak) return;
-
-    let cancelled = false;
-    (async () => {
-      const key = `streakModal:lastShown:${user.id}`;
-      const today = getLocalDate();
-      const lastShown = await AsyncStorage.getItem(key);
-      if (cancelled || lastShown === today) return;
-
-      await AsyncStorage.setItem(key, today);
-      setStreakModalVisible(true);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, activeStreakStats?.currentStreak]);
 
   if (statsLoading) {
     return (
@@ -132,8 +74,7 @@ const HomeScreen = () => {
   }
 
   const displayName = getDisplayName(profile);
-  const streak = activeStreakStats?.currentStreak || 0;
-  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
+  const streak = touchStats?.current_streak || 0;
   const weekTpm = touchStats?.this_week_tpm || 0;
   const challengeStreak = challengeStats?.challengeStreak || 0;
   const todayTouches = touchStats?.today_touches || 0;
@@ -162,15 +103,6 @@ const HomeScreen = () => {
           />
         }
       >
-        {/* STREAK BANNER */}
-        {!profile?.is_coach && (
-          <StreakBanner
-            streak={streak}
-            todayTouches={todayTouches}
-            onPress={() => setStreakModalVisible(true)}
-          />
-        )}
-
         {/* TEAM NUDGE — solo players with no team */}
         {!profile?.is_coach && !profile?.team_id && !teamNudgeDismissed && (
           <View style={styles.teamNudgeBanner}>
@@ -227,7 +159,6 @@ const HomeScreen = () => {
                 compact
                 trainedToday={(touchStats?.today_touches || 0) > 0}
                 streak={streak}
-                freezesAvailable={freezesAvailable}
                 challengeStreak={challengeStreak}
                 skillFocus={profile?.skill_focus ?? null}
                 todayTouches={todayTouches}
@@ -237,24 +168,21 @@ const HomeScreen = () => {
                 totalTouches={touchStats?.total_touches}
               />
             </View>
-            <View style={styles.quickLaunchRow}>
-              <QuickLaunchButton
-                icon='flash'
-                iconColor='#ffb724'
-                label='Start 4-Min Burst'
-                onPress={() => router.push('/(modals)/tabata')}
-              />
-              <QuickLaunchButton
-                icon='barbell'
-                iconColor='#1f89ee'
-                label='Start 5-Min Circuit'
-                onPress={() =>
-                  fiveMinCircuit &&
-                  router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit.id } })
-                }
-                disabled={!fiveMinCircuit}
-              />
-            </View>
+            <TodayChallengeCard
+              userId={user.id}
+              totalTouches={touchStats?.total_touches ?? 0}
+              onStartChallenge={(drillId, durationMinutes, drillName, difficulty) => {
+                router.push({
+                  pathname: '/(tabs)/train',
+                  params: {
+                    startChallengeDrillId: drillId,
+                    startChallengeDuration: String(durationMinutes),
+                    startChallengeName: drillName,
+                    startChallengeDifficulty: difficulty,
+                  },
+                });
+              }}
+            />
           </>
         ) : (
           <>
@@ -262,7 +190,6 @@ const HomeScreen = () => {
           <VinnieCard
             trainedToday={(touchStats?.today_touches || 0) > 0}
             streak={streak}
-            freezesAvailable={freezesAvailable}
             challengeStreak={challengeStreak}
             skillFocus={profile?.skill_focus ?? null}
             todayTouches={todayTouches}
@@ -277,20 +204,13 @@ const HomeScreen = () => {
               {todayDone && <Text style={styles.todayDoneBadge}>✓ Goal hit!</Text>}
             </View>
             <View style={styles.todayRingRow}>
-              <TouchableOpacity
-                onPress={() => streak > 0 && setStreakModalVisible(true)}
-                activeOpacity={streak > 0 ? 0.75 : 1}
-              >
-                <CircularProgress
-                  progress={todayPct / 100}
-                  size={120}
-                  color={todayDone ? '#ffb724' : '#FFFFFF'}
-                  trackColor='rgba(255,255,255,0.2)'
-                  labelColor='rgba(255,255,255,0.65)'
-                  showStreak
-                  streak={streak}
-                />
-              </TouchableOpacity>
+              <CircularProgress
+                progress={todayPct / 100}
+                size={120}
+                color={todayDone ? '#ffb724' : '#FFFFFF'}
+                trackColor='rgba(255,255,255,0.2)'
+                labelColor='rgba(255,255,255,0.65)'
+              />
               <View style={styles.todayRingMeta}>
                 <View style={styles.todayCountRow}>
                   <Text style={styles.todayTouches}>{todayTouches.toLocaleString()}</Text>
@@ -309,14 +229,6 @@ const HomeScreen = () => {
         <ActivityFeed />
 
       </ScrollView>
-
-      <StreakModal
-        visible={streakModalVisible}
-        onClose={() => setStreakModalVisible(false)}
-        streak={streak}
-        freezesAvailable={freezesAvailable}
-        weekActivity={activeStreakStats?.weekActivity || []}
-      />
     </View>
   );
 };
@@ -338,11 +250,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  // QUICK LAUNCH BAR
-  quickLaunchRow: {
-    gap: 10,
-  },
-
   // CARDS ROW (challenge + progress side by side, non-coaches)
   cardsRow: {
     flexDirection: 'row',
@@ -367,6 +274,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+
   // TODAY'S PROGRESS — full width
   todayCardFull: {
     backgroundColor: '#1f89ee',

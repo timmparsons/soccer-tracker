@@ -6,7 +6,7 @@ import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useActiveStreak, useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useDrills, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
 import { track } from '@/lib/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +37,6 @@ export default function DrillLibraryScreen() {
 
   const { data: drills = [] } = useDrills();
   const { data: touchStats } = useTouchTracking(user?.id);
-  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
   const { data: allBadges = [] } = useAllBadges();
 
@@ -240,14 +239,13 @@ export default function DrillLibraryScreen() {
             setChallengeName(undefined);
           }}
           userId={user.id}
-          teamId={profile?.team_id}
           onSuccess={handleSessionLogged}
           challengeDrillId={challengeDrillId}
           challengeName={challengeName}
           badgeContext={{
             totalSessions: touchStats?.total_sessions ?? 0,
             totalTouches: touchStats?.total_touches ?? 0,
-            currentStreak: activeStreakStats?.currentStreak ?? 0,
+            currentStreak: touchStats?.current_streak ?? 0,
             previousJugglePB: jugglePB,
             sessionsThisWeek: touchStats?.this_week_sessions ?? 0,
             teamId: profile?.team_id ?? null,

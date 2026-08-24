@@ -23,11 +23,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // TYPES & CONSTANTS
 
 type Persona = 'player' | 'coach';
-type AccountFor = 'self' | 'child';
 
 interface OnboardingData {
   persona: Persona | null;
-  accountFor: AccountFor | null;
   goal: string | null;
   name: string;
   email: string;
@@ -39,7 +37,6 @@ interface OnboardingData {
 const PLAYER_STEPS = [
   'welcome',
   'persona',
-  'accountfor',
   'social',
   'name',
   'notif',
@@ -54,7 +51,6 @@ const COACH_STEPS = [
   'coachname',
   'coachnotif',
   'coachsignup',
-  'club',
 ] as const;
 
 type Step = (typeof PLAYER_STEPS)[number] | (typeof COACH_STEPS)[number];
@@ -76,7 +72,6 @@ export default function OnboardingScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     persona: 'player',
-    accountFor: null,
     goal: null,
     name: '',
     email: '',
@@ -124,13 +119,7 @@ export default function OnboardingScreen() {
     }
 
     await AsyncStorage.setItem('hasSeenIntro', 'true');
-    if (data.persona === 'coach') {
-      // Push (not replace) so the club step stays underneath — backing out
-      // of team creation should return here, not drop to the coach tab.
-      router.push('/(modals)/create-team');
-    } else {
-      router.replace('/(tabs)');
-    }
+    router.replace('/(tabs)');
   };
 
   const renderStep = () => {
@@ -139,22 +128,12 @@ export default function OnboardingScreen() {
         return <WelcomeScreen onNext={goNext} />;
       case 'persona':
         return <PersonaScreen onSelect={handlePersonaSelect} />;
-      case 'accountfor':
-        return (
-          <AccountForScreen
-            onSelect={(accountFor) => {
-              setData((d) => ({ ...d, accountFor }));
-              goNext();
-            }}
-          />
-        );
       case 'name':
         return (
           <NameScreen
             value={data.name}
             onChange={(n) => setData((d) => ({ ...d, name: n }))}
             onNext={goNext}
-            accountFor={data.accountFor}
           />
         );
       case 'social':
@@ -364,46 +343,6 @@ function PersonaScreen({ onSelect }: { onSelect: (p: Persona) => void }) {
   );
 }
 
-// SCREEN 2B (PLAYER) — WHO'S THIS FOR
-
-function AccountForScreen({
-  onSelect,
-}: {
-  onSelect: (accountFor: AccountFor) => void;
-}) {
-  return (
-    <View style={s.screen}>
-      <View style={s.screenContent}>
-        <Text style={s.title}>Who's training?</Text>
-        <Text style={s.subtitle}>
-          We'll set up the leaderboard name and reminders around the right
-          person.
-        </Text>
-        <View style={s.personaRow}>
-          <TouchableOpacity
-            style={s.personaCard}
-            onPress={() => onSelect('self')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.personaEmoji}>🙋</Text>
-            <Text style={s.personaLabel}>Me</Text>
-            <Text style={s.personaSub}>I'm the one training</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.personaCard}
-            onPress={() => onSelect('child')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.personaEmoji}>👦</Text>
-            <Text style={s.personaLabel}>My child</Text>
-            <Text style={s.personaSub}>I'm setting this up for them</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 // SCREEN 5 (PLAYER) / 4C (COACH) — NAME
 
 function NameScreen({
@@ -411,16 +350,12 @@ function NameScreen({
   onChange,
   onNext,
   isCoach,
-  accountFor,
 }: {
   value: string;
   onChange: (n: string) => void;
   onNext: () => void;
   isCoach?: boolean;
-  accountFor?: AccountFor | null;
 }) {
-  const isChild = accountFor === 'child';
-
   return (
     <KeyboardAvoidingView
       style={s.screen}
@@ -430,28 +365,18 @@ function NameScreen({
         <Text style={s.title}>
           {isCoach
             ? 'What should your players call you?'
-            : isChild
-              ? "What's your child's name?"
-              : 'What do your teammates call you?'}
+            : 'What do your teammates call you?'}
         </Text>
         <Text style={s.subtitle}>
           {isCoach
             ? 'This shows on your coach dashboard.'
-            : isChild
-              ? 'This is what shows on the leaderboard and what Vinnie, our AI coach, will call them.'
-              : 'This shows on the leaderboard.'}
+            : "This shows on the leaderboard. If you're signing up for your child, enter their name."}
         </Text>
         <TextInput
           style={s.nameInput}
           value={value}
           onChangeText={onChange}
-          placeholder={
-            isCoach
-              ? 'Coach Smith'
-              : isChild
-                ? "Their name or nickname"
-                : 'Your name or nickname'
-          }
+          placeholder={isCoach ? 'Coach Smith' : 'Your name or nickname'}
           placeholderTextColor='#B0BEC5'
           autoFocus
           returnKeyType='done'
@@ -461,7 +386,7 @@ function NameScreen({
       </View>
       <View style={s.bottomPad}>
         <PrimaryButton
-          label={isChild ? 'Continue →' : "That's me →"}
+          label="That's me →"
           onPress={onNext}
           disabled={value.trim().length === 0}
         />
@@ -652,7 +577,7 @@ function SignUpScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={s.signupScrollContent}
+        contentContainerStyle={s.scrollContent}
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
@@ -661,8 +586,8 @@ function SignUpScreen({
             source={require('../../assets/images/app-logo.png')}
             style={s.signupLogo}
           />
-          <Text style={s.signupTitle}>Create your account</Text>
-          <Text style={s.signupSubtitle}>
+          <Text style={s.title}>Create your account</Text>
+          <Text style={s.subtitle}>
             Save your progress and join the leaderboard
           </Text>
         </View>
@@ -877,10 +802,6 @@ function ClubSearchScreen({
           <Text style={s.clubSearchEmpty}>No clubs found for "{query}"</Text>
         )}
 
-        {query.trim().length === 0 && results.length > 0 && (
-          <Text style={s.clubSearchSectionLabel}>Clubs to check out</Text>
-        )}
-
         {results.map((club) => (
           <TouchableOpacity
             key={club.id}
@@ -891,11 +812,7 @@ function ClubSearchScreen({
             onPress={() => onSelect(selectedId === club.id ? null : club.id)}
             activeOpacity={0.8}
           >
-            {club.logo_url ? (
-              <Image source={{ uri: club.logo_url }} style={s.clubLogoThumb} />
-            ) : (
-              <Text style={s.optionEmoji}>🏟️</Text>
-            )}
+            <Text style={s.optionEmoji}>🏟️</Text>
             <Text
               style={[
                 s.optionLabel,
@@ -1006,33 +923,15 @@ const s = StyleSheet.create({
   },
 
   // SIGN UP SCREEN
-  signupScrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
   signupHeader: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   signupLogo: {
-    width: 100,
-    height: 100,
-    borderRadius: 22,
-    marginBottom: 24,
-  },
-  signupTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  signupSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#78909C',
-    textAlign: 'center',
+    width: 90,
+    height: 90,
+    borderRadius: 20,
+    marginBottom: 20,
   },
   signupCard: {
     backgroundColor: '#FFF',
@@ -1095,7 +994,7 @@ const s = StyleSheet.create({
     elevation: 0,
   },
   signupBtnText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 0.5,
@@ -1144,11 +1043,6 @@ const s = StyleSheet.create({
   },
   optionEmoji: {
     fontSize: 22,
-  },
-  clubLogoThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
   },
   optionText: {
     flex: 1,
@@ -1633,14 +1527,6 @@ const s = StyleSheet.create({
     color: '#78909C',
     textAlign: 'center',
     marginBottom: 16,
-  },
-  clubSearchSectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#78909C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
   },
 
   // PAYWALL SCREEN

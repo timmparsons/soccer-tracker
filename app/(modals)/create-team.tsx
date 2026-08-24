@@ -128,12 +128,7 @@ export default function CreateTeam() {
 
       const { data: team, error: teamError } = await supabase
         .from('teams')
-        .insert({
-          name: teamName.trim(),
-          code: teamCode,
-          coach_id: user.id,
-          club_id: (profile as any)?.club_id ?? null,
-        })
+        .insert({ name: teamName.trim(), code: teamCode, coach_id: user.id })
         .select()
         .single();
 

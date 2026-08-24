@@ -1,4 +1,3 @@
-import { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import { GroupChallenge, GroupChallengeParticipant, useCompleteGroupChallenge } from '@/hooks/useGroupChallenges';
 import { PlayerChallenge, useCompleteChallenge } from '@/hooks/usePlayerChallenges';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,9 +130,6 @@ export default function ChallengeAttemptModal({
     }
   };
 
-  const pace = computePace(touchesTarget, elapsed);
-  const suspiciousPace = pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC;
-
   const headerText = isGroup
     ? `Group Challenge · ${groupChallenge!.participants.length} players`
     : `You vs ${opponentName}`;
@@ -199,26 +195,15 @@ export default function ChallengeAttemptModal({
                     Happy with that? Submit your result — your opponents won't see it until they
                     finish too.
                   </Text>
-                  {suspiciousPace && pace !== null && (
-                    <View style={styles.paceWarning}>
-                      <Ionicons name='alert-circle' size={18} color='#92400E' />
-                      <Text style={styles.paceWarningText}>
-                        That&apos;s {pace.toFixed(1)} touches/sec — faster than looks realistic.
-                        Double-check your time before submitting.
-                      </Text>
-                    </View>
-                  )}
                   <TouchableOpacity
-                    style={[styles.submitButton, suspiciousPace && styles.submitButtonWarning]}
+                    style={styles.submitButton}
                     onPress={handleSubmit}
                     disabled={isPending}
                   >
                     {isPending ? (
                       <ActivityIndicator color='#FFF' />
                     ) : (
-                      <Text style={styles.submitButtonText}>
-                        {suspiciousPace ? "Yes, that's right" : 'Submit Result'}
-                      </Text>
+                      <Text style={styles.submitButtonText}>Submit Result</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -358,25 +343,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
-  paceWarning: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#FDE68A',
-    padding: 14,
-    marginBottom: 6,
-    width: '100%',
-  },
-  paceWarningText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#92400E',
-    lineHeight: 19,
-  },
   submitButton: {
     backgroundColor: '#1f89ee',
     borderRadius: 14,
@@ -384,9 +350,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     alignItems: 'center',
     width: '100%',
-  },
-  submitButtonWarning: {
-    backgroundColor: '#F59E0B',
   },
   submitButtonText: {
     fontSize: 16,

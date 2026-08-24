@@ -65,7 +65,7 @@ export default function JoinTeam() {
       // Find team by code (case-insensitive)
       const { data: team, error: teamError } = await supabase
         .from('teams')
-        .select('id, name, club_id')
+        .select('id, name')
         .ilike('code', teamCode.trim())
         .single();
 
@@ -78,14 +78,10 @@ export default function JoinTeam() {
         return;
       }
 
-      // Update user's profile to join the team; also adopt the team's club, if it has one
-      const profileUpdate: Record<string, unknown> = { team_id: team.id };
-      if ((team as any).club_id) {
-        profileUpdate.club_id = (team as any).club_id;
-      }
+      // Update user's profile to join the team
       const { error: profileError } = await supabase
         .from('profiles')
-        .update(profileUpdate as any)
+        .update({ team_id: team.id })
         .eq('id', user.id);
 
       if (profileError) throw profileError;

@@ -1,4 +1,3 @@
-import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { useQuery } from '@tanstack/react-query';
@@ -12,8 +11,6 @@ export interface TeamMemberStats {
   last_week_touches: number;
   alltime_best_week: number;
   daily_target: number;
-  max_juggle_count: number;
-  current_streak: number;
 }
 
 export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: string | null): Promise<TeamMemberStats[]> {
@@ -35,8 +32,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     .from('profiles')
     .select('id, name, display_name, avatar_url')
     .eq('team_id', teamId)
-    .eq('is_coach', false)
-    .eq('is_test_account', false);
+    .eq('is_coach', false);
 
   if (membersError) throw membersError;
   if (!teamMembers || teamMembers.length === 0) return [];
@@ -61,7 +57,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
       .lte('date', today),
     supabase
       .from('daily_sessions')
-      .select('user_id, touches_logged, date, juggle_count')
+      .select('user_id, touches_logged, date')
       .in('user_id', memberIds)
       .order('date', { ascending: false })
       .limit(50000),
@@ -82,7 +78,7 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
     recentByMember[s.user_id].push(s);
   }
 
-  const allByMember: Record<string, { touches_logged: number; date: string; juggle_count: number | null }[]> = {};
+  const allByMember: Record<string, { touches_logged: number; date: string }[]> = {};
   for (const s of allSessionsRaw || []) {
     if (!allByMember[s.user_id]) allByMember[s.user_id] = [];
     allByMember[s.user_id].push(s);
@@ -116,14 +112,6 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
       0,
     );
 
-    const max_juggle_count = all.reduce(
-      (max, s) => (s.juggle_count && s.juggle_count > max ? s.juggle_count : max),
-      0,
-    );
-
-    const activeDates = [...new Set(all.map((s) => s.date))];
-    const current_streak = calculateStreak(activeDates).currentStreak;
-
     return {
       id: member.id,
       name: member.name || member.display_name || 'Unknown Player',
@@ -133,18 +121,10 @@ export async function fetchTouchesLeaderboard(teamId: string, seasonStartDate?: 
       last_week_touches,
       alltime_best_week,
       daily_target: targetByMember[member.id] || 1000,
-      max_juggle_count,
-      current_streak,
     };
   });
 
-  return memberStats.sort(
-    (a, b) =>
-      b.weekly_touches - a.weekly_touches ||
-      b.current_streak - a.current_streak ||
-      b.max_juggle_count - a.max_juggle_count ||
-      a.name.localeCompare(b.name),
-  );
+  return memberStats.sort((a, b) => b.weekly_touches - a.weekly_touches);
 }
 
 export function useTouchesLeaderboard(teamId: string | null | undefined, seasonStartDate?: string | null) {
