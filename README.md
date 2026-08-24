@@ -1,115 +1,162 @@
-# ⚽ Master Touch
+# Master Touch
 
-A React Native soccer juggling training app that helps young players practice consistently outside of team training. Built for coaches and their teams.
+A React Native training app for youth soccer players and their coaches. Players log daily juggling/touch practice, take on daily challenges and drills, and compete on team, club, and global leaderboards. Coaches manage rosters, track engagement, and assign daily focus areas.
 
-## 🎯 Why Master Touch?
-
-Most youth soccer players only get 4 hours of coached training per week. Master Touch gamifies daily juggling practice to keep kids motivated and improving between sessions. Coaches get tools to track team progress and engagement.
+Published on the App Store as **Master Touch** (`com.timmparsons.mastertouch`), though the repo is named `soccer-tracker`.
 
 ---
 
-## ✨ Features
+## Tech Stack
 
-### For Players
-
-- ⏱️ **Training Timer** – Practice juggling with built-in timer and counter
-- 📊 **Progress Charts** – Visualize your improvement over time
-- 🏆 **Team Levels** – Work together with teammates to level up (500 XP per level)
-- 🎮 **XP System** – Earn 1 XP for every 10 juggles
-- 🤖 **AI Coaching** – Get personalized feedback powered by Claude
-- 🔔 **Push Notifications** – Daily reminders to practice
-
-### For Coaches
-
-- 👥 **Team Management** – Create teams and invite players with auto-generated codes
-- 📈 **Team Analytics** – Track engagement and progress across your roster
-- 👀 **Player Insights** – Monitor individual development
+- **Framework:** Expo SDK 54, Expo Router 6 (typed routes), React Native 0.81 / React 19
+- **Architecture:** New Architecture enabled, React Compiler enabled
+- **Language:** TypeScript (strict mode)
+- **Backend:** Supabase (Postgres, Auth, Storage, Edge Functions)
+- **Data fetching:** TanStack React Query
+- **Payments:** RevenueCat (`react-native-purchases`) over Apple/Google IAP
+- **Charts:** Victory Native, `react-native-chart-kit`
+- **Camera/vision:** `react-native-vision-camera` (AI touch counting)
+- **Animation:** Reanimated 4, Moti
+- **Notifications:** `expo-notifications` (local only, no push server beyond the `send-push` edge function)
+- **Testing:** Jest + `jest-expo` (see `__tests__/`)
+- **Build/deploy:** EAS Build
 
 ---
 
-## 🛠️ Tech Stack
-
-- **Frontend:** React Native (Expo) with Expo Router
-- **Backend:** Supabase (Auth, Database, Edge Functions)
-- **Language:** TypeScript
-- **Data Fetching:** React Query
-- **Charts:** Victory Native
-- **Icons:** Lucide React Native
-- **AI:** Anthropic Claude API (via Supabase Edge Functions)
-- **Deployment:** EAS Build
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js >= 18
-- Expo CLI
-- Supabase account
+- Expo CLI (`npx expo`)
+- A Supabase project
+- Xcode / Android Studio for native builds (IAP and camera features require a dev build — they don't work in Expo Go)
 
-### Installation
+### Install
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-username/master-touch.git
-cd master-touch
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Add your Supabase URL and anon key
-
-# Start development server
-npx expo start
+npx expo install   # not npm install — keeps native deps aligned to the Expo SDK
 ```
 
-### Supabase Setup
+### Environment variables
 
-1. Create a new Supabase project
-2. Run the SQL migrations in `/supabase/migrations`
-3. Set up Edge Functions for AI coaching
-4. Configure authentication providers (email/password)
-5. Add your environment variables to `.env`
+Create a `.env` with your Supabase project's URL and anon key (see `lib/supabase.ts` for the exact variable names it reads).
+
+### Run
+
+```bash
+npm start           # Expo dev server
+npm run ios         # iOS simulator
+npm run android     # Android emulator
+npm run web         # Web (limited — camera/IAP/native modules are gated behind Platform.OS checks)
+```
+
+### Test & lint
+
+```bash
+npm test            # Jest
+npm run test:watch
+npm run lint         # expo lint
+```
+
+### Build
+
+```bash
+eas build --platform ios
+eas build --platform android
+```
+Profiles (`development`, `preview`, `production`) are defined in `eas.json`. Production builds auto-increment the build number; the `version` field in `app.json` must be bumped manually before each App Store submission.
 
 ---
 
-## 📱 App Structure
+## App Structure
+
+Route groups under `app/` (Expo Router):
 
 ```
 app/
-├── (auth)/          # Authentication screens
-├── (tabs)/          # Main app tabs
-│   ├── index.tsx    # Home/Training
-│   ├── progress.tsx # Progress charts
-│   └── profile.tsx  # User profile
-└── team/            # Team management
+├── (auth)/          # Sign in, sign up, password reset, intro
+├── (onboarding)/     # Multi-step player and coach onboarding flows
+├── (tabs)/           # Main tab bar
+│   ├── index.tsx     # Home — Vinnie greeting, streak, today's progress, activity feed
+│   ├── train.tsx     # Academy drills + Street (freeform) training
+│   ├── progress.tsx  # Charts, heatmap, badges, season history
+│   ├── leaderboard.tsx  # Team / Club / Global leaderboard tabs
+│   ├── coach.tsx     # Coach dashboard (only meaningful for coach accounts)
+│   └── profile.tsx   # Profile, settings, subscription
+├── (modals)/         # create-team, join-team, drill-library, workouts,
+│                     #   paywall, admin, roadmap
+└── minigames/        # Standalone minigame routes (own Stack layout)
 ```
 
----
-
-## 🎮 XP & Leveling
-
-- **XP Ratio:** 10 juggles = 1 XP
-- **Team Levels:** 500 XP required per level
-- **Progress:** Exponential curve keeps it challenging long-term
+Shared UI primitives (Tile, PageHeader, CircularProgress, BadgeGrid, MiniSparkline, VinnieCard, etc.) live in `components/common/`. Screen-specific components are grouped by page (`components/HomePage`, `components/TrainPage`, `components/CoachDashboard`, etc.).
 
 ---
 
-## 🧪 Current Status
+## Core Features
 
-In active testing with youth soccer team. Gathering feedback from young players to refine UX and gamification mechanics.
+### For players
+- **Touch tracking** — manual entry or AI-assisted counting via device camera (`react-native-vision-camera`), with a countdown timer
+- **Daily challenges** — a challenge-of-the-day sized to the player's level, with combo/skill sequences and a streak counter
+- **Drill library** — video-backed drills organized by difficulty (beginner/intermediate/advanced)
+- **Workouts** — structured multi-drill/combo routines (`(modals)/workouts.tsx`, `hooks/useWorkouts.ts`) run through a guided `WorkoutRunnerModal`
+- **Street mode** — freeform, unstructured training tab alongside the structured Academy drills
+- **Badges** — individual and squad (team) badges awarded for milestones (`lib/checkBadges.ts`, `lib/checkSquadBadges.ts`)
+- **Progress** — charts, an activity heatmap, and juggling personal records
+- **Leaderboards** — Team (coach-managed squad), Club (parent organization across teams), and Global tabs; defaults to the most specific view the player qualifies for
+- **Vinnie** — an AI coach mascot that reacts to sessions, streaks, sprints, and celebrations with mood-based messages (`lib/vinnie.ts`); richer coaching feedback is generated via Supabase Edge Functions
+- **Daily sprint** — a timed skill-combo speed challenge with PR/crown detection
+- **Local notifications** — daily practice reminders via `expo-notifications`
+- **Activity feed & cheers** — teammates can react to each other's sessions
+
+### For coaches
+- **Team management** — create up to 3 teams per coach, each with an auto-generated join code; players join via code
+- **Roster & player insights** — per-player stats, inactivity nudges, and coach "picks"
+- **Coach challenges** — assign a daily skill focus/combination to the whole team
+- **Seasons** — teams can archive a season and start fresh (season number + start date tracked per team)
+- **Club structure** — teams can belong to a parent club; club leaderboard aggregates across teams
+
+### Monetization
+- RevenueCat entitlements: `pro` (player premium) and `coach` (coach access), read via `hooks/useSubscription.ts`
+- `profiles.is_premium` acts as a manual/grandfather override independent of RevenueCat
+- Admins and DB-flagged coaches (`is_admin`, `is_coach`) bypass subscription checks entirely
+- Paywalls currently live at `(modals)/paywall.tsx` but the coach paywall gate has been intentionally disabled while the user base grows (see `PLANNING.md`)
 
 ---
 
-## 📄 License
+## XP & Leveling
 
-[Your chosen license]
+- Player level is derived from `total_xp` against a fixed threshold table (50 levels, `lib/xp.ts`), with rank names (Grassroots → Legend) and rank badge colors/icons per tier
+- Teams track their own `team_xp` / `team_level` columns independently of player levels
+- XP is awarded server-side (Postgres functions/triggers), not from client code
 
 ---
 
-## 🙏 Acknowledgments
+## Backend (Supabase)
 
-Built with insights from real soccer coaches and players. Special thanks to the test team for honest feedback that makes this better every day.
+- Auth state is managed centrally in `app/_layout.tsx` via `supabase.auth.onAuthStateChange`
+- Schema migrations are plain SQL files at the repo root of `supabase/` (e.g. `daily_challenge_migration.sql`, `club_migration.sql`, `squad_badges_migration.sql`) rather than a single ordered migrations folder — check `supabase/schema/` and run/inspect via the Supabase CLI or MCP tools before assuming structure
+- Edge Functions (`supabase/functions/`):
+  - `create-managed-player` — coach-created player accounts
+  - `revenuecat-webhook` — syncs subscription entitlements into `profiles`
+  - `send-push` — sends push notifications
+- Use the Supabase MCP tools (`list_tables`, `get_advisors`, `get_logs`, etc.) for inspecting the live project rather than guessing from the SQL files alone
+
+---
+
+## Project Docs
+
+- `CLAUDE.md` — coding conventions and architecture rules for AI-assisted development in this repo
+- `PLANNING.md` — future feature ideas, and detailed notes on what was intentionally removed/deferred (e.g. paywalls) and how to restore it
+- `BACKLOG.md` — task backlog
+- `SUBSCRIPTION-PLAN.md` — plan for introducing a paid tier without breaking the "free" positioning the website/SEO strategy relies on
+- `docs/plans/` — design docs for specific features (AI touch counter, coach dashboard, push notifications, coin system, etc.)
+- `docs/testing.md` — testing notes
+- `app.md` — current App Store listing snapshot (description, keywords, screenshots)
+- `website/` — marketing/SEO site and a free 30-day touch challenge course, deployed at mastertouch.app
+
+---
+
+## Current Status
+
+Live on the App Store, free with no subscription yet (subscription launch is planned — see `SUBSCRIPTION-PLAN.md`). In active use with a youth soccer team for real-world feedback.

@@ -5,7 +5,7 @@ import { View } from 'react-native';
 // Authenticated users are never routed here, so no session check is needed.
 export default function AuthScreen() {
   return (
-    <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
+    <View style={{ flex: 1, justifyContent: 'center' }}>
       <Auth />
     </View>
   );

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDisplayName } from '@/utils/getDisplayName';
+import type { ReactionType } from '@/hooks/useFeedCheers';
 import { useQuery } from '@tanstack/react-query';
 
 const CHEERS_VIEWED_KEY = 'cheers_last_viewed_at';
@@ -12,7 +13,7 @@ export interface UnviewedReaction {
   created_at: string;
 }
 
-function decodeActivityKey(key: string): { label: string; type: 'session' | 'win' | 'street' | 'other' } {
+function decodeActivityKey(key: string): { label: string; type: 'session' | 'win' | 'street' | 'coach' | 'other' } {
   if (key.startsWith('session-')) {
     const match = /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(key);
     if (match) {
@@ -26,6 +27,7 @@ function decodeActivityKey(key: string): { label: string; type: 'session' | 'win
   }
   if (key.startsWith('win-')) return { label: '1v1 win', type: 'win' };
   if (key.startsWith('street-')) return { label: 'Street challenge', type: 'street' };
+  if (key.startsWith('coach-cheer-')) return { label: 'Your coach cheered your training', type: 'coach' };
   return { label: 'Activity', type: 'other' };
 }
 
@@ -33,8 +35,9 @@ export interface CheerNotification {
   id: string;
   activity_key: string;
   activity_label: string;
-  activity_type: 'session' | 'win' | 'street' | 'other';
+  activity_type: 'session' | 'win' | 'street' | 'coach' | 'other';
   reactor_name: string;
+  reaction_type: ReactionType;
   created_at: string;
   is_new: boolean;
 }
@@ -83,7 +86,7 @@ export function useAllMyRecentCheers(userId: string | undefined) {
 
       const { data } = await (supabase as any)
         .from('feed_cheers')
-        .select('feed_item_key, cheered_by_profile_id, created_at, profiles!cheered_by_profile_id(name, display_name)')
+        .select('feed_item_key, cheered_by_profile_id, reaction_type, created_at, profiles!cheered_by_profile_id(name, display_name)')
         .eq('recipient_profile_id', userId!)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false })
@@ -97,6 +100,7 @@ export function useAllMyRecentCheers(userId: string | undefined) {
           activity_label: decoded.label,
           activity_type: decoded.type,
           reactor_name: getDisplayName(row.profiles),
+          reaction_type: (row.reaction_type ?? 'cheer') as ReactionType,
           created_at: row.created_at,
           is_new: lastViewed ? new Date(row.created_at) > new Date(lastViewed) : true,
         };
