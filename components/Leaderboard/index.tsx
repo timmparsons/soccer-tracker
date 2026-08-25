@@ -5,7 +5,11 @@ import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
 import { useJugglingLeaderboard } from '@/hooks/useJugglingLeaderboard';
-import { useTouchesLeaderboard } from '@/hooks/useLeaderboard';
+import {
+  useClubTouchesLeaderboard,
+  useGlobalTouchesLeaderboard,
+  useTouchesLeaderboard,
+} from '@/hooks/useLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useTabataLeaderboard } from '@/hooks/useTabataLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
@@ -31,6 +35,7 @@ import JugglingHighScoresView from './JugglingHighScoresView';
 import StickyRankBanner from './StickyRankBanner';
 import Switcher, { CompeteView } from './Switcher';
 import TabataHighScoresView from './TabataHighScoresView';
+import TouchesScopeSwitcher, { TouchesScope } from './TouchesScopeSwitcher';
 import WeeklyTouchesView from './WeeklyTouchesView';
 
 const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
@@ -40,6 +45,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { data: team } = useTeam(user?.id);
 
   const [activeView, setActiveView] = useState<CompeteView>('touches');
+  const [touchesScope, setTouchesScope] = useState<TouchesScope>('team');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
@@ -54,6 +60,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   );
 
   const effectiveTeamId = profile?.team_id ?? undefined;
+  const clubId = profile?.club_id ?? undefined;
   const activeTeamData = coachTeams.find((t) => t.id === effectiveTeamId);
   const seasonStartDate =
     activeTeamData?.season_start_date ?? team?.season_start_date ?? null;
@@ -90,6 +97,31 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   } = useTouchesLeaderboard(effectiveTeamId, seasonStartDate);
 
   const {
+    data: clubTouchesLeaderboard = [],
+    isLoading: clubTouchesLoading,
+    refetch: refetchClubTouches,
+  } = useClubTouchesLeaderboard(clubId, seasonStartDate, touchesScope === 'club');
+
+  const {
+    data: globalTouchesLeaderboard = [],
+    isLoading: globalTouchesLoading,
+    refetch: refetchGlobalTouches,
+  } = useGlobalTouchesLeaderboard(seasonStartDate, touchesScope === 'global');
+
+  const activeTouchesLeaderboard =
+    touchesScope === 'club'
+      ? clubTouchesLeaderboard
+      : touchesScope === 'global'
+        ? globalTouchesLeaderboard
+        : touchesLeaderboard;
+  const activeTouchesLoading =
+    touchesScope === 'club'
+      ? clubTouchesLoading
+      : touchesScope === 'global'
+        ? globalTouchesLoading
+        : touchesLoading;
+
+  const {
     data: tabataLeaderboard = [],
     isLoading: tabataLoading,
     refetch: refetchTabata,
@@ -113,7 +145,13 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchTouches(), refetchTabata(), refetchJuggling()]);
+    await Promise.all([
+      refetchTouches(),
+      touchesScope === 'club' ? refetchClubTouches() : Promise.resolve(),
+      touchesScope === 'global' ? refetchGlobalTouches() : Promise.resolve(),
+      refetchTabata(),
+      refetchJuggling(),
+    ]);
     setRefreshing(false);
   };
 
@@ -121,15 +159,25 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     useCallback(() => {
       refetchProfile();
       refetchTouches();
+      if (touchesScope === 'club') refetchClubTouches();
+      if (touchesScope === 'global') refetchGlobalTouches();
       refetchTabata();
       refetchJuggling();
-    }, [refetchProfile, refetchTouches, refetchTabata, refetchJuggling]),
+    }, [
+      refetchProfile,
+      refetchTouches,
+      touchesScope,
+      refetchClubTouches,
+      refetchGlobalTouches,
+      refetchTabata,
+      refetchJuggling,
+    ]),
   );
 
   const rankBanner = useMemo(() => {
     if (activeView === 'touches') {
       const result = computeRankAndDeficit(
-        touchesLeaderboard,
+        activeTouchesLeaderboard,
         user?.id,
         'weekly_touches',
       );
@@ -149,7 +197,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       'high_score',
     );
     return result && { ...result, unitLabel: 'juggles to pass' };
-  }, [activeView, touchesLeaderboard, tabataLeaderboard, jugglingLeaderboard, user?.id]);
+  }, [activeView, activeTouchesLeaderboard, tabataLeaderboard, jugglingLeaderboard, user?.id]);
 
   return (
     <View style={styles.container}>
@@ -169,6 +217,16 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       <View style={styles.controlsRow}>
         <Switcher active={activeView} onChange={setActiveView} />
       </View>
+
+      {activeView === 'touches' && (
+        <View style={styles.scopeRow}>
+          <TouchesScopeSwitcher
+            active={touchesScope}
+            onChange={setTouchesScope}
+            clubEnabled={!!clubId}
+          />
+        </View>
+      )}
 
       {profile?.is_coach && coachTeams.length > 1 && (
         <TouchableOpacity
@@ -243,10 +301,17 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               Join a team to see how you stack up against your teammates.
             </Text>
           </View>
+        ) : activeView === 'touches' && touchesScope === 'club' && !clubId ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No Club Yet</Text>
+            <Text style={styles.emptyStateText}>
+              Join a club to see how you stack up against other teams.
+            </Text>
+          </View>
         ) : activeView === 'touches' ? (
           <WeeklyTouchesView
-            players={touchesLeaderboard}
-            isLoading={touchesLoading}
+            players={activeTouchesLeaderboard}
+            isLoading={activeTouchesLoading}
             currentUserId={user?.id}
             onSelectPlayer={setSelectedPlayerId}
           />
@@ -309,6 +374,11 @@ const styles = StyleSheet.create({
   controlsRow: {
     paddingHorizontal: 20,
     paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  scopeRow: {
+    paddingHorizontal: 20,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
   },
