@@ -67,18 +67,20 @@ a:hover { text-decoration: underline; }
 .btn.btn-dark { background: var(--dark); box-shadow: 0 4px 14px rgba(26, 26, 46, 0.35); }
 .btn.btn-lg { font-size: 18px; padding: 16px 36px; }
 
-/* APP STORE BADGE */
-.appstore-badge {
+/* STORE BADGES */
+.store-badges { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.appstore-badge, .playstore-badge {
   display: inline-flex; align-items: center; gap: 12px;
   background: #000; color: #fff;
   border-radius: 14px; padding: 10px 22px;
   transition: transform 0.15s ease;
 }
-.appstore-badge:hover { transform: translateY(-2px); text-decoration: none; }
+.appstore-badge:hover, .playstore-badge:hover { transform: translateY(-2px); text-decoration: none; }
 .appstore-badge svg { width: 28px; height: 34px; flex-shrink: 0; }
-.appstore-badge .badge-text { line-height: 1.2; text-align: left; }
-.appstore-badge .badge-text small { display: block; font-size: 11px; font-weight: 600; opacity: 0.85; }
-.appstore-badge .badge-text span { font-size: 19px; font-weight: 700; }
+.playstore-badge svg { width: 28px; height: 31px; flex-shrink: 0; }
+.appstore-badge .badge-text, .playstore-badge .badge-text { line-height: 1.2; text-align: left; }
+.appstore-badge .badge-text small, .playstore-badge .badge-text small { display: block; font-size: 11px; font-weight: 600; opacity: 0.85; }
+.appstore-badge .badge-text span, .playstore-badge .badge-text span { font-size: 19px; font-weight: 700; }
 
 /* HERO */
 .hero {
