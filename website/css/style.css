@@ -69,18 +69,9 @@ a:hover { text-decoration: underline; }
 
 /* STORE BADGES */
 .store-badges { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.appstore-badge, .playstore-badge {
-  display: inline-flex; align-items: center; gap: 12px;
-  background: #000; color: #fff;
-  border-radius: 14px; padding: 10px 22px;
-  transition: transform 0.15s ease;
-}
-.appstore-badge:hover, .playstore-badge:hover { transform: translateY(-2px); text-decoration: none; }
-.appstore-badge svg { width: 28px; height: 34px; flex-shrink: 0; }
-.playstore-badge svg { width: 28px; height: 31px; flex-shrink: 0; }
-.appstore-badge .badge-text, .playstore-badge .badge-text { line-height: 1.2; text-align: left; }
-.appstore-badge .badge-text small, .playstore-badge .badge-text small { display: block; font-size: 11px; font-weight: 600; opacity: 0.85; }
-.appstore-badge .badge-text span, .playstore-badge .badge-text span { font-size: 19px; font-weight: 700; }
+.store-badge-link { display: inline-flex; transition: transform 0.15s ease; }
+.store-badge-link:hover { transform: translateY(-2px); }
+.store-badge-link img { height: 44px; width: auto; display: block; }
 
 /* HERO */
 .hero {
