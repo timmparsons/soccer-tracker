@@ -1,18 +1,27 @@
-import SelectedDaySummary from '@/components/CoachDashboard/SelectedDaySummary';
-import WeekGrid from '@/components/CoachDashboard/WeekGrid';
+import RosterCard from '@/components/CoachDashboard/RosterCard';
+import InactivePlayersModal from '@/components/common/InactivePlayersModal';
+import NotificationBell from '@/components/common/NotificationBell';
 import CoachChallengeModal from '@/components/modals/CoachChallengeModal';
 import { useCoachChallenges } from '@/hooks/useCoachChallenges';
+import { useAwardCoachPick, useCoachPickForDate, useRemoveCoachPick } from '@/hooks/useCoachPicks';
+import { PlayerStats, useCoachTeamPlayers } from '@/hooks/useCoachTeamPlayers';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useCoachingTips } from '@/hooks/useCoachingTips';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
+import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
+import { useInactivePlayers } from '@/hooks/useInactivePlayers';
+import { useNudgePlayer } from '@/hooks/useNudgePlayer';
 import { useProfile } from '@/hooks/useProfile';
 import { useTeamDailySessions } from '@/hooks/useTeamDailySessions';
 import { useUser } from '@/hooks/useUser';
+import { buildCoachCheerKey } from '@/lib/coachCheerKey';
 import { supabase } from '@/lib/supabase';
+import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,24 +39,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-interface PlayerStats {
-  id: string;
-  name: string;
-  display_name: string;
-  avatar_url: string | null;
-  today_touches: number;
-  yesterday_touches: number;
-  week_touches: number;
-  total_touches: number;
-  total_sessions: number;
-  last_session_date: string | null;
-  current_streak: number;
-  daily_target: number;
-  week_minutes: number;
-  week_tpm: number;
-  days_active_this_week: number;
-  best_juggle: number;
-}
+const MAX_SESSION_TOUCHES = 9999;
 
 export default function CoachDashboard() {
   const insets = useSafeAreaInsets();
@@ -60,20 +52,23 @@ export default function CoachDashboard() {
   // Team switcher state
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
+  const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
+  const { data: nudgeModalPlayers = [] } = useInactivePlayers(profile?.team_id);
 
   // Modal state
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
   const [modalTab, setModalTab] = useState<'log' | 'edit'>('log');
   const [touchCount, setTouchCount] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(getLocalDate());
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [cellInfo, setCellInfo] = useState<{ player: PlayerStats; date: string } | null>(null);
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
+  const [sessionFocus, setSessionFocus] = useState<SessionFocus | null>(null);
 
   // Edit session state
   const [editSessions, setEditSessions] = useState<{ id: string; date: string; touches_logged: number }[]>([]);
@@ -103,139 +98,7 @@ export default function CoachDashboard() {
     data: teamPlayers,
     isLoading,
     refetch,
-  } = useQuery({
-    queryKey: ['coach-team-players', profile?.team_id],
-    enabled: !!profile?.team_id,
-    refetchInterval: 30_000,
-    queryFn: async () => {
-      // Get all players on the team (excluding coaches)
-      const { data: players, error: playersError } = await supabase
-        .from('profiles')
-        .select('id, name, display_name, avatar_url')
-        .eq('team_id', profile!.team_id)
-        .eq('is_coach', false);
-
-      if (playersError) throw playersError;
-      if (!players || players.length === 0) return [];
-
-      const today = getLocalDate();
-      const yesterdayObj = new Date();
-      yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-      const yesterday = getLocalDate(yesterdayObj);
-      const todayObj = new Date();
-      const weekStartObj = new Date(todayObj);
-      weekStartObj.setDate(todayObj.getDate() - todayObj.getDay()); // rewind to Sunday
-      const weekStart = getLocalDate(weekStartObj);
-
-      const playerIds = players.map((p) => p.id);
-
-      // Fetch sessions per-player to avoid the 1000-row server cap on batched queries
-      const streakWindowStart = new Date();
-      streakWindowStart.setDate(streakWindowStart.getDate() - 120);
-      const streakWindowStartStr = getLocalDate(streakWindowStart);
-
-      const [playerSessionResults, { data: allTargetsRaw }] = await Promise.all([
-        Promise.all(
-          players.map((player) =>
-            supabase
-              .from('daily_sessions')
-              .select('user_id, touches_logged, duration_minutes, date, created_at, juggle_count')
-              .eq('user_id', player.id)
-              .gte('date', streakWindowStartStr)
-              .order('date', { ascending: false })
-              .then(({ data }) => ({ playerId: player.id, sessions: data ?? [] }))
-          )
-        ),
-        supabase
-          .from('user_targets')
-          .select('user_id, daily_target_touches')
-          .in('user_id', playerIds),
-      ]);
-
-      // Build lookup maps
-      type SessionRow = {
-        user_id: string;
-        touches_logged: number;
-        duration_minutes: number | null;
-        date: string;
-        created_at: string;
-        juggle_count: number | null;
-      };
-      const sessionsByPlayer: Record<string, SessionRow[]> = {};
-      for (const { playerId, sessions } of playerSessionResults) {
-        sessionsByPlayer[playerId] = sessions as SessionRow[];
-      }
-      const targetByPlayer: Record<string, number> = {};
-      for (const t of allTargetsRaw || []) {
-        targetByPlayer[t.user_id] = t.daily_target_touches;
-      }
-
-      const playersWithStats: PlayerStats[] = players.map((player) => {
-        const allSessions = sessionsByPlayer[player.id] || [];
-        const weekSessions = allSessions.filter((s) => s.date >= weekStart);
-
-        const todayTouches = allSessions
-          .filter((s) => s.date === today)
-          .reduce((sum, s) => sum + s.touches_logged, 0);
-
-        const yesterdayTouches = allSessions
-          .filter((s) => s.date === yesterday)
-          .reduce((sum, s) => sum + s.touches_logged, 0);
-
-        const weekTouches = weekSessions.reduce((sum, s) => sum + s.touches_logged, 0);
-        const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-        const weekTpm = weekMinutes > 0 ? Math.round(weekTouches / weekMinutes) : 0;
-        const totalTouches = allSessions.reduce((sum, s) => sum + s.touches_logged, 0);
-        const uniqueWeekDays = new Set(weekSessions.map((s) => s.date)).size;
-
-        const bestJuggle = allSessions.reduce((max, s) => {
-          const jc = s.juggle_count ?? 0;
-          return jc > max ? jc : max;
-        }, 0);
-
-        // Calculate streak (fixed: use local midnight to avoid UTC offset issues)
-        const uniqueDates = [...new Set(allSessions.map((s) => s.date))].sort().reverse();
-        let streak = 0;
-        let checkDate = new Date();
-
-        for (const dateStr of uniqueDates) {
-          const sessionDate = new Date(dateStr + 'T00:00:00');
-          const diffDays = Math.floor(
-            (checkDate.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          if (diffDays <= 1) {
-            streak++;
-            checkDate = sessionDate;
-          } else {
-            break;
-          }
-        }
-
-        return {
-          id: player.id,
-          name: player.name,
-          display_name: player.display_name,
-          avatar_url: player.avatar_url,
-          today_touches: todayTouches,
-          yesterday_touches: yesterdayTouches,
-          week_touches: weekTouches,
-          total_touches: totalTouches,
-          total_sessions: allSessions.length,
-          last_session_date: allSessions[0]?.created_at || null,
-          current_streak: streak,
-          daily_target: targetByPlayer[player.id] || 1000,
-          week_minutes: weekMinutes,
-          week_tpm: weekTpm,
-          days_active_this_week: Math.min(uniqueWeekDays, 7),
-          best_juggle: bestJuggle,
-        };
-      });
-
-      // Sort by week touches (most active first)
-      return playersWithStats.sort((a, b) => b.week_touches - a.week_touches);
-    },
-  });
+  } = useCoachTeamPlayers(profile?.team_id);
 
   // Stable player IDs for the week-grid session query
   const playerIds = useMemo(() => teamPlayers?.map((p) => p.id) ?? [], [teamPlayers]);
@@ -303,6 +166,73 @@ export default function CoachDashboard() {
     [teamPlayers],
   );
 
+  // Coach engagement tools — cheer, coach's choice, nudge
+  const today = getLocalDate();
+  const cheerKeys = useMemo(
+    () => sortedPlayers.map((p) => buildCoachCheerKey(p.id, today)),
+    [sortedPlayers, today],
+  );
+  const { data: cheersByKey = new Map() } = useCheersForItems(cheerKeys);
+  const { data: myReactionsByKey = new Map() } = useMyReactions(user?.id);
+  const { data: coachPick } = useCoachPickForDate(profile?.team_id, today);
+  const { mutate: awardCoachPick } = useAwardCoachPick();
+  const { mutate: removeCoachPick } = useRemoveCoachPick();
+  const { mutate: nudgePlayer, isPending: nudgePending } = useNudgePlayer();
+
+  const handleTogglePick = (player: PlayerStats) => {
+    if (!profile?.team_id || !user?.id) return;
+    if (coachPick?.player_id === player.id) {
+      removeCoachPick({ teamId: profile.team_id, date: today });
+    } else {
+      awardCoachPick({
+        teamId: profile.team_id,
+        coachId: user.id,
+        playerId: player.id,
+        date: today,
+        playerPushToken: player.expo_push_token,
+      });
+    }
+  };
+
+  const handleNudge = (player: PlayerStats) => {
+    if (!profile?.team_id) return;
+    nudgePlayer(
+      { playerId: player.id, teamId: profile.team_id, playerPushToken: player.expo_push_token },
+      {
+        onError: () => {
+          Alert.alert('Could not send nudge', 'Please try again.');
+        },
+      },
+    );
+  };
+
+  const handleNudgeAll = (players: PlayerStats[]) => {
+    if (!profile?.team_id) return;
+    const teamId = profile.team_id;
+    Alert.alert(
+      'Nudge All Inactive Players',
+      `Send a reminder push to ${players.length} inactive player${players.length === 1 ? '' : 's'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Nudge All',
+          onPress: () => {
+            players.forEach((player) => {
+              nudgePlayer(
+                { playerId: player.id, teamId, playerPushToken: player.expo_push_token },
+                {
+                  onError: () => {
+                    Alert.alert('Could not send nudge', `Failed to nudge ${player.display_name || player.name}.`);
+                  },
+                },
+              );
+            });
+          },
+        },
+      ],
+    );
+  };
+
   // Redirect if not a coach
   if (!profile?.is_coach) {
     return (
@@ -354,6 +284,11 @@ export default function CoachDashboard() {
     return lastSession < sevenDaysAgo;
   }) || [];
 
+  // Roster grouping: active-today players surface first, 0-touch players are
+  // visually separated/muted below so the coach's eye lands on who trained.
+  const activeTodayPlayers = sortedPlayers.filter((p) => p.today_touches > 0);
+  const inactiveTodayPlayers = sortedPlayers.filter((p) => p.today_touches === 0);
+
   const teamTodayTouches = teamPlayers?.reduce((sum, p) => sum + p.today_touches, 0) || 0;
   const teamWeekTouches = teamPlayers?.reduce((sum, p) => sum + p.week_touches, 0) || 0;
   const teamTotalTouches = teamPlayers?.reduce((sum, p) => sum + p.total_touches, 0) || 0;
@@ -366,11 +301,68 @@ export default function CoachDashboard() {
   const totalWeekMinutes = teamPlayers?.reduce((sum, p) => sum + p.week_minutes, 0) || 0;
   const teamAvgTpm = totalWeekMinutes > 0 ? Math.round(teamWeekTouches / totalWeekMinutes) : 0;
 
+  // Team game-speed % (weighted average)
+  const teamWeekGameSpeedTouches = teamPlayers?.reduce((sum, p) => sum + p.week_game_speed_touches, 0) || 0;
+  const teamGameSpeedPct = teamWeekTouches > 0 ? Math.round((teamWeekGameSpeedTouches / teamWeekTouches) * 100) : 0;
+
   // Players who hit their target today
   const playersHitTarget = teamPlayers?.filter((p) => p.today_touches >= p.daily_target).length || 0;
 
   // Top performer this week
   const topPerformer = teamPlayers && teamPlayers.length > 0 ? teamPlayers[0] : null;
+
+  const renderPlayerCard = (player: PlayerStats) => {
+    const activeChallenge = coachChallenges.find(
+      (c) => c.player_id === player.id && c.status === 'active',
+    );
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentCompleted = coachChallenges.find(
+      (c) =>
+        c.player_id === player.id &&
+        c.status === 'completed' &&
+        c.completed_at &&
+        new Date(c.completed_at).getTime() > sevenDaysAgo,
+    );
+    const feedItemKey = buildCoachCheerKey(player.id, today);
+    return (
+      <RosterCard
+        key={player.id}
+        player={player}
+        weekDates={weekDates}
+        sessionMap={sessionMap}
+        isExpanded={expandedPlayerId === player.id}
+        onToggleExpand={() =>
+          setExpandedPlayerId(expandedPlayerId === player.id ? null : player.id)
+        }
+        onCellPress={(date) => setCellInfo({ player, date })}
+        onLogPress={() => handlePlayerPress(player)}
+        onEditPress={() => handleEditPress(player)}
+        onChallengePress={() => {
+          if (activeChallenge) {
+            Alert.alert(
+              'Active Challenge',
+              `${player.display_name || player.name} already has an active challenge. Wait for them to complete it first.`,
+            );
+            return;
+          }
+          setExpandedPlayerId(null);
+          setSelectedPlayer(player);
+          setChallengeModalVisible(true);
+        }}
+        onRemovePress={() => handleRemovePlayer(player)}
+        activeChallenge={activeChallenge}
+        recentCompleted={recentCompleted}
+        feedItemKey={feedItemKey}
+        coachId={user?.id ?? ''}
+        cheerData={cheersByKey.get(feedItemKey)}
+        myReaction={myReactionsByKey.get(feedItemKey)}
+        isPicked={coachPick?.player_id === player.id}
+        onTogglePick={() => handleTogglePick(player)}
+        onNudge={() => handleNudge(player)}
+        isInactiveToday={player.today_touches === 0}
+      />
+    );
+  };
 
   // Handle opening modal for a player
   const handlePlayerPress = (player: PlayerStats) => {
@@ -381,6 +373,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
     setModalVisible(true);
   };
 
@@ -391,6 +384,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
     setModalVisible(true);
     // Load edit sessions immediately
     handleSwitchToEdit(player.id);
@@ -415,6 +409,11 @@ export default function CoachDashboard() {
   const handleUpdateSession = async () => {
     const count = parseInt(editCount, 10);
     if (!count || count <= 0 || isNaN(count) || !editingSessionId) return;
+
+    if (count > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
 
     setEditSaving(true);
     try {
@@ -441,6 +440,7 @@ export default function CoachDashboard() {
     setEditSessions([]);
     setEditingSessionId(null);
     setEditCount('');
+    setSessionFocus(null);
   };
 
   // Handle saving touches for a player
@@ -452,6 +452,11 @@ export default function CoachDashboard() {
       return;
     }
 
+    if (count > MAX_SESSION_TOUCHES) {
+      Alert.alert('Too many touches', `Maximum is ${MAX_SESSION_TOUCHES.toLocaleString()} per session.`);
+      return;
+    }
+
     if (!selectedPlayer) return;
 
     setSaving(true);
@@ -460,12 +465,16 @@ export default function CoachDashboard() {
       const today = getLocalDate();
       const duration = durationMinutes ? parseInt(durationMinutes, 10) : null;
 
-      const { error } = await supabase.from('daily_sessions').insert({
-        user_id: selectedPlayer.id,
-        touches_logged: count,
-        duration_minutes: duration,
-        date: today,
-      });
+      const { error } = await supabase
+        .from('daily_sessions')
+        .insert({
+          user_id: selectedPlayer.id,
+          touches_logged: count,
+          duration_minutes: duration,
+          date: today,
+          training_focus: sessionFocus,
+          is_game_speed: sessionFocus === 'match_pace',
+        });
 
       if (error) throw error;
 
@@ -479,6 +488,7 @@ export default function CoachDashboard() {
       setTouchCount('');
       setDurationMinutes('');
       setSelectedPlayer(null);
+      setSessionFocus(null);
     } catch (error) {
       Alert.alert('Error', 'Failed to save touches. Please try again.');
     } finally {
@@ -565,15 +575,22 @@ export default function CoachDashboard() {
             {activePlayers}/{totalPlayers} active today
             {playersHitTarget > 0 ? ` · ${playersHitTarget} hit target` : ''}
             {teamAvgTpm > 0 ? ` · ${teamAvgTpm}/min` : ''}
+            {teamGameSpeedPct > 0 ? ` · ${teamGameSpeedPct}% game speed` : ''}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
-          <View style={styles.headerAvatarGlow} />
-          <Image
-            source={{ uri: profile?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
-            style={styles.headerAvatar}
+        <View style={styles.headerRight}>
+          <NotificationBell
+            hasNewCheers={nudgeModalPlayers.length > 0}
+            onNotificationPress={() => setInactiveModalVisible(true)}
           />
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+            <View style={styles.headerAvatarGlow} />
+            <Image
+              source={{ uri: profile?.avatar_url || 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png' }}
+              style={styles.headerAvatar}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -581,206 +598,37 @@ export default function CoachDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Week training grid */}
-        {sortedPlayers.length > 0 && (
-          <WeekGrid
-            players={sortedPlayers}
-            sessionMap={sessionMap}
-            weekDates={weekDates}
-            selectedDate={selectedDate}
-            onSelectDate={(date) => setSelectedDate(date || getLocalDate())}
-            onPlayerPress={(playerId) => {
-              const player = sortedPlayers.find((p) => p.id === playerId);
-              if (player) handlePlayerPress(player);
-            }}
-            onCellPress={(playerId, date) => {
-              const player = sortedPlayers.find((p) => p.id === playerId);
-              if (player) setCellInfo({ player, date });
-            }}
-          />
+        {/* Global nudge action — targets everyone with 0 touches today */}
+        {inactiveTodayPlayers.length > 0 && (
+          <TouchableOpacity
+            style={[styles.nudgeAllHeaderBtn, nudgePending && styles.nudgeAllHeaderBtnDisabled]}
+            onPress={() => handleNudgeAll(inactiveTodayPlayers)}
+            disabled={nudgePending}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="notifications" size={16} color="#FFF" />
+            <Text style={styles.nudgeAllHeaderBtnText}>
+              Nudge All Inactive ({inactiveTodayPlayers.length})
+            </Text>
+          </TouchableOpacity>
         )}
 
-        {/* Day summary */}
-        {sortedPlayers.length > 0 && (
-          <SelectedDaySummary
-            players={sortedPlayers}
-            sessionMap={sessionMap}
-            selectedDate={selectedDate}
-          />
-        )}
-
-        {/* Player list */}
+        {/* Roster */}
         <View style={styles.playerList}>
           {sortedPlayers.length > 0 ? (
-            sortedPlayers.map((player) => {
-              const isExpanded = expandedPlayerId === player.id;
-              return (
-                <View key={player.id}>
-                  <TouchableOpacity
-                    style={styles.playerCard}
-                    onPress={() => setExpandedPlayerId(isExpanded ? null : player.id)}
-                    activeOpacity={0.7}
-                  >
-                    {/* Avatar */}
-                    <Image
-                      source={{
-                        uri:
-                          player.avatar_url ||
-                          'https://cdn-icons-png.flaticon.com/512/4140/4140037.png',
-                      }}
-                      style={[
-                        styles.playerAvatar,
-                        player.today_touches > 0 && styles.playerAvatarActive,
-                      ]}
-                    />
-
-                    {/* Name + week pips */}
-                    <View style={styles.playerInfo}>
-                      <Text style={styles.playerName} numberOfLines={1}>
-                        {player.display_name || player.name || 'Player'}
-                      </Text>
-                      <View style={styles.weekPips}>
-                        {weekDates.map((date) => {
-                          const touches = sessionMap[player.id]?.[date]?.touches ?? 0;
-                          return (
-                            <View
-                              key={date}
-                              style={[
-                                styles.pip,
-                                touches >= player.daily_target
-                                  ? styles.pipHit
-                                  : touches > 0
-                                  ? styles.pipTrained
-                                  : styles.pipEmpty,
-                              ]}
-                            />
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    {/* Right: week total + streak */}
-                    <View style={styles.playerRight}>
-                      <Text style={styles.playerWeekTouches}>
-                        {player.week_touches.toLocaleString()}
-                      </Text>
-                      {player.current_streak > 0 && (
-                        <Text style={styles.streakText}>🔥 {player.current_streak}</Text>
-                      )}
-                    </View>
-
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color="#9CA3AF"
-                    />
-                  </TouchableOpacity>
-
-                  {/* Expanded stats row */}
-                  {isExpanded && (() => {
-                    const activeChallenge = coachChallenges.find(
-                      (c) => c.player_id === player.id && c.status === 'active',
-                    );
-                    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                    const recentCompleted = coachChallenges.find(
-                      (c) =>
-                        c.player_id === player.id &&
-                        c.status === 'completed' &&
-                        c.completed_at &&
-                        new Date(c.completed_at).getTime() > sevenDaysAgo,
-                    );
-                    const hasActiveChallenge = !!activeChallenge;
-                    return (
-                    <View style={styles.expandedRow}>
-                      <View style={styles.statChips}>
-                        <View style={styles.statChip}>
-                          <Text style={styles.statChipLabel}>Today</Text>
-                          <Text style={styles.statChipValue}>
-                            {player.today_touches.toLocaleString()}
-                          </Text>
-                        </View>
-                        <View style={styles.statChip}>
-                          <Text style={styles.statChipLabel}>Yesterday</Text>
-                          <Text style={styles.statChipValue}>
-                            {player.yesterday_touches.toLocaleString()}
-                          </Text>
-                        </View>
-                        <View style={styles.statChip}>
-                          <Text style={styles.statChipLabel}>This Week</Text>
-                          <Text style={styles.statChipValue}>
-                            {player.week_touches.toLocaleString()}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Challenge status strip */}
-                      {activeChallenge && (
-                        <View style={styles.challengeStrip}>
-                          <Ionicons name="flag" size={13} color="#D97706" />
-                          <Text style={styles.challengeStripText}>
-                            {activeChallenge.accepted_at
-                              ? `🏃 ${activeChallenge.touches_target.toLocaleString()} touches — in progress · due ${activeChallenge.due_date}`
-                              : `⏳ ${activeChallenge.touches_target.toLocaleString()} touches — pending accept · due ${activeChallenge.due_date}`}
-                          </Text>
-                        </View>
-                      )}
-                      {!activeChallenge && recentCompleted && (
-                        <View style={[styles.challengeStrip, styles.challengeStripDone]}>
-                          <Ionicons name="checkmark-circle" size={13} color="#31af4d" />
-                          <Text style={[styles.challengeStripText, styles.challengeStripTextDone]}>
-                            ✅ {recentCompleted.touches_target.toLocaleString()} touches — completed{' '}
-                            {new Date(recentCompleted.completed_at!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </Text>
-                        </View>
-                      )}
-
-                      <View style={styles.expandedActions}>
-                        <TouchableOpacity
-                          style={styles.actionBtn}
-                          onPress={() => handlePlayerPress(player)}
-                        >
-                          <Ionicons name="add-circle-outline" size={15} color="#1f89ee" />
-                          <Text style={styles.actionBtnText}>Log</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.actionBtn}
-                          onPress={() => handleEditPress(player)}
-                        >
-                          <Ionicons name="pencil-outline" size={15} color="#1f89ee" />
-                          <Text style={styles.actionBtnText}>Edit</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, hasActiveChallenge && styles.actionBtnDisabled]}
-                          onPress={() => {
-                            if (hasActiveChallenge) {
-                              Alert.alert(
-                                'Active Challenge',
-                                `${player.display_name || player.name} already has an active challenge. Wait for them to complete it first.`,
-                              );
-                              return;
-                            }
-                            setExpandedPlayerId(null);
-                            setSelectedPlayer(player);
-                            setChallengeModalVisible(true);
-                          }}
-                        >
-                          <Ionicons name="flag-outline" size={15} color={hasActiveChallenge ? '#B0BEC5' : '#1f89ee'} />
-                          <Text style={[styles.actionBtnText, hasActiveChallenge && styles.actionBtnTextDisabled]}>Challenge</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.actionBtnDanger]}
-                          onPress={() => handleRemovePlayer(player)}
-                        >
-                          <Ionicons name="person-remove-outline" size={15} color="#EF4444" />
-                          <Text style={[styles.actionBtnText, styles.actionBtnTextDanger]}>Remove</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    );
-                  })()}
+            <>
+              {activeTodayPlayers.map(renderPlayerCard)}
+              {inactiveTodayPlayers.length > 0 && (
+                <View style={styles.inactiveDivider}>
+                  <View style={styles.inactiveDividerLine} />
+                  <Text style={styles.inactiveDividerText}>
+                    Not Trained Today ({inactiveTodayPlayers.length})
+                  </Text>
+                  <View style={styles.inactiveDividerLine} />
                 </View>
-              );
-            })
+              )}
+              {inactiveTodayPlayers.map(renderPlayerCard)}
+            </>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color="#D1D5DB" />
@@ -799,6 +647,14 @@ export default function CoachDashboard() {
               <View style={styles.attentionBadge}>
                 <Text style={styles.attentionBadgeText}>{inactivePlayers.length}</Text>
               </View>
+              <TouchableOpacity
+                style={[styles.nudgeAllBtn, nudgePending && styles.nudgeAllBtnDisabled]}
+                onPress={() => handleNudgeAll(inactivePlayers)}
+                disabled={nudgePending}
+              >
+                <Ionicons name="notifications-outline" size={13} color="#92400E" />
+                <Text style={styles.nudgeAllBtnText}>Nudge All</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.attentionList}>
               {inactivePlayers.map((player) => (
@@ -963,12 +819,12 @@ export default function CoachDashboard() {
 
       {/* ADD TOUCHES MODAL */}
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={closeModal} statusBarTranslucent={Platform.OS === 'android'}>
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} onLayout={onDialogLayout}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-              <View style={[styles.modalContent, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(40, insets.bottom + 24), marginBottom: kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Ionicons name="football" size={32} color="#1f89ee" />
                   <Text style={styles.modalTitle}>
@@ -997,6 +853,9 @@ export default function CoachDashboard() {
                 </View>
 
                 {modalTab === 'log' ? (
+                  !sessionFocus ? (
+                    <GameSpeedPrompt onSelect={setSessionFocus} />
+                  ) : (
                   <>
                     <View style={styles.inputGroup}>
                       <Text style={styles.inputLabel}>Touch Count *</Text>
@@ -1005,6 +864,7 @@ export default function CoachDashboard() {
                         placeholder="Enter touch count"
                         placeholderTextColor="#9CA3AF"
                         keyboardType="number-pad"
+                        maxLength={4}
                         value={touchCount}
                         onChangeText={setTouchCount}
                         autoFocus
@@ -1038,6 +898,7 @@ export default function CoachDashboard() {
                       )}
                     </TouchableOpacity>
                   </>
+                  )
                 ) : (
                   <>
                     {loadingEditSessions ? (
@@ -1048,6 +909,7 @@ export default function CoachDashboard() {
                         <TextInput
                           style={[styles.input, { marginBottom: 16 }]}
                           keyboardType="number-pad"
+                          maxLength={4}
                           value={editCount}
                           onChangeText={setEditCount}
                           autoFocus
@@ -1100,6 +962,11 @@ export default function CoachDashboard() {
         </View>
       </Modal>
 
+      <InactivePlayersModal
+        visible={inactiveModalVisible}
+        onClose={() => setInactiveModalVisible(false)}
+        players={nudgeModalPlayers}
+      />
     </SafeAreaView>
   );
 }
@@ -1201,6 +1068,11 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
     marginRight: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerAvatar: {
     width: 56,
@@ -1340,92 +1212,6 @@ const styles = StyleSheet.create({
 
   removePlayerBtn: {
     paddingLeft: 4,
-  },
-
-  // Expanded stats
-  expandedRow: {
-    paddingHorizontal: 4,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  statChips: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  statChip: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  statChipLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#78909C',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  statChipValue: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  expandedActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: '#EBF4FF',
-    borderRadius: 10,
-    paddingVertical: 8,
-  },
-  actionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1f89ee',
-  },
-  actionBtnDanger: {
-    backgroundColor: '#FEF2F2',
-  },
-  actionBtnTextDanger: {
-    color: '#EF4444',
-  },
-  actionBtnDisabled: {
-    backgroundColor: '#F3F4F6',
-  },
-  actionBtnTextDisabled: {
-    color: '#B0BEC5',
-  },
-  challengeStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFF3CD',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginBottom: 8,
-  },
-  challengeStripDone: {
-    backgroundColor: '#DCFCE7',
-  },
-  challengeStripText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#D97706',
-    flex: 1,
-  },
-  challengeStripTextDone: {
-    color: '#16a34a',
   },
 
   // Overview Card
@@ -1591,6 +1377,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF',
   },
+  nudgeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  nudgeAllBtnDisabled: {
+    opacity: 0.5,
+  },
+  nudgeAllBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
   attentionSubtitle: {
     fontSize: 13,
     fontWeight: '600',
@@ -1623,72 +1426,46 @@ const styles = StyleSheet.create({
   playerList: {
     marginBottom: 20,
   },
-  // Compact player row
-  playerCard: {
+  nudgeAllHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 16,
+    shadowColor: '#1f89ee',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  nudgeAllHeaderBtnDisabled: {
+    opacity: 0.6,
+  },
+  nudgeAllHeaderBtnText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  inactiveDivider: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
-  playerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  playerAvatarActive: {
-    borderColor: '#31af4d',
-  },
-  playerInfo: {
+  inactiveDividerLine: {
     flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  playerName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1a1a2e',
-  },
-  weekPips: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  pip: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  pipEmpty: {
+    height: 1,
     backgroundColor: '#E5E7EB',
   },
-  pipTrained: {
-    backgroundColor: '#A7DEB5',
-  },
-  pipHit: {
-    backgroundColor: '#31af4d',
-  },
-  playerRight: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  playerWeekTouches: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1f89ee',
-  },
-  streakText: {
+  inactiveDividerText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
-  },
-  // Keep for TS compatibility (unused but referenced in old style)
-  addTouchesText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f89ee',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 
   // Empty State

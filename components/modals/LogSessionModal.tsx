@@ -1,8 +1,12 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import { useChallengeStats, useTodayChallenge } from '@/hooks/useTouchTracking';
+import { useDailySprint } from '@/hooks/useDailySprint';
+import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { getLocalDate } from '@/utils/getLocalDate';
+import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
+import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
+import { MAX_SESSION_TOUCHES, MAX_SESSION_JUGGLES, MAX_DAILY_TOUCHES, getTodayTouchTotal } from '@/lib/touchLimits';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
@@ -28,12 +32,14 @@ interface LogSessionModalProps {
   visible: boolean;
   onClose: () => void;
   userId: string;
+  teamId?: string | null;
   onSuccess: () => void;
   onSessionLogged?: (
     touchCount: number,
     isChallenge: boolean,
     drillName?: string,
     earnedBadgeIds?: string[],
+    isFreestyle?: boolean,
   ) => void;
   challengeDrillId?: string;
   challengeDurationMinutes?: number;
@@ -43,6 +49,7 @@ interface LogSessionModalProps {
 }
 
 const FOCUS_AREAS = [
+  { key: 'freestyle', label: 'Freestyle' },
   { key: 'juggling', label: 'Juggling' },
   { key: 'dribbling', label: 'Dribbling' },
   { key: 'ball_mastery', label: 'Ball Mastery' },
@@ -54,20 +61,17 @@ const FOCUS_AREAS = [
 
 const DRILL_TIPS: Record<string, string> = {
   beginner:
-    'Focus on clean touches, not speed. Get comfortable with the ball first! ⚽',
-  intermediate: 'Keep your head up and work both feet. Consistency is key! 💪',
+    'Focus on clean touches, not speed. Get comfortable with the ball first!',
+  intermediate: 'Keep your head up and work both feet. Consistency is key!',
   advanced:
-    'Game speed every rep. No breaks — this is where champions are made! 🔥',
+    'Game speed every rep. No breaks — this is where champions are made!',
 };
-
-const MAX_SESSION_TOUCHES = 9999;
-const MAX_SESSION_JUGGLES = 9999;
-const MAX_DAILY_TOUCHES = 15000;
 
 const LogSessionModal = ({
   visible,
   onClose,
   userId,
+  teamId,
   onSuccess,
   onSessionLogged,
   challengeDrillId,
@@ -82,6 +86,7 @@ const LogSessionModal = ({
   const [juggles, setJuggles] = useState('');
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   // Android keyboard handling: some devices resize the Modal's dialog window
   // for the keyboard, others leave it covering the keyboard. Track both the
   // measured dialog height and the keyboard's top edge, and reconcile at
@@ -89,6 +94,7 @@ const LogSessionModal = ({
   const [dialogHeight, setDialogHeight] = useState(screenHeight);
   const [kbScreenY, setKbScreenY] = useState<number | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [sessionFocus, setSessionFocus] = useState<SessionFocus | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -112,20 +118,34 @@ const LogSessionModal = ({
       setAttempted(false);
       setTouches('');
       setSelectedAreas([]);
+      setShowConfirm(false);
+      setSessionFocus(null);
     }
   }, [visible, challengeDurationMinutes]);
 
   const isChallengeMode = !!challengeDrillId;
+  const isFreestyleMode = !isChallengeMode && selectedAreas.includes('freestyle');
 
-  const { data: todayChallenge } = useTodayChallenge(userId);
-  const { data: challengeStats } = useChallengeStats(userId, todayChallenge?.id);
-  const challengeLocked = !isChallengeMode && !(challengeStats?.completedToday ?? false);
+  const { sprint } = useDailySprint(userId, teamId);
+  const { data: touchStats } = useTouchTracking(userId);
+  const trainedToday = (touchStats?.today_touches ?? 0) > 0;
+  const challengeLocked =
+    !isChallengeMode &&
+    !trainedToday &&
+    sprint?.todayBestMs == null &&
+    sprint?.todayBestReps == null;
 
   const handleSubmit = async () => {
     if (submitting) return;
 
+    if (requiresConfirm && !showConfirm) {
+      setShowConfirm(true);
+      return;
+    }
+
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
+    const durationCount = duration ? parseInt(duration) : 0;
 
     if (isChallengeMode) {
       if (!attempted) {
@@ -136,8 +156,13 @@ const LogSessionModal = ({
         Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
         return;
       }
-    } else if (touchCount <= 0 && juggleCount <= 0) {
-      Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
+    } else if (touchCount <= 0 && juggleCount <= 0 && !(isFreestyleMode && durationCount > 0)) {
+      Alert.alert(
+        'Invalid Input',
+        isFreestyleMode
+          ? 'Enter how many minutes you were out there'
+          : 'Please enter touches or a juggling record',
+      );
       return;
     }
 
@@ -157,12 +182,7 @@ const LogSessionModal = ({
     const today = getLocalDate();
 
     if (touchCount > 0) {
-      const { data: todaySessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged')
-        .eq('user_id', userId)
-        .eq('date', today);
-      const todayTotal = (todaySessions ?? []).reduce((sum: number, s: { touches_logged: number }) => sum + s.touches_logged, 0);
+      const todayTotal = await getTodayTouchTotal(userId, today);
       if (todayTotal + touchCount > MAX_DAILY_TOUCHES) {
         const remaining = Math.max(0, MAX_DAILY_TOUCHES - todayTotal);
         Alert.alert(
@@ -177,15 +197,18 @@ const LogSessionModal = ({
     }
 
     try {
+      const storedTouches = touchCount > 0 ? touchCount : juggleCount;
 
       const { error } = await supabase.from('daily_sessions').insert({
         user_id: userId,
         drill_id: challengeDrillId ?? null,
-        touches_logged: touchCount > 0 ? touchCount : juggleCount,
+        touches_logged: storedTouches,
         duration_minutes: duration ? parseInt(duration) : null,
         juggle_count: juggleCount > 0 ? juggleCount : null,
         date: today,
         focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
+        training_focus: sessionFocus,
+        is_game_speed: sessionFocus === 'match_pace',
       });
 
       if (error) throw error;
@@ -197,12 +220,11 @@ const LogSessionModal = ({
       let earnedBadgeIds: string[] = [];
       if (badgeContext) {
         const durationMinutes = duration ? parseInt(duration) : null;
-        const sessionTouches = touchCount > 0 ? touchCount : juggleCount;
         earnedBadgeIds = await checkAndAwardBadges(userId, {
           ...badgeContext,
           // Include this session's touches so milestone badges (e.g. 500k) fire
           // on the session that crosses the threshold, not the next one.
-          totalTouches: badgeContext.totalTouches + sessionTouches,
+          totalTouches: badgeContext.totalTouches + storedTouches,
           totalSessions: badgeContext.totalSessions + 1,
           jugglesThisSession: juggleCount > 0 ? juggleCount : null,
           durationMinutes,
@@ -219,14 +241,16 @@ const LogSessionModal = ({
       onSuccess();
       onClose();
       onSessionLogged?.(
-        touchCount || juggleCount,
+        storedTouches || juggleCount,
         isChallengeMode,
         challengeName,
         earnedBadgeIds,
+        isFreestyleMode,
       );
     } catch (error) {
       console.error('Error logging session:', error);
       Alert.alert('Error', 'Failed to log session. Please try again.');
+      setShowConfirm(false);
     } finally {
       setSubmitting(false);
     }
@@ -244,7 +268,14 @@ const LogSessionModal = ({
   const juggleCount = juggles ? parseInt(juggles) : 0;
   const isFormValid = isChallengeMode
     ? attempted
-    : !challengeLocked && (touchCount > 0 || juggleCount > 0);
+    : !challengeLocked &&
+      (touchCount > 0 || juggleCount > 0 || (isFreestyleMode && !!duration && parseInt(duration) > 0));
+
+  const elapsedSecondsForPace = duration ? parseInt(duration) * 60 : null;
+  const pace = computePace(touchCount, elapsedSecondsForPace);
+  const suspiciousPace = pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC;
+  const noDurationEntered = !duration && (touchCount > 0 || juggleCount > 0);
+  const requiresConfirm = (isChallengeMode && touchCount > 0) || suspiciousPace || noDurationEntered;
 
   return (
     <Modal
@@ -275,6 +306,23 @@ const LogSessionModal = ({
             </TouchableOpacity>
           </View>
 
+          {!sessionFocus ? (
+            <View style={styles.modalBody}>
+              <GameSpeedPrompt onSelect={setSessionFocus} />
+            </View>
+          ) : showConfirm ? (
+            <View style={styles.modalBody}>
+              <ConfirmSubmitCard
+                touches={touchCount > 0 ? touchCount : juggleCount}
+                elapsedSeconds={elapsedSecondsForPace}
+                itemLabel={touchCount > 0 ? (isChallengeMode ? 'score' : 'touches') : 'juggles'}
+                onConfirm={handleSubmit}
+                onCancel={() => setShowConfirm(false)}
+                submitting={submitting}
+              />
+            </View>
+          ) : (
+          <>
           <ScrollView
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
@@ -388,7 +436,9 @@ const LogSessionModal = ({
               )}
 
               {!isChallengeMode && (
-                <Text style={styles.dailyLimitNote}>Max {MAX_SESSION_TOUCHES.toLocaleString()} per session · {MAX_DAILY_TOUCHES.toLocaleString()} per day</Text>
+                <Text style={styles.dailyLimitNote}>
+                  Max {MAX_SESSION_TOUCHES.toLocaleString()} per session, {MAX_DAILY_TOUCHES.toLocaleString()} per day
+                </Text>
               )}
 
               {!isChallengeMode &&
@@ -396,8 +446,10 @@ const LogSessionModal = ({
                 duration &&
                 parseInt(duration) > 0 && (
                   <View style={styles.tpmPreview}>
+                    <Ionicons name='flash' size={14} color='#FF9800' />
                     <Text style={styles.tpmPreviewText}>
-                      ⚡ {Math.round(parseInt(touches) / parseInt(duration))}{' '}
+                      {' '}
+                      {Math.round(parseInt(touches) / parseInt(duration))}{' '}
                       touches/min
                       {parseInt(touches) / parseInt(duration) >= 50
                         ? ' - Game speed!'
@@ -407,6 +459,12 @@ const LogSessionModal = ({
                     </Text>
                   </View>
                 )}
+
+              {isFreestyleMode && (
+                <Text style={styles.sectionHint}>
+                  Freestyle tagged — touches are optional, just log your minutes!
+                </Text>
+              )}
             </View>
 
             {/* Focus areas */}
@@ -476,7 +534,7 @@ const LogSessionModal = ({
               <View style={styles.lockedBanner}>
                 <Ionicons name='lock-closed' size={18} color='#F57C00' />
                 <Text style={styles.lockedMessage}>
-                  Finish Today&apos;s Challenge on the Home tab to unlock session logging
+                  Complete a workout or today&apos;s sprint to unlock session logging
                 </Text>
               </View>
             )}
@@ -496,6 +554,8 @@ const LogSessionModal = ({
                     ? touchCount > 0
                       ? `LOG CHALLENGE • ${touchCount.toLocaleString()}`
                       : 'LOG ATTEMPT'
+                    : isFreestyleMode && touchCount <= 0 && juggleCount <= 0
+                    ? 'LOG FREESTYLE SESSION'
                     : touchCount > 0 && juggleCount > 0
                         ? 'LOG ' +
                           touchCount.toLocaleString() +
@@ -511,6 +571,8 @@ const LogSessionModal = ({
               )}
             </TouchableOpacity>
           </View>
+          </>
+          )}
           </View>
         </View>
       </View>
@@ -627,7 +689,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     padding: 12,
     borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tpmPreviewText: {
     fontSize: 14,

@@ -1,13 +1,15 @@
-import { toggleCheer, type CheerData } from '@/hooks/useFeedCheers';
+import { REACTION_EMOJI, REACTION_TYPES, setReaction, type CheerData, type ReactionType } from '@/hooks/useFeedCheers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   Modal,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from 'react-native';
 
 interface CheerRowProps {
@@ -15,48 +17,118 @@ interface CheerRowProps {
   recipientId: string;
   userId: string;
   cheerData: CheerData | undefined;
-  alreadyCheered: boolean;
+  myReaction: ReactionType | undefined;
   disabled?: boolean;
+  label?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, alreadyCheered, disabled }: CheerRowProps) {
+export default function CheerRow({
+  feedItemKey,
+  recipientId,
+  userId,
+  cheerData,
+  myReaction,
+  disabled,
+  label,
+  containerStyle,
+}: CheerRowProps) {
   const queryClient = useQueryClient();
-  const [localOverride, setLocalOverride] = useState<boolean | null>(null);
-  const [localCount, setLocalCount] = useState<number | null>(null);
+  const [localReaction, setLocalReaction] = useState<ReactionType | null | undefined>(undefined);
+  const [localCounts, setLocalCounts] = useState<Record<ReactionType, number> | null>(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
-  const effectiveCheered = localOverride !== null ? localOverride : alreadyCheered;
-  const baseCount = cheerData?.count ?? 0;
-  const effectiveCount = localCount !== null ? localCount : baseCount;
+  const effectiveReaction = localReaction !== undefined ? localReaction : myReaction ?? null;
+  const baseCounts = cheerData?.counts;
+  const effectiveCounts = localCounts ?? baseCounts;
+  const totalCount = effectiveCounts ? REACTION_TYPES.reduce((sum, t) => sum + (effectiveCounts[t] ?? 0), 0) : 0;
 
-  const handleCheer = async () => {
-    if (disabled || effectiveCheered) return;
-    setLocalOverride(true);
-    setLocalCount(effectiveCount + 1);
-    await toggleCheer({
+  const applyReaction = async (reactionType: ReactionType) => {
+    const prevReaction = effectiveReaction;
+    const nowActive = prevReaction === reactionType ? null : reactionType;
+
+    const nextCounts: Record<ReactionType, number> = {
+      cheer: baseCounts?.cheer ?? 0,
+      fire: baseCounts?.fire ?? 0,
+      fireworks: baseCounts?.fireworks ?? 0,
+      strong: baseCounts?.strong ?? 0,
+    };
+    if (prevReaction) nextCounts[prevReaction] = Math.max(0, nextCounts[prevReaction] - 1);
+    if (nowActive) nextCounts[nowActive] = nextCounts[nowActive] + 1;
+
+    setLocalReaction(nowActive);
+    setLocalCounts(nextCounts);
+    setShowPicker(false);
+
+    await setReaction({
       feedItemKey,
       cheeredByUserId: userId,
       recipientUserId: recipientId,
-      alreadyCheered: false,
+      reactionType,
+      currentReactionType: prevReaction ?? undefined,
       queryClient,
     });
   };
 
-  return (
-    <View style={styles.row}>
-      <TouchableOpacity
-        onPress={handleCheer}
-        style={[styles.cheerBtn, effectiveCheered && styles.cheerBtnActive, disabled && styles.cheerBtnDisabled]}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        activeOpacity={disabled ? 1 : 0.7}
-        disabled={disabled}
-      >
-        <Text style={[styles.cheerBtnText, effectiveCheered && styles.cheerBtnTextActive]}>👏</Text>
-      </TouchableOpacity>
+  const handlePress = () => {
+    if (disabled) return;
+    applyReaction(effectiveReaction ?? 'cheer');
+  };
 
-      {effectiveCount > 0 && (
+  const handleLongPress = () => {
+    if (disabled) return;
+    setShowPicker(true);
+  };
+
+  return (
+    <View style={[styles.row, containerStyle]}>
+      <View>
+        <TouchableOpacity
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={280}
+          style={[styles.cheerBtn, effectiveReaction && styles.cheerBtnActive, disabled && styles.cheerBtnDisabled]}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          activeOpacity={disabled ? 1 : 0.7}
+          disabled={disabled}
+        >
+          <Text style={[styles.cheerBtnText, effectiveReaction && styles.cheerBtnTextActive]}>
+            {REACTION_EMOJI[effectiveReaction ?? 'cheer']}
+          </Text>
+          {label && (
+            <Text style={[styles.cheerBtnLabel, effectiveReaction && styles.cheerBtnTextActive]}>
+              {label}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {showPicker && (
+          <>
+            <Pressable style={styles.pickerDismiss} onPress={() => setShowPicker(false)} />
+            <View style={styles.picker}>
+              {REACTION_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.pickerOption, effectiveReaction === type && styles.pickerOptionActive]}
+                  onPress={() => applyReaction(type)}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                  <Text style={styles.pickerEmoji}>{REACTION_EMOJI[type]}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+      </View>
+
+      {totalCount > 0 && (
         <TouchableOpacity onPress={() => setShowSheet(true)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={styles.countText}>{effectiveCount} {effectiveCount === 1 ? 'cheer' : 'cheers'}</Text>
+          <Text style={styles.countText}>
+            {REACTION_TYPES.filter((t) => (effectiveCounts?.[t] ?? 0) > 0)
+              .map((t) => `${REACTION_EMOJI[t]} ${effectiveCounts![t]}`)
+              .join('  ')}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -64,13 +136,14 @@ export default function CheerRow({ feedItemKey, recipientId, userId, cheerData, 
         <Pressable style={styles.overlay} onPress={() => setShowSheet(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.handle} />
-            <Text style={styles.sheetTitle}>Cheers</Text>
-            {(cheerData?.names ?? []).map((name, i) => (
+            <Text style={styles.sheetTitle}>Reactions</Text>
+            {(cheerData?.reactors ?? []).map((r, i) => (
               <View key={i} style={styles.sheetRow}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+                  <Text style={styles.avatarText}>{r.name.charAt(0).toUpperCase()}</Text>
                 </View>
-                <Text style={styles.sheetName}>{name}</Text>
+                <Text style={styles.sheetName}>{r.name}</Text>
+                <Text style={styles.sheetEmoji}>{REACTION_EMOJI[r.reactionType]}</Text>
               </View>
             ))}
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowSheet(false)}>
@@ -92,6 +165,9 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   cheerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -113,10 +189,53 @@ const styles = StyleSheet.create({
   cheerBtnTextActive: {
     color: '#1f89ee',
   },
+  cheerBtnLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+  },
   countText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#78909C',
+  },
+  pickerDismiss: {
+    position: 'absolute',
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+  },
+  picker: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    marginBottom: 8,
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 6,
+    zIndex: 10,
+  },
+  pickerOption: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerOptionActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  pickerEmoji: {
+    fontSize: 20,
   },
   overlay: {
     flex: 1,
@@ -170,6 +289,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
+  },
+  sheetEmoji: {
+    fontSize: 18,
   },
   closeBtn: {
     marginTop: 24,

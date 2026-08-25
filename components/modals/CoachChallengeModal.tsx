@@ -111,7 +111,7 @@ export default function CoachChallengeModal({
   return (
     <Modal visible={visible} animationType='slide' presentationStyle='pageSheet' onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.container, { paddingTop: insets.top || 20 }]}
       >
         {/* Header */}

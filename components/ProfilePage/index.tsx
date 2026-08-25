@@ -6,14 +6,17 @@ import {
   useLeaderboardWinCount,
   useUserBadges,
 } from '@/hooks/useBadges';
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
-import { useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useUserSquadBadges } from '@/hooks/useSquadBadges';
+import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
 import { checkAndAwardBadges } from '@/lib/checkBadges';
+import { promptForReview } from '@/lib/rateApp';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
 import { getDisplayName } from '@/utils/getDisplayName';
@@ -96,6 +99,13 @@ const ProfilePage = () => {
   const [coachClubQuery, setCoachClubQuery] = useState('');
   const [clubNameInput, setClubNameInput] = useState('');
   const [savingClub, setSavingClub] = useState(false);
+  const [uploadingClubLogo, setUploadingClubLogo] = useState(false);
+  const changePasswordKb = useAndroidModalKeyboard();
+  const targetModalKb = useAndroidModalKeyboard();
+  const nameModalKb = useAndroidModalKeyboard();
+  const playerClubModalKb = useAndroidModalKeyboard();
+  const createClubModalKb = useAndroidModalKeyboard();
+  const coachClubSearchModalKb = useAndroidModalKeyboard();
   const [selectedBadge, setSelectedBadge] = useState<{
     badge: Badge;
     isEarned: boolean;
@@ -115,10 +125,10 @@ const ProfilePage = () => {
       if (!(team as any)?.club_id) return null;
       const { data: club } = await supabase
         .from('clubs')
-        .select('id, name, join_code')
+        .select('id, name, join_code, logo_url')
         .eq('id', (team as any).club_id)
         .single();
-      return club as { id: string; name: string; join_code: string } | null;
+      return club as { id: string; name: string; join_code: string; logo_url: string | null } | null;
     },
   });
 
@@ -373,9 +383,9 @@ const ProfilePage = () => {
   };
 
   const handleFeedback = async () => {
-    const email = 'timmparsons85@gmail.com';
+    const email = 'tim@mastertouch.app';
     const subject = 'Master Touch Feedback';
-    const body = `\n\n---\nApp Version: 3.0.11\nUser: ${user?.email || 'Unknown'}`;
+    const body = `\n\n---\nUser: ${user?.email || 'Unknown'}`;
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     const canOpen = await Linking.canOpenURL(url);
@@ -384,6 +394,10 @@ const ProfilePage = () => {
     } else {
       Alert.alert('Send Feedback', `Email us at:\n${email}`, [{ text: 'OK' }]);
     }
+  };
+
+  const handleRateApp = () => {
+    promptForReview(handleFeedback);
   };
 
   const handleJoinTeam = () => {
@@ -449,7 +463,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: (club as any).id } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCreateClubModal(false);
@@ -479,7 +493,7 @@ const ProfilePage = () => {
         supabase
           .from('profiles')
           .update({ club_id: clubId } as any)
-          .eq('id', user!.id),
+          .eq('team_id', profile.team_id),
       ]);
       await refetchClub();
       setShowCoachClubSearchModal(false);
@@ -489,6 +503,49 @@ const ProfilePage = () => {
       Alert.alert('Error', 'Something went wrong.');
     } finally {
       setSavingClub(false);
+    }
+  };
+
+  const handlePickClubLogo = async (clubId: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    setUploadingClubLogo(true);
+    try {
+      const binaryString = atob(result.assets[0].base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const filePath = `club-logos/${clubId}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { error: updateError } = await supabase
+        .from('clubs')
+        .update({ logo_url: publicUrl } as any)
+        .eq('id', clubId);
+      if (updateError) throw updateError;
+
+      await refetchClub();
+    } catch {
+      Alert.alert('Error', 'Failed to upload club logo. Try again.');
+    } finally {
+      setUploadingClubLogo(false);
     }
   };
 
@@ -528,7 +585,7 @@ const ProfilePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('clubs')
-        .select('id, name')
+        .select('id, name, logo_url')
         .eq('id', playerClubId)
         .single();
       return data ?? null;
@@ -593,6 +650,7 @@ const ProfilePage = () => {
 
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
+  const { data: activeStreakStats } = useActiveStreak(user?.id);
   const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
@@ -604,6 +662,7 @@ const ProfilePage = () => {
   const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
     useChallengeRecord(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
+  const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
 
   // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
   const BACKFILL_ENABLED = true;
@@ -612,7 +671,7 @@ const ProfilePage = () => {
     checkAndAwardBadges(user.id, {
       totalSessions: touchStats.total_sessions ?? 0,
       totalTouches: touchStats.total_touches ?? 0,
-      currentStreak: touchStats.current_streak ?? 0,
+      currentStreak: activeStreakStats?.currentStreak ?? 0,
       // If the user already has a juggle PB, treat it as a beaten record so the badge backfills
       jugglesThisSession: jugglePB > 0 ? jugglePB : null,
       previousJugglePB: jugglePB > 0 ? jugglePB - 1 : 0,
@@ -625,7 +684,7 @@ const ProfilePage = () => {
   }, [
     user?.id,
     touchStats?.total_touches,
-    touchStats?.current_streak,
+    activeStreakStats?.currentStreak,
     jugglePB,
   ]);
 
@@ -659,7 +718,6 @@ const ProfilePage = () => {
           total_sessions: 0,
           days_active: 0,
           avg_daily_touches: 0,
-          longest_streak: 0,
         };
       }
 
@@ -671,33 +729,11 @@ const ProfilePage = () => {
       const avgDaily =
         uniqueDays > 0 ? Math.round(lifetimeTouches / uniqueDays) : 0;
 
-      // Calculate longest streak
-      const dates = [...new Set(sessions.map((s) => s.date))].sort();
-      let longestStreak = 0;
-      let currentStreak = 1;
-
-      for (let i = 1; i < dates.length; i++) {
-        const prev = new Date(dates[i - 1]);
-        const curr = new Date(dates[i]);
-        const diffDays = Math.floor(
-          (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (diffDays === 1) {
-          currentStreak++;
-        } else {
-          longestStreak = Math.max(longestStreak, currentStreak);
-          currentStreak = 1;
-        }
-      }
-      longestStreak = Math.max(longestStreak, currentStreak);
-
       return {
         lifetime_touches: lifetimeTouches,
         total_sessions: sessions.length,
         days_active: uniqueDays,
         avg_daily_touches: avgDaily,
-        longest_streak: longestStreak,
       };
     },
   });
@@ -707,7 +743,9 @@ const ProfilePage = () => {
     profile?.is_coach ? 'Coach' : 'Player',
   );
   const dailyTarget = touchStats?.daily_target || 1000;
-  const currentStreak = touchStats?.current_streak || 0;
+  const currentStreak = activeStreakStats?.currentStreak || 0;
+  const longestStreak = activeStreakStats?.longestStreak || 0;
+  const freezesAvailable = activeStreakStats?.freezesAvailable || 0;
   const { level, xpIntoLevel, xpForNextLevel } = getLevelFromXp(
     profile?.total_xp ?? 0,
   );
@@ -918,80 +956,20 @@ const ProfilePage = () => {
                     <Text style={styles.streakEmoji}>⭐</Text>
                   </View>
                   <View style={styles.streakInfo}>
-                    <Text style={styles.streakValue}>
-                      {lifetimeStats?.longest_streak || 0}
-                    </Text>
+                    <Text style={styles.streakValue}>{longestStreak}</Text>
                     <Text style={styles.streakLabel}>Best Streak</Text>
                   </View>
                 </View>
               </View>
-            </View>
-          )}
 
-          {/* Training Levels Card - players only */}
-          {!profile?.is_coach && (
-            <View style={styles.levelsCard}>
-              <Text style={styles.levelsTitle}>Training Levels</Text>
-              <Text style={styles.levelsSubtitle}>
-                Bill Beswick&apos;s performance philosophy. Your badge on the
-                leaderboard shows which level your touches put you at.
-              </Text>
-
-              <View style={styles.levelRow}>
-                <View
-                  style={[styles.levelDot, { backgroundColor: '#D84315' }]}
-                />
-                <View style={styles.levelInfo}>
-                  <View style={styles.levelNameRow}>
-                    <Text style={[styles.levelName, { color: '#D84315' }]}>
-                      Train to Dominate
-                    </Text>
-                    <Text style={styles.levelThreshold}>2,500+ touches</Text>
-                  </View>
-                  <Text style={styles.levelDescription}>
-                    Exceptional athletes whose training ensures winning is
-                    inevitable.
+              {freezesAvailable > 0 && (
+                <View style={styles.freezeBanner}>
+                  <Ionicons name='snow-outline' size={14} color='#1f89ee' />
+                  <Text style={styles.freezeBannerText}>
+                    {freezesAvailable} streak freeze{freezesAvailable > 1 ? 's' : ''} banked — miss a day and it&apos;s covered
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.levelRow}>
-                <View
-                  style={[styles.levelDot, { backgroundColor: '#1565C0' }]}
-                />
-                <View style={styles.levelInfo}>
-                  <View style={styles.levelNameRow}>
-                    <Text style={[styles.levelName, { color: '#1565C0' }]}>
-                      Train to Win
-                    </Text>
-                    <Text style={styles.levelThreshold}>
-                      1,000 – 2,499 touches
-                    </Text>
-                  </View>
-                  <Text style={styles.levelDescription}>
-                    Athletes committed to winning on match day.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.levelRow, { marginBottom: 0 }]}>
-                <View
-                  style={[styles.levelDot, { backgroundColor: '#78909C' }]}
-                />
-                <View style={styles.levelInfo}>
-                  <View style={styles.levelNameRow}>
-                    <Text style={[styles.levelName, { color: '#78909C' }]}>
-                      Turn Up
-                    </Text>
-                    <Text style={styles.levelThreshold}>
-                      Under 1,000 touches
-                    </Text>
-                  </View>
-                  <Text style={styles.levelDescription}>
-                    Athletes who show up and do the required work.
-                  </Text>
-                </View>
-              </View>
+              )}
             </View>
           )}
 
@@ -1019,7 +997,26 @@ const ProfilePage = () => {
               {teamClub ? (
                 <View style={styles.clubCard}>
                   <View style={styles.clubCardHeader}>
-                    <Ionicons name='shield' size={18} color='#1f89ee' />
+                    <TouchableOpacity
+                      onPress={() => handlePickClubLogo(teamClub.id)}
+                      disabled={uploadingClubLogo}
+                      style={styles.clubLogoContainer}
+                      activeOpacity={0.8}
+                    >
+                      {uploadingClubLogo ? (
+                        <ActivityIndicator size='small' color='#1f89ee' />
+                      ) : teamClub.logo_url ? (
+                        <Image
+                          source={{ uri: teamClub.logo_url }}
+                          style={styles.clubLogoImage}
+                        />
+                      ) : (
+                        <Ionicons name='shield' size={18} color='#1f89ee' />
+                      )}
+                      <View style={styles.clubLogoCameraBadge}>
+                        <Ionicons name='camera' size={9} color='#FFF' />
+                      </View>
+                    </TouchableOpacity>
                     <Text style={styles.clubCardTitle}>{teamClub.name}</Text>
                   </View>
                 </View>
@@ -1070,6 +1067,31 @@ const ProfilePage = () => {
                   setSelectedBadge({ badge, isEarned })
                 }
               />
+            </View>
+          )}
+
+          {/* Squad Trophies Card - team badges earned together */}
+          {!profile?.is_coach && squadBadges.length > 0 && (
+            <View style={styles.badgesCard}>
+              <View style={styles.badgesHeader}>
+                <Text style={styles.badgesTitle}>Squad Trophies</Text>
+                <Text style={styles.badgesCount}>{squadBadges.length} earned</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.squadTrophyRow}>
+                {squadBadges.map((sb) => (
+                  <View key={sb.squadBadgeId} style={styles.squadTrophyChip}>
+                    <View style={styles.squadTrophyIcon}>
+                      <Ionicons name={sb.badgeIcon as any} size={22} color='#ffb724' />
+                    </View>
+                    <Text style={styles.squadTrophyName} numberOfLines={2}>
+                      {sb.badgeName}
+                    </Text>
+                    <Text style={styles.squadTrophyDate}>
+                      {new Date(sb.achievedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
         </ScrollView>
@@ -1410,7 +1432,14 @@ const ProfilePage = () => {
                             { backgroundColor: '#EDE7F6' },
                           ]}
                         >
-                          <Ionicons name='shield' size={20} color='#7E57C2' />
+                          {playerClub?.logo_url ? (
+                            <Image
+                              source={{ uri: playerClub.logo_url }}
+                              style={styles.settingsIconImage}
+                            />
+                          ) : (
+                            <Ionicons name='shield' size={20} color='#7E57C2' />
+                          )}
                         </View>
                         <View>
                           <Text style={styles.settingsLabel}>My Club</Text>
@@ -1457,6 +1486,14 @@ const ProfilePage = () => {
                   <View style={styles.actionDivider} />
                   <TouchableOpacity
                     style={styles.actionButton}
+                    onPress={handleRateApp}
+                  >
+                    <Ionicons name='star' size={24} color='#ffb724' />
+                    <Text style={styles.actionButtonText}>Rate Master Touch</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity
+                    style={styles.actionButton}
                     onPress={handleFeedback}
                   >
                     <Ionicons
@@ -1499,8 +1536,9 @@ const ProfilePage = () => {
           onRequestClose={() => setShowChangePasswordModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.changePasswordOverlay}
+            onLayout={changePasswordKb.onDialogLayout}
           >
             <TouchableOpacity
               style={{ flex: 1 }}
@@ -1510,7 +1548,7 @@ const ProfilePage = () => {
             <View
               style={[
                 styles.changePasswordSheet,
-                { paddingBottom: insets.bottom + 16 },
+                { paddingBottom: insets.bottom + 16, marginBottom: changePasswordKb.kbOverlap },
               ]}
             >
               <View style={styles.sheetHandle} />
@@ -1618,11 +1656,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowTargetModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
+            onLayout={targetModalKb.onDialogLayout}
           >
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { marginBottom: targetModalKb.kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalEmoji}>🎯</Text>
                   <Text style={styles.modalTitle}>Set Daily Target</Text>
@@ -1726,11 +1765,12 @@ const ProfilePage = () => {
           onRequestClose={() => setShowNameModal(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
+            onLayout={nameModalKb.onDialogLayout}
           >
             <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { marginBottom: nameModalKb.kbOverlap }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalEmoji}>✏️</Text>
                   <Text style={styles.modalTitle}>Edit Name</Text>
@@ -1791,11 +1831,12 @@ const ProfilePage = () => {
         }}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={playerClubModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={[styles.modalContent, { maxHeight: '80%', marginBottom: playerClubModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🏟️</Text>
                 <Text style={styles.modalTitle}>Find Your Club</Text>
@@ -1863,6 +1904,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor:
                           (profile as any)?.club_id === club.id
@@ -1880,6 +1922,14 @@ const ProfilePage = () => {
                     disabled={savingPlayerClub}
                     activeOpacity={0.8}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -1917,11 +1967,12 @@ const ProfilePage = () => {
         onRequestClose={() => setShowCreateClubModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={createClubModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { marginBottom: createClubModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🏆</Text>
                 <Text style={styles.modalTitle}>Create a Club</Text>
@@ -1978,11 +2029,12 @@ const ProfilePage = () => {
         }}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          onLayout={coachClubSearchModalKb.onDialogLayout}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={[styles.modalContent, { maxHeight: '80%', marginBottom: coachClubSearchModalKb.kbOverlap }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalEmoji}>🔍</Text>
                 <Text style={styles.modalTitle}>Find Your Club</Text>
@@ -2017,6 +2069,7 @@ const ProfilePage = () => {
                     key={club.id}
                     style={[
                       styles.modalCancel,
+                      styles.clubResultRow,
                       {
                         backgroundColor: '#F5F7FA',
                         borderColor: '#E5E7EB',
@@ -2027,6 +2080,14 @@ const ProfilePage = () => {
                     onPress={() => handleJoinClubBySearch(club.id, club.name)}
                     disabled={savingClub}
                   >
+                    {club.logo_url ? (
+                      <Image
+                        source={{ uri: club.logo_url }}
+                        style={styles.clubResultLogo}
+                      />
+                    ) : (
+                      <Ionicons name='shield-outline' size={20} color='#78909C' />
+                    )}
                     <Text
                       style={[styles.modalCancelText, { color: '#1a1a2e' }]}
                     >
@@ -2403,6 +2464,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     marginHorizontal: 16,
   },
+  freezeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  freezeBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1f89ee',
+  },
 
   // INFO CARD
   infoCard: {
@@ -2771,17 +2847,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  levelsCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
   createTeamBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2825,6 +2890,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#A78BFA',
+  },
+  squadTrophyRow: {
+    gap: 12,
+  },
+  squadTrophyChip: {
+    width: 84,
+    alignItems: 'center',
+  },
+  squadTrophyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ffb72422',
+    borderWidth: 1.5,
+    borderColor: '#ffb724',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  squadTrophyName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+  },
+  squadTrophyDate: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#A78BFA',
+    marginTop: 2,
   },
   badgeModalOverlay: {
     flex: 1,
@@ -2894,57 +2989,6 @@ const styles = StyleSheet.create({
   badgeModalStatusTextLocked: {
     color: '#6B7280',
   },
-  levelsTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: 6,
-  },
-  levelsSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#78909C',
-    lineHeight: 19,
-    marginBottom: 16,
-  },
-  levelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  levelDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-    flexShrink: 0,
-  },
-  levelInfo: {
-    flex: 1,
-  },
-  levelNameRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 3,
-    flexWrap: 'wrap',
-  },
-  levelName: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  levelThreshold: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78909C',
-  },
-  levelDescription: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#78909C',
-    lineHeight: 18,
-  },
   settingsTitle: {
     fontSize: 20,
     fontWeight: '900',
@@ -2969,6 +3013,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8EAF6',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  settingsIconImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   settingsLabel: {
     fontSize: 13,
@@ -3110,6 +3159,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#78909C',
+  },
+  clubResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+  },
+  clubResultLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   nameInput: {
     backgroundColor: '#F5F7FA',
@@ -3267,6 +3327,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#1a1a2e',
+  },
+  clubLogoContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clubLogoImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  clubLogoCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#1f89ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F0F7FF',
   },
   clubCardCodeLabel: {
     fontSize: 11,

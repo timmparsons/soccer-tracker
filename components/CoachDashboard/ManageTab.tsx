@@ -1,3 +1,4 @@
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useCoachTeamPlayerCounts } from '@/hooks/useCoachTeamPlayerCounts';
 import { useCoachTeams, type CoachTeam } from '@/hooks/useCoachTeams';
 import { useEndSeason, useStartNewSeason } from '@/hooks/useSeasons';
@@ -67,6 +68,7 @@ function TeamCardItem({
   const [addPlayerEmail, setAddPlayerEmail] = useState('');
   const [addPlayerPassword, setAddPlayerPassword] = useState('');
   const [addPlayerSaving, setAddPlayerSaving] = useState(false);
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
 
   const { data: players = [], isLoading: loadingPlayers } = useQuery({
     queryKey: ['manage-team-players', team.id],
@@ -401,15 +403,16 @@ function TeamCardItem({
         onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.overlay}
+          onLayout={onDialogLayout}
         >
           <TouchableOpacity
             activeOpacity={1}
             style={{ flex: 1 }}
             onPress={() => !addPlayerSaving && setAddPlayerVisible(false)}
           />
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16, marginBottom: kbOverlap }]}>
             <View style={styles.handle} />
             <TouchableOpacity
               style={styles.closeBtn}
