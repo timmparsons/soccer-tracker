@@ -4,7 +4,7 @@ export default function SplashScreen({ fullScreen = false }: { fullScreen?: bool
   return (
     <View style={[styles.container, fullScreen && styles.fullScreenOffset]}>
       <Image
-        source={require('../assets/images/app-logo.png')}
+        source={require('../assets/images/app-logo-splash.png')}
         style={styles.logo}
       />
     </View>
@@ -27,6 +27,5 @@ const styles = StyleSheet.create({
   logo: {
     width: 150,
     height: 150,
-    borderRadius: 30,
   },
 });
