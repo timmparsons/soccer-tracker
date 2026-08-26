@@ -1,4 +1,5 @@
 import CountdownView from '@/components/HomePage/ChallengeTimer/CountdownView';
+import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { IntervalPhase, useIntervalTimer } from '@/hooks/useIntervalTimer';
@@ -10,8 +11,8 @@ import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import {
   Vibration,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   visible: boolean;
@@ -40,6 +42,14 @@ async function creditedTouches(userId: string, rawTouches: number): Promise<numb
 const stepLabel = (step: DailyChallengeStep): string =>
   step.type === 'single' ? step.drillName : step.comboName;
 
+const stepVideo = (step: DailyChallengeStep): { drillName: string; videoUrl: string } | null => {
+  if (step.type === 'single') {
+    return step.videoUrl ? { drillName: step.drillName, videoUrl: step.videoUrl } : null;
+  }
+  const drill = step.drills.find((d) => d.videoUrl);
+  return drill ? { drillName: drill.drillName, videoUrl: drill.videoUrl! } : null;
+};
+
 function buildPhases(steps: DailyChallengeStep[], durationSeconds: number): IntervalPhase[] {
   const stationSeconds = Math.max(1, Math.round(durationSeconds / steps.length));
   return steps.map((step) => ({ label: stepLabel(step), seconds: stationSeconds, cueSound: 'work' }));
@@ -50,6 +60,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   const [saving, setSaving] = useState(false);
   const [earlyTouchesInput, setEarlyTouchesInput] = useState('');
   const [loggedTouches, setLoggedTouches] = useState(0);
+  const [videoStep, setVideoStep] = useState<{ drillName: string; videoUrl: string } | null>(null);
   const beepSoundRef = useRef<Audio.Sound | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
   const totalTouches = calculateChallengeTouches(steps);
@@ -173,22 +184,32 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
 
   const isDark = state === 'running' || state === 'countdown';
   const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClosePress();
+      return true;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, state]);
+
+  if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType='fade'
-      transparent={false}
-      statusBarTranslucent={Platform.OS === 'android'}
-      hardwareAccelerated
-      onRequestClose={handleClose}
-    >
+    <>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}
         onLayout={onDialogLayout}
       >
-        <TouchableOpacity style={styles.closeButton} onPress={handleClosePress} hitSlop={12}>
+        <TouchableOpacity
+          style={[styles.closeButton, { top: insets.top + 12 }]}
+          onPress={handleClosePress}
+          hitSlop={12}
+        >
           <Ionicons name='close' size={28} color={isDark ? '#FFF' : '#78909C'} />
         </TouchableOpacity>
 
@@ -197,15 +218,26 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
             <Text style={styles.sectionLabel}>CIRCUIT</Text>
             <Text style={styles.title}>{workout.title}</Text>
             <View style={styles.stationsList}>
-              {phases.map((p, i) => (
-                <View key={i} style={styles.stationRow}>
-                  <View style={styles.stationNumber}>
-                    <Text style={styles.stationNumberText}>{i + 1}</Text>
+              {phases.map((p, i) => {
+                const video = stepVideo(steps[i]);
+                return (
+                  <View key={i} style={styles.stationRow}>
+                    <View style={styles.stationNumber}>
+                      <Text style={styles.stationNumberText}>{i + 1}</Text>
+                    </View>
+                    <Text style={styles.stationLabel}>{p.label}</Text>
+                    {video && (
+                      <TouchableOpacity
+                        onPress={() => setVideoStep(video)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name='play-circle-outline' size={22} color='#1f89ee' />
+                      </TouchableOpacity>
+                    )}
+                    <Text style={styles.stationSeconds}>{p.seconds}s</Text>
                   </View>
-                  <Text style={styles.stationLabel}>{p.label}</Text>
-                  <Text style={styles.stationSeconds}>{p.seconds}s</Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
             <Text style={styles.touchEstimate}>≈ {totalTouches.toLocaleString()} touches</Text>
             <TouchableOpacity style={styles.startButton} onPress={handleStart} activeOpacity={0.85}>
@@ -275,7 +307,16 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
           </View>
         )}
       </KeyboardAvoidingView>
-    </Modal>
+
+      {videoStep && (
+        <DrillVideoModal
+          visible={!!videoStep}
+          onClose={() => setVideoStep(null)}
+          videoUrl={videoStep.videoUrl}
+          drillName={videoStep.drillName}
+        />
+      )}
+    </>
   );
 };
 
@@ -287,7 +328,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 56,
     right: 20,
     zIndex: 1,
   },
