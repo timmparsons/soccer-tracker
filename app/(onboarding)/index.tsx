@@ -22,11 +22,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // TYPES & CONSTANTS
 
-type Persona = 'player' | 'coach';
 type AccountFor = 'self' | 'child';
 
 interface OnboardingData {
-  persona: Persona | null;
   accountFor: AccountFor | null;
   goal: string | null;
   name: string;
@@ -38,7 +36,6 @@ interface OnboardingData {
 
 const PLAYER_STEPS = [
   'welcome',
-  'persona',
   'accountfor',
   'social',
   'name',
@@ -47,17 +44,7 @@ const PLAYER_STEPS = [
   'club',
 ] as const;
 
-const COACH_STEPS = [
-  'welcome',
-  'persona',
-  'coachsocial',
-  'coachname',
-  'coachnotif',
-  'coachsignup',
-  'club',
-] as const;
-
-type Step = (typeof PLAYER_STEPS)[number] | (typeof COACH_STEPS)[number];
+type Step = (typeof PLAYER_STEPS)[number];
 
 const DEMO_PLAYERS = [
   { name: 'Caleb', touches: 42030 },
@@ -75,7 +62,6 @@ export default function OnboardingScreen() {
   const { data: user } = useUser();
   const [stepIndex, setStepIndex] = useState(0);
   const [data, setData] = useState<OnboardingData>({
-    persona: 'player',
     accountFor: null,
     goal: null,
     name: '',
@@ -85,18 +71,12 @@ export default function OnboardingScreen() {
     clubId: null,
   });
 
-  const steps: readonly Step[] =
-    data.persona === 'coach' ? COACH_STEPS : PLAYER_STEPS;
+  const steps: readonly Step[] = PLAYER_STEPS;
   const currentStep = steps[stepIndex] as Step;
   const totalSteps = steps.length;
 
   const goNext = () => setStepIndex((i) => Math.min(i + 1, totalSteps - 1));
   const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
-
-  const handlePersonaSelect = (persona: Persona) => {
-    setData((d) => ({ ...d, persona }));
-    setStepIndex(2);
-  };
 
   const handleFinish = async () => {
     // user?.id may not be in the React Query cache yet if called immediately
@@ -110,35 +90,24 @@ export default function OnboardingScreen() {
         onboarding_completed: true,
         name: data.name || null,
         display_name: data.name || null,
-        is_coach: data.persona === 'coach',
         skill_focus: data.goal || null,
         club_id: data.clubId || null,
       } as any)
       .eq('id', userId);
 
-    if (data.persona === 'player') {
-      await supabase.from('user_targets').upsert({
-        user_id: userId,
-        daily_target_touches: data.dailyTarget,
-      });
-    }
+    await supabase.from('user_targets').upsert({
+      user_id: userId,
+      daily_target_touches: data.dailyTarget,
+    });
 
     await AsyncStorage.setItem('hasSeenIntro', 'true');
-    if (data.persona === 'coach') {
-      // Push (not replace) so the club step stays underneath — backing out
-      // of team creation should return here, not drop to the coach tab.
-      router.push('/(modals)/create-team');
-    } else {
-      router.replace('/(tabs)');
-    }
+    router.replace('/(tabs)');
   };
 
   const renderStep = () => {
     switch (currentStep) {
       case 'welcome':
         return <WelcomeScreen onNext={goNext} />;
-      case 'persona':
-        return <PersonaScreen onSelect={handlePersonaSelect} />;
       case 'accountfor':
         return (
           <AccountForScreen
@@ -170,30 +139,6 @@ export default function OnboardingScreen() {
           />
         );
       case 'signup':
-        return (
-          <SignUpScreen
-            email={data.email}
-            password={data.password}
-            onChangeEmail={(e) => setData((d) => ({ ...d, email: e }))}
-            onChangePassword={(p) => setData((d) => ({ ...d, password: p }))}
-            onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
-            onExistingAccount={() => router.replace('/(tabs)')}
-          />
-        );
-      case 'coachsocial':
-        return <CoachSocialScreen onNext={goNext} />;
-      case 'coachname':
-        return (
-          <NameScreen
-            value={data.name}
-            onChange={(n) => setData((d) => ({ ...d, name: n }))}
-            onNext={goNext}
-            isCoach
-          />
-        );
-      case 'coachnotif':
-        return <CoachNotifScreen onNext={goNext} />;
-      case 'coachsignup':
         return (
           <SignUpScreen
             email={data.email}
@@ -329,41 +274,6 @@ function WelcomeScreen({ onNext }: { onNext: () => void }) {
   );
 }
 
-// SCREEN 2 — PERSONA
-
-function PersonaScreen({ onSelect }: { onSelect: (p: Persona) => void }) {
-  return (
-    <View style={s.screen}>
-      <View style={s.screenContent}>
-        <Text style={s.title}>Are you a player or a coach?</Text>
-        <Text style={s.subtitle}>
-          We'll set things up based on your answer.
-        </Text>
-        <View style={s.personaRow}>
-          <TouchableOpacity
-            style={s.personaCard}
-            onPress={() => onSelect('player')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.personaEmoji}>⚽</Text>
-            <Text style={s.personaLabel}>Player</Text>
-            <Text style={s.personaSub}>I want to improve my game</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.personaCard}
-            onPress={() => onSelect('coach')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.personaEmoji}>📋</Text>
-            <Text style={s.personaLabel}>Coach</Text>
-            <Text style={s.personaSub}>I manage a team</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 // SCREEN 2B (PLAYER) — WHO'S THIS FOR
 
 function AccountForScreen({
@@ -404,19 +314,17 @@ function AccountForScreen({
   );
 }
 
-// SCREEN 5 (PLAYER) / 4C (COACH) — NAME
+// SCREEN 5 (PLAYER) — NAME
 
 function NameScreen({
   value,
   onChange,
   onNext,
-  isCoach,
   accountFor,
 }: {
   value: string;
   onChange: (n: string) => void;
   onNext: () => void;
-  isCoach?: boolean;
   accountFor?: AccountFor | null;
 }) {
   const isChild = accountFor === 'child';
@@ -428,29 +336,21 @@ function NameScreen({
     >
       <View style={s.screenContent}>
         <Text style={s.title}>
-          {isCoach
-            ? 'What should your players call you?'
-            : isChild
-              ? "What's your child's name?"
-              : 'What do your teammates call you?'}
+          {isChild
+            ? "What's your child's name?"
+            : 'What do your teammates call you?'}
         </Text>
         <Text style={s.subtitle}>
-          {isCoach
-            ? 'This shows on your coach dashboard.'
-            : isChild
-              ? 'This is what shows on the leaderboard and what Vinnie, our AI coach, will call them.'
-              : 'This shows on the leaderboard.'}
+          {isChild
+            ? 'This is what shows on the leaderboard and what Vinnie, our AI coach, will call them.'
+            : 'This shows on the leaderboard.'}
         </Text>
         <TextInput
           style={s.nameInput}
           value={value}
           onChangeText={onChange}
           placeholder={
-            isCoach
-              ? 'Coach Smith'
-              : isChild
-                ? "Their name or nickname"
-                : 'Your name or nickname'
+            isChild ? "Their name or nickname" : 'Your name or nickname'
           }
           placeholderTextColor='#B0BEC5'
           autoFocus
@@ -731,102 +631,6 @@ function SignUpScreen({
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-// SCREEN 5C (COACH) — COACH SOCIAL PROOF
-
-function CoachSocialScreen({ onNext }: { onNext: () => void }) {
-  return (
-    <View style={s.screen}>
-      <ScrollView
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={s.title}>Coaches are seeing it in the numbers</Text>
-        <Text style={s.subtitle}>
-          Real engagement between sessions — not just match days.
-        </Text>
-
-        <View style={s.heroStatCard}>
-          <Text style={s.heroStatNumber}>42,030</Text>
-          <Text style={s.heroStatLabel}>
-            touches logged by one player in a single week
-          </Text>
-        </View>
-
-        <View style={s.testimonialCard}>
-          <Text style={s.testimonialText}>
-            "I had no idea who was putting in extra work between sessions. Now I
-            can see it before I even get to the pitch — and I use it every
-            week."
-          </Text>
-          <View style={s.testimonialFooter}>
-            <View style={s.testimonialAvatar}>
-              <Text style={{ fontSize: 18 }}>📋</Text>
-            </View>
-            <View>
-              <Text style={s.testimonialName}>Coach T.</Text>
-              <Text style={s.testimonialRole}>Youth Academy Coach</Text>
-            </View>
-          </View>
-        </View>
-
-      </ScrollView>
-
-      <View style={s.bottomPad}>
-        <PrimaryButton label="That's what I want →" onPress={onNext} />
-      </View>
-    </View>
-  );
-}
-
-// SCREEN 6C (COACH) — COACH NOTIFICATION PRIMING
-
-function CoachNotifScreen({ onNext }: { onNext: () => void }) {
-  const handleEnable = async () => {
-    await Notifications.requestPermissionsAsync();
-    onNext();
-  };
-
-  return (
-    <View style={s.screen}>
-      <View style={s.screenContent}>
-        <Text style={s.notifEmoji}>📱</Text>
-        <Text style={s.title}>
-          Know who needs a nudge before the next session
-        </Text>
-        <Text style={s.subtitle}>
-          Stay across your squad without constant messages.
-        </Text>
-        <View style={s.notifBullets}>
-          <View style={s.notifBulletRow}>
-            <Text style={s.notifBulletIcon}>👁</Text>
-            <Text style={s.notifBulletText}>
-              {"See who hasn't logged touches this week"}
-            </Text>
-          </View>
-          <View style={s.notifBulletRow}>
-            <Text style={s.notifBulletIcon}>⚡</Text>
-            <Text style={s.notifBulletText}>
-              Send a challenge directly to a player's phone
-            </Text>
-          </View>
-          <View style={s.notifBulletRow}>
-            <Text style={s.notifBulletIcon}>📊</Text>
-            <Text style={s.notifBulletText}>
-              React before the next session, not after
-            </Text>
-          </View>
-        </View>
-      </View>
-      <View style={s.bottomPad}>
-        <PrimaryButton label='Enable coach alerts' onPress={handleEnable} />
-        <TouchableOpacity style={s.skipLink} onPress={onNext}>
-          <Text style={s.skipLinkText}>Not now</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
   );
 }
 
