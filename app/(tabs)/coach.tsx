@@ -244,11 +244,7 @@ export default function CoachDashboard() {
   }
 
   if (isLoading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#ffb724" />
-      </View>
-    );
+    return <View style={styles.loading} />;
   }
 
   if (!profile?.team_id) {

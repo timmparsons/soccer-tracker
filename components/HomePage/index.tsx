@@ -25,7 +25,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -124,11 +123,7 @@ const HomeScreen = () => {
   }, [user?.id, activeStreakStats?.currentStreak]);
 
   if (statsLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color='#1f89ee' />
-      </View>
-    );
+    return <View style={styles.loadingContainer} />;
   }
 
   const displayName = getDisplayName(profile);

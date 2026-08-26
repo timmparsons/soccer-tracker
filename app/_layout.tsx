@@ -1,4 +1,3 @@
-import SplashScreen from '@/components/SplashScreen';
 import { fetchTouchesLeaderboard } from '@/hooks/useLeaderboard';
 import {
   requestNotificationPermission,
@@ -12,10 +11,15 @@ import { Session } from '@supabase/supabase-js';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// Keep the native splash on screen until we've resolved the target route —
+// there's no JS splash handoff, so there's no seam for the icon to jump at.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -237,10 +241,13 @@ export default function RootLayout() {
 
   // Navigate to the computed target route once both loading and the minimum
   // splash time have finished. The Stack is only mounted at this point so
-  // there is no auth screen rendered underneath while we wait.
+  // there is no auth screen rendered underneath while we wait. The native
+  // splash is still covering the screen (see preventAutoHideAsync above), so
+  // we hide it right after the route lands underneath — no visible handoff.
   useEffect(() => {
     if (!loading && minTimeDone) {
       router.replace(targetRoute as any);
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [loading, minTimeDone]);
 
@@ -348,15 +355,11 @@ export default function RootLayout() {
     }
   };
 
-  // While loading or splash minimum time hasn't elapsed: show the splash
-  // screen directly — the Stack is NOT mounted, so no auth screen can flash.
+  // While loading or splash minimum time hasn't elapsed: render nothing —
+  // the native splash (held open by preventAutoHideAsync) is still covering
+  // the screen, and the Stack is NOT mounted, so no auth screen can flash.
   if (loading || !minTimeDone) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar barStyle='dark-content' />
-        <SplashScreen fullScreen />
-      </SafeAreaProvider>
-    );
+    return null;
   }
 
   return (
