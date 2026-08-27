@@ -1,5 +1,6 @@
 import { useClubSearch } from '@/hooks/useClubSearch';
 import { useUser } from '@/hooks/useUser';
+import { logSignupComplete } from '@/lib/metaEvents';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -538,6 +539,7 @@ function SignUpScreen({
         }
         throw signUpError;
       }
+      logSignupComplete();
       onNext();
     } catch (e: any) {
       setError(e.message ?? 'Sign up failed');

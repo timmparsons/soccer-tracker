@@ -33,7 +33,9 @@
       [
         "expo-notifications",
         {
-          "sounds": ["./assets/sounds/fulltime_whistle.wav"]
+          "sounds": [
+            "./assets/sounds/fulltime_whistle.wav"
+          ]
         }
       ],
       [
@@ -65,6 +67,18 @@
           "imageWidth": 150,
           "resizeMode": "contain",
           "backgroundColor": "#F5F7FA"
+        }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1440959231197375",
+          "clientToken": "779ff13623b4e418c40c10a5c691a484",
+          "displayName": "Master Touch",
+          "scheme": "fb1440959231197375",
+          "isAutoInitEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "iosUserTrackingPermission": "Master Touch uses your device data to show you more relevant ads."
         }
       ]
     ],

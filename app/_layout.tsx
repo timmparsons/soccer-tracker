@@ -12,6 +12,7 @@ import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-
 import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { initMetaSdk } from '@/lib/metaEvents';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
@@ -119,6 +120,8 @@ export default function RootLayout() {
 
         const sess = sessionResult.error ? null : sessionResult.data.session;
         const seenIntro = seen === 'true';
+
+        initMetaSdk();
 
         // Configure RevenueCat (skip if API key isn't set yet)
         const rcKey = process.env.EXPO_PUBLIC_RC_IOS_KEY;
@@ -367,9 +370,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <StatusBar barStyle='dark-content' />
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name='(auth)' />
-          <Stack.Screen name='(onboarding)' />
-          <Stack.Screen name='(tabs)' />
+          <Stack.Screen name='(auth)' options={{ animation: 'none' }} />
+          <Stack.Screen name='(onboarding)' options={{ animation: 'none' }} />
+          <Stack.Screen name='(tabs)' options={{ animation: 'none' }} />
           <Stack.Screen name='minigames' />
           <Stack.Screen
             name='(modals)/paywall'
