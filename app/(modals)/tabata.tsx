@@ -49,7 +49,6 @@ export default function TabataScreen() {
   const [submitting, setSubmitting] = useState(false);
   const roundsCompletedRef = useRef(0);
   const goSoundRef = useRef<Audio.Sound | null>(null);
-  const beepSoundRef = useRef<Audio.Sound | null>(null);
   const whistleSoundRef = useRef<Audio.Sound | null>(null);
 
   useFocusEffect(
@@ -62,15 +61,11 @@ export default function TabataScreen() {
     Audio.Sound.createAsync(require('@/assets/audio/go.wav')).then(({ sound }) => {
       goSoundRef.current = sound;
     });
-    Audio.Sound.createAsync(require('@/assets/audio/countdown-beep.wav')).then(({ sound }) => {
-      beepSoundRef.current = sound;
-    });
     Audio.Sound.createAsync(require('@/assets/sounds/whistle.mp3')).then(({ sound }) => {
       whistleSoundRef.current = sound;
     });
     return () => {
       goSoundRef.current?.unloadAsync();
-      beepSoundRef.current?.unloadAsync();
       whistleSoundRef.current?.unloadAsync();
     };
   }, []);
@@ -98,10 +93,8 @@ export default function TabataScreen() {
     Vibration.vibrate(phase.cueSound === 'work' ? 150 : 80);
     if (phase.cueSound === 'rest') {
       roundsCompletedRef.current += 1;
-      beepSoundRef.current?.replayAsync();
-    } else {
-      goSoundRef.current?.replayAsync();
     }
+    goSoundRef.current?.replayAsync();
   }, []);
 
   const timer = useIntervalTimer(PHASES, {
@@ -150,8 +143,17 @@ export default function TabataScreen() {
   const isDark = state === 'running' || state === 'countdown';
   const isPB = parseInt(repsInput, 10) > previousBest;
 
+  const backgroundColor =
+    state === 'running' && timer.currentPhase
+      ? timer.currentPhase.cueSound === 'work'
+        ? '#dc2626'
+        : '#31af4d'
+      : isDark
+        ? '#1a1a2e'
+        : '#FFFFFF';
+
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}>
+    <View style={[styles.container, { backgroundColor }]}>
       <TouchableOpacity
         style={[styles.closeButton, { top: insets.top + 12 }]}
         onPress={() => router.back()}
@@ -314,10 +316,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   workLabel: {
-    color: '#ffb724',
+    color: '#FFFFFF',
   },
   restLabel: {
-    color: '#31af4d',
+    color: '#FFFFFF',
   },
   runningTime: {
     fontSize: 96,

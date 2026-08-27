@@ -3,9 +3,11 @@ import { getTeamDisplayNames } from '@/utils/teamLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Podium from './Podium';
+import type { TouchesPeriod } from './TouchesPeriodDropdown';
 
 interface Props {
   players: TeamMemberStats[];
+  period: TouchesPeriod;
   isLoading: boolean;
   currentUserId?: string;
   onSelectPlayer: (id: string) => void;
@@ -19,6 +21,7 @@ const getDenseRank = (score: number, scores: number[]) =>
 
 const WeeklyTouchesView = ({
   players,
+  period,
   isLoading,
   currentUserId,
   onSelectPlayer,
@@ -32,7 +35,9 @@ const WeeklyTouchesView = ({
   if (players.length === 0) {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateTitle}>No activity yet this week</Text>
+        <Text style={styles.emptyStateTitle}>
+          {period === 'today' ? 'No activity yet today' : 'No activity yet this week'}
+        </Text>
         <Text style={styles.emptyStateText}>
           Team members will appear here once they log touches.
         </Text>
@@ -42,10 +47,12 @@ const WeeklyTouchesView = ({
 
   const teamDisplayNames = getTeamDisplayNames(players);
   const teamName = (p: TeamMemberStats) => teamDisplayNames[p.id] ?? p.name;
+  const valueOf = (p: TeamMemberStats) =>
+    period === 'today' ? p.today_touches : p.weekly_touches;
 
-  const scoredPlayers = players.filter((p) => p.weekly_touches > 0);
+  const scoredPlayers = players.filter((p) => valueOf(p) > 0);
   const podiumCount = Math.min(scoredPlayers.length, 3);
-  const scores = players.map((p) => p.weekly_touches);
+  const scores = players.map(valueOf);
 
   return (
     <>
@@ -54,7 +61,7 @@ const WeeklyTouchesView = ({
           id: p.id,
           name: teamName(p),
           avatarUrl: p.avatar_url,
-          value: p.weekly_touches,
+          value: valueOf(p),
           targetHit: p.today_touches >= p.daily_target,
           streak: p.current_streak,
         }))}
@@ -63,7 +70,7 @@ const WeeklyTouchesView = ({
       <View style={styles.listContainer}>
         {players.slice(podiumCount).map((player) => {
           const isCurrentUser = player.id === currentUserId;
-          const rank = getDenseRank(player.weekly_touches, scores);
+          const rank = getDenseRank(valueOf(player), scores);
           return (
             <TouchableOpacity
               key={player.id}
@@ -85,13 +92,15 @@ const WeeklyTouchesView = ({
                     {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
                   </Text>
                   <Text style={styles.todayTouches}>
-                    {player.today_touches.toLocaleString()} today
+                    {period === 'today'
+                      ? `${player.weekly_touches.toLocaleString()} this week`
+                      : `${player.today_touches.toLocaleString()} today`}
                   </Text>
                 </View>
               </View>
               <View style={styles.playerRight}>
                 <Text style={styles.weeklyTouches}>
-                  {player.weekly_touches.toLocaleString()}
+                  {valueOf(player).toLocaleString()}
                 </Text>
                 <Text style={styles.touchesLabel}>touches</Text>
                 {player.current_streak >= 2 && (

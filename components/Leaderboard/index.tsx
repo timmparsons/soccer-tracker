@@ -35,6 +35,7 @@ import JugglingHighScoresView from './JugglingHighScoresView';
 import StickyRankBanner from './StickyRankBanner';
 import Switcher, { CompeteView } from './Switcher';
 import TabataHighScoresView from './TabataHighScoresView';
+import TouchesPeriodDropdown, { TouchesPeriod } from './TouchesPeriodDropdown';
 import TouchesScopeSwitcher, { TouchesScope } from './TouchesScopeSwitcher';
 import WeeklyTouchesView from './WeeklyTouchesView';
 
@@ -46,6 +47,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const [activeView, setActiveView] = useState<CompeteView>('touches');
   const [touchesScope, setTouchesScope] = useState<TouchesScope>('team');
+  const [touchesPeriod, setTouchesPeriod] = useState<TouchesPeriod>('today');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
@@ -121,6 +123,17 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         ? globalTouchesLoading
         : touchesLoading;
 
+  const sortedTouchesLeaderboard = useMemo(() => {
+    if (touchesPeriod === 'week') return activeTouchesLeaderboard;
+    return [...activeTouchesLeaderboard].sort(
+      (a, b) =>
+        b.today_touches - a.today_touches ||
+        b.current_streak - a.current_streak ||
+        b.max_juggle_count - a.max_juggle_count ||
+        a.name.localeCompare(b.name),
+    );
+  }, [activeTouchesLeaderboard, touchesPeriod]);
+
   const {
     data: tabataLeaderboard = [],
     isLoading: tabataLoading,
@@ -177,9 +190,9 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const rankBanner = useMemo(() => {
     if (activeView === 'touches') {
       const result = computeRankAndDeficit(
-        activeTouchesLeaderboard,
+        sortedTouchesLeaderboard,
         user?.id,
-        'weekly_touches',
+        touchesPeriod === 'today' ? 'today_touches' : 'weekly_touches',
       );
       return result && { ...result, unitLabel: 'touches to pass' };
     }
@@ -197,7 +210,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       'high_score',
     );
     return result && { ...result, unitLabel: 'juggles to pass' };
-  }, [activeView, activeTouchesLeaderboard, tabataLeaderboard, jugglingLeaderboard, user?.id]);
+  }, [activeView, sortedTouchesLeaderboard, touchesPeriod, tabataLeaderboard, jugglingLeaderboard, user?.id]);
 
   return (
     <View style={styles.container}>
@@ -224,6 +237,10 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             active={touchesScope}
             onChange={setTouchesScope}
             clubEnabled={!!clubId}
+          />
+          <TouchesPeriodDropdown
+            active={touchesPeriod}
+            onChange={setTouchesPeriod}
           />
         </View>
       )}
@@ -310,7 +327,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           </View>
         ) : activeView === 'touches' ? (
           <WeeklyTouchesView
-            players={activeTouchesLeaderboard}
+            players={sortedTouchesLeaderboard}
+            period={touchesPeriod}
             isLoading={activeTouchesLoading}
             currentUserId={user?.id}
             onSelectPlayer={setSelectedPlayerId}
@@ -378,6 +396,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scopeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
