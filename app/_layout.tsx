@@ -3,6 +3,7 @@ import {
   requestNotificationPermission,
   scheduleInactivityReminders,
 } from '@/lib/notifications';
+import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +22,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Keep the native splash on screen until we've resolved the target route —
 // there's no JS splash handoff, so there's no seam for the icon to jump at.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Decode this once up front so it never flashes blank on its first mount,
+// whichever of the sign-in or sign-up screens the user hits first.
+Asset.loadAsync(require('../assets/images/app-logo.png')).catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {

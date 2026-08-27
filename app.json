@@ -80,7 +80,8 @@
           "autoLogAppEventsEnabled": true,
           "iosUserTrackingPermission": "Master Touch uses your device data to show you more relevant ads."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

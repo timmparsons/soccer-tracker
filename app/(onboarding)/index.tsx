@@ -6,10 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -501,6 +502,21 @@ function SignUpScreen({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // The progress header above this screen eats vertical space Sign In doesn't
+  // have to share, so the card doesn't fit above the keyboard on smaller
+  // screens unless we reclaim room by hiding the logo while typing.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleCreate = async () => {
     if (!email.trim() || !password) {
@@ -558,11 +574,13 @@ function SignUpScreen({
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
-        <View style={s.signupHeader}>
-          <Image
-            source={require('../../assets/images/app-logo.png')}
-            style={s.signupLogo}
-          />
+        <View style={[s.signupHeader, keyboardVisible && s.signupHeaderCompact]}>
+          {!keyboardVisible && (
+            <Image
+              source={require('../../assets/images/app-logo.png')}
+              style={s.signupLogo}
+            />
+          )}
           <Text style={s.signupTitle}>Create your account</Text>
           <Text style={s.signupSubtitle}>
             Save your progress and join the leaderboard
@@ -821,6 +839,9 @@ const s = StyleSheet.create({
   signupHeader: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  signupHeaderCompact: {
+    marginBottom: 12,
   },
   signupLogo: {
     width: 100,
