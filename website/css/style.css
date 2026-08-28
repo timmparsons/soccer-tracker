@@ -217,6 +217,9 @@ h2.section-title { font-size: 34px; font-weight: 900; letter-spacing: -0.4px; ma
 .site-footer a:hover { color: #fff; text-decoration: none; }
 .site-footer .brand { color: #fff; margin-bottom: 12px; }
 .site-footer .tagline { font-size: 14px; max-width: 260px; }
+.site-footer .social-icons { display: flex; gap: 14px; margin-top: 16px; }
+.site-footer .social-icons a { color: #aab6c6; margin-bottom: 0; }
+.site-footer .social-icons a:hover { color: #fff; }
 .site-footer .legal { border-top: 1px solid #2b2b45; padding-top: 24px; font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .site-footer .legal a { display: inline; margin: 0 0 0 18px; }
 @media (max-width: 720px) { .site-footer .cols { grid-template-columns: 1fr 1fr; } }
