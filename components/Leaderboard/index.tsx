@@ -32,6 +32,7 @@ import {
   View,
 } from 'react-native';
 import JugglingHighScoresView from './JugglingHighScoresView';
+import JugglingPeriodDropdown, { JugglingPeriod } from './JugglingPeriodDropdown';
 import StickyRankBanner from './StickyRankBanner';
 import Switcher, { CompeteView } from './Switcher';
 import TabataHighScoresView from './TabataHighScoresView';
@@ -48,6 +49,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [activeView, setActiveView] = useState<CompeteView>('touches');
   const [touchesScope, setTouchesScope] = useState<TouchesScope>('team');
   const [touchesPeriod, setTouchesPeriod] = useState<TouchesPeriod>('today');
+  const [jugglingPeriod, setJugglingPeriod] = useState<JugglingPeriod>('week');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
@@ -144,7 +146,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
     data: jugglingLeaderboard = [],
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
-  } = useJugglingLeaderboard(effectiveTeamId);
+  } = useJugglingLeaderboard(effectiveTeamId, jugglingPeriod);
 
   useEffect(() => {
     if (!touchesLeaderboard.length || !user?.id) return;
@@ -241,6 +243,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           <TouchesPeriodDropdown
             active={touchesPeriod}
             onChange={setTouchesPeriod}
+          />
+        </View>
+      )}
+
+      {activeView === 'juggling' && (
+        <View style={styles.jugglingScopeRow}>
+          <JugglingPeriodDropdown
+            active={jugglingPeriod}
+            onChange={setJugglingPeriod}
           />
         </View>
       )}
@@ -398,6 +409,14 @@ const styles = StyleSheet.create({
   scopeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  jugglingScopeRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
