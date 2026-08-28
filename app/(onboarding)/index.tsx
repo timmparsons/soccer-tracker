@@ -574,18 +574,18 @@ function SignUpScreen({
         keyboardShouldPersistTaps='handled'
         showsVerticalScrollIndicator={false}
       >
-        <View style={[s.signupHeader, keyboardVisible && s.signupHeaderCompact]}>
-          {!keyboardVisible && (
+        {!keyboardVisible && (
+          <View style={s.signupHeader}>
             <Image
               source={require('../../assets/images/app-logo.png')}
               style={s.signupLogo}
             />
-          )}
-          <Text style={s.signupTitle}>Create your account</Text>
-          <Text style={s.signupSubtitle}>
-            Save your progress and join the leaderboard
-          </Text>
-        </View>
+            <Text style={s.signupTitle}>Create your account</Text>
+            <Text style={s.signupSubtitle}>
+              Save your progress and join the leaderboard
+            </Text>
+          </View>
+        )}
 
         <View style={s.signupCard}>
           <View style={s.signupField}>
@@ -839,9 +839,6 @@ const s = StyleSheet.create({
   signupHeader: {
     alignItems: 'center',
     marginBottom: 32,
-  },
-  signupHeaderCompact: {
-    marginBottom: 12,
   },
   signupLogo: {
     width: 100,
