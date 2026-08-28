@@ -57,6 +57,11 @@ const HomeScreen = () => {
   const { workouts: circuitWorkouts } = useWorkoutLibrary();
   const fiveMinCircuit = pickDailyCircuit(circuitWorkouts, 300);
 
+  // Same day-seeded rotation as pickDailyCircuit, so the pick stays stable all day.
+  const today = new Date();
+  const dailyChallengeSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const showCircuitChallenge = !!fiveMinCircuit && dailyChallengeSeed % 2 === 0;
+
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -234,20 +239,14 @@ const HomeScreen = () => {
             </View>
             <View style={styles.quickLaunchRow}>
               <QuickLaunchButton
-                icon='flash'
-                iconColor='#ffb724'
-                label='Start 4-Min Burst'
-                onPress={() => router.push('/(modals)/tabata')}
-              />
-              <QuickLaunchButton
-                icon='barbell'
-                iconColor='#1f89ee'
-                label='Start 5-Min Circuit'
+                icon={showCircuitChallenge ? 'barbell' : 'flash'}
+                iconColor={showCircuitChallenge ? '#1f89ee' : '#ffb724'}
+                label='Challenge of the Day'
                 onPress={() =>
-                  fiveMinCircuit &&
-                  router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit.id } })
+                  showCircuitChallenge
+                    ? router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit!.id } })
+                    : router.push('/(modals)/tabata')
                 }
-                disabled={!fiveMinCircuit}
               />
             </View>
           </>
