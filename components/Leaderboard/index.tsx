@@ -194,7 +194,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         user?.id,
         touchesPeriod === 'today' ? 'today_touches' : 'weekly_touches',
       );
-      return result && { ...result, unitLabel: 'touches to pass' };
+      return result && { ...result, unitLabel: 'touches' };
     }
     if (activeView === 'tabata') {
       const result = computeRankAndDeficit(
@@ -202,14 +202,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         user?.id,
         'max_reps',
       );
-      return result && { ...result, unitLabel: 'reps to pass' };
+      return result && { ...result, unitLabel: 'reps' };
     }
     const result = computeRankAndDeficit(
       jugglingLeaderboard,
       user?.id,
       'high_score',
     );
-    return result && { ...result, unitLabel: 'juggles to pass' };
+    return result && { ...result, unitLabel: 'juggles' };
   }, [activeView, sortedTouchesLeaderboard, touchesPeriod, tabataLeaderboard, jugglingLeaderboard, user?.id]);
 
   return (
