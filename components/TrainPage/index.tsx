@@ -494,12 +494,12 @@ const TrainPage = () => {
 
         {/* Manual Log Session */}
         <TouchableOpacity
-          style={styles.libraryCard}
+          style={[styles.libraryCard, styles.manualLogCard]}
           onPress={() => setModalVisible(true)}
           activeOpacity={0.8}
         >
-          <View style={styles.libraryIconBg}>
-            <Ionicons name='add-circle' size={22} color='#1f89ee' />
+          <View style={[styles.libraryIconBg, styles.manualLogIconBg]}>
+            <Ionicons name='add-circle' size={22} color='#ffb724' />
           </View>
           <View style={styles.libraryTextBlock}>
             <Text style={styles.libraryTitle}>Manual Log Session</Text>
@@ -1064,6 +1064,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F4FD',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  manualLogCard: {
+    borderWidth: 2,
+    borderColor: '#ffb724',
+    backgroundColor: '#FFFBF2',
+  },
+  manualLogIconBg: {
+    backgroundColor: '#FFF3DA',
   },
   libraryTextBlock: {
     flex: 1,
