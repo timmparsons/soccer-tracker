@@ -2,7 +2,7 @@
   "expo": {
     "name": "Master Touch",
     "slug": "soccer-tracker",
-    "version": "3.0.46",
+    "version": "3.0.47",
     "orientation": "portrait",
     "icon": "./assets/images/app-logo.png",
     "scheme": "mastertouch",
@@ -33,9 +33,7 @@
       [
         "expo-notifications",
         {
-          "sounds": [
-            "./assets/sounds/fulltime_whistle.wav"
-          ]
+          "sounds": ["./assets/sounds/fulltime_whistle.wav"]
         }
       ],
       [
