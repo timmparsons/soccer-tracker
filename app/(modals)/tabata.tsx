@@ -166,8 +166,8 @@ export default function TabataScreen() {
   const backgroundColor =
     state === 'running' && timer.currentPhase
       ? timer.currentPhase.cueSound === 'work'
-        ? '#dc2626'
-        : '#31af4d'
+        ? '#31af4d'
+        : '#dc2626'
       : isDark
         ? '#1a1a2e'
         : '#FFFFFF';
