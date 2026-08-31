@@ -10,6 +10,7 @@ import { Audio } from 'expo-av';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -23,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const ROUNDS = 8;
 const WORK_SECONDS = 20;
 const REST_SECONDS = 10;
+const REPS_PER_ROUND_SANITY_THRESHOLD = 35;
 
 function buildTabataPhases(): IntervalPhase[] {
   const phases: IntervalPhase[] = [];
@@ -122,9 +124,7 @@ export default function TabataScreen() {
     finishSession();
   };
 
-  const handleSubmitReps = async () => {
-    const totalReps = parseInt(repsInput, 10);
-    if (!totalReps || totalReps <= 0 || !user?.id) return;
+  const saveReps = async (totalReps: number) => {
     setSubmitting(true);
     try {
       const result = await tabataSession.mutateAsync({
@@ -138,6 +138,26 @@ export default function TabataScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmitReps = async () => {
+    const totalReps = parseInt(repsInput, 10);
+    if (!totalReps || totalReps <= 0 || !user?.id) return;
+
+    const avgPerRound = totalReps / (roundsCompletedRef.current || 1);
+    if (avgPerRound > REPS_PER_ROUND_SANITY_THRESHOLD) {
+      Alert.alert(
+        'Double check that score',
+        `That's about ${Math.round(avgPerRound)} touches every ${WORK_SECONDS} seconds. Are you sure that's right?`,
+        [
+          { text: 'Edit', style: 'cancel' },
+          { text: "Yes, that's right", onPress: () => saveReps(totalReps) },
+        ],
+      );
+      return;
+    }
+
+    await saveReps(totalReps);
   };
 
   const isDark = state === 'running' || state === 'countdown';
