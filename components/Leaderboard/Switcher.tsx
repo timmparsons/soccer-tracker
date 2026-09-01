@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export type CompeteView = 'touches' | 'tabata' | 'juggling';
+export type CompeteView = 'touches' | 'juggling';
 
 interface Props {
   active: CompeteView;
@@ -8,8 +8,7 @@ interface Props {
 }
 
 const OPTIONS: { key: CompeteView; label: string }[] = [
-  { key: 'touches', label: 'Weekly Touches' },
-  { key: 'tabata', label: 'Burst' },
+  { key: 'touches', label: 'Touches' },
   { key: 'juggling', label: 'Juggling' },
 ];
 

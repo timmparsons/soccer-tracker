@@ -11,7 +11,6 @@ import {
   useTouchesLeaderboard,
 } from '@/hooks/useLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
-import { useTabataLeaderboard } from '@/hooks/useTabataLeaderboard';
 import { useTeam } from '@/hooks/useTeam';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
@@ -35,7 +34,6 @@ import JugglingHighScoresView from './JugglingHighScoresView';
 import JugglingPeriodDropdown, { JugglingPeriod } from './JugglingPeriodDropdown';
 import StickyRankBanner from './StickyRankBanner';
 import Switcher, { CompeteView } from './Switcher';
-import TabataHighScoresView from './TabataHighScoresView';
 import TouchesPeriodDropdown, { TouchesPeriod } from './TouchesPeriodDropdown';
 import TouchesScopeSwitcher, { TouchesScope } from './TouchesScopeSwitcher';
 import WeeklyTouchesView from './WeeklyTouchesView';
@@ -137,12 +135,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   }, [activeTouchesLeaderboard, touchesPeriod]);
 
   const {
-    data: tabataLeaderboard = [],
-    isLoading: tabataLoading,
-    refetch: refetchTabata,
-  } = useTabataLeaderboard(effectiveTeamId);
-
-  const {
     data: jugglingLeaderboard = [],
     isLoading: jugglingLoading,
     refetch: refetchJuggling,
@@ -164,7 +156,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchTouches(),
       touchesScope === 'club' ? refetchClubTouches() : Promise.resolve(),
       touchesScope === 'global' ? refetchGlobalTouches() : Promise.resolve(),
-      refetchTabata(),
       refetchJuggling(),
     ]);
     setRefreshing(false);
@@ -176,7 +167,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchTouches();
       if (touchesScope === 'club') refetchClubTouches();
       if (touchesScope === 'global') refetchGlobalTouches();
-      refetchTabata();
       refetchJuggling();
     }, [
       refetchProfile,
@@ -184,7 +174,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       touchesScope,
       refetchClubTouches,
       refetchGlobalTouches,
-      refetchTabata,
       refetchJuggling,
     ]),
   );
@@ -198,21 +187,13 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       );
       return result && { ...result, unitLabel: 'touches' };
     }
-    if (activeView === 'tabata') {
-      const result = computeRankAndDeficit(
-        tabataLeaderboard,
-        user?.id,
-        'max_reps',
-      );
-      return result && { ...result, unitLabel: 'reps' };
-    }
     const result = computeRankAndDeficit(
       jugglingLeaderboard,
       user?.id,
       'high_score',
     );
     return result && { ...result, unitLabel: 'juggles' };
-  }, [activeView, sortedTouchesLeaderboard, touchesPeriod, tabataLeaderboard, jugglingLeaderboard, user?.id]);
+  }, [activeView, sortedTouchesLeaderboard, touchesPeriod, jugglingLeaderboard, user?.id]);
 
   return (
     <View style={styles.container}>
@@ -341,13 +322,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             players={sortedTouchesLeaderboard}
             period={touchesPeriod}
             isLoading={activeTouchesLoading}
-            currentUserId={user?.id}
-            onSelectPlayer={setSelectedPlayerId}
-          />
-        ) : activeView === 'tabata' ? (
-          <TabataHighScoresView
-            records={tabataLeaderboard}
-            isLoading={tabataLoading}
             currentUserId={user?.id}
             onSelectPlayer={setSelectedPlayerId}
           />
