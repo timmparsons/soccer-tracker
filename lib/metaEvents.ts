@@ -1,7 +1,10 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 export function initMetaSdk() {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || isExpoGo) return;
   const { Settings } = require('react-native-fbsdk-next');
   console.log('[meta] initMetaSdk called');
   try {
@@ -13,7 +16,7 @@ export function initMetaSdk() {
 }
 
 export function logSignupComplete() {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || isExpoGo) return;
   const { AppEventsLogger } = require('react-native-fbsdk-next');
   console.log('[meta] logSignupComplete called');
   try {
