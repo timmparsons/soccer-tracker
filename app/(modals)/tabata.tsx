@@ -2,6 +2,7 @@ import CountdownView from '@/components/HomePage/ChallengeTimer/CountdownView';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { IntervalPhase, useIntervalTimer } from '@/hooks/useIntervalTimer';
 import { useTabataSession } from '@/hooks/useTabataSession';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
@@ -45,6 +46,7 @@ export default function TabataScreen() {
   const tabataSession = useTabataSession(user?.id);
 
   const [state, setState] = useState<RunnerState>('ready');
+  useKeepAwakeWhen(state === 'countdown' || state === 'running', 'tabata');
   const [repsInput, setRepsInput] = useState('');
   const [previousBest, setPreviousBest] = useState(0);
   const [touchesCredited, setTouchesCredited] = useState(0);

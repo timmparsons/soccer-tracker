@@ -3,6 +3,7 @@ import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
 import { IntervalPhase, useIntervalTimer } from '@/hooks/useIntervalTimer';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession } from '@/hooks/useDailyChallenge';
 import { getTodayTouchTotal, MAX_DAILY_TOUCHES } from '@/lib/touchLimits';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -57,6 +58,7 @@ function buildPhases(steps: DailyChallengeStep[], durationSeconds: number): Inte
 
 const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCompleted }: Props) => {
   const [state, setState] = useState<RunnerState>('ready');
+  useKeepAwakeWhen(visible && (state === 'countdown' || state === 'running'), 'circuit');
   const [saving, setSaving] = useState(false);
   const [earlyTouchesInput, setEarlyTouchesInput] = useState('');
   const [loggedTouches, setLoggedTouches] = useState(0);

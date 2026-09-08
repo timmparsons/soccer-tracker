@@ -1,4 +1,5 @@
 import { useTouchCounter } from '@/hooks/useTouchCounter';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -45,6 +46,7 @@ export default function CameraTimerScreen({
 
   const [timeRemaining, setTimeRemaining] = useState(duration);
   const [timerRunning, setTimerRunning] = useState(false);
+  useKeepAwakeWhen(timerRunning, 'camera-timer');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { touchCount, ballDetected, frameProcessor, reset } = useTouchCounter();

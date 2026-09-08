@@ -1,5 +1,6 @@
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession } from '@/hooks/useDailyChallenge';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -31,6 +32,7 @@ function formatTime(seconds: number): string {
 
 const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCompleted }: Props) => {
   const [state, setState] = useState<ModalState>('ready');
+  useKeepAwakeWhen(visible && state === 'running', 'workout');
   const [displaySeconds, setDisplaySeconds] = useState(0);
   const startTimeRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

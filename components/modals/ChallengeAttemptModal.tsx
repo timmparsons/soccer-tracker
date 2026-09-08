@@ -1,6 +1,7 @@
 import { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import { GroupChallenge, GroupChallengeParticipant, useCompleteGroupChallenge } from '@/hooks/useGroupChallenges';
 import { PlayerChallenge, useCompleteChallenge } from '@/hooks/usePlayerChallenges';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -38,6 +39,7 @@ export default function ChallengeAttemptModal({
 }: ChallengeAttemptModalProps) {
   const insets = useSafeAreaInsets();
   const [running, setRunning] = useState(false);
+  useKeepAwakeWhen(visible && running, 'challenge-attempt');
   const [elapsed, setElapsed] = useState(0);
   const [done, setDone] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
