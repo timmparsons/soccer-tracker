@@ -9,6 +9,7 @@ import VinnieGameSpeedModal from '@/components/modals/VinnieGameSpeedModal';
 import { useAllBadges } from '@/hooks/useBadges';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useChallengeTimer } from '@/hooks/useChallengeTimer';
+import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -102,6 +103,7 @@ const TrainPage = () => {
     crownThresholdMs: Infinity,
     onGo: () => setTimerRunning(true),
   });
+  useKeepAwakeWhen(showTimerModal && (preTimer.status === 'countdown' || timerRunning), 'practice-timer');
 
   const TIMER_OPTIONS = [
     { label: '30 sec', seconds: 30 },
