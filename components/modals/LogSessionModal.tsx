@@ -1,5 +1,4 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
-import { scheduleInactivityReminders } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useDailySprint } from '@/hooks/useDailySprint';
 import { useTouchTracking } from '@/hooks/useTouchTracking';
@@ -212,9 +211,6 @@ const LogSessionModal = ({
       });
 
       if (error) throw error;
-
-      // Reschedule inactivity reminders — reset the 2-day countdown from now
-      scheduleInactivityReminders(new Date()).catch(() => {});
 
       // Check for newly earned badges (fire-and-forget, non-blocking)
       let earnedBadgeIds: string[] = [];

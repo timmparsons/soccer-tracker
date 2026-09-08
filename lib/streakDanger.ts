@@ -14,8 +14,8 @@ export function isStreakInDanger(
 }
 
 // Schedules (or cancels) the 8pm "protect your streak" reminder. Safe to call
-// repeatedly — uses a stable identifier so it never collides with or gets
-// wiped by lib/notifications.ts's blanket cancelAllScheduledNotificationsAsync.
+// repeatedly — uses a stable identifier so re-calling overwrites/cancels the
+// same scheduled item rather than stacking new ones.
 export async function syncStreakDangerNotification(
   currentStreak: number,
   todayTouches: number,

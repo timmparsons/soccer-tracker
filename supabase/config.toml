@@ -10,6 +10,12 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/revenuecat-webhook/deno.json"
 entrypoint = "./functions/revenuecat-webhook/index.ts"
+
+[functions.daily-streak-check]
+enabled = true
+verify_jwt = false
+import_map = "./functions/daily-streak-check/deno.json"
+entrypoint = "./functions/daily-streak-check/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-push/*.html" ]

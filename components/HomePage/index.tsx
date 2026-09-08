@@ -17,7 +17,6 @@ import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { syncStreakDangerNotification } from '@/lib/streakDanger';
-import { syncFreezeUsedNotification } from '@/lib/streakFreeze';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -96,15 +95,6 @@ const HomeScreen = () => {
       touchStats?.today_touches || 0,
     );
   }, [user?.id, activeStreakStats?.currentStreak, touchStats?.today_touches]);
-
-  useEffect(() => {
-    if (!user?.id || !activeStreakStats?.frozenDates.length) return;
-    syncFreezeUsedNotification(
-      user.id,
-      activeStreakStats.frozenDates,
-      activeStreakStats.freezesAvailable,
-    );
-  }, [user?.id, activeStreakStats?.frozenDates, activeStreakStats?.freezesAvailable]);
 
   // Auto-show the streak modal once per calendar day, the first time
   // Home has a real streak to show.

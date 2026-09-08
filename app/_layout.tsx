@@ -1,8 +1,5 @@
 import { fetchTouchesLeaderboard } from '@/hooks/useLeaderboard';
-import {
-  requestNotificationPermission,
-  scheduleInactivityReminders,
-} from '@/lib/notifications';
+import { requestNotificationPermission } from '@/lib/notifications';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -334,12 +331,14 @@ export default function RootLayout() {
     }
   }, [session, segments, loading, minTimeDone, isPasswordRecovery]);
 
-  // Fire-and-forget: request notification permission, save push token, schedule reminders.
+  // Fire-and-forget: request notification permission, register this device's
+  // push token. Inactivity/streak-freeze reminders are sent server-side by the
+  // daily-streak-check cron job (reads real synced data, so a device that sits
+  // idle for days doesn't fire a stale local alarm — see push_tokens table).
   const setupNotifications = async (userId: string) => {
     const granted = await requestNotificationPermission();
     if (!granted) return;
 
-    // Save this device's push token so other users can notify it
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });
@@ -347,20 +346,10 @@ export default function RootLayout() {
         .from('profiles')
         .update({ expo_push_token: tokenData })
         .eq('id', userId);
+      await supabase
+        .from('push_tokens')
+        .upsert({ user_id: userId, token: tokenData, updated_at: new Date().toISOString() }, { onConflict: 'token' });
     } catch {}
-
-    const { data: lastSession } = await supabase
-      .from('daily_sessions')
-      .select('date')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (lastSession?.date) {
-      const [year, month, day] = lastSession.date.split('-').map(Number);
-      await scheduleInactivityReminders(new Date(year, month - 1, day));
-    }
   };
 
   // While loading or splash minimum time hasn't elapsed: render nothing —
