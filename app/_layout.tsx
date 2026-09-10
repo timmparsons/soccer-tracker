@@ -339,6 +339,18 @@ export default function RootLayout() {
     const granted = await requestNotificationPermission();
     if (!granted) return;
 
+    // One-time cleanup: devices updating from before the server-side cron
+    // migration may still have a stale "days without training" or "freeze
+    // used" notification queued in the OS scheduler from the old client-side
+    // scheduler (lib/notifications.ts / lib/streakFreeze.ts, removed in
+    // 2cac00f). Those persist across app updates until cancelled, so purge
+    // once per install.
+    const flushedLegacyNotifications = await AsyncStorage.getItem('legacyLocalNotificationsFlushed');
+    if (flushedLegacyNotifications !== 'true') {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      await AsyncStorage.setItem('legacyLocalNotificationsFlushed', 'true');
+    }
+
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });
