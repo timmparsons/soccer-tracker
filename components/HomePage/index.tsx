@@ -7,7 +7,7 @@ import VinnieCard from '@/components/common/VinnieCard';
 import StreakModal from '@/components/modals/StreakModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useProfile } from '@/hooks/useProfile';
-import { pickDailyCircuit, useWorkoutLibrary } from '@/hooks/useWorkouts';
+import { pickDailyCircuit, pickDailySkillChallenge, useWorkoutLibrary } from '@/hooks/useWorkouts';
 import {
   useActiveStreak,
   useChallengeStats,
@@ -55,11 +55,19 @@ const HomeScreen = () => {
 
   const { workouts: circuitWorkouts } = useWorkoutLibrary();
   const fiveMinCircuit = pickDailyCircuit(circuitWorkouts, 300);
+  const skillChallenge = pickDailySkillChallenge(circuitWorkouts);
 
-  // Same day-seeded rotation as pickDailyCircuit, so the pick stays stable all day.
+  // Same day-seeded rotation as pickDailyCircuit/pickDailySkillChallenge, so
+  // the pick stays stable all day. Tabata has no data dependency, so it's
+  // always in the pool — circuit/skill only join if today's pick exists.
   const today = new Date();
   const dailyChallengeSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-  const showCircuitChallenge = !!fiveMinCircuit && dailyChallengeSeed % 2 === 0;
+  const challengeVariants = [
+    ...(fiveMinCircuit ? (['circuit'] as const) : []),
+    'tabata' as const,
+    ...(skillChallenge ? (['skill'] as const) : []),
+  ];
+  const challengeVariant = challengeVariants[dailyChallengeSeed % challengeVariants.length];
 
 
   const handleRefresh = useCallback(async () => {
@@ -229,14 +237,18 @@ const HomeScreen = () => {
             </View>
             <View style={styles.quickLaunchRow}>
               <QuickLaunchButton
-                icon={showCircuitChallenge ? 'barbell' : 'flash'}
-                iconColor={showCircuitChallenge ? '#1f89ee' : '#ffb724'}
+                icon={challengeVariant === 'circuit' ? 'barbell' : challengeVariant === 'skill' ? 'football' : 'flash'}
+                iconColor={challengeVariant === 'circuit' ? '#1f89ee' : challengeVariant === 'skill' ? '#31af4d' : '#ffb724'}
                 label='Challenge of the Day'
-                onPress={() =>
-                  showCircuitChallenge
-                    ? router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit!.id } })
-                    : router.push('/(modals)/tabata')
-                }
+                onPress={() => {
+                  if (challengeVariant === 'circuit') {
+                    router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit!.id } });
+                  } else if (challengeVariant === 'skill') {
+                    router.push({ pathname: '/(modals)/skill-challenge', params: { id: skillChallenge!.id } });
+                  } else {
+                    router.push('/(modals)/tabata');
+                  }
+                }}
               />
             </View>
           </>

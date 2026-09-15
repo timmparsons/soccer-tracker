@@ -78,3 +78,15 @@ export function pickDailyCircuit(
   const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
   return matches[seed % matches.length];
 }
+
+// Same date-seeded rotation, but over single-skill "do it N times" workouts
+// (one step, no duration_seconds) — e.g. "25 Sole Rolls".
+export function pickDailySkillChallenge(
+  workouts: Workout[],
+  date: Date = new Date(),
+): Workout | undefined {
+  const matches = workouts.filter((w) => w.category === 'Skill Challenge');
+  if (matches.length === 0) return undefined;
+  const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+  return matches[seed % matches.length];
+}

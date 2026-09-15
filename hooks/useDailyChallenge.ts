@@ -116,12 +116,14 @@ export async function logChallengeSession(
   userId: string,
   touches: number,
   timeSeconds: number,
+  drillId?: string,
 ): Promise<void> {
   const { error } = await supabase.from('daily_sessions').insert({
     user_id: userId,
     touches_logged: touches,
     duration_minutes: Math.max(1, Math.round(timeSeconds / 60)),
     date: getLocalDate(),
+    drill_id: drillId,
   });
   if (error) throw error;
 }

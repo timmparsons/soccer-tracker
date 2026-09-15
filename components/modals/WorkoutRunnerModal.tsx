@@ -1,6 +1,8 @@
 import DrillVideoModal from '@/components/modals/DrillVideoModal';
 import { calculateChallengeTouches, DailyChallengeStep, logChallengeSession } from '@/hooks/useDailyChallenge';
 import { useKeepAwakeWhen } from '@/hooks/useKeepAwakeWhen';
+import { getTodayTouchTotal, MAX_DAILY_TOUCHES } from '@/lib/touchLimits';
+import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -24,6 +26,11 @@ interface Props {
 
 type ModalState = 'ready' | 'running' | 'done';
 
+async function creditedTouches(userId: string, rawTouches: number): Promise<number> {
+  const todayTotal = await getTodayTouchTotal(userId, getLocalDate());
+  return Math.max(0, Math.min(rawTouches, MAX_DAILY_TOUCHES - todayTotal));
+}
+
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = String(seconds % 60).padStart(2, '0');
@@ -38,7 +45,9 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [saving, setSaving] = useState(false);
   const [videoStep, setVideoStep] = useState<{ drillName: string; videoUrl: string } | null>(null);
+  const [loggedTouches, setLoggedTouches] = useState(0);
   const estimatedTouches = calculateChallengeTouches(steps);
+  const drillId = steps.length === 1 && steps[0].type === 'single' ? steps[0].drillId : undefined;
 
   useEffect(() => {
     if (!visible) {
@@ -70,8 +79,9 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     setDisplaySeconds(finalSeconds);
     setSaving(true);
     try {
-      const touches = calculateChallengeTouches(steps);
-      await logChallengeSession(profileId, touches, finalSeconds);
+      const credited = await creditedTouches(profileId, calculateChallengeTouches(steps));
+      await logChallengeSession(profileId, credited, finalSeconds, drillId);
+      setLoggedTouches(credited);
       onCompleted(finalSeconds);
     } catch {
       // Completion still shown even if save fails
@@ -154,7 +164,7 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
             <View style={styles.doneContainer}>
               <Text style={styles.doneLabel}>WORKOUT COMPLETE</Text>
               <Text style={styles.doneTime}>{formatTime(displaySeconds)}</Text>
-              <Text style={styles.doneTouches}>+{estimatedTouches.toLocaleString()} touches logged</Text>
+              <Text style={styles.doneTouches}>+{loggedTouches.toLocaleString()} touches logged</Text>
               <Text style={styles.doneSubtext}>Nice work — come back and run it again anytime.</Text>
               <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
                 <Text style={styles.closeButtonText}>Done</Text>
