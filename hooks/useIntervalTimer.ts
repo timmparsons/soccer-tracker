@@ -1,6 +1,5 @@
-import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Vibration } from 'react-native';
+import { Vibration } from 'react-native';
 
 export interface IntervalPhase {
   label: string;
@@ -13,10 +12,9 @@ interface UseIntervalTimerOptions {
   onComplete?: () => void;
 }
 
-// Repeating-phase timer engine for Tabata/Circuit runners. Background-safe:
-// each phase tracks an absolute Date.now()-based end time (survives phone
-// sleep) with an expo-notifications fallback rescheduled at every phase
-// boundary, mirroring the free-practice timer pattern in TrainPage/index.tsx.
+// Repeating-phase timer engine for Tabata/Circuit runners. Each phase tracks
+// an absolute Date.now()-based end time so it stays accurate even if the JS
+// timer drifts.
 export function useIntervalTimer(
   phases: IntervalPhase[],
   { onPhaseChange, onComplete }: UseIntervalTimerOptions = {},
@@ -37,46 +35,17 @@ export function useIntervalTimer(
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endTimeRef = useRef(0);
   const pausedRemainingRef = useRef(phases[0]?.seconds ?? 0);
-  const notificationIdRef = useRef<string | null>(null);
 
   const clearScheduled = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    if (notificationIdRef.current) {
-      Notifications.cancelScheduledNotificationAsync(
-        notificationIdRef.current,
-      ).catch(() => {});
-      notificationIdRef.current = null;
-    }
   }, []);
-
-  const scheduleFallbackNotification = useCallback(
-    (endTime: number, phase: IntervalPhase) => {
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: phase.cueSound === 'complete' ? 'Session complete!' : `${phase.label} done`,
-          body: 'Tap to return to your session.',
-          ...(Platform.OS === 'android' && { channelId: 'timer' }),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(endTime),
-        },
-      })
-        .then((id) => {
-          notificationIdRef.current = id;
-        })
-        .catch(() => {});
-    },
-    [],
-  );
 
   const beginPhaseTick = useCallback(() => {
     const remaining = pausedRemainingRef.current;
     endTimeRef.current = Date.now() + remaining * 1000;
-    scheduleFallbackNotification(endTimeRef.current, phasesRef.current[phaseIndexRef.current]);
 
     intervalRef.current = setInterval(() => {
       const secondsLeft = Math.round((endTimeRef.current - Date.now()) / 1000);
@@ -103,7 +72,7 @@ export function useIntervalTimer(
         setSecondsRemaining(secondsLeft);
       }
     }, 250);
-  }, [clearScheduled, scheduleFallbackNotification]);
+  }, [clearScheduled]);
 
   const start = useCallback(() => {
     if (isRunning || phasesRef.current.length === 0) return;
