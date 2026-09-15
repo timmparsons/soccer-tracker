@@ -33,7 +33,7 @@ const intensityTextStyles: Record<ActivityIntensity, { color: string }> = {
 };
 
 const ActivityFeed = () => {
-  const { data: activity = [] } = useActivityFeed(7);
+  const { data: activity = [] } = useActivityFeed(15);
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
   const feedItemKeys = useMemo(() => activity.map((item) => item.id), [activity]);

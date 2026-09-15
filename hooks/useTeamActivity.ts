@@ -130,23 +130,37 @@ function badgeMessage(
   );
 }
 
+// Drill names come from the `drills` table in title case, some with a
+// parenthetical suffix (e.g. "Bell Taps (Foundations)") or a leading "The"
+// (e.g. "The Hocus Pocus") — strip both and lowercase so the name reads
+// naturally mid-sentence ("50 reps of bell taps").
+function cleanDrillName(name: string): string {
+  return name
+    .replace(/\s*\([^)]*\)\s*/g, '')
+    .replace(/^the\s+/i, '')
+    .toLowerCase()
+    .trim();
+}
+
 function sessionMessage(
   name: string,
   totalTouches: number,
   sessionCount: number,
-  hasChallenge: boolean,
+  topDrill: { name: string; count: number } | null,
   id: string,
 ): string {
-  if (hasChallenge)
+  if (topDrill) {
+    const drillName = cleanDrillName(topDrill.name);
     return pickForId(
       [
-        `${name} completed their challenge`,
-        `${name} got their challenge done`,
-        `${name} knocked out a challenge`,
-        `${name} checked off their challenge`,
+        `${name} banged out ${topDrill.count} reps of ${drillName}`,
+        `${name} put in ${topDrill.count} reps of ${drillName}`,
+        `${name} logged ${topDrill.count} reps of ${drillName}`,
+        `${name} knocked out ${topDrill.count} reps of ${drillName}`,
       ],
       id,
     );
+  }
   if (totalTouches >= 10000)
     return pickForId(
       [
@@ -214,7 +228,7 @@ export function useActivityFeed(limit = 7) {
       const { data: sessions } = await supabase
         .from('daily_sessions')
         .select(
-          'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes',
+          'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes, drills(name)',
         )
         .gte('date', threeDaysAgoDate)
         .order('created_at', { ascending: false })
@@ -419,6 +433,7 @@ export function useActivityFeed(limit = 7) {
         hasChallenge: boolean;
         latestAt: string;
         isGameSpeed: boolean;
+        drillTouches: Map<string, number>;
       };
       const userDayMap = new Map<string, Map<string, DayStats>>();
 
@@ -430,6 +445,7 @@ export function useActivityFeed(limit = 7) {
         created_at: string;
         is_game_speed: boolean | null;
         duration_minutes: number | null;
+        drills: { name: string } | null;
       }[]) {
         if (!profileMap.has(s.user_id)) continue;
         if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
@@ -441,7 +457,15 @@ export function useActivityFeed(limit = 7) {
           existing.sessionCount += 1;
           if (s.drill_id) existing.hasChallenge = true;
           if (s.is_game_speed) existing.isGameSpeed = true;
+          if (s.drills?.name) {
+            existing.drillTouches.set(
+              s.drills.name,
+              (existing.drillTouches.get(s.drills.name) ?? 0) + s.touches_logged,
+            );
+          }
         } else {
+          const drillTouches = new Map<string, number>();
+          if (s.drills?.name) drillTouches.set(s.drills.name, s.touches_logged);
           dayMap.set(s.date, {
             totalTouches: s.touches_logged,
             totalMinutes: s.duration_minutes ?? 0,
@@ -449,6 +473,7 @@ export function useActivityFeed(limit = 7) {
             hasChallenge: !!s.drill_id,
             latestAt: s.created_at,
             isGameSpeed: !!s.is_game_speed,
+            drillTouches,
           });
         }
       }
@@ -681,6 +706,11 @@ export function useActivityFeed(limit = 7) {
         const profile = profileMap.get(userId);
         const name = getDisplayName(profile);
 
+        let topDrill: { name: string; count: number } | null = null;
+        for (const [drillName, count] of stats.drillTouches.entries()) {
+          if (!topDrill || count > topDrill.count) topDrill = { name: drillName, count };
+        }
+
         items.push({
           id: `session-${userId}-${stats.latestAt}`,
           userId,
@@ -690,7 +720,7 @@ export function useActivityFeed(limit = 7) {
             name,
             stats.totalTouches,
             stats.sessionCount,
-            stats.hasChallenge,
+            topDrill,
             `${userId}-${stats.latestAt}`,
           ),
           createdAt: stats.latestAt,
