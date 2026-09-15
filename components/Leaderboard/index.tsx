@@ -14,7 +14,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useTeam } from '@/hooks/useTeam';
 import { useUser } from '@/hooks/useUser';
 import { recordWeeklyWin } from '@/lib/checkBadges';
-import { computeRankAndDeficit } from '@/lib/leaderboardRank';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +31,6 @@ import {
 } from 'react-native';
 import JugglingHighScoresView from './JugglingHighScoresView';
 import JugglingPeriodDropdown, { JugglingPeriod } from './JugglingPeriodDropdown';
-import StickyRankBanner from './StickyRankBanner';
 import Switcher, { CompeteView } from './Switcher';
 import TouchesPeriodDropdown, { TouchesPeriod } from './TouchesPeriodDropdown';
 import TouchesScopeSwitcher, { TouchesScope } from './TouchesScopeSwitcher';
@@ -125,6 +123,15 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
   const sortedTouchesLeaderboard = useMemo(() => {
     if (touchesPeriod === 'week') return activeTouchesLeaderboard;
+    if (touchesPeriod === 'last_week') {
+      return [...activeTouchesLeaderboard].sort(
+        (a, b) =>
+          b.last_week_touches - a.last_week_touches ||
+          b.current_streak - a.current_streak ||
+          b.max_juggle_count - a.max_juggle_count ||
+          a.name.localeCompare(b.name),
+      );
+    }
     return [...activeTouchesLeaderboard].sort(
       (a, b) =>
         b.today_touches - a.today_touches ||
@@ -177,23 +184,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       refetchJuggling,
     ]),
   );
-
-  const rankBanner = useMemo(() => {
-    if (activeView === 'touches') {
-      const result = computeRankAndDeficit(
-        sortedTouchesLeaderboard,
-        user?.id,
-        touchesPeriod === 'today' ? 'today_touches' : 'weekly_touches',
-      );
-      return result && { ...result, unitLabel: 'touches' };
-    }
-    const result = computeRankAndDeficit(
-      jugglingLeaderboard,
-      user?.id,
-      'high_score',
-    );
-    return result && { ...result, unitLabel: 'juggles' };
-  }, [activeView, sortedTouchesLeaderboard, touchesPeriod, jugglingLeaderboard, user?.id]);
 
   return (
     <View style={styles.container}>
@@ -291,10 +281,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
       </Modal>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          rankBanner ? styles.contentWithBanner : undefined,
-        ]}
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -335,14 +322,6 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         )}
       </ScrollView>
 
-      {rankBanner && (
-        <StickyRankBanner
-          rank={rankBanner.rank}
-          deficit={rankBanner.deficit}
-          unitLabel={rankBanner.unitLabel}
-        />
-      )}
-
       <PlayerProfileModal
         playerId={selectedPlayerId}
         visible={!!selectedPlayerId}
@@ -370,9 +349,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-  },
-  contentWithBanner: {
-    paddingBottom: 80,
   },
   controlsRow: {
     paddingHorizontal: 20,
