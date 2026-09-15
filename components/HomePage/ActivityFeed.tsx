@@ -1,15 +1,16 @@
 import CheerRow from '@/components/HomePage/CheerRow';
 import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
-import { ActivityIntensity, useActivityFeed } from '@/hooks/useTeamActivity';
+import { ActivityIntensity, TeamActivityItem, useActivityFeed } from '@/hooks/useTeamActivity';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -36,22 +37,66 @@ const ActivityFeed = () => {
   const { data: activity = [] } = useActivityFeed(15);
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
-  const feedItemKeys = useMemo(() => activity.map((item) => item.id), [activity]);
+
+  // Hold the feed still while new items land in the background (realtime),
+  // rather than reshuffling rows out from under a user mid-scroll — surface
+  // a "N new" pill instead and only swap in the latest data when it's tapped.
+  const [displayed, setDisplayed] = useState<TeamActivityItem[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const displayedRef = useRef<TeamActivityItem[]>([]);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      displayedRef.current = activity;
+      setDisplayed(activity);
+      return;
+    }
+    const seenIds = new Set(displayedRef.current.map((item) => item.id));
+    const newCount = activity.filter((item) => !seenIds.has(item.id)).length;
+    if (newCount > 0) {
+      setPendingCount(newCount);
+    } else {
+      displayedRef.current = activity;
+      setDisplayed(activity);
+    }
+  }, [activity]);
+
+  const showNewActivity = () => {
+    displayedRef.current = activity;
+    setDisplayed(activity);
+    setPendingCount(0);
+  };
+
+  const feedItemKeys = useMemo(() => displayed.map((item) => item.id), [displayed]);
   const { data: cheersMap = new Map() } = useCheersForItems(feedItemKeys);
   const { data: myReactions = new Map(), isLoading: cheerKeysLoading } = useMyReactions(user?.id);
 
-  if (activity.length === 0) return null;
+  if (displayed.length === 0 && pendingCount === 0) return null;
 
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Activity</Text>
-      {activity.map((item, i) => {
+      {pendingCount > 0 && (
+        <TouchableOpacity style={styles.newActivityPill} onPress={showNewActivity} activeOpacity={0.8}>
+          <Ionicons name='arrow-up' size={13} color='#FFFFFF' />
+          <Text style={styles.newActivityPillText}>
+            {pendingCount} new {pendingCount === 1 ? 'update' : 'updates'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {displayed.map((item, i) => {
         const isOwn = item.userId === user?.id;
         const isCoach = !!profile?.is_coach;
         return (
           <View
             key={item.id}
-            style={[styles.itemWrap, i < activity.length - 1 && styles.itemBorder]}
+            style={[
+              styles.itemWrap,
+              i < displayed.length - 1 && styles.itemBorder,
+              item.isMilestone && styles.itemMilestone,
+            ]}
           >
             <View style={styles.row}>
               <Image
@@ -60,9 +105,12 @@ const ActivityFeed = () => {
               />
               <View style={styles.info}>
                 <View style={styles.messageRow}>
+                  {item.isMilestone && (
+                    <Ionicons name='trophy' size={14} color='#ffb724' style={styles.milestoneIcon} />
+                  )}
                   <Text style={styles.message}>{item.message}</Text>
                   {item.isGameSpeed && (
-                    <Ionicons name='flame' size={16} color='#B23B00' />
+                    <Ionicons name='flame' size={16} color='#B23B00' style={styles.gameSpeedIcon} />
                   )}
                 </View>
                 <View style={styles.detailRow}>
@@ -119,8 +167,31 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     marginBottom: 12,
   },
+  newActivityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    backgroundColor: '#1f89ee',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    marginBottom: 10,
+    marginTop: -4,
+  },
+  newActivityPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
   itemWrap: {
     paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+    borderRadius: 12,
+  },
+  itemMilestone: {
+    backgroundColor: '#FFF8E8',
   },
   itemBorder: {
     borderBottomWidth: 1,
@@ -142,7 +213,7 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
   },
   message: {
@@ -150,6 +221,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     flexShrink: 1,
+  },
+  gameSpeedIcon: {
+    marginTop: 2,
+  },
+  milestoneIcon: {
+    marginTop: 2,
   },
   detail: {
     fontSize: 12,

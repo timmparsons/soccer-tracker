@@ -2,7 +2,8 @@ import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 export type ActivityIntensity = 'light' | 'moderate' | 'intense';
 
@@ -16,6 +17,7 @@ export interface TeamActivityItem {
   isGameSpeed?: boolean;
   intensity?: ActivityIntensity;
   streak?: number;
+  isMilestone?: boolean;
 }
 
 function getIntensity(totalTouches: number, durationMinutes: number): ActivityIntensity | undefined {
@@ -216,6 +218,30 @@ function sessionMessage(
 }
 
 export function useActivityFeed(limit = 7) {
+  const queryClient = useQueryClient();
+
+  // Live updates — the feed is built from a handful of source tables plus
+  // reactions on top of it, so any insert/update to those should refresh it
+  // without waiting for a manual pull-to-refresh.
+  useEffect(() => {
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    const channel = supabase
+      .channel('activity-feed-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'daily_sessions' }, invalidate)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'player_challenges' }, invalidate)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_badges' }, invalidate)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'street_challenge_completions' }, invalidate)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'daily_challenge_completions' }, invalidate)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sprint_attempts' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_cheers' }, () => {
+        invalidate();
+        queryClient.invalidateQueries({ queryKey: ['feed-cheers'] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['activity-feed', limit, getLocalDate()],
     queryFn: async (): Promise<TeamActivityItem[]> => {
@@ -526,6 +552,7 @@ export function useActivityFeed(limit = 7) {
             w.id,
           ),
           createdAt: completedAt,
+          isMilestone: true,
         });
         usedUsers.add(w.winner_id);
       }
@@ -555,6 +582,7 @@ export function useActivityFeed(limit = 7) {
             dedupeId,
           ),
           createdAt: recent.createdAt,
+          isMilestone: true,
         });
         usedUsers.add(userId);
       }
@@ -586,6 +614,7 @@ export function useActivityFeed(limit = 7) {
             b.id,
           ),
           createdAt: b.earned_at,
+          isMilestone: true,
         });
         usedUsers.add(b.user_id);
       }
@@ -668,6 +697,7 @@ export function useActivityFeed(limit = 7) {
           avatarUrl: profile.avatar_url ?? null,
           message,
           createdAt: c.created_at,
+          isMilestone: c.is_crown || (c.is_pr && !isDurationMode),
         });
         usedUsers.add(c.profile_id);
       }
