@@ -17,6 +17,8 @@ import {
 const FALLBACK_AVATAR =
   'https://cdn-icons-png.flaticon.com/512/4140/4140037.png';
 
+const EMPTY_ACTIVITY: TeamActivityItem[] = [];
+
 const intensityLabels: Record<ActivityIntensity, string> = {
   light: 'Light Pace',
   moderate: 'Moderate Pace',
@@ -34,7 +36,8 @@ const intensityTextStyles: Record<ActivityIntensity, { color: string }> = {
 };
 
 const ActivityFeed = () => {
-  const { data: activity = [] } = useActivityFeed(15);
+  const { data: rawActivity } = useActivityFeed(15);
+  const activity = rawActivity ?? EMPTY_ACTIVITY;
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
 
@@ -47,21 +50,22 @@ const ActivityFeed = () => {
   const initializedRef = useRef(false);
 
   useEffect(() => {
+    if (rawActivity === undefined) return;
     if (!initializedRef.current) {
       initializedRef.current = true;
-      displayedRef.current = activity;
-      setDisplayed(activity);
+      displayedRef.current = rawActivity;
+      setDisplayed(rawActivity);
       return;
     }
     const seenIds = new Set(displayedRef.current.map((item) => item.id));
-    const newCount = activity.filter((item) => !seenIds.has(item.id)).length;
+    const newCount = rawActivity.filter((item) => !seenIds.has(item.id)).length;
     if (newCount > 0) {
       setPendingCount(newCount);
     } else {
-      displayedRef.current = activity;
-      setDisplayed(activity);
+      displayedRef.current = rawActivity;
+      setDisplayed(rawActivity);
     }
-  }, [activity]);
+  }, [rawActivity]);
 
   const showNewActivity = () => {
     displayedRef.current = activity;
@@ -104,15 +108,17 @@ const ActivityFeed = () => {
                 style={styles.avatar}
               />
               <View style={styles.info}>
-                <View style={styles.messageRow}>
+                <Text style={styles.message}>
                   {item.isMilestone && (
-                    <Ionicons name='trophy' size={14} color='#ffb724' style={styles.milestoneIcon} />
+                    <Ionicons name='trophy' size={13} color='#ffb724' />
                   )}
-                  <Text style={styles.message}>{item.message}</Text>
+                  {item.isMilestone && ' '}
+                  {item.message}
+                  {item.isGameSpeed && ' '}
                   {item.isGameSpeed && (
-                    <Ionicons name='flame' size={16} color='#B23B00' style={styles.gameSpeedIcon} />
+                    <Ionicons name='flame' size={14} color='#B23B00' />
                   )}
-                </View>
+                </Text>
                 <View style={styles.detailRow}>
                   <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
                   {item.intensity && (
@@ -211,22 +217,10 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
   },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
   message: {
     fontSize: 14,
     fontWeight: '700',
     color: '#1a1a2e',
-    flexShrink: 1,
-  },
-  gameSpeedIcon: {
-    marginTop: 2,
-  },
-  milestoneIcon: {
-    marginTop: 2,
   },
   detail: {
     fontSize: 12,
