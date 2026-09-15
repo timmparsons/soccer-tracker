@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-export type TouchesPeriod = 'today' | 'week';
+export type TouchesPeriod = 'today' | 'last_week' | 'week';
 
 interface Props {
   active: TouchesPeriod;
@@ -19,10 +19,11 @@ interface Props {
 
 const LABELS: Record<TouchesPeriod, string> = {
   today: 'Today',
+  last_week: 'Last Week',
   week: 'This Week',
 };
 
-const OPTIONS: TouchesPeriod[] = ['today', 'week'];
+const OPTIONS: TouchesPeriod[] = ['today', 'last_week', 'week'];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 

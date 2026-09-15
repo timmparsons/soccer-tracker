@@ -36,7 +36,11 @@ const WeeklyTouchesView = ({
     return (
       <View style={styles.emptyState}>
         <Text style={styles.emptyStateTitle}>
-          {period === 'today' ? 'No activity yet today' : 'No activity yet this week'}
+          {period === 'today'
+            ? 'No activity yet today'
+            : period === 'last_week'
+              ? 'No activity last week'
+              : 'No activity yet this week'}
         </Text>
         <Text style={styles.emptyStateText}>
           Team members will appear here once they log touches.
@@ -48,7 +52,11 @@ const WeeklyTouchesView = ({
   const teamDisplayNames = getTeamDisplayNames(players);
   const teamName = (p: TeamMemberStats) => teamDisplayNames[p.id] ?? p.name;
   const valueOf = (p: TeamMemberStats) =>
-    period === 'today' ? p.today_touches : p.weekly_touches;
+    period === 'today'
+      ? p.today_touches
+      : period === 'last_week'
+        ? p.last_week_touches
+        : p.weekly_touches;
 
   const scoredPlayers = players.filter((p) => valueOf(p) > 0);
   const podiumCount = Math.min(scoredPlayers.length, 3);
@@ -94,7 +102,9 @@ const WeeklyTouchesView = ({
                   <Text style={styles.todayTouches}>
                     {period === 'today'
                       ? `${player.weekly_touches.toLocaleString()} this week`
-                      : `${player.today_touches.toLocaleString()} today`}
+                      : period === 'last_week'
+                        ? `${player.weekly_touches.toLocaleString()} this week`
+                        : `${player.today_touches.toLocaleString()} today`}
                   </Text>
                 </View>
               </View>
