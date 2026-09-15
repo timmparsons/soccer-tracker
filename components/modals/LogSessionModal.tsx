@@ -1,7 +1,5 @@
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
-import { useDailySprint } from '@/hooks/useDailySprint';
-import { useTouchTracking } from '@/hooks/useTouchTracking';
 import { getLocalDate } from '@/utils/getLocalDate';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
@@ -124,15 +122,6 @@ const LogSessionModal = ({
 
   const isChallengeMode = !!challengeDrillId;
   const isFreestyleMode = !isChallengeMode && selectedAreas.includes('freestyle');
-
-  const { sprint } = useDailySprint(userId, teamId);
-  const { data: touchStats } = useTouchTracking(userId);
-  const trainedToday = (touchStats?.today_touches ?? 0) > 0;
-  const challengeLocked =
-    !isChallengeMode &&
-    !trainedToday &&
-    sprint?.todayBestMs == null &&
-    sprint?.todayBestReps == null;
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -264,8 +253,7 @@ const LogSessionModal = ({
   const juggleCount = juggles ? parseInt(juggles) : 0;
   const isFormValid = isChallengeMode
     ? attempted
-    : !challengeLocked &&
-      (touchCount > 0 || juggleCount > 0 || (isFreestyleMode && !!duration && parseInt(duration) > 0));
+    : touchCount > 0 || juggleCount > 0 || (isFreestyleMode && !!duration && parseInt(duration) > 0);
 
   const elapsedSecondsForPace = duration ? parseInt(duration) * 60 : null;
   const pace = computePace(touchCount, elapsedSecondsForPace);
@@ -526,14 +514,6 @@ const LogSessionModal = ({
 
           {/* Submit Button - Fixed at bottom */}
           <View style={[styles.buttonContainer, { paddingBottom: Math.max(30, bottomInset + 20) }]}>
-            {challengeLocked && (
-              <View style={styles.lockedBanner}>
-                <Ionicons name='lock-closed' size={18} color='#F57C00' />
-                <Text style={styles.lockedMessage}>
-                  Complete a workout or today&apos;s sprint to unlock session logging
-                </Text>
-              </View>
-            )}
             <TouchableOpacity
               style={[
                 styles.submitButton,
@@ -761,24 +741,6 @@ const styles = StyleSheet.create({
   submitButtonDisabled: {
     backgroundColor: '#B0BEC5',
     shadowOpacity: 0,
-  },
-  lockedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#FFE0B2',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-  },
-  lockedMessage: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F57C00',
   },
   submitButtonText: {
     color: '#FFF',
