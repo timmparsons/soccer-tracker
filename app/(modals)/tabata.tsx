@@ -31,7 +31,9 @@ function buildTabataPhases(): IntervalPhase[] {
   const phases: IntervalPhase[] = [];
   for (let i = 0; i < ROUNDS; i++) {
     phases.push({ label: 'WORK', seconds: WORK_SECONDS, cueSound: 'work' });
-    phases.push({ label: 'REST', seconds: REST_SECONDS, cueSound: 'rest' });
+    if (i < ROUNDS - 1) {
+      phases.push({ label: 'REST', seconds: REST_SECONDS, cueSound: 'rest' });
+    }
   }
   return phases;
 }

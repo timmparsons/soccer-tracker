@@ -15,6 +15,7 @@ import {
   BackHandler,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -216,7 +217,11 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
         </TouchableOpacity>
 
         {state === 'ready' && (
-          <View style={styles.content}>
+          <ScrollView
+            contentContainerStyle={styles.readyContent}
+            showsVerticalScrollIndicator={false}
+            style={styles.readyScroll}
+          >
             <Text style={styles.sectionLabel}>CIRCUIT</Text>
             <Text style={styles.title}>{workout.title}</Text>
             <View style={styles.stationsList}>
@@ -246,7 +251,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
               <Ionicons name='play' size={22} color='#FFF' />
               <Text style={styles.startButtonText}>Start</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         )}
 
         {state === 'countdown' && <CountdownView value={preTimer.countdownValue} />}
@@ -338,6 +343,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  readyScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  readyContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 60,
   },
   sectionLabel: {
     fontSize: 11,

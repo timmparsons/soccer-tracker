@@ -6,14 +6,12 @@ import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Modal,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   visible: boolean;
@@ -48,6 +46,7 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   const [loggedTouches, setLoggedTouches] = useState(0);
   const estimatedTouches = calculateChallengeTouches(steps);
   const drillId = steps.length === 1 && steps[0].type === 'single' ? steps[0].drillId : undefined;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!visible) {
@@ -153,65 +152,72 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     );
   };
 
+  if (!visible) return null;
+
+  const isDark = state === 'running';
+
   return (
-    <Modal visible={visible} transparent animationType='slide' onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={state === 'ready' ? onClose : undefined}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.handle} />
+    <>
+      <View style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}>
+        <TouchableOpacity
+          style={[styles.closeButton, { top: insets.top + 12 }]}
+          onPress={onClose}
+          hitSlop={12}
+        >
+          <Ionicons name='close' size={28} color={isDark ? '#FFF' : '#78909C'} />
+        </TouchableOpacity>
 
-          {state === 'done' ? (
-            // DONE STATE
-            <View style={styles.doneContainer}>
-              <Text style={styles.doneLabel}>WORKOUT COMPLETE</Text>
-              <Text style={styles.doneTime}>{formatTime(displaySeconds)}</Text>
-              <Text style={styles.doneTouches}>+{loggedTouches.toLocaleString()} touches logged</Text>
-              <Text style={styles.doneSubtext}>Nice work — come back and run it again anytime.</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-                <Text style={styles.closeButtonText}>Done</Text>
-              </TouchableOpacity>
+        {state === 'ready' && (
+          <View style={styles.content}>
+            <Text style={styles.sectionLabel}>WORKOUT</Text>
+            <Text style={styles.title}>{workout.title}</Text>
+
+            <View style={styles.gameSpeedBanner}>
+              <Ionicons name='flash' size={14} color='#ffb724' />
+              <Text style={styles.gameSpeedText}>All reps must be done at game speed</Text>
             </View>
-          ) : (
-            // READY / RUNNING STATES
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-              <Text style={styles.sectionLabel}>WORKOUT</Text>
-              <Text style={styles.title}>{workout.title}</Text>
 
-              <View style={styles.gameSpeedBanner}>
-                <Ionicons name='flash' size={14} color='#ffb724' />
-                <Text style={styles.gameSpeedText}>All reps must be done at game speed</Text>
-              </View>
+            <View style={styles.stepsList}>
+              {steps.map((step, i) => renderStep(step, i))}
+            </View>
 
-              <View style={styles.stepsList}>
-                {steps.map((step, i) => renderStep(step, i))}
-              </View>
+            <Text style={styles.touchEstimate}>≈ {estimatedTouches.toLocaleString()} touches</Text>
 
-              <Text style={styles.touchEstimate}>≈ {estimatedTouches.toLocaleString()} touches</Text>
+            <TouchableOpacity style={styles.startButton} onPress={handleStart} activeOpacity={0.85}>
+              <Ionicons name='play' size={22} color='#FFF' />
+              <Text style={styles.startButtonText}>Start</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-              {state === 'running' && (
-                <View style={styles.timerContainer}>
-                  <Text style={styles.timerDisplay}>{formatTime(displaySeconds)}</Text>
-                  <Text style={styles.timerLabel}>Keep going!</Text>
-                </View>
-              )}
+        {state === 'running' && (
+          <View style={styles.content}>
+            <Text style={styles.runningLabel}>{workout.title}</Text>
+            <Text style={styles.timerDisplay}>{formatTime(displaySeconds)}</Text>
+            <Text style={styles.timerLabel}>Keep going!</Text>
+            <TouchableOpacity
+              style={[styles.doneButton, saving && styles.doneButtonDisabled]}
+              onPress={handleDone}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.doneButtonText}>{saving ? 'Saving...' : 'Done'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-              {state === 'ready' ? (
-                <TouchableOpacity style={styles.startButton} onPress={handleStart} activeOpacity={0.8}>
-                  <Text style={styles.startButtonText}>Start</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.doneButton, saving && styles.doneButtonDisabled]}
-                  onPress={handleDone}
-                  disabled={saving}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.doneButtonText}>{saving ? 'Saving...' : 'Done'}</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          )}
-        </Pressable>
-      </Pressable>
+        {state === 'done' && (
+          <View style={styles.content}>
+            <Text style={styles.doneLabel}>WORKOUT COMPLETE</Text>
+            <Text style={styles.doneTime}>{formatTime(displaySeconds)}</Text>
+            <Text style={styles.doneTouches}>+{loggedTouches.toLocaleString()} touches logged</Text>
+            <Text style={styles.doneSubtext}>Nice work — come back and run it again anytime.</Text>
+            <TouchableOpacity style={styles.closeDoneButton} onPress={onClose} activeOpacity={0.8}>
+              <Text style={styles.closeDoneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {videoStep && (
         <DrillVideoModal
@@ -221,32 +227,26 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
           drillName={videoStep.drillName}
         />
       )}
-    </Modal>
+    </>
   );
 };
 
 export default WorkoutRunnerModal;
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
   },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 48,
+  closeButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 1,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
-    marginBottom: 20,
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   sectionLabel: {
     fontSize: 11,
@@ -256,10 +256,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
     color: '#1a1a2e',
     marginBottom: 20,
+    textAlign: 'center',
   },
   gameSpeedBanner: {
     flexDirection: 'row',
@@ -269,9 +270,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    marginBottom: 20,
+    marginBottom: 24,
     borderLeftWidth: 3,
     borderLeftColor: '#ffb724',
+    width: '100%',
   },
   gameSpeedText: {
     fontSize: 13,
@@ -280,6 +282,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepsList: {
+    width: '100%',
     gap: 14,
     marginBottom: 24,
   },
@@ -324,6 +327,7 @@ const styles = StyleSheet.create({
   },
   // COMBO STEP
   comboStepContainer: {
+    width: '100%',
     backgroundColor: '#F8FAFF',
     borderRadius: 14,
     padding: 12,
@@ -365,32 +369,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#78909C',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  // TIMER
-  timerContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    marginBottom: 8,
+  // RUNNING
+  runningLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   timerDisplay: {
-    fontSize: 64,
+    fontSize: 72,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFF',
     letterSpacing: -2,
+    marginBottom: 8,
   },
   timerLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#78909C',
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 32,
   },
   // BUTTONS
   startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#1f89ee',
     borderRadius: 14,
     paddingVertical: 16,
-    alignItems: 'center',
+    paddingHorizontal: 40,
     shadowColor: '#1f89ee',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -407,6 +417,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#31af4d',
     borderRadius: 14,
     paddingVertical: 16,
+    paddingHorizontal: 40,
     alignItems: 'center',
     shadowColor: '#31af4d',
     shadowOffset: { width: 0, height: 4 },
@@ -424,10 +435,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   // DONE STATE
-  doneContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
   doneLabel: {
     fontSize: 11,
     fontWeight: '800',
@@ -457,14 +464,14 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingHorizontal: 16,
   },
-  closeButton: {
+  closeDoneButton: {
     backgroundColor: '#1a1a2e',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 48,
     alignItems: 'center',
   },
-  closeButtonText: {
+  closeDoneButtonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '900',
