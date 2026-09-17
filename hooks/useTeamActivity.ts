@@ -217,6 +217,578 @@ function sessionMessage(
   );
 }
 
+// How far back the feed looks for activity from any user on the team.
+const FEED_WINDOW_DAYS = 60;
+
+async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
+  const windowAgoDate = getLocalDate(
+    new Date(Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+  );
+  const windowAgo = new Date(
+    Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  // Fetch sessions from the window across all users
+  const { data: sessions } = await supabase
+    .from('daily_sessions')
+    .select(
+      'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes, drills(name)',
+    )
+    .gte('date', windowAgoDate)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  // Fetch recent 1v1 wins globally
+  const { data: wins } = await supabase
+    .from('player_challenges')
+    .select(
+      'id, winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at, created_at',
+    )
+    .eq('status', 'completed')
+    .gte('created_at', windowAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  // Fetch recently earned badges (streaks, volume, sessions, social,
+  // tier unlocks, etc). perf_pb/perf_sky_high_* are excluded from this
+  // generic pass — badges only ever fire once (upsert onConflict
+  // ignoreDuplicates), so a repeat juggling PB months later wouldn't
+  // re-award perf_pb and would silently never show here. The dedicated
+  // juggling-record check below re-derives it straight from session
+  // data instead, so it fires every time, not just the first ever.
+  const JUGGLE_BADGE_IDS = new Set([
+    'perf_pb',
+    'perf_sky_high_bronze',
+    'perf_sky_high_silver',
+    'perf_sky_high_gold',
+  ]);
+  const { data: rawBadgeEarns } = await (supabase as any)
+    .from('user_badges')
+    .select('id, user_id, badge_id, earned_at, badges(name, description)')
+    .gte('earned_at', windowAgo.toISOString())
+    .order('earned_at', { ascending: false })
+    .limit(30);
+  const badgeEarns = (rawBadgeEarns || []).filter(
+    (b: any) => !JUGGLE_BADGE_IDS.has(b.badge_id),
+  );
+
+  // Fetch recent street challenge completions
+  const { data: streetCompletions } = await (supabase as any)
+    .from('street_challenge_completions')
+    .select(
+      'id, profile_id, challenge_id, challenge_name, category, created_at',
+    )
+    .gte('created_at', windowAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  // Fetch recent daily challenge completions
+  const { data: dailyChallengeCompletions } = await (supabase as any)
+    .from('daily_challenge_completions')
+    .select(
+      'id, profile_id, challenge_id, time_seconds, created_at, daily_challenges(title)',
+    )
+    .gte('created_at', windowAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  // Fetch recent daily sprint completions
+  const { data: sprintCompletions } = await (supabase as any)
+    .from('sprint_attempts')
+    .select(
+      'id, profile_id, combo_id, duration_ms, reps_completed, is_pr, is_crown, created_at',
+    )
+    .gte('created_at', windowAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const comboIds = [
+    ...new Set(
+      (sprintCompletions || []).map((c: any) => c.combo_id as string),
+    ),
+  ];
+  const { data: sprintCombos } =
+    comboIds.length > 0
+      ? await (supabase as any)
+          .from('sprint_combos')
+          .select('id, name, drill_ids')
+          .in('id', comboIds)
+      : { data: [] };
+  const comboNameMap = new Map(
+    (sprintCombos || []).map((c: any) => [c.id, c.name]),
+  );
+  // Duration-mode combos (single drill, fixed time window) are scored by
+  // rep count, not duration — the duration is a constant, not a record.
+  const comboDurationModeMap = new Map(
+    (sprintCombos || []).map((c: any) => [
+      c.id,
+      (c.drill_ids?.length ?? 0) === 1,
+    ]),
+  );
+
+  // Each user's best juggle_count session within the recent window —
+  // candidate for a "broke their juggling record" feed event.
+  const recentBestJuggle = new Map<
+    string,
+    { value: number; createdAt: string }
+  >();
+  for (const s of (sessions || []) as {
+    user_id: string;
+    juggle_count: number | null;
+    created_at: string;
+  }[]) {
+    if (!s.juggle_count || s.juggle_count <= 0) continue;
+    const existing = recentBestJuggle.get(s.user_id);
+    if (!existing || s.juggle_count > existing.value) {
+      recentBestJuggle.set(s.user_id, {
+        value: s.juggle_count,
+        createdAt: s.created_at,
+      });
+    }
+  }
+
+  // Confirm it's an actual record by checking it beats everything the
+  // user logged before that moment (not just the recent window).
+  const juggleCandidateIds = [...recentBestJuggle.keys()];
+  const priorJuggleMax = new Map<string, number>();
+  if (juggleCandidateIds.length > 0) {
+    const { data: allJuggleSessions } = await supabase
+      .from('daily_sessions')
+      .select('user_id, juggle_count, created_at')
+      .in('user_id', juggleCandidateIds)
+      .not('juggle_count', 'is', null)
+      .gt('juggle_count', 0);
+
+    for (const s of (allJuggleSessions || []) as {
+      user_id: string;
+      juggle_count: number;
+      created_at: string;
+    }[]) {
+      const recent = recentBestJuggle.get(s.user_id)!;
+      if (
+        new Date(s.created_at).getTime() >=
+        new Date(recent.createdAt).getTime()
+      )
+        continue;
+      const cur = priorJuggleMax.get(s.user_id) ?? 0;
+      if (s.juggle_count > cur)
+        priorJuggleMax.set(s.user_id, s.juggle_count);
+    }
+  }
+
+  // Collect all user IDs we need profiles for
+  const sessionUserIds = [
+    ...new Set((sessions || []).map((s: { user_id: string }) => s.user_id)),
+  ];
+  const winnerIds = (wins || []).map(
+    (w: { winner_id: string }) => w.winner_id,
+  );
+  const opponentIds = (wins || []).map(
+    (w: {
+      winner_id: string;
+      challenger_id: string;
+      challenged_id: string;
+    }) =>
+      w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
+  );
+  const streetUserIds = (streetCompletions || []).map(
+    (c: any) => c.profile_id as string,
+  );
+  const dailyChallengeUserIds = (dailyChallengeCompletions || []).map(
+    (c: any) => c.profile_id as string,
+  );
+  const sprintUserIds = (sprintCompletions || []).map(
+    (c: any) => c.profile_id as string,
+  );
+  const badgeUserIds = (badgeEarns || []).map(
+    (b: any) => b.user_id as string,
+  );
+  const allUserIds = [
+    ...new Set([
+      ...sessionUserIds,
+      ...winnerIds,
+      ...opponentIds,
+      ...streetUserIds,
+      ...dailyChallengeUserIds,
+      ...sprintUserIds,
+      ...badgeUserIds,
+    ]),
+  ];
+
+  if (allUserIds.length === 0) return [];
+
+  // Fetch all relevant profiles, excluding coaches and test accounts
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name, display_name, avatar_url')
+    .in('id', allUserIds)
+    .eq('is_coach', false)
+    .eq('is_test_account', false);
+
+  if (!profiles || profiles.length === 0) return [];
+
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  // Aggregate sessions per user per day, then pick each user's most recent day
+  type DayStats = {
+    totalTouches: number;
+    totalMinutes: number;
+    sessionCount: number;
+    hasChallenge: boolean;
+    latestAt: string;
+    isGameSpeed: boolean;
+    drillTouches: Map<string, number>;
+  };
+  const userDayMap = new Map<string, Map<string, DayStats>>();
+
+  for (const s of (sessions || []) as {
+    user_id: string;
+    date: string;
+    touches_logged: number;
+    drill_id: string | null;
+    created_at: string;
+    is_game_speed: boolean | null;
+    duration_minutes: number | null;
+    drills: { name: string } | null;
+  }[]) {
+    if (!profileMap.has(s.user_id)) continue;
+    if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
+    const dayMap = userDayMap.get(s.user_id)!;
+    const existing = dayMap.get(s.date);
+    if (existing) {
+      existing.totalTouches += s.touches_logged;
+      existing.totalMinutes += s.duration_minutes ?? 0;
+      existing.sessionCount += 1;
+      if (s.drill_id) existing.hasChallenge = true;
+      if (s.is_game_speed) existing.isGameSpeed = true;
+      if (s.drills?.name) {
+        existing.drillTouches.set(
+          s.drills.name,
+          (existing.drillTouches.get(s.drills.name) ?? 0) + s.touches_logged,
+        );
+      }
+    } else {
+      const drillTouches = new Map<string, number>();
+      if (s.drills?.name) drillTouches.set(s.drills.name, s.touches_logged);
+      dayMap.set(s.date, {
+        totalTouches: s.touches_logged,
+        totalMinutes: s.duration_minutes ?? 0,
+        sessionCount: 1,
+        hasChallenge: !!s.drill_id,
+        latestAt: s.created_at,
+        isGameSpeed: !!s.is_game_speed,
+        drillTouches,
+      });
+    }
+  }
+
+  const userStats = new Map<string, DayStats>();
+  for (const [userId, dayMap] of userDayMap.entries()) {
+    const [, best] = [...dayMap.entries()].sort((a, b) =>
+      b[0].localeCompare(a[0]),
+    )[0];
+    userStats.set(userId, best);
+  }
+
+  const items: TeamActivityItem[] = [];
+  const usedUsers = new Set<string>();
+
+  // 1v1 wins first
+  for (const w of (wins || []) as {
+    id: string;
+    winner_id: string;
+    challenger_id: string;
+    challenged_id: string;
+    challenger_completed_at: string | null;
+    challenged_completed_at: string | null;
+    created_at: string;
+  }[]) {
+    if (usedUsers.has(w.winner_id)) continue;
+    if (!profileMap.has(w.winner_id)) continue;
+
+    const winnerProfile = profileMap.get(w.winner_id);
+    const winnerName = getDisplayName(winnerProfile);
+    const opponentId =
+      w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id;
+    const opponentName = getDisplayName(profileMap.get(opponentId));
+    const completedAt =
+      (w.winner_id === w.challenger_id
+        ? w.challenger_completed_at
+        : w.challenged_completed_at) ?? w.created_at;
+
+    items.push({
+      id: `win-${w.id}`,
+      userId: w.winner_id,
+      name: winnerName,
+      avatarUrl: winnerProfile?.avatar_url ?? null,
+      message: pickForId(
+        [
+          `${winnerName} beat ${opponentName} in a 1v1`,
+          `${winnerName} got the better of ${opponentName} today`,
+          `${winnerName} took down ${opponentName} in a 1v1`,
+        ],
+        w.id,
+      ),
+      createdAt: completedAt,
+      isMilestone: true,
+    });
+    usedUsers.add(w.winner_id);
+  }
+
+  // Juggling record broken — checked before badge earns/routine
+  // completions since it's a standout personal moment.
+  for (const [userId, recent] of recentBestJuggle.entries()) {
+    if (usedUsers.has(userId)) continue;
+    const priorMax = priorJuggleMax.get(userId) ?? 0;
+    if (recent.value <= priorMax) continue;
+    const profile = profileMap.get(userId);
+    if (!profile) continue;
+    const name = getDisplayName(profile);
+    const dedupeId = `${userId}-${recent.createdAt}`;
+
+    items.push({
+      id: `juggle-pb-${dedupeId}`,
+      userId,
+      name,
+      avatarUrl: profile.avatar_url ?? null,
+      message: pickForId(
+        [
+          `${name} just broke their juggling record — ${recent.value} juggles!`,
+          `${name} smashed their juggling PB with ${recent.value}!`,
+          `${name} set a new juggling record — ${recent.value} juggles`,
+        ],
+        dedupeId,
+      ),
+      createdAt: recent.createdAt,
+      isMilestone: true,
+    });
+    usedUsers.add(userId);
+  }
+
+  // Badge earns (records/milestones) — after 1v1 wins, before routine
+  // completions, since these are the rarer/more notable events.
+  for (const b of (badgeEarns || []) as {
+    id: string;
+    user_id: string;
+    badge_id: string;
+    earned_at: string;
+    badges: { name: string; description: string } | null;
+  }[]) {
+    if (usedUsers.has(b.user_id)) continue;
+    const profile = profileMap.get(b.user_id);
+    if (!profile || !b.badges) continue;
+    const name = getDisplayName(profile);
+
+    items.push({
+      id: `badge-${b.id}`,
+      userId: b.user_id,
+      name,
+      avatarUrl: profile.avatar_url ?? null,
+      message: badgeMessage(
+        name,
+        b.badge_id,
+        b.badges.name,
+        b.badges.description,
+        b.id,
+      ),
+      createdAt: b.earned_at,
+      isMilestone: true,
+    });
+    usedUsers.add(b.user_id);
+  }
+
+  // Daily sprint completions (after 1v1 wins, before daily challenge completions)
+  for (const c of (sprintCompletions || []) as {
+    id: string;
+    profile_id: string;
+    combo_id: string;
+    duration_ms: number;
+    reps_completed: number | null;
+    is_pr: boolean;
+    is_crown: boolean;
+    created_at: string;
+  }[]) {
+    if (usedUsers.has(c.profile_id)) continue;
+    const profile = profileMap.get(c.profile_id);
+    if (!profile) continue;
+    const name = getDisplayName(profile);
+    const comboName = comboNameMap.get(c.combo_id) ?? 'today’s sprint';
+    const isDurationMode = comboDurationModeMap.get(c.combo_id) ?? false;
+    const seconds = (c.duration_ms / 1000).toFixed(2);
+    const reps = c.reps_completed ?? 0;
+    const metric = isDurationMode ? `${reps} reps` : `${seconds}s`;
+
+    let message: string;
+    if (c.is_crown) {
+      message = isDurationMode
+        ? pickForId(
+            [
+              `${name} set today's pace with ${metric}!`,
+              `${name} is setting the pace — ${metric} on ${comboName}`,
+              `${name} is the one to beat today — ${metric}`,
+            ],
+            c.id,
+          )
+        : pickForId(
+            [
+              `${name} set today's pace at ${metric}!`,
+              `${name} is setting the pace — ${metric} on ${comboName}`,
+              `${name} is the one to beat today — ${metric}`,
+            ],
+            c.id,
+          );
+    } else if (c.is_pr && !isDurationMode) {
+      // Duration-mode "PR" isn't a reliable history comparison (it fires
+      // on a player's very first attempt too), so just show the count below.
+      message = pickForId(
+        [
+          `${name} hit a NEW PR of ${metric}!`,
+          `${name} smashed their PR — ${metric} on ${comboName}`,
+          `${name} just beat their best time — ${metric}`,
+        ],
+        c.id,
+      );
+    } else {
+      message = isDurationMode
+        ? pickForId(
+            [
+              `${name} logged ${metric} on today's challenge`,
+              `${name} completed ${comboName} with ${metric}`,
+              `${name} put up ${metric} on today's challenge`,
+            ],
+            c.id,
+          )
+        : pickForId(
+            [
+              `${name} logged today's challenge in ${metric}`,
+              `${name} completed ${comboName} in ${metric}`,
+              `${name} clocked ${metric} on today's challenge`,
+            ],
+            c.id,
+          );
+    }
+
+    items.push({
+      id: `sprint-${c.id}`,
+      userId: c.profile_id,
+      name,
+      avatarUrl: profile.avatar_url ?? null,
+      message,
+      createdAt: c.created_at,
+      isMilestone: c.is_crown || (c.is_pr && !isDurationMode),
+    });
+    usedUsers.add(c.profile_id);
+  }
+
+  // Daily challenge completions (after 1v1 wins, before training sessions)
+  for (const c of (dailyChallengeCompletions || []) as any[]) {
+    if (usedUsers.has(c.profile_id)) continue;
+    const profile = profileMap.get(c.profile_id);
+    if (!profile) continue;
+    const name = getDisplayName(profile);
+    const mins = Math.floor(c.time_seconds / 60);
+    const secs = String(c.time_seconds % 60).padStart(2, '0');
+    items.push({
+      id: `daily-challenge-${c.id}`,
+      userId: c.profile_id,
+      name,
+      avatarUrl: profile.avatar_url ?? null,
+      message: pickForId(
+        [
+          `${name} finished today's challenge in ${mins}:${secs}`,
+          `${name} crushed the daily challenge — ${mins}:${secs}`,
+          `${name} clocked ${mins}:${secs} on today's challenge`,
+        ],
+        c.id,
+      ),
+      createdAt: c.created_at,
+    });
+    usedUsers.add(c.profile_id);
+  }
+
+  // Plain training activity (touches/juggling/session completed) — shown
+  // for every user with recent session data, even if they also landed a
+  // rarer highlight above (win/PB/badge/etc). Ordinary activity shouldn't
+  // get crowded out just because someone also had a standout moment.
+  for (const [userId, stats] of userStats.entries()) {
+    const profile = profileMap.get(userId);
+    const name = getDisplayName(profile);
+
+    let topDrill: { name: string; count: number } | null = null;
+    for (const [drillName, count] of stats.drillTouches.entries()) {
+      if (!topDrill || count > topDrill.count) topDrill = { name: drillName, count };
+    }
+
+    items.push({
+      id: `session-${userId}-${stats.latestAt}`,
+      userId,
+      name,
+      avatarUrl: profile?.avatar_url ?? null,
+      message: sessionMessage(
+        name,
+        stats.totalTouches,
+        stats.sessionCount,
+        topDrill,
+        `${userId}-${stats.latestAt}`,
+      ),
+      createdAt: stats.latestAt,
+      isGameSpeed: stats.isGameSpeed,
+      intensity: getIntensity(stats.totalTouches, stats.totalMinutes),
+    });
+  }
+
+  // Street challenge completions
+  for (const completion of (streetCompletions || []) as any[]) {
+    if (usedUsers.has(completion.profile_id)) continue;
+    const profile = profileMap.get(completion.profile_id);
+    if (!profile) continue;
+    const name = getDisplayName(profile);
+    items.push({
+      id: `street-${completion.id}`,
+      userId: completion.profile_id,
+      name,
+      avatarUrl: profile.avatar_url ?? null,
+      message: getStreetFeedMessage(
+        completion.category,
+        completion.challenge_name,
+        name,
+        completion.id,
+      ),
+      createdAt: completion.created_at,
+    });
+  }
+
+  const finalItems = items
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, limit);
+
+  // Streak needs full session history, not the window above — fetch it
+  // only for the handful of users who actually made the feed.
+  const finalUserIds = [...new Set(finalItems.map((i) => i.userId))];
+  if (finalUserIds.length > 0) {
+    const { data: historyRows } = await supabase
+      .from('daily_sessions')
+      .select('user_id, date')
+      .in('user_id', finalUserIds);
+
+    const datesByUser = new Map<string, string[]>();
+    for (const row of (historyRows || []) as { user_id: string; date: string }[]) {
+      if (!datesByUser.has(row.user_id)) datesByUser.set(row.user_id, []);
+      datesByUser.get(row.user_id)!.push(row.date);
+    }
+
+    for (const item of finalItems) {
+      const dates = datesByUser.get(item.userId);
+      if (dates) item.streak = calculateStreak(dates).currentStreak;
+    }
+  }
+
+  return finalItems;
+}
+
 export function useActivityFeed(limit = 7) {
   const queryClient = useQueryClient();
 
@@ -244,571 +816,6 @@ export function useActivityFeed(limit = 7) {
 
   return useQuery({
     queryKey: ['activity-feed', limit, getLocalDate()],
-    queryFn: async (): Promise<TeamActivityItem[]> => {
-      const threeDaysAgoDate = getLocalDate(
-        new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      );
-      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-
-      // Fetch sessions from the past 3 days across all users
-      const { data: sessions } = await supabase
-        .from('daily_sessions')
-        .select(
-          'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes, drills(name)',
-        )
-        .gte('date', threeDaysAgoDate)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      // Fetch recent 1v1 wins globally
-      const { data: wins } = await supabase
-        .from('player_challenges')
-        .select(
-          'id, winner_id, challenger_id, challenged_id, challenger_completed_at, challenged_completed_at, created_at',
-        )
-        .eq('status', 'completed')
-        .gte('created_at', threeDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      // Fetch recently earned badges (streaks, volume, sessions, social,
-      // tier unlocks, etc). perf_pb/perf_sky_high_* are excluded from this
-      // generic pass — badges only ever fire once (upsert onConflict
-      // ignoreDuplicates), so a repeat juggling PB months later wouldn't
-      // re-award perf_pb and would silently never show here. The dedicated
-      // juggling-record check below re-derives it straight from session
-      // data instead, so it fires every time, not just the first ever.
-      const JUGGLE_BADGE_IDS = new Set([
-        'perf_pb',
-        'perf_sky_high_bronze',
-        'perf_sky_high_silver',
-        'perf_sky_high_gold',
-      ]);
-      const { data: rawBadgeEarns } = await (supabase as any)
-        .from('user_badges')
-        .select('id, user_id, badge_id, earned_at, badges(name, description)')
-        .gte('earned_at', threeDaysAgo.toISOString())
-        .order('earned_at', { ascending: false })
-        .limit(30);
-      const badgeEarns = (rawBadgeEarns || []).filter(
-        (b: any) => !JUGGLE_BADGE_IDS.has(b.badge_id),
-      );
-
-      // Fetch recent street challenge completions
-      const { data: streetCompletions } = await (supabase as any)
-        .from('street_challenge_completions')
-        .select(
-          'id, profile_id, challenge_id, challenge_name, category, created_at',
-        )
-        .gte('created_at', threeDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      // Fetch recent daily challenge completions
-      const { data: dailyChallengeCompletions } = await (supabase as any)
-        .from('daily_challenge_completions')
-        .select(
-          'id, profile_id, challenge_id, time_seconds, created_at, daily_challenges(title)',
-        )
-        .gte('created_at', threeDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      // Fetch recent daily sprint completions
-      const { data: sprintCompletions } = await (supabase as any)
-        .from('sprint_attempts')
-        .select(
-          'id, profile_id, combo_id, duration_ms, reps_completed, is_pr, is_crown, created_at',
-        )
-        .gte('created_at', threeDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      const comboIds = [
-        ...new Set(
-          (sprintCompletions || []).map((c: any) => c.combo_id as string),
-        ),
-      ];
-      const { data: sprintCombos } =
-        comboIds.length > 0
-          ? await (supabase as any)
-              .from('sprint_combos')
-              .select('id, name, drill_ids')
-              .in('id', comboIds)
-          : { data: [] };
-      const comboNameMap = new Map(
-        (sprintCombos || []).map((c: any) => [c.id, c.name]),
-      );
-      // Duration-mode combos (single drill, fixed time window) are scored by
-      // rep count, not duration — the duration is a constant, not a record.
-      const comboDurationModeMap = new Map(
-        (sprintCombos || []).map((c: any) => [
-          c.id,
-          (c.drill_ids?.length ?? 0) === 1,
-        ]),
-      );
-
-      // Each user's best juggle_count session within the recent window —
-      // candidate for a "broke their juggling record" feed event.
-      const recentBestJuggle = new Map<
-        string,
-        { value: number; createdAt: string }
-      >();
-      for (const s of (sessions || []) as {
-        user_id: string;
-        juggle_count: number | null;
-        created_at: string;
-      }[]) {
-        if (!s.juggle_count || s.juggle_count <= 0) continue;
-        const existing = recentBestJuggle.get(s.user_id);
-        if (!existing || s.juggle_count > existing.value) {
-          recentBestJuggle.set(s.user_id, {
-            value: s.juggle_count,
-            createdAt: s.created_at,
-          });
-        }
-      }
-
-      // Confirm it's an actual record by checking it beats everything the
-      // user logged before that moment (not just the recent window).
-      const juggleCandidateIds = [...recentBestJuggle.keys()];
-      const priorJuggleMax = new Map<string, number>();
-      if (juggleCandidateIds.length > 0) {
-        const { data: allJuggleSessions } = await supabase
-          .from('daily_sessions')
-          .select('user_id, juggle_count, created_at')
-          .in('user_id', juggleCandidateIds)
-          .not('juggle_count', 'is', null)
-          .gt('juggle_count', 0);
-
-        for (const s of (allJuggleSessions || []) as {
-          user_id: string;
-          juggle_count: number;
-          created_at: string;
-        }[]) {
-          const recent = recentBestJuggle.get(s.user_id)!;
-          if (
-            new Date(s.created_at).getTime() >=
-            new Date(recent.createdAt).getTime()
-          )
-            continue;
-          const cur = priorJuggleMax.get(s.user_id) ?? 0;
-          if (s.juggle_count > cur)
-            priorJuggleMax.set(s.user_id, s.juggle_count);
-        }
-      }
-
-      // Collect all user IDs we need profiles for
-      const sessionUserIds = [
-        ...new Set((sessions || []).map((s: { user_id: string }) => s.user_id)),
-      ];
-      const winnerIds = (wins || []).map(
-        (w: { winner_id: string }) => w.winner_id,
-      );
-      const opponentIds = (wins || []).map(
-        (w: {
-          winner_id: string;
-          challenger_id: string;
-          challenged_id: string;
-        }) =>
-          w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id,
-      );
-      const streetUserIds = (streetCompletions || []).map(
-        (c: any) => c.profile_id as string,
-      );
-      const dailyChallengeUserIds = (dailyChallengeCompletions || []).map(
-        (c: any) => c.profile_id as string,
-      );
-      const sprintUserIds = (sprintCompletions || []).map(
-        (c: any) => c.profile_id as string,
-      );
-      const badgeUserIds = (badgeEarns || []).map(
-        (b: any) => b.user_id as string,
-      );
-      const allUserIds = [
-        ...new Set([
-          ...sessionUserIds,
-          ...winnerIds,
-          ...opponentIds,
-          ...streetUserIds,
-          ...dailyChallengeUserIds,
-          ...sprintUserIds,
-          ...badgeUserIds,
-        ]),
-      ];
-
-      if (allUserIds.length === 0) return [];
-
-      // Fetch all relevant profiles, excluding coaches and test accounts
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, name, display_name, avatar_url')
-        .in('id', allUserIds)
-        .eq('is_coach', false)
-        .eq('is_test_account', false);
-
-      if (!profiles || profiles.length === 0) return [];
-
-      const profileMap = new Map(profiles.map((p) => [p.id, p]));
-
-      // Aggregate sessions per user per day, then pick each user's most recent day
-      type DayStats = {
-        totalTouches: number;
-        totalMinutes: number;
-        sessionCount: number;
-        hasChallenge: boolean;
-        latestAt: string;
-        isGameSpeed: boolean;
-        drillTouches: Map<string, number>;
-      };
-      const userDayMap = new Map<string, Map<string, DayStats>>();
-
-      for (const s of (sessions || []) as {
-        user_id: string;
-        date: string;
-        touches_logged: number;
-        drill_id: string | null;
-        created_at: string;
-        is_game_speed: boolean | null;
-        duration_minutes: number | null;
-        drills: { name: string } | null;
-      }[]) {
-        if (!profileMap.has(s.user_id)) continue;
-        if (!userDayMap.has(s.user_id)) userDayMap.set(s.user_id, new Map());
-        const dayMap = userDayMap.get(s.user_id)!;
-        const existing = dayMap.get(s.date);
-        if (existing) {
-          existing.totalTouches += s.touches_logged;
-          existing.totalMinutes += s.duration_minutes ?? 0;
-          existing.sessionCount += 1;
-          if (s.drill_id) existing.hasChallenge = true;
-          if (s.is_game_speed) existing.isGameSpeed = true;
-          if (s.drills?.name) {
-            existing.drillTouches.set(
-              s.drills.name,
-              (existing.drillTouches.get(s.drills.name) ?? 0) + s.touches_logged,
-            );
-          }
-        } else {
-          const drillTouches = new Map<string, number>();
-          if (s.drills?.name) drillTouches.set(s.drills.name, s.touches_logged);
-          dayMap.set(s.date, {
-            totalTouches: s.touches_logged,
-            totalMinutes: s.duration_minutes ?? 0,
-            sessionCount: 1,
-            hasChallenge: !!s.drill_id,
-            latestAt: s.created_at,
-            isGameSpeed: !!s.is_game_speed,
-            drillTouches,
-          });
-        }
-      }
-
-      const userStats = new Map<string, DayStats>();
-      for (const [userId, dayMap] of userDayMap.entries()) {
-        const [, best] = [...dayMap.entries()].sort((a, b) =>
-          b[0].localeCompare(a[0]),
-        )[0];
-        userStats.set(userId, best);
-      }
-
-      const items: TeamActivityItem[] = [];
-      const usedUsers = new Set<string>();
-
-      // 1v1 wins first
-      for (const w of (wins || []) as {
-        id: string;
-        winner_id: string;
-        challenger_id: string;
-        challenged_id: string;
-        challenger_completed_at: string | null;
-        challenged_completed_at: string | null;
-        created_at: string;
-      }[]) {
-        if (usedUsers.has(w.winner_id)) continue;
-        if (!profileMap.has(w.winner_id)) continue;
-
-        const winnerProfile = profileMap.get(w.winner_id);
-        const winnerName = getDisplayName(winnerProfile);
-        const opponentId =
-          w.winner_id === w.challenger_id ? w.challenged_id : w.challenger_id;
-        const opponentName = getDisplayName(profileMap.get(opponentId));
-        const completedAt =
-          (w.winner_id === w.challenger_id
-            ? w.challenger_completed_at
-            : w.challenged_completed_at) ?? w.created_at;
-
-        items.push({
-          id: `win-${w.id}`,
-          userId: w.winner_id,
-          name: winnerName,
-          avatarUrl: winnerProfile?.avatar_url ?? null,
-          message: pickForId(
-            [
-              `${winnerName} beat ${opponentName} in a 1v1`,
-              `${winnerName} got the better of ${opponentName} today`,
-              `${winnerName} took down ${opponentName} in a 1v1`,
-            ],
-            w.id,
-          ),
-          createdAt: completedAt,
-          isMilestone: true,
-        });
-        usedUsers.add(w.winner_id);
-      }
-
-      // Juggling record broken — checked before badge earns/routine
-      // completions since it's a standout personal moment.
-      for (const [userId, recent] of recentBestJuggle.entries()) {
-        if (usedUsers.has(userId)) continue;
-        const priorMax = priorJuggleMax.get(userId) ?? 0;
-        if (recent.value <= priorMax) continue;
-        const profile = profileMap.get(userId);
-        if (!profile) continue;
-        const name = getDisplayName(profile);
-        const dedupeId = `${userId}-${recent.createdAt}`;
-
-        items.push({
-          id: `juggle-pb-${dedupeId}`,
-          userId,
-          name,
-          avatarUrl: profile.avatar_url ?? null,
-          message: pickForId(
-            [
-              `${name} just broke their juggling record — ${recent.value} juggles!`,
-              `${name} smashed their juggling PB with ${recent.value}!`,
-              `${name} set a new juggling record — ${recent.value} juggles`,
-            ],
-            dedupeId,
-          ),
-          createdAt: recent.createdAt,
-          isMilestone: true,
-        });
-        usedUsers.add(userId);
-      }
-
-      // Badge earns (records/milestones) — after 1v1 wins, before routine
-      // completions, since these are the rarer/more notable events.
-      for (const b of (badgeEarns || []) as {
-        id: string;
-        user_id: string;
-        badge_id: string;
-        earned_at: string;
-        badges: { name: string; description: string } | null;
-      }[]) {
-        if (usedUsers.has(b.user_id)) continue;
-        const profile = profileMap.get(b.user_id);
-        if (!profile || !b.badges) continue;
-        const name = getDisplayName(profile);
-
-        items.push({
-          id: `badge-${b.id}`,
-          userId: b.user_id,
-          name,
-          avatarUrl: profile.avatar_url ?? null,
-          message: badgeMessage(
-            name,
-            b.badge_id,
-            b.badges.name,
-            b.badges.description,
-            b.id,
-          ),
-          createdAt: b.earned_at,
-          isMilestone: true,
-        });
-        usedUsers.add(b.user_id);
-      }
-
-      // Daily sprint completions (after 1v1 wins, before daily challenge completions)
-      for (const c of (sprintCompletions || []) as {
-        id: string;
-        profile_id: string;
-        combo_id: string;
-        duration_ms: number;
-        reps_completed: number | null;
-        is_pr: boolean;
-        is_crown: boolean;
-        created_at: string;
-      }[]) {
-        if (usedUsers.has(c.profile_id)) continue;
-        const profile = profileMap.get(c.profile_id);
-        if (!profile) continue;
-        const name = getDisplayName(profile);
-        const comboName = comboNameMap.get(c.combo_id) ?? 'today’s sprint';
-        const isDurationMode = comboDurationModeMap.get(c.combo_id) ?? false;
-        const seconds = (c.duration_ms / 1000).toFixed(2);
-        const reps = c.reps_completed ?? 0;
-        const metric = isDurationMode ? `${reps} reps` : `${seconds}s`;
-
-        let message: string;
-        if (c.is_crown) {
-          message = isDurationMode
-            ? pickForId(
-                [
-                  `${name} set today's pace with ${metric}!`,
-                  `${name} is setting the pace — ${metric} on ${comboName}`,
-                  `${name} is the one to beat today — ${metric}`,
-                ],
-                c.id,
-              )
-            : pickForId(
-                [
-                  `${name} set today's pace at ${metric}!`,
-                  `${name} is setting the pace — ${metric} on ${comboName}`,
-                  `${name} is the one to beat today — ${metric}`,
-                ],
-                c.id,
-              );
-        } else if (c.is_pr && !isDurationMode) {
-          // Duration-mode "PR" isn't a reliable history comparison (it fires
-          // on a player's very first attempt too), so just show the count below.
-          message = pickForId(
-            [
-              `${name} hit a NEW PR of ${metric}!`,
-              `${name} smashed their PR — ${metric} on ${comboName}`,
-              `${name} just beat their best time — ${metric}`,
-            ],
-            c.id,
-          );
-        } else {
-          message = isDurationMode
-            ? pickForId(
-                [
-                  `${name} logged ${metric} on today's challenge`,
-                  `${name} completed ${comboName} with ${metric}`,
-                  `${name} put up ${metric} on today's challenge`,
-                ],
-                c.id,
-              )
-            : pickForId(
-                [
-                  `${name} logged today's challenge in ${metric}`,
-                  `${name} completed ${comboName} in ${metric}`,
-                  `${name} clocked ${metric} on today's challenge`,
-                ],
-                c.id,
-              );
-        }
-
-        items.push({
-          id: `sprint-${c.id}`,
-          userId: c.profile_id,
-          name,
-          avatarUrl: profile.avatar_url ?? null,
-          message,
-          createdAt: c.created_at,
-          isMilestone: c.is_crown || (c.is_pr && !isDurationMode),
-        });
-        usedUsers.add(c.profile_id);
-      }
-
-      // Daily challenge completions (after 1v1 wins, before training sessions)
-      for (const c of (dailyChallengeCompletions || []) as any[]) {
-        if (usedUsers.has(c.profile_id)) continue;
-        const profile = profileMap.get(c.profile_id);
-        if (!profile) continue;
-        const name = getDisplayName(profile);
-        const mins = Math.floor(c.time_seconds / 60);
-        const secs = String(c.time_seconds % 60).padStart(2, '0');
-        items.push({
-          id: `daily-challenge-${c.id}`,
-          userId: c.profile_id,
-          name,
-          avatarUrl: profile.avatar_url ?? null,
-          message: pickForId(
-            [
-              `${name} finished today's challenge in ${mins}:${secs}`,
-              `${name} crushed the daily challenge — ${mins}:${secs}`,
-              `${name} clocked ${mins}:${secs} on today's challenge`,
-            ],
-            c.id,
-          ),
-          createdAt: c.created_at,
-        });
-        usedUsers.add(c.profile_id);
-      }
-
-      // Plain training activity (touches/juggling/session completed) — shown
-      // for every user with recent session data, even if they also landed a
-      // rarer highlight above (win/PB/badge/etc). Ordinary activity shouldn't
-      // get crowded out just because someone also had a standout moment.
-      for (const [userId, stats] of userStats.entries()) {
-        const profile = profileMap.get(userId);
-        const name = getDisplayName(profile);
-
-        let topDrill: { name: string; count: number } | null = null;
-        for (const [drillName, count] of stats.drillTouches.entries()) {
-          if (!topDrill || count > topDrill.count) topDrill = { name: drillName, count };
-        }
-
-        items.push({
-          id: `session-${userId}-${stats.latestAt}`,
-          userId,
-          name,
-          avatarUrl: profile?.avatar_url ?? null,
-          message: sessionMessage(
-            name,
-            stats.totalTouches,
-            stats.sessionCount,
-            topDrill,
-            `${userId}-${stats.latestAt}`,
-          ),
-          createdAt: stats.latestAt,
-          isGameSpeed: stats.isGameSpeed,
-          intensity: getIntensity(stats.totalTouches, stats.totalMinutes),
-        });
-      }
-
-      // Street challenge completions
-      for (const completion of (streetCompletions || []) as any[]) {
-        if (usedUsers.has(completion.profile_id)) continue;
-        const profile = profileMap.get(completion.profile_id);
-        if (!profile) continue;
-        const name = getDisplayName(profile);
-        items.push({
-          id: `street-${completion.id}`,
-          userId: completion.profile_id,
-          name,
-          avatarUrl: profile.avatar_url ?? null,
-          message: getStreetFeedMessage(
-            completion.category,
-            completion.challenge_name,
-            name,
-            completion.id,
-          ),
-          createdAt: completion.created_at,
-        });
-      }
-
-      const finalItems = items
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
-        .slice(0, limit);
-
-      // Streak needs full session history, not the 3-day window above —
-      // fetch it only for the handful of users who actually made the feed.
-      const finalUserIds = [...new Set(finalItems.map((i) => i.userId))];
-      if (finalUserIds.length > 0) {
-        const { data: historyRows } = await supabase
-          .from('daily_sessions')
-          .select('user_id, date')
-          .in('user_id', finalUserIds);
-
-        const datesByUser = new Map<string, string[]>();
-        for (const row of (historyRows || []) as { user_id: string; date: string }[]) {
-          if (!datesByUser.has(row.user_id)) datesByUser.set(row.user_id, []);
-          datesByUser.get(row.user_id)!.push(row.date);
-        }
-
-        for (const item of finalItems) {
-          const dates = datesByUser.get(item.userId);
-          if (dates) item.streak = calculateStreak(dates).currentStreak;
-        }
-      }
-
-      return finalItems;
-    },
+    queryFn: () => fetchActivityItems(limit),
   });
 }
