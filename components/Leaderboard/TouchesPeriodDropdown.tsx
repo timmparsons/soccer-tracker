@@ -23,7 +23,7 @@ const LABELS: Record<TouchesPeriod, string> = {
   week: 'This Week',
 };
 
-const OPTIONS: TouchesPeriod[] = ['today', 'last_week', 'week'];
+const OPTIONS: TouchesPeriod[] = ['today', 'week', 'last_week'];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
