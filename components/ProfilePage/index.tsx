@@ -9,7 +9,6 @@ import {
 import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
-import { useChallengeRecord } from '@/hooks/usePlayerChallenges';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserSquadBadges } from '@/hooks/useSquadBadges';
 import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
@@ -659,8 +658,6 @@ const ProfilePage = () => {
     user?.id,
   );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
-  const { data: challengeRecord = { wins: 0, losses: 0, streak: 0 } } =
-    useChallengeRecord(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
   const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
 
@@ -906,32 +903,6 @@ const ProfilePage = () => {
                   <Text style={styles.lifetimeStatLabel}>Avg/Day</Text>
                 </View>
               </View>
-              {(challengeRecord.wins > 0 || challengeRecord.losses > 0) && (
-                <View style={styles.challengeRecordRow}>
-                  <View style={styles.lifetimeStat}>
-                    <Text style={styles.lifetimeStatValue}>
-                      {challengeRecord.wins}
-                    </Text>
-                    <Text style={styles.lifetimeStatLabel}>Challenge Wins</Text>
-                  </View>
-                  <View style={styles.lifetimeStat}>
-                    <Text style={styles.lifetimeStatValue}>
-                      {challengeRecord.losses}
-                    </Text>
-                    <Text style={styles.lifetimeStatLabel}>
-                      Challenge Losses
-                    </Text>
-                  </View>
-                  {challengeRecord.streak > 0 && (
-                    <View style={styles.lifetimeStat}>
-                      <Text style={styles.lifetimeStatValue}>
-                        🔥 {challengeRecord.streak}
-                      </Text>
-                      <Text style={styles.lifetimeStatLabel}>Win Streak</Text>
-                    </View>
-                  )}
-                </View>
-              )}
             </View>
           )}
 
@@ -2387,14 +2358,6 @@ const styles = StyleSheet.create({
   lifetimeGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-  },
-  challengeRecordRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
   lifetimeStat: {
     alignItems: 'center',
