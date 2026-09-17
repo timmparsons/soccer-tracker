@@ -95,21 +95,44 @@ const ActivityHeatmap = ({ cells, onWeeksVisibleChange }: ActivityHeatmapProps) 
     ...columns.flat().filter((c): c is HeatmapCell => c !== null).map((c) => c.value),
   );
 
-  // Month label per column — only shown the first time a new month appears,
-  // same as GitHub's contribution graph.
+  // Month label per column — one per month, at that month's first column,
+  // same as GitHub's contribution graph. Only the leading segment (whatever
+  // month the fixed-length window happens to start mid-way through, e.g. a
+  // 16-week lookback starting mid-May) can be too narrow to hold a label
+  // without touching the one after it, so it's the only one subject to a
+  // minimum-width check — skipped if it's a sliver rather than squeezed in.
+  // The trailing segment is "today"'s month: it's cut short by the current
+  // date, not by a neighbour, so nothing collides and it always gets shown
+  // regardless of width — otherwise the current month would routinely be
+  // unlabeled, since it's rarely a full month's worth of columns.
   const columnMonths = columns.map((col) => {
     const anchor = col.find((c): c is HeatmapCell => c !== null);
     return anchor ? MONTH_NAMES[new Date(anchor.date + 'T00:00:00').getMonth()] : '';
   });
 
+  const MIN_LABEL_GAP = 3;
+  const columnLabels = new Array(columnMonths.length).fill('');
+  let segmentStart = 0;
+  for (let i = 0; i <= columnMonths.length; i++) {
+    const isBoundary = i === columnMonths.length || columnMonths[i] !== columnMonths[segmentStart];
+    if (isBoundary) {
+      const month = columnMonths[segmentStart];
+      const isLeadingSegment = segmentStart === 0;
+      if (month && (!isLeadingSegment || i - segmentStart >= MIN_LABEL_GAP)) {
+        columnLabels[segmentStart] = month;
+      }
+      segmentStart = i;
+    }
+  }
+
   return (
     <View style={styles.wrapper} onLayout={handleLayout}>
       <View style={styles.monthRow}>
         <View style={{ width: DAY_LABEL_WIDTH }} />
-        {columnMonths.map((month, i) => (
+        {columnLabels.map((label, i) => (
           <View key={i} style={{ width: CELL_SIZE, marginRight: CELL_GAP }}>
             <Text style={styles.monthLabel} numberOfLines={1}>
-              {i === 0 || month !== columnMonths[i - 1] ? month : ''}
+              {label}
             </Text>
           </View>
         ))}
