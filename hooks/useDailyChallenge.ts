@@ -67,6 +67,18 @@ export const TOUCHES_PER_REP: Record<string, number> = {
   [D.FIGURE_OF_8]:    6,
 };
 
+// Realistic max pace per drill (touches/sec), used to hard-block implausible
+// self-reported single-drill logs (see LogSessionModal). Most drills top out
+// around 2 touches/sec; Bell Taps is quicker.
+const DEFAULT_MAX_TOUCHES_PER_SEC = 2;
+const MAX_TOUCHES_PER_SEC: Record<string, number> = {
+  [D.BELL_TAPS]: 3,
+};
+
+export function maxTouchesPerSecFor(drillId: string): number {
+  return MAX_TOUCHES_PER_SEC[drillId] ?? DEFAULT_MAX_TOUCHES_PER_SEC;
+}
+
 // Resolves raw JSONB steps (as stored in Supabase) into display-ready steps
 // by looking up each drill's name/video from a drillId -> info map. Shared
 // with hooks/useWorkouts.ts, which stores steps in the same raw shape.

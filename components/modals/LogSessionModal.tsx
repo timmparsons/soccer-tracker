@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import GameSpeedPrompt, { SessionFocus } from '@/components/modals/GameSpeedPrompt';
+import { maxTouchesPerSecFor } from '@/hooks/useDailyChallenge';
 import { MAX_SESSION_TOUCHES, MAX_SESSION_JUGGLES, MAX_DAILY_TOUCHES, getTodayTouchTotal } from '@/lib/touchLimits';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -126,11 +127,6 @@ const LogSessionModal = ({
   const handleSubmit = async () => {
     if (submitting) return;
 
-    if (requiresConfirm && !showConfirm) {
-      setShowConfirm(true);
-      return;
-    }
-
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
     const durationCount = duration ? parseInt(duration) : 0;
@@ -144,6 +140,21 @@ const LogSessionModal = ({
         Alert.alert('Invalid Input', 'Please enter touches or a juggling record');
         return;
       }
+      if (touchCount > 0 && durationCount <= 0) {
+        Alert.alert('How long did it take?', 'Enter your time so we can check the pace.');
+        return;
+      }
+      if (touchCount > 0 && challengeDrillId) {
+        const cap = maxTouchesPerSecFor(challengeDrillId);
+        const pace = computePace(touchCount, durationCount * 60);
+        if (pace !== null && pace > cap) {
+          Alert.alert(
+            "That pace isn't realistic",
+            `${challengeName ?? 'This drill'} tops out around ${cap} touches/sec. Double-check your numbers and try again.`,
+          );
+          return;
+        }
+      }
     } else if (touchCount <= 0 && juggleCount <= 0 && !(isFreestyleMode && durationCount > 0)) {
       Alert.alert(
         'Invalid Input',
@@ -151,6 +162,11 @@ const LogSessionModal = ({
           ? 'Enter how many minutes you were out there'
           : 'Please enter touches or a juggling record',
       );
+      return;
+    }
+
+    if (requiresConfirm && !showConfirm) {
+      setShowConfirm(true);
       return;
     }
 
