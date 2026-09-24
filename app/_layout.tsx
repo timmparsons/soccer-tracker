@@ -351,6 +351,19 @@ export default function RootLayout() {
       await AsyncStorage.setItem('legacyLocalNotificationsFlushed', 'true');
     }
 
+    // One-time cleanup: the local 8pm "protect your streak" reminder
+    // (formerly scheduled from lib/streakDanger.ts) was queued per-device off
+    // whatever streak data that device last saw — on shared/multi-device
+    // family accounts a device that hadn't trained yet would still fire even
+    // after another device on the same account trained later. Removed in
+    // favor of the server-side cron job; purge any already-queued copy once
+    // per install.
+    const flushedStreakDanger = await AsyncStorage.getItem('streakDangerNotificationFlushed');
+    if (flushedStreakDanger !== 'true') {
+      await Notifications.cancelScheduledNotificationAsync('streak-danger').catch(() => {});
+      await AsyncStorage.setItem('streakDangerNotificationFlushed', 'true');
+    }
+
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });

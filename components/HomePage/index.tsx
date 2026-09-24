@@ -1,4 +1,5 @@
 import ActivityFeed from '@/components/HomePage/ActivityFeed';
+import ProVideosCard from '@/components/HomePage/ProVideosCard';
 import QuickLaunchButton from '@/components/HomePage/QuickLaunchButton';
 import StreakBanner from '@/components/HomePage/StreakBanner';
 import CircularProgress from '@/components/common/CircularProgress';
@@ -16,7 +17,6 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { syncStreakDangerNotification } from '@/lib/streakDanger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -94,16 +94,6 @@ const HomeScreen = () => {
     }, [refetchProfile, refetchStats, refetchChallengeStats, refetchActiveStreak, queryClient, user?.id]),
   );
 
-  // Reacts to the underlying query values (not just focus/refresh events), so
-  // it re-syncs once an in-flight refetch actually resolves with fresh data.
-  useEffect(() => {
-    if (!user?.id) return;
-    syncStreakDangerNotification(
-      activeStreakStats?.currentStreak || 0,
-      touchStats?.today_touches || 0,
-    );
-  }, [user?.id, activeStreakStats?.currentStreak, touchStats?.today_touches]);
-
   // Auto-show the streak modal once per calendar day, the first time
   // Home has a real streak to show.
   useEffect(() => {
@@ -167,6 +157,11 @@ const HomeScreen = () => {
             todayTouches={todayTouches}
             onPress={() => setStreakModalVisible(true)}
           />
+        )}
+
+        {/* FROM THE PROS — unlocked by longest-ever streak */}
+        {!profile?.is_coach && (
+          <ProVideosCard longestStreak={activeStreakStats?.longestStreak ?? 0} />
         )}
 
         {/* TEAM NUDGE — solo players with no team */}
