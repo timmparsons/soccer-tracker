@@ -172,8 +172,8 @@ export default function ChallengeAttemptModal({
             </View>
           ) : (
             <>
-              <View style={styles.timerContainer}>
-                <Text style={styles.timerLabel}>Your time</Text>
+              <View style={[styles.timerContainer, running && styles.timerContainerRunning]}>
+                <Text style={[styles.timerLabel, running && styles.timerLabelRunning]}>Your time</Text>
                 <Text style={styles.timerValue}>{formatTime(elapsed)}</Text>
               </View>
 
@@ -300,11 +300,17 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     marginBottom: 20,
   },
+  timerContainerRunning: {
+    backgroundColor: '#31af4d',
+  },
   timerLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: '#78909C',
     marginBottom: 8,
+  },
+  timerLabelRunning: {
+    color: 'rgba(255,255,255,0.75)',
   },
   timerValue: {
     fontSize: 64,

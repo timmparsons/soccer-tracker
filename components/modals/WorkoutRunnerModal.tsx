@@ -155,10 +155,11 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   if (!visible) return null;
 
   const isDark = state === 'running';
+  const backgroundColor = state === 'running' ? '#31af4d' : '#FFFFFF';
 
   return (
     <>
-      <View style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}>
+      <View style={[styles.container, { backgroundColor }]}>
         <TouchableOpacity
           style={[styles.closeButton, { top: insets.top + 12 }]}
           onPress={onClose}

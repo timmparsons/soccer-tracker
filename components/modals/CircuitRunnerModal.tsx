@@ -186,6 +186,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
   };
 
   const isDark = state === 'running' || state === 'countdown';
+  const backgroundColor = state === 'running' ? '#31af4d' : isDark ? '#1a1a2e' : '#FFFFFF';
   const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
   const insets = useSafeAreaInsets();
 
@@ -205,7 +206,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     <>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[styles.container, { backgroundColor: isDark ? '#1a1a2e' : '#FFFFFF' }]}
+        style={[styles.container, { backgroundColor }]}
         onLayout={onDialogLayout}
       >
         <TouchableOpacity
@@ -261,7 +262,21 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
             <Text style={styles.runningRound}>
               Station {timer.phaseIndex + 1} / {phases.length}
             </Text>
-            <Text style={styles.runningLabel}>{timer.currentPhase.label}</Text>
+            {steps[timer.phaseIndex]?.type === 'single' ? (
+              <Text style={[styles.runningLabel, styles.runningLabelSolo]}>
+                <Text style={styles.runningReps}>{steps[timer.phaseIndex].reps}x </Text>
+                {timer.currentPhase.label}
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.runningLabel}>{timer.currentPhase.label}</Text>
+                <Text style={styles.runningSequence}>
+                  {(steps[timer.phaseIndex] as Extract<DailyChallengeStep, { type: 'combo' }>).drills
+                    .map((d) => d.drillName)
+                    .join(' → ')}
+                </Text>
+              </>
+            )}
             <Text style={styles.runningTime}>{formatTime(timer.secondsRemaining)}</Text>
             <TouchableOpacity
               style={styles.pauseButton}
@@ -464,7 +479,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  runningLabelSolo: {
     marginBottom: 24,
+  },
+  runningReps: {
+    fontWeight: '900',
+  },
+  runningSequence: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+    paddingHorizontal: 8,
   },
   runningTime: {
     fontSize: 80,
