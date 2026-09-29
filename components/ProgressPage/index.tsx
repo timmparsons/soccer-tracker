@@ -51,6 +51,7 @@ const ProgressPage = () => {
   const [milestoneMessage, setMilestoneMessage] = useState('');
   const [milestoneStreak, setMilestoneStreak] = useState(0);
   const [editingSession, setEditingSession] = useState<SessionLog | null>(null);
+  const [addingSession, setAddingSession] = useState(false);
   const queryClient = useQueryClient();
 
   // Refetch all data when screen comes into focus
@@ -386,13 +387,21 @@ const ProgressPage = () => {
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
             <Text style={styles.sectionTitle}>Recent Sessions</Text>
-            {!isPremium && (
+            <View style={styles.historyHeaderActions}>
               <TouchableOpacity
-                onPress={() => router.push('/(modals)/paywall')}
+                onPress={() => setAddingSession(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.viewAllText}>See all · Pro 🔒</Text>
+                <Ionicons name='add-circle' size={24} color='#1f89ee' />
               </TouchableOpacity>
-            )}
+              {!isPremium && (
+                <TouchableOpacity
+                  onPress={() => router.push('/(modals)/paywall')}
+                >
+                  <Text style={styles.viewAllText}>See all · Pro 🔒</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {sessionsLoading ? (
@@ -487,8 +496,11 @@ const ProgressPage = () => {
 
       {/* Edit session */}
       <EditSessionModal
-        visible={!!editingSession}
-        onClose={() => setEditingSession(null)}
+        visible={!!editingSession || addingSession}
+        onClose={() => {
+          setEditingSession(null);
+          setAddingSession(false);
+        }}
         userId={user?.id ?? ''}
         session={editingSession}
         onSuccess={() => {
@@ -654,6 +666,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  historyHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
   viewAllText: {
     fontSize: 14,

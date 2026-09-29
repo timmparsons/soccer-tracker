@@ -60,7 +60,8 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (visible && session) {
+    if (!visible) return;
+    if (session) {
       setDate(session.date);
       setTouches(String(session.touches_logged));
       setDuration(session.duration_minutes ? String(session.duration_minutes) : '');
@@ -70,11 +71,15 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
           : '',
       );
       setSelectedAreas(session.focus_areas ?? []);
-      setSubmitting(false);
+    } else {
+      setDate(getLocalDate());
+      setTouches('');
+      setDuration('');
+      setJuggles('');
+      setSelectedAreas([]);
     }
+    setSubmitting(false);
   }, [visible, session]);
-
-  if (!session) return null;
 
   const today = getLocalDate();
   const yesterday = getLocalDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
@@ -113,42 +118,58 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
     const storedTouches = touchCount > 0 ? touchCount : juggleCount;
 
     try {
-      // Insert the corrected row before deleting the old one so a failed
-      // delete never loses the session outright — worst case is a
-      // duplicate the user can flag, not a vanished one.
-      const { error: insertError } = await supabase.from('daily_sessions').insert({
-        user_id: userId,
-        drill_id: session.drill_id,
-        challenge_type: session.challenge_type,
-        touches_logged: storedTouches,
-        duration_minutes: duration ? parseInt(duration) : null,
-        juggle_count: juggleCount > 0 ? juggleCount : null,
-        date,
-        focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
-        training_focus: session.training_focus,
-        is_game_speed: session.is_game_speed,
-      });
+      if (session) {
+        // Insert the corrected row before deleting the old one so a failed
+        // delete never loses the session outright — worst case is a
+        // duplicate the user can flag, not a vanished one.
+        const { error: insertError } = await supabase.from('daily_sessions').insert({
+          user_id: userId,
+          drill_id: session.drill_id,
+          challenge_type: session.challenge_type,
+          touches_logged: storedTouches,
+          duration_minutes: duration ? parseInt(duration) : null,
+          juggle_count: juggleCount > 0 ? juggleCount : null,
+          date,
+          focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
+          training_focus: session.training_focus,
+          is_game_speed: session.is_game_speed,
+        });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
 
-      const { error: deleteError } = await supabase
-        .from('daily_sessions')
-        .delete()
-        .eq('id', session.id);
+        const { error: deleteError } = await supabase
+          .from('daily_sessions')
+          .delete()
+          .eq('id', session.id);
 
-      if (deleteError) {
-        console.error('Error removing old session after edit:', deleteError);
-        Alert.alert(
-          'Partial Update',
-          'The corrected session was saved, but the old one could not be removed. Contact support.',
-        );
+        if (deleteError) {
+          console.error('Error removing old session after edit:', deleteError);
+          Alert.alert(
+            'Partial Update',
+            'The corrected session was saved, but the old one could not be removed. Contact support.',
+          );
+        }
+      } else {
+        const { error } = await supabase.from('daily_sessions').insert({
+          user_id: userId,
+          drill_id: null,
+          touches_logged: storedTouches,
+          duration_minutes: duration ? parseInt(duration) : null,
+          juggle_count: juggleCount > 0 ? juggleCount : null,
+          date,
+          focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
+          training_focus: null,
+          is_game_speed: false,
+        });
+
+        if (error) throw error;
       }
 
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error editing session:', error);
-      Alert.alert('Error', 'Failed to save changes. Please try again.');
+      console.error('Error saving session:', error);
+      Alert.alert('Error', 'Failed to save session. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -170,7 +191,7 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Edit Session</Text>
+            <Text style={styles.modalTitle}>{session ? 'Edit Session' : 'Add Session'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name='close' size={28} color='#1a1a2e' />
             </TouchableOpacity>
@@ -313,7 +334,7 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
               {submitting ? (
                 <ActivityIndicator size='small' color='#FFF' />
               ) : (
-                <Text style={styles.submitButtonText}>SAVE CHANGES</Text>
+                <Text style={styles.submitButtonText}>{session ? 'SAVE CHANGES' : 'ADD SESSION'}</Text>
               )}
             </TouchableOpacity>
           </View>
