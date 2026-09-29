@@ -1,12 +1,14 @@
 import ActivityHeatmap from '@/components/ProgressPage/ActivityHeatmap';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
+import EditSessionModal from '@/components/modals/EditSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserSquadBadges } from '@/hooks/useSquadBadges';
 import {
+  SessionLog,
   useActiveStreak,
   useDailyTouchHistory,
   useRecentSessions,
@@ -48,6 +50,7 @@ const ProgressPage = () => {
   const [showVinnieMilestone, setShowVinnieMilestone] = useState(false);
   const [milestoneMessage, setMilestoneMessage] = useState('');
   const [milestoneStreak, setMilestoneStreak] = useState(0);
+  const [editingSession, setEditingSession] = useState<SessionLog | null>(null);
   const queryClient = useQueryClient();
 
   // Refetch all data when screen comes into focus
@@ -452,6 +455,13 @@ const ProgressPage = () => {
                         </Text>
                       )}
                   </View>
+                  <TouchableOpacity
+                    style={styles.sessionEditButton}
+                    onPress={() => setEditingSession(session)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name='pencil' size={16} color='#78909C' />
+                  </TouchableOpacity>
                 </View>
               ),
             )
@@ -473,6 +483,28 @@ const ProgressPage = () => {
         streak={milestoneStreak}
         overrideMessage={milestoneMessage}
         onClose={() => setShowVinnieMilestone(false)}
+      />
+
+      {/* Edit session */}
+      <EditSessionModal
+        visible={!!editingSession}
+        onClose={() => setEditingSession(null)}
+        userId={user?.id ?? ''}
+        session={editingSession}
+        onSuccess={() => {
+          if (!user?.id) return;
+          queryClient.invalidateQueries({ queryKey: ['recent-sessions', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['touch-tracking', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['active-streak', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['daily-touch-history', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['juggling-record', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['chart-stats', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['quick-stats', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['focus-breakdown', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['heatmap-stats', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['team', user.id] });
+        }}
       />
     </View>
   );
@@ -701,6 +733,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FF9800',
     marginTop: 4,
+  },
+  sessionEditButton: {
+    padding: 6,
+    marginLeft: 8,
   },
   focusCard: {
     backgroundColor: '#FFF',

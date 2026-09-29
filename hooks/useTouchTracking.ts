@@ -20,14 +20,19 @@ interface DailyStats {
   last_session_time: string | null;
 }
 
-interface SessionLog {
+export interface SessionLog {
   id: string;
   date: string;
   drill_name: string | null;
+  drill_id: string | null;
   touches_logged: number;
   duration_minutes: number | null;
+  juggle_count: number | null;
   created_at: string;
   focus_areas: string[] | null;
+  training_focus: string | null;
+  is_game_speed: boolean;
+  challenge_type: string | null;
 }
 
 export const useTouchTracking = (userId: string | undefined) => {
@@ -236,8 +241,13 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           date,
           touches_logged,
           duration_minutes,
+          juggle_count,
           focus_areas,
           created_at,
+          drill_id,
+          training_focus,
+          is_game_speed,
+          challenge_type,
           drills (name)
         `,
         )
@@ -251,17 +261,27 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           date: string;
           touches_logged: number;
           duration_minutes: number | null;
+          juggle_count: number | null;
           focus_areas: string[] | null;
           created_at: string;
+          drill_id: string | null;
+          training_focus: string | null;
+          is_game_speed: boolean;
+          challenge_type: string | null;
           drills: { name: string } | null;
         }) => ({
           id: s.id,
           date: s.date,
           drill_name: s.drills?.name || null,
+          drill_id: s.drill_id,
           touches_logged: s.touches_logged,
           duration_minutes: s.duration_minutes,
+          juggle_count: s.juggle_count,
           focus_areas: s.focus_areas ?? null,
           created_at: s.created_at,
+          training_focus: s.training_focus,
+          is_game_speed: s.is_game_speed,
+          challenge_type: s.challenge_type,
         }),
       );
     },
