@@ -34,6 +34,13 @@ const FOCUS_AREAS = [
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const formatDisplayDate = (value: string): string => {
+  if (!DATE_RE.test(value)) return value;
+  const parsed = new Date(value + 'T00:00:00');
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 interface EditSessionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -45,6 +52,7 @@ interface EditSessionModalProps {
 const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: EditSessionModalProps) => {
   const { bottom: bottomInset } = useSafeAreaInsets();
   const [date, setDate] = useState('');
+  const [isDateFocused, setIsDateFocused] = useState(false);
   const [touches, setTouches] = useState('');
   const [duration, setDuration] = useState('');
   const [juggles, setJuggles] = useState('');
@@ -181,8 +189,10 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
                 style={styles.input}
                 placeholder='YYYY-MM-DD'
                 placeholderTextColor='#B0BEC5'
-                value={date}
+                value={isDateFocused ? date : formatDisplayDate(date)}
                 onChangeText={setDate}
+                onFocus={() => setIsDateFocused(true)}
+                onBlur={() => setIsDateFocused(false)}
                 maxLength={10}
               />
               <View style={styles.inputIconBg}>
