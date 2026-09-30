@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
   label: string;
+  subtitle?: string;
   onPress: () => void;
   disabled?: boolean;
 }
 
-const QuickLaunchButton = ({ icon, iconColor, label, onPress, disabled }: Props) => {
+const QuickLaunchButton = ({ icon, iconColor, label, subtitle, onPress, disabled }: Props) => {
   return (
     <TouchableOpacity
       style={[styles.button, disabled && styles.buttonDisabled]}
@@ -18,7 +19,10 @@ const QuickLaunchButton = ({ icon, iconColor, label, onPress, disabled }: Props)
       activeOpacity={0.85}
     >
       <Ionicons name={icon} size={20} color={iconColor} />
-      <Text style={styles.label}>{label}</Text>
+      <View style={styles.textContainer}>
+        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      </View>
       <Ionicons name='chevron-forward' size={18} color='#78909C' />
     </TouchableOpacity>
   );
@@ -46,8 +50,16 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
-  label: {
+  textContainer: {
     flex: 1,
+  },
+  subtitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78909C',
+    marginBottom: 2,
+  },
+  label: {
     fontSize: 14,
     fontWeight: '800',
     color: '#1a1a2e',
