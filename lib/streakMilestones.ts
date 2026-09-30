@@ -43,3 +43,25 @@ export function getStreakMilestone(currentStreak: number): StreakMilestone {
 
   return { target: nextTier, previousTarget, label, progressPct, isMaxTier: false };
 }
+
+// Milestones that trigger a confetti celebration on Home, separate from the
+// progress-bar tiers above. 10/25/50, then every 50 days after 100.
+const CONFETTI_MILESTONES = [
+  10,
+  25,
+  50,
+  ...Array.from({ length: 19 }, (_, i) => 100 + i * 50),
+];
+
+// Returns the highest milestone crossed between previousStreak and
+// currentStreak (exclusive/inclusive), or null if none was crossed.
+export function getCrossedConfettiMilestone(
+  previousStreak: number,
+  currentStreak: number,
+): number | null {
+  if (currentStreak <= previousStreak) return null;
+  const crossed = CONFETTI_MILESTONES.filter(
+    (m) => m > previousStreak && m <= currentStreak,
+  );
+  return crossed.length ? crossed[crossed.length - 1] : null;
+}

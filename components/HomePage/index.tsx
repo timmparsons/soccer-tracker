@@ -14,6 +14,7 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { getCrossedConfettiMilestone } from '@/lib/streakMilestones';
 import { pickForDate } from '@/utils/dailySeed';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -22,8 +23,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -31,6 +33,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 const HomeScreen = () => {
   const { data: user } = useUser();
@@ -40,6 +43,7 @@ const HomeScreen = () => {
   const [teamNudgeDismissed, setTeamNudgeDismissed] = useState(false);
   const [streakModalVisible, setStreakModalVisible] = useState(false);
   const queryClient = useQueryClient();
+  const confettiRef = useRef<ConfettiCannon>(null);
 
   const {
     data: touchStats,
@@ -113,6 +117,34 @@ const HomeScreen = () => {
 
       await AsyncStorage.setItem(key, today);
       setStreakModalVisible(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, activeStreakStats?.currentStreak]);
+
+  // Confetti the moment a streak milestone day (10/25/50/100/150/200...) is
+  // completed — not on every later app open at that same streak count.
+  useEffect(() => {
+    const currentStreak = activeStreakStats?.currentStreak;
+    if (!user?.id || currentStreak == null) return;
+
+    let cancelled = false;
+    (async () => {
+      const key = `streak:lastSeenCount:${user.id}`;
+      const stored = await AsyncStorage.getItem(key);
+      if (cancelled) return;
+
+      if (stored !== null) {
+        const lastSeen = parseInt(stored, 10);
+        const milestone = getCrossedConfettiMilestone(lastSeen, currentStreak);
+        if (milestone !== null) {
+          setTimeout(() => confettiRef.current?.start(), 300);
+        }
+      }
+
+      await AsyncStorage.setItem(key, String(currentStreak));
     })();
 
     return () => {
@@ -308,6 +340,15 @@ const HomeScreen = () => {
         streak={streak}
         freezesAvailable={freezesAvailable}
         weekActivity={activeStreakStats?.weekActivity || []}
+      />
+
+      <ConfettiCannon
+        ref={confettiRef}
+        count={180}
+        origin={{ x: Dimensions.get('window').width / 2, y: -20 }}
+        autoStart={false}
+        fadeOut
+        colors={['#ffb724', '#1f89ee', '#31af4d', '#FF6B6B', '#A855F7']}
       />
     </View>
   );
