@@ -1,5 +1,4 @@
 import ActivityFeed from '@/components/HomePage/ActivityFeed';
-import ProVideosCard from '@/components/HomePage/ProVideosCard';
 import QuickLaunchButton from '@/components/HomePage/QuickLaunchButton';
 import StreakBanner from '@/components/HomePage/StreakBanner';
 import CircularProgress from '@/components/common/CircularProgress';
@@ -163,11 +162,6 @@ const HomeScreen = () => {
             todayTouches={todayTouches}
             onPress={() => setStreakModalVisible(true)}
           />
-        )}
-
-        {/* FROM THE PROS — unlocked by longest-ever streak */}
-        {!profile?.is_coach && (
-          <ProVideosCard longestStreak={activeStreakStats?.longestStreak ?? 0} />
         )}
 
         {/* TEAM NUDGE — solo players with no team */}
