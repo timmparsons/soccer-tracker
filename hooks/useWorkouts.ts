@@ -1,5 +1,6 @@
 import { useDrills } from '@/hooks/useTouchTracking';
 import { supabase } from '@/lib/supabase';
+import { pickForDate } from '@/utils/dailySeed';
 import { useQuery } from '@tanstack/react-query';
 import {
   DailyChallengeStep,
@@ -74,9 +75,7 @@ export function pickDailyCircuit(
   date: Date = new Date(),
 ): Workout | undefined {
   const matches = workouts.filter((w) => w.durationSeconds === durationSeconds);
-  if (matches.length === 0) return undefined;
-  const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
-  return matches[seed % matches.length];
+  return pickForDate(matches, date, `circuit-${durationSeconds}`);
 }
 
 // Same date-seeded rotation, but over single-skill "do it N times" workouts
@@ -86,7 +85,5 @@ export function pickDailySkillChallenge(
   date: Date = new Date(),
 ): Workout | undefined {
   const matches = workouts.filter((w) => w.category === 'Skill Challenge');
-  if (matches.length === 0) return undefined;
-  const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
-  return matches[seed % matches.length];
+  return pickForDate(matches, date, 'skill');
 }
