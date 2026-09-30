@@ -15,6 +15,7 @@ import {
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
 import { useUser } from '@/hooks/useUser';
+import { pickForDate } from '@/utils/dailySeed';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,7 +54,7 @@ const HomeScreen = () => {
   const { data: activeStreakStats, refetch: refetchActiveStreak } =
     useActiveStreak(user?.id);
 
-  const { workouts: circuitWorkouts } = useWorkoutLibrary();
+  const { workouts: circuitWorkouts, isLoading: workoutsLoading } = useWorkoutLibrary();
   const fiveMinCircuit = pickDailyCircuit(circuitWorkouts, 300);
   const skillChallenge = pickDailySkillChallenge(circuitWorkouts);
 
@@ -61,13 +62,18 @@ const HomeScreen = () => {
   // the pick stays stable all day. Tabata has no data dependency, so it's
   // always in the pool — circuit/skill only join if today's pick exists.
   const today = new Date();
-  const dailyChallengeSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
   const challengeVariants = [
     ...(fiveMinCircuit ? (['circuit'] as const) : []),
     'tabata' as const,
     ...(skillChallenge ? (['skill'] as const) : []),
   ];
-  const challengeVariant = challengeVariants[dailyChallengeSeed % challengeVariants.length];
+  const challengeVariant = pickForDate(challengeVariants, today, 'variant')!;
+  const challengeTitle =
+    challengeVariant === 'circuit'
+      ? fiveMinCircuit!.title
+      : challengeVariant === 'skill'
+        ? skillChallenge!.title
+        : '4-Min Burst';
 
 
   const handleRefresh = useCallback(async () => {
@@ -115,7 +121,7 @@ const HomeScreen = () => {
     };
   }, [user?.id, activeStreakStats?.currentStreak]);
 
-  if (statsLoading) {
+  if (statsLoading || workoutsLoading) {
     return <View style={styles.loadingContainer} />;
   }
 
@@ -234,7 +240,8 @@ const HomeScreen = () => {
               <QuickLaunchButton
                 icon={challengeVariant === 'circuit' ? 'barbell' : challengeVariant === 'skill' ? 'football' : 'flash'}
                 iconColor={challengeVariant === 'circuit' ? '#1f89ee' : challengeVariant === 'skill' ? '#31af4d' : '#ffb724'}
-                label='Challenge of the Day'
+                subtitle='Challenge of the Day'
+                label={challengeTitle}
                 onPress={() => {
                   if (challengeVariant === 'circuit') {
                     router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit!.id } });
