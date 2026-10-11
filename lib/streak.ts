@@ -1,4 +1,4 @@
-export const FREEZE_EARN_CADENCE_DAYS = 14;
+export const FREEZE_EARN_CADENCE_DAYS = 7;
 export const MAX_BANKED_FREEZES = 2;
 
 export interface StreakStats {

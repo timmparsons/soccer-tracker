@@ -7,7 +7,7 @@ const supabase = createClient(
 
 // --- Ported from lib/streak.ts (kept in sync manually — pure function, no RN deps) ---
 
-const FREEZE_EARN_CADENCE_DAYS = 14;
+const FREEZE_EARN_CADENCE_DAYS = 7;
 const MAX_BANKED_FREEZES = 2;
 
 interface StreakStats {

@@ -91,7 +91,7 @@ describe('calculateStreak', () => {
     expect(result.freezesAvailable).toBe(0);
   });
 
-  it('banks a freeze every 14 days, capped at MAX_BANKED_FREEZES', () => {
+  it('banks a freeze every FREEZE_EARN_CADENCE_DAYS days, capped at MAX_BANKED_FREEZES', () => {
     // 60 consecutive active days should cap out at MAX_BANKED_FREEZES, not
     // keep accumulating one per 14-day period indefinitely.
     const dates = consecutiveDates(TODAY, 60, 0);
@@ -126,6 +126,6 @@ describe('calculateStreak', () => {
   });
 
   it('exposes the earn cadence constant used by the app', () => {
-    expect(FREEZE_EARN_CADENCE_DAYS).toBe(14);
+    expect(FREEZE_EARN_CADENCE_DAYS).toBe(7);
   });
 });
