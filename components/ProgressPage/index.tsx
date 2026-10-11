@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { SQUAD_BADGE_POOL } from '@/lib/squadBadges';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { sessionTimestamp } from '@/utils/sessionTimestamp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -424,7 +425,7 @@ const ProgressPage = () => {
                       </Text>
                       <View style={styles.sessionMeta}>
                         <Text style={styles.sessionTime}>
-                          {formatTimeAgo(session.created_at)}
+                          {formatTimeAgo(sessionTimestamp(session.date, session.created_at))}
                         </Text>
                         {session.duration_minutes && (
                           <>

@@ -252,6 +252,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
         `,
         )
         .eq('user_id', userId)
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(limit);
 

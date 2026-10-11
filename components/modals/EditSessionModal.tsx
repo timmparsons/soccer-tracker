@@ -158,7 +158,7 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
           juggle_count: juggleCount > 0 ? juggleCount : null,
           date,
           focus_areas: selectedAreas.length > 0 ? selectedAreas : null,
-          training_focus: null,
+          training_focus: 'free_play',
           is_game_speed: false,
         });
 

@@ -2,6 +2,7 @@ import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
 import { getLocalDate } from '@/utils/getLocalDate';
+import { sessionTimestamp } from '@/utils/sessionTimestamp';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -436,6 +437,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
     sessionCount: number;
     hasChallenge: boolean;
     latestAt: string;
+    displayAt: string;
     isGameSpeed: boolean;
     drillTouches: Map<string, number>;
   };
@@ -476,6 +478,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
         sessionCount: 1,
         hasChallenge: !!s.drill_id,
         latestAt: s.created_at,
+        displayAt: sessionTimestamp(s.date, s.created_at),
         isGameSpeed: !!s.is_game_speed,
         drillTouches,
       });
@@ -731,7 +734,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
         topDrill,
         `${userId}-${stats.latestAt}`,
       ),
-      createdAt: stats.latestAt,
+      createdAt: stats.displayAt,
       isGameSpeed: stats.isGameSpeed,
       intensity: getIntensity(stats.totalTouches, stats.totalMinutes),
     });
