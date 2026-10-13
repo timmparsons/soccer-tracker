@@ -102,3 +102,16 @@ When a user signs up and enters an invite code provided by their coach, automati
 - Bonus: auto-sets `team_id` on the profile so they join the right squad
 
 **Why:** Removes friction — players on a coach's paid plan shouldn't have to subscribe separately. Coach pays, players get access automatically.
+
+---
+
+## Cleanup — Drop Legacy `daily_challenges` Tables
+
+`daily_challenges` / `daily_challenge_completions` are from the old circuit-challenge system, replaced by `daily_sprints` and the home-card workout rotation. Nothing has written to them since Aug 2026 (0 completions ever), but the activity feed still reads them.
+
+**Order matters — shipped builds query these tables:**
+1. Remove the `daily_challenge_completions` query and realtime subscription from `hooks/useTeamActivity.ts` (~lines 288 and 809) and ship it
+2. Wait until old builds have mostly aged out (or force-update)
+3. Then `DROP TABLE daily_challenge_completions, daily_challenges;` and delete `supabase/daily_challenge_migration.sql`
+
+**Why:** Dead schema plus a wasted feed query on every load.
