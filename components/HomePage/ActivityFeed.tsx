@@ -5,6 +5,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
@@ -39,6 +40,7 @@ const ActivityFeed = () => {
   const { data: rawActivity } = useActivityFeed(15);
   const activity = rawActivity ?? EMPTY_ACTIVITY;
   const { data: user } = useUser();
+  const router = useRouter();
   const { data: profile } = useProfile(user?.id);
 
   // Hold the feed still while new items land in the background (realtime),
@@ -102,7 +104,11 @@ const ActivityFeed = () => {
               item.isMilestone && styles.itemMilestone,
             ]}
           >
-            <View style={styles.row}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push(`/player/${item.userId}`)}
+              activeOpacity={0.7}
+            >
               <Image
                 source={{ uri: item.avatarUrl || FALLBACK_AVATAR }}
                 style={styles.avatar}
@@ -136,7 +142,7 @@ const ActivityFeed = () => {
                   )}
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
             {!isOwn && !isCoach && user?.id && (
               <CheerRow
                 feedItemKey={item.id}

@@ -1,6 +1,7 @@
 import ActivityHeatmap from '@/components/ProgressPage/ActivityHeatmap';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
+import SessionRow from '@/components/common/SessionRow';
 import EditSessionModal from '@/components/modals/EditSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
@@ -11,6 +12,7 @@ import {
   SessionLog,
   useActiveStreak,
   useDailyTouchHistory,
+  useHeatmapCells,
   useRecentSessions,
   useTouchTracking,
 } from '@/hooks/useTouchTracking';
@@ -20,7 +22,6 @@ import { supabase } from '@/lib/supabase';
 import { SQUAD_BADGE_POOL } from '@/lib/squadBadges';
 import { VINNIE_STREAK_MESSAGES, VINNIE_STREAK_MILESTONES } from '@/lib/vinnie';
 import { getLocalDate } from '@/utils/getLocalDate';
-import { sessionTimestamp } from '@/utils/sessionTimestamp';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -111,44 +112,7 @@ const ProgressPage = () => {
     setShowVinnieMilestone(true);
   }, [activeStreakStats?.frozenDates, activeStreakStats?.currentStreak]);
 
-  // Get heatmap data — a generous 26-week (182-day) sliding window ending
-  // today, independent of the Week/Month toggle (which still drives the
-  // stats/focus-breakdown sections below). ActivityHeatmap measures the
-  // card width and trims this down to however many full weeks actually
-  // fit, GitHub-style, so wider screens show more history instead of
-  // leaving blank space next to a fixed 5-week grid.
-  const { data: heatmapCells = [] } = useQuery({
-    queryKey: ['heatmap-stats', user?.id, getLocalDate()],
-    enabled: !!user?.id,
-    queryFn: async (): Promise<{ date: string; value: number }[]> => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const rangeStart = new Date(today);
-      rangeStart.setDate(rangeStart.getDate() - 181);
-
-      const { data: sessions } = await supabase
-        .from('daily_sessions')
-        .select('touches_logged, date')
-        .eq('user_id', user!.id)
-        .gte('date', getLocalDate(rangeStart))
-        .order('date', { ascending: true });
-
-      const byDate: Record<string, number> = {};
-      sessions?.forEach((s) => {
-        byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
-      });
-
-      const cells: { date: string; value: number }[] = [];
-      const cursor = new Date(rangeStart);
-      while (cursor <= today) {
-        const dateStr = getLocalDate(cursor);
-        cells.push({ date: dateStr, value: byDate[dateStr] || 0 });
-        cursor.setDate(cursor.getDate() + 1);
-      }
-
-      return cells;
-    },
-  });
+  const { data: heatmapCells = [] } = useHeatmapCells(user?.id);
 
   const { data: focusBreakdownRaw = [] } = useQuery({
     queryKey: ['focus-breakdown', user?.id, timeFilter, getLocalDate()],
@@ -209,20 +173,6 @@ const ProgressPage = () => {
 
   const getSquadBadgeColor = (icon: string) =>
     SQUAD_BADGE_POOL.find((b) => b.icon === icon)?.color || '#ffb724';
-
-  // Format time ago
-  const formatTimeAgo = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    if (diffDays === 1) return 'Yesterday';
-    return `${diffDays} days ago`;
-  };
 
   return (
     <View style={styles.container}>
@@ -414,65 +364,11 @@ const ProgressPage = () => {
           ) : recentSessions && recentSessions.length > 0 ? (
             (isPremium ? recentSessions : recentSessions.slice(0, 3)).map(
               (session) => (
-                <View key={session.id} style={styles.sessionItem}>
-                  <View style={styles.sessionLeft}>
-                    <View style={styles.sessionIconBg}>
-                      <Text style={styles.sessionEmoji}>⚽</Text>
-                    </View>
-                    <View style={styles.sessionInfo}>
-                      <Text style={styles.sessionName}>
-                        {session.drill_name || 'Free Practice'}
-                      </Text>
-                      <View style={styles.sessionMeta}>
-                        <Text style={styles.sessionTime}>
-                          {formatTimeAgo(sessionTimestamp(session.date, session.created_at))}
-                        </Text>
-                        {session.duration_minutes && (
-                          <>
-                            <Text style={styles.sessionDot}>•</Text>
-                            <Text style={styles.sessionDuration}>
-                              {session.duration_minutes} min
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                      {session.focus_areas && session.focus_areas.length > 0 && (
-                        <View style={styles.focusTags}>
-                          {session.focus_areas.map((area) => (
-                            <View key={area} style={styles.focusTag}>
-                              <Text style={styles.focusTagText}>
-                                {area.replace('_', ' ')}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.sessionRight}>
-                    <Text style={styles.sessionTouches}>
-                      {session.touches_logged.toLocaleString()}
-                    </Text>
-                    <Text style={styles.sessionTouchesLabel}>touches</Text>
-                    {session.duration_minutes &&
-                      session.duration_minutes > 0 && (
-                        <Text style={styles.sessionTpm}>
-                          ⚡{' '}
-                          {Math.round(
-                            session.touches_logged / session.duration_minutes,
-                          )}
-                          /min
-                        </Text>
-                      )}
-                  </View>
-                  <TouchableOpacity
-                    style={styles.sessionEditButton}
-                    onPress={() => setEditingSession(session)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name='pencil' size={16} color='#78909C' />
-                  </TouchableOpacity>
-                </View>
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  onEdit={() => setEditingSession(session)}
+                />
               ),
             )
           ) : (
@@ -678,84 +574,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1f89ee',
   },
-  sessionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F7FA',
-  },
-  sessionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  sessionIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sessionEmoji: {
-    fontSize: 20,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-  sessionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sessionTime: {
-    fontSize: 12,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  sessionDot: {
-    fontSize: 12,
-    color: '#B0BEC5',
-  },
-  sessionDuration: {
-    fontSize: 12,
-    color: '#78909C',
-    fontWeight: '600',
-  },
-  sessionRight: {
-    alignItems: 'flex-end',
-  },
-  sessionTouches: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1f89ee',
-    marginBottom: 2,
-  },
-  sessionTouchesLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#78909C',
-    textTransform: 'uppercase',
-  },
-  sessionTpm: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FF9800',
-    marginTop: 4,
-  },
-  sessionEditButton: {
-    padding: 6,
-    marginLeft: 8,
-  },
   focusCard: {
     backgroundColor: '#FFF',
     padding: 20,
@@ -797,24 +615,6 @@ const styles = StyleSheet.create({
     color: '#78909C',
     width: 70,
     textAlign: 'right',
-  },
-  focusTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 6,
-  },
-  focusTag: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  focusTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1f89ee',
-    textTransform: 'capitalize',
   },
 
   // SQUAD BADGES

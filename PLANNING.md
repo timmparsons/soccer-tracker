@@ -115,3 +115,41 @@ When a user signs up and enters an invite code provided by their coach, automati
 3. Then `DROP TABLE daily_challenge_completions, daily_challenges;` and delete `supabase/daily_challenge_migration.sql`
 
 **Why:** Dead schema plus a wasted feed query on every load.
+
+---
+
+## Player Profiles — Next Steps
+
+The player profile screen (`app/player/[id].tsx`, opened from the leaderboard and Activity Feed) shipped Oct 2026. Full view (real name, team, session history) is shown to teammates, club-mates and the player's coach; everyone else gets a public view (first name + last initial, stats, heatmap, badges).
+
+### Follow — Teammates & Club Only
+Strava-style follow, but **never stranger discovery**. Much of the audience is kids.
+- `follows` table (`follower_id`, `followee_id`, `created_at`), unique pair
+- Follow button on the player profile, only when the viewer and player share a team or club
+- "Following" filter on the Activity Feed
+- If following ever opens up beyond team/club: request/approve, off by default for under-13 and family-managed accounts
+- **Blocked on the RLS lockdown below** — follow is pointless as a privacy boundary while every session is readable
+
+### Cheers on Profile Sessions
+Feed cheers are keyed to per-day aggregate feed items, not individual `daily_sessions` rows, so profile session rows can't show or give cheers yet. Needs either a per-session cheer key or a mapping from session → feed item.
+
+### Profile Polish
+- Focus breakdown on the profile (e.g. "40% Ball Mastery") — reuse the Progress page focus query
+- Personal bests section (best day, best week, juggle PB date)
+- Tap your own avatar on Home → your own profile page, to see how teammates see you
+
+---
+
+## Security — Lock Down `daily_sessions` RLS
+
+A SELECT policy `Authenticated users can view all daily sessions` (`qual = true`) makes the team and club policies on `daily_sessions` meaningless: any signed-in user can read every player's full session history. `profiles` is also readable by the `public` (unauthenticated) role. Deferred Oct 2026. **Must be done before follow ships or family/anon accounts merge** (anonymous users count as `authenticated`).
+
+The profile screen's public view is a UI gate only — the data is still queryable.
+
+**What depends on the open policy (and what replaces it):**
+1. Home Activity Feed (`fetchActivityItems` in `hooks/useTeamActivity.ts`) is global with no team filter → scope to team + club
+2. Global touches leaderboard (`fetchGlobalTouchesLeaderboard`) → security-definer RPC that returns names + weekly totals only
+3. Admin all-teams screen (`useAllTeams`) → same RPC approach, or an `is_admin` policy
+4. Coaches with multiple teams — current coach policies use the coach's own `profile.team_id` → add a policy on `teams.coach_id = auth.uid()`
+
+Then drop the open policy, and replace the `public` profile policies with `authenticated` ones.

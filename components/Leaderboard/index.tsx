@@ -1,6 +1,5 @@
 import InactivePlayersModal from '@/components/common/InactivePlayersModal';
 import PageHeader from '@/components/common/PageHeader';
-import PlayerProfileModal from '@/components/modals/PlayerProfileModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
@@ -17,7 +16,7 @@ import { recordWeeklyWin } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -46,7 +45,8 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const [touchesScope, setTouchesScope] = useState<TouchesScope>('team');
   const [touchesPeriod, setTouchesPeriod] = useState<TouchesPeriod>('today');
   const [jugglingPeriod, setJugglingPeriod] = useState<JugglingPeriod>('week');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const router = useRouter();
+  const openPlayer = (id: string) => router.push(`/player/${id}`);
   const [teamPickerVisible, setTeamPickerVisible] = useState(false);
   const [switchingTeam, setSwitchingTeam] = useState(false);
   const [inactiveModalVisible, setInactiveModalVisible] = useState(false);
@@ -310,24 +310,17 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             period={touchesPeriod}
             isLoading={activeTouchesLoading}
             currentUserId={user?.id}
-            onSelectPlayer={setSelectedPlayerId}
+            onSelectPlayer={openPlayer}
           />
         ) : (
           <JugglingHighScoresView
             players={jugglingLeaderboard}
             isLoading={jugglingLoading}
             currentUserId={user?.id}
-            onSelectPlayer={setSelectedPlayerId}
+            onSelectPlayer={openPlayer}
           />
         )}
       </ScrollView>
-
-      <PlayerProfileModal
-        playerId={selectedPlayerId}
-        visible={!!selectedPlayerId}
-        onClose={() => setSelectedPlayerId(null)}
-        showBadges={true}
-      />
 
       <InactivePlayersModal
         visible={inactiveModalVisible}

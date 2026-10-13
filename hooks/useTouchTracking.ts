@@ -454,6 +454,43 @@ export const useDailyTouchHistory = (userId: string | undefined) => {
   });
 };
 
+// 26-week (182-day) sliding window ending today. ActivityHeatmap measures
+// its card width and trims this down to however many full weeks fit.
+export const useHeatmapCells = (userId: string | undefined) => {
+  return useQuery({
+    queryKey: ['heatmap-stats', userId, getLocalDate()],
+    enabled: !!userId,
+    queryFn: async (): Promise<{ date: string; value: number }[]> => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const rangeStart = new Date(today);
+      rangeStart.setDate(rangeStart.getDate() - 181);
+
+      const { data: sessions } = await supabase
+        .from('daily_sessions')
+        .select('touches_logged, date')
+        .eq('user_id', userId!)
+        .gte('date', getLocalDate(rangeStart))
+        .order('date', { ascending: true });
+
+      const byDate: Record<string, number> = {};
+      sessions?.forEach((s) => {
+        byDate[s.date] = (byDate[s.date] || 0) + s.touches_logged;
+      });
+
+      const cells: { date: string; value: number }[] = [];
+      const cursor = new Date(rangeStart);
+      while (cursor <= today) {
+        const dateStr = getLocalDate(cursor);
+        cells.push({ date: dateStr, value: byDate[dateStr] || 0 });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      return cells;
+    },
+  });
+};
+
 export const useTodayChallenge = (userId: string | undefined) => {
   const [date, setDate] = useState(getLocalDate());
 
