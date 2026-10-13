@@ -264,6 +264,7 @@ export default function TeamCodeCard({ teamId, userId, onDelete }: TeamCodeCardP
       {/* ADD PLAYER MODAL */}
       <Modal
         transparent
+        statusBarTranslucent={Platform.OS === 'android'}
         visible={addPlayerVisible}
         animationType="slide"
         onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}

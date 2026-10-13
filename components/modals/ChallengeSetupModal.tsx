@@ -89,7 +89,7 @@ export default function ChallengeSetupModal({
   };
 
   return (
-    <Modal visible={visible} animationType='slide' transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType='slide' transparent statusBarTranslucent={Platform.OS === 'android'} onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

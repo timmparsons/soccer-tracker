@@ -398,6 +398,7 @@ function TeamCardItem({
       {/* ADD PLAYER MODAL */}
       <Modal
         transparent
+        statusBarTranslucent={Platform.OS === 'android'}
         visible={addPlayerVisible}
         animationType="slide"
         onRequestClose={() => !addPlayerSaving && setAddPlayerVisible(false)}

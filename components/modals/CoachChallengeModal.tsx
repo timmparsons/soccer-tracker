@@ -1,3 +1,4 @@
+import { useAndroidModalKeyboard } from '@/hooks/useAndroidModalKeyboard';
 import { useCreateCoachChallenge } from '@/hooks/useCoachChallenges';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +53,7 @@ export default function CoachChallengeModal({
   }, [visible, preselectedPlayer?.id]);
 
   const { mutate: createChallenge, isPending } = useCreateCoachChallenge();
+  const { onDialogLayout, kbOverlap } = useAndroidModalKeyboard();
 
   const { data: players = [], isLoading: playersLoading } = useQuery({
     queryKey: ['team-players-for-challenge', teamId],
@@ -109,10 +111,11 @@ export default function CoachChallengeModal({
   };
 
   return (
-    <Modal visible={visible} animationType='slide' presentationStyle='pageSheet' onRequestClose={handleClose}>
+    <Modal visible={visible} animationType='slide' presentationStyle='pageSheet' statusBarTranslucent={Platform.OS === 'android'} onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[styles.container, { paddingTop: insets.top || 20 }]}
+        style={[styles.container, { paddingTop: insets.top || 20, paddingBottom: kbOverlap }]}
+        onLayout={onDialogLayout}
       >
         {/* Header */}
         <View style={styles.header}>
