@@ -1301,40 +1301,38 @@ const ProfilePage = () => {
                     <View style={styles.settingsDivider} />
 
                     {/* Global Leaderboard toggle */}
-                    <View style={[styles.settingsRow, { paddingVertical: 12 }]}>
-                      <View
-                        style={[
-                          styles.settingsIconBg,
-                          { backgroundColor: '#EFF6FF' },
-                        ]}
-                      >
-                        <Ionicons name='globe' size={20} color='#1f89ee' />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.settingsLabel}>
-                          Show me on Global Leaderboard
-                        </Text>
-                        <Text style={styles.settingsValue}>
-                          {getGlobalDisplayName(displayName)}
-                        </Text>
-                        {(hometownCity || hometownState) && (
-                          <Text
-                            style={[styles.settingsValue, { color: '#78909C' }]}
-                          >
-                            {[hometownCity, hometownState]
-                              .filter(Boolean)
-                              .join(', ')}
+                    <View style={styles.settingsRow}>
+                      <View style={[styles.settingsRowLeft, styles.settingsRowLeftFlex]}>
+                        <View
+                          style={[
+                            styles.settingsIconBg,
+                            { backgroundColor: '#EFF6FF' },
+                          ]}
+                        >
+                          <Ionicons name='globe' size={20} color='#1f89ee' />
+                        </View>
+                        <View style={styles.settingsTextFlex}>
+                          <Text style={styles.settingsLabel}>
+                            Global Leaderboard
                           </Text>
-                        )}
+                          <Text style={styles.settingsValue} numberOfLines={1}>
+                            {getGlobalDisplayName(displayName)}
+                          </Text>
+                          {(hometownCity || hometownState) && (
+                            <Text style={styles.settingsSubValue} numberOfLines={1}>
+                              {[hometownCity, hometownState]
+                                .filter(Boolean)
+                                .join(', ')}
+                            </Text>
+                          )}
+                        </View>
                       </View>
                       <Switch
                         value={globalPublic}
                         onValueChange={handleToggleGlobal}
                         trackColor={{ false: '#DDE1E7', true: '#1f89ee' }}
                         thumbColor='#FFF'
-                        style={{
-                          transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }],
-                        }}
+                        style={styles.settingsSwitch}
                       />
                     </View>
 
@@ -1504,6 +1502,7 @@ const ProfilePage = () => {
           visible={showChangePasswordModal}
           animationType='slide'
           transparent={true}
+          statusBarTranslucent={Platform.OS === 'android'}
           onRequestClose={() => setShowChangePasswordModal(false)}
         >
           <KeyboardAvoidingView
@@ -1624,6 +1623,7 @@ const ProfilePage = () => {
           visible={showTargetModal}
           animationType='slide'
           transparent={true}
+          statusBarTranslucent={Platform.OS === 'android'}
           onRequestClose={() => setShowTargetModal(false)}
         >
           <KeyboardAvoidingView
@@ -1733,6 +1733,7 @@ const ProfilePage = () => {
           visible={showNameModal}
           animationType='slide'
           transparent={true}
+          statusBarTranslucent={Platform.OS === 'android'}
           onRequestClose={() => setShowNameModal(false)}
         >
           <KeyboardAvoidingView
@@ -1796,6 +1797,7 @@ const ProfilePage = () => {
         visible={showPlayerClubModal}
         animationType='slide'
         transparent={true}
+        statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={() => {
           setShowPlayerClubModal(false);
           setPlayerClubQuery('');
@@ -1935,6 +1937,7 @@ const ProfilePage = () => {
         visible={showCreateClubModal}
         animationType='slide'
         transparent={true}
+        statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={() => setShowCreateClubModal(false)}
       >
         <KeyboardAvoidingView
@@ -1994,6 +1997,7 @@ const ProfilePage = () => {
         visible={showCoachClubSearchModal}
         animationType='slide'
         transparent={true}
+        statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={() => {
           setShowCoachClubSearchModal(false);
           setCoachClubQuery('');
@@ -2968,6 +2972,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  settingsRowLeftFlex: {
+    flex: 1,
+    marginRight: 8,
+  },
+  settingsTextFlex: {
+    flex: 1,
+  },
+  settingsSubValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 1,
+  },
+  // Scaled switch keeps its full layout width, so pull it right to line its
+  // visible edge up with the chevrons on the other rows
+  settingsSwitch: {
+    transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }],
+    marginRight: -8,
   },
   settingsIconBg: {
     width: 48,
