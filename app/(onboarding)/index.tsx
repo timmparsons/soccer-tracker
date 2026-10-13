@@ -1,4 +1,6 @@
 import { useClubSearch } from '@/hooks/useClubSearch';
+import { notifyCoachOfJoin } from '@/hooks/useJoinTeam';
+import { TeamResult, useTeamSearch } from '@/hooks/useTeamSearch';
 import { useUser } from '@/hooks/useUser';
 import { logSignupComplete } from '@/lib/metaEvents';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +36,7 @@ interface OnboardingData {
   password: string;
   dailyTarget: number;
   clubId: string | null;
+  team: TeamResult | null;
 }
 
 const PLAYER_STEPS = [
@@ -44,6 +47,7 @@ const PLAYER_STEPS = [
   'notif',
   'signup',
   'club',
+  'team',
 ] as const;
 
 type Step = (typeof PLAYER_STEPS)[number];
@@ -71,6 +75,7 @@ export default function OnboardingScreen() {
     password: '',
     dailyTarget: 1000,
     clubId: null,
+    team: null,
   });
 
   const steps: readonly Step[] = PLAYER_STEPS;
@@ -93,9 +98,12 @@ export default function OnboardingScreen() {
         name: data.name || null,
         display_name: data.name || null,
         skill_focus: data.goal || null,
-        club_id: data.clubId || null,
+        club_id: data.clubId || data.team?.club_id || null,
+        team_id: data.team?.id ?? null,
       } as any)
       .eq('id', userId);
+
+    if (data.team) notifyCoachOfJoin(data.team, userId);
 
     await supabase.from('user_targets').upsert({
       user_id: userId,
@@ -137,6 +145,15 @@ export default function OnboardingScreen() {
           <ClubSearchScreen
             selectedId={data.clubId}
             onSelect={(id) => setData((d) => ({ ...d, clubId: id }))}
+            onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
+          />
+        );
+      case 'team':
+        return (
+          <TeamSearchScreen
+            clubId={data.clubId}
+            selectedId={data.team?.id ?? null}
+            onSelect={(team) => setData((d) => ({ ...d, team }))}
             onNext={stepIndex === steps.length - 1 ? handleFinish : goNext}
           />
         );
@@ -744,6 +761,103 @@ function ClubSearchScreen({
         {!selectedId && (
           <TouchableOpacity style={s.skipLink} onPress={onNext}>
             <Text style={s.skipLinkText}>My club isn't listed — skip</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function TeamSearchScreen({
+  clubId,
+  selectedId,
+  onSelect,
+  onNext,
+}: {
+  clubId: string | null;
+  selectedId: string | null;
+  onSelect: (team: TeamResult | null) => void;
+  onNext: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const { data: results = [], isFetching } = useTeamSearch(query, clubId);
+
+  return (
+    <KeyboardAvoidingView
+      style={s.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        keyboardShouldPersistTaps='handled'
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={s.title}>Find your team</Text>
+        <Text style={s.subtitle}>
+          Join your team to train with your teammates and see where you rank.
+        </Text>
+
+        <View style={s.clubSearchInputRow}>
+          <Ionicons name='search-outline' size={20} color='#78909C' />
+          <TextInput
+            style={s.clubSearchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder='Search team name...'
+            placeholderTextColor='#B0BEC5'
+            autoCorrect={false}
+            returnKeyType='search'
+          />
+          {isFetching && <ActivityIndicator size='small' color='#1f89ee' />}
+        </View>
+
+        {query.trim().length >= 2 && results.length === 0 && !isFetching && (
+          <Text style={s.clubSearchEmpty}>No teams found for "{query}"</Text>
+        )}
+
+        {query.trim().length === 0 && results.length > 0 && (
+          <Text style={s.clubSearchSectionLabel}>Teams in your club</Text>
+        )}
+
+        {results.map((team) => (
+          <TouchableOpacity
+            key={team.id}
+            style={[
+              s.optionRow,
+              selectedId === team.id && s.optionRowSelected,
+            ]}
+            onPress={() => onSelect(selectedId === team.id ? null : team)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name='people' size={22} color='#1f89ee' />
+            <View style={s.optionText}>
+              <Text
+                style={[
+                  s.optionLabel,
+                  selectedId === team.id && s.optionLabelSelected,
+                ]}
+              >
+                {team.name}
+              </Text>
+              {team.club_name && (
+                <Text style={s.optionSub}>{team.club_name}</Text>
+              )}
+            </View>
+            {selectedId === team.id && (
+              <Ionicons name='checkmark-circle' size={22} color='#1f89ee' />
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={s.bottomPad}>
+        <PrimaryButton
+          label={selectedId ? 'Join this team →' : 'Continue'}
+          onPress={onNext}
+        />
+        {!selectedId && (
+          <TouchableOpacity style={s.skipLink} onPress={onNext}>
+            <Text style={s.skipLinkText}>I'll do this later — skip</Text>
           </TouchableOpacity>
         )}
       </View>

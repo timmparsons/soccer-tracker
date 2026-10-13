@@ -1,8 +1,8 @@
+import { findTeamByCode, JoinableTeam, useJoinTeam } from '@/hooks/useJoinTeam';
 import { useProfile } from '@/hooks/useProfile';
+import { TeamResult, useTeamSearch } from '@/hooks/useTeamSearch';
 import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -20,14 +20,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function JoinTeam() {
-  const queryClient = useQueryClient();
   const router = useRouter();
   const { data: user } = useUser();
   const { data: profile, refetch: refetchProfile } = useProfile(user?.id);
+  const { mutateAsync: joinTeam } = useJoinTeam(user?.id);
 
+  const [search, setSearch] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [justJoined, setJustJoined] = useState(false);
+
+  const { data: teams = [], isFetching: searching } = useTeamSearch(search, profile?.club_id);
 
   // If already on a team (and didn't just join), show message
   if (profile?.team_id && !justJoined) {
@@ -48,62 +51,13 @@ export default function JoinTeam() {
     );
   }
 
-  const handleJoinTeam = async () => {
-    if (!teamCode.trim()) {
-      Alert.alert('Team Code Required', 'Please enter a team code');
-      return;
-    }
-
-    if (!user?.id) {
-      Alert.alert('Error', 'You must be logged in to join a team');
-      return;
-    }
-
+  const join = async (team: JoinableTeam) => {
     setLoading(true);
-
     try {
-      // Find team by code (case-insensitive)
-      const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .select('id, name, club_id')
-        .ilike('code', teamCode.trim())
-        .single();
-
-      if (teamError || !team) {
-        Alert.alert(
-          'Invalid Code',
-          "That team code doesn't exist. Check the code and try again."
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Update user's profile to join the team; also adopt the team's club, if it has one
-      const profileUpdate: Record<string, unknown> = { team_id: team.id };
-      if ((team as any).club_id) {
-        profileUpdate.club_id = (team as any).club_id;
-      }
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileUpdate as any)
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
       // Mark as just joined to prevent "Already on a Team" screen from showing
       setJustJoined(true);
-
-      // IMPORTANT: Invalidate ALL queries related to this user
-      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['team', user.id] });
-
-      // Wait for database to propagate
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Force refetch with the invalidated cache
+      await joinTeam(team);
       await refetchProfile();
-
-      // Show success
       Alert.alert(
         'Welcome to the Team! 🎉',
         `You've joined ${team.name}! Check out your team's progress on the leaderboard.`,
@@ -114,13 +68,42 @@ export default function JoinTeam() {
           },
         ]
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      setJustJoined(false);
       console.error('Error joining team:', error);
-      Alert.alert('Error', error.message || 'Failed to join team');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to join team');
     } finally {
       setLoading(false);
     }
   };
+
+  const handlePickTeam = (team: TeamResult) => {
+    Alert.alert(`Join ${team.name}?`, team.club_name ?? undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Join', onPress: () => join(team) },
+    ]);
+  };
+
+  const handleJoinByCode = async () => {
+    if (!teamCode.trim()) {
+      Alert.alert('Team Code Required', 'Please enter a team code');
+      return;
+    }
+
+    setLoading(true);
+    const team = await findTeamByCode(teamCode);
+    if (!team) {
+      setLoading(false);
+      Alert.alert(
+        'Invalid Code',
+        "That team code doesn't exist. Check the code and try again."
+      );
+      return;
+    }
+    await join(team);
+  };
+
+  const showNoResults = search.trim().length >= 2 && teams.length === 0 && !searching;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -146,12 +129,58 @@ export default function JoinTeam() {
 
           <Text style={styles.title}>Join a Team</Text>
           <Text style={styles.subtitle}>
-            Enter the team code your coach or teammate shared with you
+            Search for your team, or enter the code your coach shared
           </Text>
+
+          {/* Team Search */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Find Your Team</Text>
+            <View style={styles.searchRow}>
+              <Ionicons name='search-outline' size={20} color='#78909C' />
+              <TextInput
+                style={styles.searchInput}
+                placeholder='Search team name...'
+                placeholderTextColor='#9CA3AF'
+                value={search}
+                onChangeText={setSearch}
+                autoCorrect={false}
+                returnKeyType='search'
+              />
+              {searching && <ActivityIndicator size='small' color='#1f89ee' />}
+            </View>
+
+            {showNoResults && (
+              <Text style={styles.hint}>No teams found for &quot;{search.trim()}&quot;</Text>
+            )}
+
+            {teams.map((team) => (
+              <TouchableOpacity
+                key={team.id}
+                style={styles.teamRow}
+                onPress={() => handlePickTeam(team)}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <View style={styles.teamRowText}>
+                  <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+                  {team.club_name && (
+                    <Text style={styles.teamClub} numberOfLines={1}>{team.club_name}</Text>
+                  )}
+                </View>
+                <Text style={styles.teamJoin}>Join</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
 
           {/* Team Code Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Team Code</Text>
+            <Text style={styles.label}>Have a Code?</Text>
             <TextInput
               style={styles.input}
               placeholder='e.g., ABC12345'
@@ -162,10 +191,23 @@ export default function JoinTeam() {
               maxLength={8}
               autoCorrect={false}
             />
-            <Text style={styles.hint}>
-              Ask your coach or teammate for the 8-character team code
-            </Text>
           </View>
+
+          {/* Join Button */}
+          <TouchableOpacity
+            style={[styles.button, styles.codeButton, loading && styles.buttonDisabled]}
+            onPress={handleJoinByCode}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color='#FFF' />
+            ) : (
+              <>
+                <Ionicons name='checkmark-circle' size={24} color='#FFF' />
+                <Text style={styles.buttonText}>Join with Code</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           {/* Info Cards */}
           <View style={styles.infoCard}>
@@ -182,9 +224,9 @@ export default function JoinTeam() {
           <View style={styles.helpCard}>
             <Ionicons name='help-circle' size={20} color='#6B7280' />
             <View style={styles.helpContent}>
-              <Text style={styles.helpTitle}>Don&apos;t have a code?</Text>
+              <Text style={styles.helpTitle}>Can&apos;t find your team?</Text>
               <Text style={styles.helpText}>
-                Ask your coach or a teammate to share it, or{' '}
+                Ask your coach for the team code, or{' '}
                 <Text
                   style={styles.helpLink}
                   onPress={() => router.push('/create-team')}
@@ -194,22 +236,6 @@ export default function JoinTeam() {
               </Text>
             </View>
           </View>
-
-          {/* Join Button */}
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleJoinTeam}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color='#FFF' />
-            ) : (
-              <>
-                <Ionicons name='checkmark-circle' size={24} color='#FFF' />
-                <Text style={styles.buttonText}>Join Team</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -299,6 +325,73 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
     fontWeight: '500',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EEF2F6',
+  },
+  teamRowText: {
+    flex: 1,
+  },
+  teamName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2C3E50',
+  },
+  teamClub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#78909C',
+    marginTop: 2,
+  },
+  teamJoin: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1f89ee',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 24,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  orText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+  codeButton: {
+    marginBottom: 24,
   },
   infoCard: {
     flexDirection: 'row',
