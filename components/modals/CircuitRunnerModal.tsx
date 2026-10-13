@@ -89,7 +89,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     setSaving(true);
     try {
       const credited = await creditedTouches(profileId, totalTouches);
-      await logChallengeSession(profileId, credited, durationSeconds);
+      await logChallengeSession(profileId, credited, durationSeconds, undefined, workout.id);
       setLoggedTouches(credited);
       onCompleted();
     } catch {
@@ -122,7 +122,7 @@ const CircuitRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     setSaving(true);
     try {
       const credited = await creditedTouches(profileId, touches);
-      await logChallengeSession(profileId, credited, elapsedSeconds());
+      await logChallengeSession(profileId, credited, elapsedSeconds(), undefined, workout.id);
       setLoggedTouches(credited);
       onCompleted();
       handleClose();

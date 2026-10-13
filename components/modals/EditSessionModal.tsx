@@ -126,6 +126,7 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
           user_id: userId,
           drill_id: session.drill_id,
           challenge_type: session.challenge_type,
+          workout_id: session.workout_id,
           touches_logged: storedTouches,
           duration_minutes: duration ? parseInt(duration) : null,
           juggle_count: juggleCount > 0 ? juggleCount : null,

@@ -8,19 +8,24 @@ interface Props {
   subtitle?: string;
   onPress: () => void;
   disabled?: boolean;
+  completed?: boolean;
 }
 
-const QuickLaunchButton = ({ icon, iconColor, label, subtitle, onPress, disabled }: Props) => {
+const QuickLaunchButton = ({ icon, iconColor, label, subtitle, onPress, disabled, completed }: Props) => {
   return (
     <TouchableOpacity
-      style={[styles.button, disabled && styles.buttonDisabled]}
+      style={[styles.button, completed && styles.buttonCompleted, disabled && styles.buttonDisabled]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.85}
     >
-      <Ionicons name={icon} size={20} color={iconColor} />
+      <Ionicons name={completed ? 'checkmark-circle' : icon} size={20} color={completed ? '#31af4d' : iconColor} />
       <View style={styles.textContainer}>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {subtitle && (
+          <Text style={[styles.subtitle, completed && styles.subtitleCompleted]}>
+            {completed ? `${subtitle} · Completed` : subtitle}
+          </Text>
+        )}
         <Text style={styles.label} numberOfLines={1}>{label}</Text>
       </View>
       <Ionicons name='chevron-forward' size={18} color='#78909C' />
@@ -47,6 +52,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  buttonCompleted: {
+    backgroundColor: '#F1FAF3',
+    borderColor: '#CDEBD4',
+  },
   buttonDisabled: {
     opacity: 0.5,
   },
@@ -58,6 +67,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#78909C',
     marginBottom: 2,
+  },
+  subtitleCompleted: {
+    color: '#31af4d',
   },
   label: {
     fontSize: 14,

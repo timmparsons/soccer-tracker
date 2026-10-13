@@ -25,6 +25,7 @@ export default function SkillChallengeScreen() {
     queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
     queryClient.invalidateQueries({ queryKey: ['touch-tracking', user.id] });
     queryClient.invalidateQueries({ queryKey: ['active-streak', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['challenge-completions', user.id] });
   };
 
   if (isLoading || !workout || !user?.id) {

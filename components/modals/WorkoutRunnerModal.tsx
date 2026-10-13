@@ -79,7 +79,7 @@ const WorkoutRunnerModal = ({ visible, onClose, workout, steps, profileId, onCom
     setSaving(true);
     try {
       const credited = await creditedTouches(profileId, calculateChallengeTouches(steps));
-      await logChallengeSession(profileId, credited, finalSeconds, drillId);
+      await logChallengeSession(profileId, credited, finalSeconds, drillId, workout.id);
       setLoggedTouches(credited);
       onCompleted(finalSeconds);
     } catch {

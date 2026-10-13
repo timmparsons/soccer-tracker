@@ -1,3 +1,4 @@
+import { useTodayDate } from '@/hooks/useTodayDate';
 import { useDrills } from '@/hooks/useTouchTracking';
 import { supabase } from '@/lib/supabase';
 import { pickForDate } from '@/utils/dailySeed';
@@ -86,4 +87,28 @@ export function pickDailySkillChallenge(
 ): Workout | undefined {
   const matches = workouts.filter((w) => w.category === 'Skill Challenge');
   return pickForDate(matches, date, 'skill');
+}
+
+// Today's sessions that came from a Burst or a workout (circuit / skill
+// challenge), so the home card can mark the Challenge of the Day as done.
+export function useTodayChallengeCompletions(userId: string | undefined) {
+  const today = useTodayDate();
+
+  return useQuery({
+    queryKey: ['challenge-completions', userId, today],
+    queryFn: async (): Promise<{ challengeType: string | null; workoutId: string | null }[]> => {
+      const { data, error } = await (supabase as any)
+        .from('daily_sessions')
+        .select('challenge_type, workout_id')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .or('challenge_type.eq.tabata,workout_id.not.is.null');
+      if (error) throw error;
+      return (data ?? []).map((s: { challenge_type: string | null; workout_id: string | null }) => ({
+        challengeType: s.challenge_type,
+        workoutId: s.workout_id,
+      }));
+    },
+    enabled: !!userId,
+  });
 }

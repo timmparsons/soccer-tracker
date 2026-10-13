@@ -33,6 +33,7 @@ export interface SessionLog {
   training_focus: string | null;
   is_game_speed: boolean;
   challenge_type: string | null;
+  workout_id: string | null;
 }
 
 export const useTouchTracking = (userId: string | undefined) => {
@@ -248,6 +249,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           training_focus,
           is_game_speed,
           challenge_type,
+          workout_id,
           drills (name)
         `,
         )
@@ -269,6 +271,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           training_focus: string | null;
           is_game_speed: boolean;
           challenge_type: string | null;
+          workout_id: string | null;
           drills: { name: string } | null;
         }) => ({
           id: s.id,
@@ -283,6 +286,7 @@ export const useRecentSessions = (userId: string | undefined, limit = 10) => {
           training_focus: s.training_focus,
           is_game_speed: s.is_game_speed,
           challenge_type: s.challenge_type,
+          workout_id: s.workout_id,
         }),
       );
     },

@@ -7,7 +7,12 @@ import VinnieCard from '@/components/common/VinnieCard';
 import StreakModal from '@/components/modals/StreakModal';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useProfile } from '@/hooks/useProfile';
-import { pickDailyCircuit, pickDailySkillChallenge, useWorkoutLibrary } from '@/hooks/useWorkouts';
+import {
+  pickDailyCircuit,
+  pickDailySkillChallenge,
+  useTodayChallengeCompletions,
+  useWorkoutLibrary,
+} from '@/hooks/useWorkouts';
 import {
   useActiveStreak,
   useChallengeStats,
@@ -77,6 +82,12 @@ const HomeScreen = () => {
       : challengeVariant === 'skill'
         ? skillChallenge!.title
         : '4-Min Burst';
+  const { data: challengeCompletions } = useTodayChallengeCompletions(user?.id);
+  const challengeWorkoutId =
+    challengeVariant === 'circuit' ? fiveMinCircuit!.id : challengeVariant === 'skill' ? skillChallenge!.id : null;
+  const challengeCompleted = (challengeCompletions ?? []).some((c) =>
+    challengeWorkoutId ? c.workoutId === challengeWorkoutId : c.challengeType === 'tabata',
+  );
 
 
   const handleRefresh = useCallback(async () => {
@@ -268,6 +279,7 @@ const HomeScreen = () => {
                 iconColor={challengeVariant === 'circuit' ? '#1f89ee' : challengeVariant === 'skill' ? '#31af4d' : '#ffb724'}
                 subtitle='Challenge of the Day'
                 label={challengeTitle}
+                completed={challengeCompleted}
                 onPress={() => {
                   if (challengeVariant === 'circuit') {
                     router.push({ pathname: '/(modals)/circuit', params: { id: fiveMinCircuit!.id } });

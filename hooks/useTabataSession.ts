@@ -14,6 +14,7 @@ export function useTabataSession(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ['team-touches-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       queryClient.invalidateQueries({ queryKey: ['active-streak', userId] });
+      queryClient.invalidateQueries({ queryKey: ['challenge-completions', userId] });
     },
   });
 }
