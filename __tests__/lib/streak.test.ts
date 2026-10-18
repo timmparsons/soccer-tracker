@@ -46,6 +46,12 @@ describe('calculateStreak', () => {
     expect(result.frozenDates).toEqual([]);
   });
 
+  it('counts a first-ever session today as a 1-day streak', () => {
+    const result = calculateStreak([dateStrOffset(TODAY, 0)], TODAY);
+    expect(result.currentStreak).toBe(1);
+    expect(result.longestStreak).toBe(1);
+  });
+
   it('does not count today if no session logged yet, but keeps yesterday-ending streak intact', () => {
     const dates = consecutiveDates(TODAY, 5, 1); // ends yesterday, not today
     const result = calculateStreak(dates, TODAY);

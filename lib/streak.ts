@@ -52,7 +52,6 @@ export function calculateStreak(activeDates: string[], today: Date = new Date())
   let pendingFrozenDate: string | null = null;
 
   const earliest = toLocalDate(sortedDates[0]);
-  const lastWalkDay = yesterdayLocal < earliest ? earliest : yesterdayLocal;
 
   const resetStreak = () => {
     streakLength = 0;
@@ -70,7 +69,7 @@ export function calculateStreak(activeDates: string[], today: Date = new Date())
     }
   };
 
-  for (let cursor = earliest; cursor <= lastWalkDay; cursor = addDays(cursor, 1)) {
+  for (let cursor = earliest; cursor <= yesterdayLocal; cursor = addDays(cursor, 1)) {
     const cursorStr = toDateStr(cursor);
 
     if (activeSet.has(cursorStr)) {
