@@ -105,7 +105,11 @@ export default function TabataScreen() {
 
   const timer = useIntervalTimer(PHASES, {
     onPhaseChange: handlePhaseChange,
-    onComplete: finishSession,
+    onComplete: () => {
+      // The final round has no rest phase after it, so count it here
+      roundsCompletedRef.current += 1;
+      finishSession();
+    },
   });
 
   const preTimer = useChallengeTimer({
