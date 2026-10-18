@@ -212,18 +212,23 @@ export async function fetchGlobalTouchesLeaderboard(seasonStartDate?: string | n
   const recentSessionsRaw = await fetchRecentSessions(allIds, windows.lastWeekStart, windows.today);
 
   const weeklyTouchesByUser: Record<string, number> = {};
+  const lastWeekTouchesByUser: Record<string, number> = {};
   for (const s of recentSessionsRaw) {
     if (s.date >= windows.weekStartDate && s.date <= windows.today) {
       weeklyTouchesByUser[s.user_id] = (weeklyTouchesByUser[s.user_id] || 0) + s.touches_logged;
+    } else if (s.date >= windows.lastWeekStart && s.date <= windows.lastWeekEnd) {
+      lastWeekTouchesByUser[s.user_id] = (lastWeekTouchesByUser[s.user_id] || 0) + s.touches_logged;
     }
   }
 
-  const topIds = new Set(
-    Object.entries(weeklyTouchesByUser)
+  // Union of top players for this week and last week — otherwise the Last
+  // Week tab only shows people who've also trained since Sunday's reset.
+  const topFor = (totals: Record<string, number>) =>
+    Object.entries(totals)
       .sort((a, b) => b[1] - a[1])
       .slice(0, GLOBAL_LEADERBOARD_LIMIT)
-      .map(([id]) => id),
-  );
+      .map(([id]) => id);
+  const topIds = new Set([...topFor(weeklyTouchesByUser), ...topFor(lastWeekTouchesByUser)]);
   if (topIds.size === 0) return [];
 
   const topProfiles = allProfiles.filter((p) => topIds.has(p.id));
