@@ -11,10 +11,9 @@ import { useClubSearch } from '@/hooks/useClubSearch';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserSquadBadges } from '@/hooks/useSquadBadges';
-import { useActiveStreak, useJugglingRecord, useTouchTracking } from '@/hooks/useTouchTracking';
+import { useActiveStreak, useTouchTracking } from '@/hooks/useTouchTracking';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useUser } from '@/hooks/useUser';
-import { checkAndAwardBadges } from '@/lib/checkBadges';
 import { promptForReview } from '@/lib/rateApp';
 import { supabase } from '@/lib/supabase';
 import { getLevelFromXp, getRankBadge, getRankName } from '@/lib/xp';
@@ -650,40 +649,15 @@ const ProfilePage = () => {
   // Get touch tracking stats
   const { data: touchStats } = useTouchTracking(user?.id);
   const { data: activeStreakStats } = useActiveStreak(user?.id);
-  const { data: jugglePB = 0 } = useJugglingRecord(user?.id);
 
   // Badges
   const { data: allBadges = [] } = useAllBadges();
-  const { data: userBadges = [], refetch: refetchBadges } = useUserBadges(
+  const { data: userBadges = [] } = useUserBadges(
     user?.id,
   );
   const { data: leaderboardWins = 0 } = useLeaderboardWinCount(user?.id);
   const earnedBadgeIds = new Set(userBadges.map((b) => b.badge_id));
   const { data: squadBadges = [] } = useUserSquadBadges(user?.id);
-
-  // Silent badge backfill — awards any qualifying badges the user hasn't earned yet
-  const BACKFILL_ENABLED = true;
-  useEffect(() => {
-    if (!BACKFILL_ENABLED || !user?.id || !touchStats) return;
-    checkAndAwardBadges(user.id, {
-      totalSessions: touchStats.total_sessions ?? 0,
-      totalTouches: touchStats.total_touches ?? 0,
-      currentStreak: activeStreakStats?.currentStreak ?? 0,
-      // If the user already has a juggle PB, treat it as a beaten record so the badge backfills
-      jugglesThisSession: jugglePB > 0 ? jugglePB : null,
-      previousJugglePB: jugglePB > 0 ? jugglePB - 1 : 0,
-      durationMinutes: null,
-      sessionsThisWeek: touchStats.this_week_sessions ?? 0,
-      teamId: profile?.team_id ?? null,
-    }).then((newIds) => {
-      if (newIds.length > 0) refetchBadges();
-    });
-  }, [
-    user?.id,
-    touchStats?.total_touches,
-    activeStreakStats?.currentStreak,
-    jugglePB,
-  ]);
 
   // Badge counts for stackable milestones
   const totalTouches = touchStats?.total_touches ?? 0;

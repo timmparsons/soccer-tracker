@@ -1,3 +1,4 @@
+import { useBadgeBackfill } from '@/hooks/useBadgeBackfill';
 import { usePlayerCoachChallenges } from '@/hooks/useCoachChallenges';
 import { useGroupChallenges } from '@/hooks/useGroupChallenges';
 import { usePlayerChallenges } from '@/hooks/usePlayerChallenges';
@@ -18,6 +19,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { data: user } = useUser();
   const { data: profile } = useProfile(user?.id);
+  useBadgeBackfill(user?.id);
 
   const isPlayer = !profile?.is_coach;
   const { data: coachChallenges } = usePlayerCoachChallenges(
