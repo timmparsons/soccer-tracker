@@ -1,6 +1,7 @@
 import CheerRow from '@/components/HomePage/CheerRow';
 import { useCheersForItems, useMyReactions } from '@/hooks/useFeedCheers';
-import { ActivityIntensity, TeamActivityItem, useActivityFeed } from '@/hooks/useTeamActivity';
+import { TeamActivityItem, useActivityFeed } from '@/hooks/useTeamActivity';
+import { FeedBadgeTone } from '@/lib/activityFeedCopy';
 import { useProfile } from '@/hooks/useProfile';
 import { useUser } from '@/hooks/useUser';
 import { formatTimeAgo } from '@/utils/formatTimeAgo';
@@ -20,20 +21,13 @@ const FALLBACK_AVATAR =
 
 const EMPTY_ACTIVITY: TeamActivityItem[] = [];
 
-const intensityLabels: Record<ActivityIntensity, string> = {
-  light: 'Light Pace',
-  moderate: 'Moderate Pace',
-  intense: 'Intense Pace',
+const badgeStyles: Record<FeedBadgeTone, { backgroundColor: string }> = {
+  blue: { backgroundColor: '#EFF6FF' },
+  green: { backgroundColor: '#E8F7EC' },
 };
-const intensityStyles: Record<ActivityIntensity, { backgroundColor: string }> = {
-  light: { backgroundColor: '#F0F4F8' },
-  moderate: { backgroundColor: '#EFF6FF' },
-  intense: { backgroundColor: '#FFF1E8' },
-};
-const intensityTextStyles: Record<ActivityIntensity, { color: string }> = {
-  light: { color: '#78909C' },
-  moderate: { color: '#1f89ee' },
-  intense: { color: '#B23B00' },
+const badgeColors: Record<FeedBadgeTone, string> = {
+  blue: '#1f89ee',
+  green: '#238a3b',
 };
 
 const ActivityFeed = () => {
@@ -115,33 +109,35 @@ const ActivityFeed = () => {
               />
               <View style={styles.info}>
                 <Text style={styles.message}>
-                  {item.isMilestone && (
-                    <Ionicons name='trophy' size={13} color='#ffb724' />
-                  )}
-                  {item.isMilestone && ' '}
                   {item.message}
                   {item.isGameSpeed && ' '}
                   {item.isGameSpeed && (
                     <Ionicons name='flame' size={14} color='#B23B00' />
                   )}
                 </Text>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detail}>{formatTimeAgo(item.createdAt)}</Text>
-                  {item.intensity && (
-                    <View style={[styles.intensityBadge, intensityStyles[item.intensity]]}>
-                      <Text style={[styles.intensityBadgeText, intensityTextStyles[item.intensity]]}>
-                        {intensityLabels[item.intensity]}
-                      </Text>
-                    </View>
-                  )}
-                  {!!item.streak && item.streak >= 2 && (
-                    <View style={styles.streakTag}>
-                      <Ionicons name='flame' size={11} color='#ffb724' />
-                      <Text style={styles.streakTagText}>{item.streak}</Text>
-                    </View>
-                  )}
-                </View>
+                <Text style={styles.detail} numberOfLines={1}>
+                  {formatTimeAgo(item.createdAt)}
+                  {item.subtitle && ` · ${item.subtitle}`}
+                </Text>
+                {!!item.chips?.length && (
+                  <View style={styles.chipRow}>
+                    {item.chips.map((chip) => (
+                      <View key={chip.label} style={styles.chip}>
+                        <Ionicons name={chip.icon} size={12} color='#78909C' />
+                        <Text style={styles.chipText}>{chip.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
+              {item.badge && (
+                <View style={[styles.badge, badgeStyles[item.badge.tone]]}>
+                  <Ionicons name={item.badge.icon} size={14} color={badgeColors[item.badge.tone]} />
+                  <Text style={[styles.badgeText, { color: badgeColors[item.badge.tone] }]}>
+                    {item.badge.label}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             {!isOwn && !isCoach && user?.id && (
               <CheerRow
@@ -234,30 +230,39 @@ const styles = StyleSheet.create({
     color: '#78909C',
     marginTop: 2,
   },
-  detailRow: {
+  chipRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
+    marginTop: 6,
   },
-  intensityBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginTop: 2,
-  },
-  intensityBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  streakTag: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    marginTop: 2,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#E3EAF2',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  streakTagText: {
-    fontSize: 10,
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4A5A6A',
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 104,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  badgeText: {
+    flexShrink: 1,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#ffb724',
   },
 });

@@ -1,3 +1,10 @@
+import { FOCUS_AREAS } from '@/constants/focusAreas';
+import {
+  FeedBadge,
+  milestoneCrossed,
+  pickForId,
+  sessionHeadline,
+} from '@/lib/activityFeedCopy';
 import { calculateStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { getDisplayName } from '@/utils/getDisplayName';
@@ -6,7 +13,10 @@ import { sessionTimestamp } from '@/utils/sessionTimestamp';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-export type ActivityIntensity = 'light' | 'moderate' | 'intense';
+export interface FeedChip {
+  icon: 'time-outline' | 'football-outline';
+  label: string;
+}
 
 export interface TeamActivityItem {
   id: string;
@@ -15,26 +25,25 @@ export interface TeamActivityItem {
   avatarUrl: string | null;
   message: string;
   createdAt: string;
+  subtitle?: string;
+  chips?: FeedChip[];
+  badge?: FeedBadge;
   isGameSpeed?: boolean;
-  intensity?: ActivityIntensity;
-  streak?: number;
   isMilestone?: boolean;
 }
 
-function getIntensity(totalTouches: number, durationMinutes: number): ActivityIntensity | undefined {
-  if (durationMinutes <= 0) return undefined;
-  const tpm = totalTouches / durationMinutes;
-  if (tpm >= 50) return 'intense';
-  if (tpm >= 20) return 'moderate';
-  return 'light';
-}
+const FOCUS_LABELS = new Map(FOCUS_AREAS.map((a) => [a.key, a.label]));
 
-function pickForId<T>(arr: T[], id: string): T {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) & 0x7fffffff;
-  }
-  return arr[hash % arr.length];
+const touchesChip = (touches: number): FeedChip => ({
+  icon: 'football-outline',
+  label: `${touches.toLocaleString()} touches`,
+});
+
+// Sunday of the current week — matches the leaderboard and weekly goal.
+function currentWeekStart(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay());
+  return getLocalDate(d);
 }
 
 function getStreetFeedMessage(
@@ -133,91 +142,6 @@ function badgeMessage(
   );
 }
 
-// Drill names come from the `drills` table in title case, some with a
-// parenthetical suffix (e.g. "Bell Taps (Foundations)") or a leading "The"
-// (e.g. "The Hocus Pocus") — strip both and lowercase so the name reads
-// naturally mid-sentence ("50 reps of bell taps").
-function cleanDrillName(name: string): string {
-  return name
-    .replace(/\s*\([^)]*\)\s*/g, '')
-    .replace(/^the\s+/i, '')
-    .toLowerCase()
-    .trim();
-}
-
-function sessionMessage(
-  name: string,
-  totalTouches: number,
-  sessionCount: number,
-  topDrill: { name: string; count: number } | null,
-  id: string,
-): string {
-  if (topDrill) {
-    const drillName = cleanDrillName(topDrill.name);
-    return pickForId(
-      [
-        `${name} banged out ${topDrill.count} reps of ${drillName}`,
-        `${name} put in ${topDrill.count} reps of ${drillName}`,
-        `${name} logged ${topDrill.count} reps of ${drillName}`,
-        `${name} knocked out ${topDrill.count} reps of ${drillName}`,
-      ],
-      id,
-    );
-  }
-  if (totalTouches >= 10000)
-    return pickForId(
-      [
-        `${name} put in an insane shift — ${totalTouches.toLocaleString()} touches`,
-        `${name} is an absolute machine — ${totalTouches.toLocaleString()} touches`,
-        `${name} is built different — ${totalTouches.toLocaleString()} touches and counting`,
-      ],
-      id,
-    );
-  if (totalTouches >= 5000)
-    return pickForId(
-      [
-        `${name} is on one — ${totalTouches.toLocaleString()} touches`,
-        `${name} is having a day — ${totalTouches.toLocaleString()} touches logged`,
-        `${name} is putting in serious work — ${totalTouches.toLocaleString()} touches`,
-      ],
-      id,
-    );
-  if (totalTouches >= 2000)
-    return pickForId(
-      [
-        `${name} has been busy — ${totalTouches.toLocaleString()} touches`,
-        `${name} is clocking up the reps — ${totalTouches.toLocaleString()} touches`,
-        `${name} is making it count — ${totalTouches.toLocaleString()} touches`,
-      ],
-      id,
-    );
-  if (totalTouches >= 1000)
-    return pickForId(
-      [
-        `${name} hit 1,000 touches`,
-        `${name} crossed the 1,000 touch mark`,
-        `${name} broke 1,000 touches`,
-      ],
-      id,
-    );
-  if (sessionCount >= 3)
-    return pickForId(
-      [
-        `${name} keeps coming back — ${sessionCount} sessions`,
-        `${name} has been at it — ${sessionCount} sessions logged`,
-      ],
-      id,
-    );
-  return pickForId(
-    [
-      `${name} put in work`,
-      `${name} showed up`,
-      `${name} is getting their reps in`,
-    ],
-    id,
-  );
-}
-
 // How far back the feed looks for activity from any user on the team.
 const FEED_WINDOW_DAYS = 60;
 
@@ -233,7 +157,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
   const { data: sessions } = await supabase
     .from('daily_sessions')
     .select(
-      'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes, drills(name)',
+      'user_id, date, touches_logged, drill_id, juggle_count, created_at, is_game_speed, duration_minutes, focus_areas, drills(name)',
     )
     .gte('date', windowAgoDate)
     .order('created_at', { ascending: false })
@@ -315,7 +239,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
           .select('id, name, drill_ids')
           .in('id', comboIds)
       : { data: [] };
-  const comboNameMap = new Map(
+  const comboNameMap = new Map<string, string>(
     (sprintCombos || []).map((c: any) => [c.id, c.name]),
   );
   // Duration-mode combos (single drill, fixed time window) are scored by
@@ -432,6 +356,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
 
   // Aggregate sessions per user per day, then pick each user's most recent day
   type DayStats = {
+    date: string;
     totalTouches: number;
     totalMinutes: number;
     sessionCount: number;
@@ -440,6 +365,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
     displayAt: string;
     isGameSpeed: boolean;
     drillTouches: Map<string, number>;
+    focusCounts: Map<string, number>;
   };
   const userDayMap = new Map<string, Map<string, DayStats>>();
 
@@ -451,6 +377,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
     created_at: string;
     is_game_speed: boolean | null;
     duration_minutes: number | null;
+    focus_areas: string[] | null;
     drills: { name: string } | null;
   }[]) {
     if (!profileMap.has(s.user_id)) continue;
@@ -469,10 +396,16 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
           (existing.drillTouches.get(s.drills.name) ?? 0) + s.touches_logged,
         );
       }
+      for (const area of s.focus_areas ?? []) {
+        existing.focusCounts.set(area, (existing.focusCounts.get(area) ?? 0) + 1);
+      }
     } else {
       const drillTouches = new Map<string, number>();
       if (s.drills?.name) drillTouches.set(s.drills.name, s.touches_logged);
+      const focusCounts = new Map<string, number>();
+      for (const area of s.focus_areas ?? []) focusCounts.set(area, 1);
       dayMap.set(s.date, {
+        date: s.date,
         totalTouches: s.touches_logged,
         totalMinutes: s.duration_minutes ?? 0,
         sessionCount: 1,
@@ -481,6 +414,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
         displayAt: sessionTimestamp(s.date, s.created_at),
         isGameSpeed: !!s.is_game_speed,
         drillTouches,
+        focusCounts,
       });
     }
   }
@@ -563,6 +497,7 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
         dedupeId,
       ),
       createdAt: recent.createdAt,
+      badge: { label: 'Personal Best', tone: 'blue', icon: 'stats-chart' },
       isMilestone: true,
     });
     usedUsers.add(userId);
@@ -678,6 +613,18 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
       avatarUrl: profile.avatar_url ?? null,
       message,
       createdAt: c.created_at,
+      subtitle: comboName,
+      chips: [
+        {
+          icon: isDurationMode ? 'football-outline' : 'time-outline',
+          label: metric,
+        },
+      ],
+      badge: c.is_crown
+        ? { label: 'Fastest Today', tone: 'green', icon: 'flash' }
+        : c.is_pr && !isDurationMode
+          ? { label: 'Personal Best', tone: 'blue', icon: 'stats-chart' }
+          : { label: 'Challenge Complete', tone: 'blue', icon: 'checkmark' },
       isMilestone: c.is_crown || (c.is_pr && !isDurationMode),
     });
     usedUsers.add(c.profile_id);
@@ -698,13 +645,17 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
       avatarUrl: profile.avatar_url ?? null,
       message: pickForId(
         [
-          `${name} finished today's challenge in ${mins}:${secs}`,
-          `${name} crushed the daily challenge — ${mins}:${secs}`,
-          `${name} clocked ${mins}:${secs} on today's challenge`,
+          `${name} completed today's challenge`,
+          `${name} got the challenge done`,
+          `${name} took on today's challenge`,
+          `${name} checked off today's challenge`,
         ],
         c.id,
       ),
       createdAt: c.created_at,
+      subtitle: c.daily_challenges?.title ?? undefined,
+      chips: [{ icon: 'time-outline', label: `${mins}:${secs}` }],
+      badge: { label: 'Challenge Complete', tone: 'blue', icon: 'checkmark' },
     });
     usedUsers.add(c.profile_id);
   }
@@ -713,31 +664,41 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
   // for every user with recent session data, even if they also landed a
   // rarer highlight above (win/PB/badge/etc). Ordinary activity shouldn't
   // get crowded out just because someone also had a standout moment.
+  // Headlines need streak/lifetime history, which is only fetched for the
+  // users that survive the slice below — filled in after.
+  const sessionStatsByItemId = new Map<string, DayStats>();
   for (const [userId, stats] of userStats.entries()) {
     const profile = profileMap.get(userId);
-    const name = getDisplayName(profile);
+    const id = `session-${userId}-${stats.latestAt}`;
 
-    let topDrill: { name: string; count: number } | null = null;
+    let topFocus: string | null = null;
+    for (const [area, count] of stats.focusCounts.entries()) {
+      if (!topFocus || count > (stats.focusCounts.get(topFocus) ?? 0)) topFocus = area;
+    }
+    let topDrillName: string | null = null;
     for (const [drillName, count] of stats.drillTouches.entries()) {
-      if (!topDrill || count > topDrill.count) topDrill = { name: drillName, count };
+      if (!topDrillName || count > (stats.drillTouches.get(topDrillName) ?? 0)) topDrillName = drillName;
     }
 
+    const chips: FeedChip[] = [];
+    if (stats.totalMinutes > 0) chips.push({ icon: 'time-outline', label: `${stats.totalMinutes} min` });
+    if (stats.totalTouches > 0) chips.push(touchesChip(stats.totalTouches));
+
     items.push({
-      id: `session-${userId}-${stats.latestAt}`,
+      id,
       userId,
-      name,
+      name: getDisplayName(profile),
       avatarUrl: profile?.avatar_url ?? null,
-      message: sessionMessage(
-        name,
-        stats.totalTouches,
-        stats.sessionCount,
-        topDrill,
-        `${userId}-${stats.latestAt}`,
-      ),
+      message: '',
       createdAt: stats.displayAt,
+      subtitle:
+        (topFocus && FOCUS_LABELS.get(topFocus)) ||
+        topDrillName?.replace(/\s*\([^)]*\)\s*/g, '').trim() ||
+        undefined,
+      chips,
       isGameSpeed: stats.isGameSpeed,
-      intensity: getIntensity(stats.totalTouches, stats.totalMinutes),
     });
+    sessionStatsByItemId.set(id, stats);
   }
 
   // Street challenge completions
@@ -768,25 +729,67 @@ async function fetchActivityItems(limit: number): Promise<TeamActivityItem[]> {
     )
     .slice(0, limit);
 
-  // Streak needs full session history, not the window above — fetch it
-  // only for the handful of users who actually made the feed.
+  // Streak, weekly days and lifetime milestones need full session history,
+  // not the window above — fetch it only for the users who made the feed.
+  // Paged because PostgREST caps a single response at 1,000 rows, and a
+  // truncated history would fire false lifetime milestones.
   const finalUserIds = [...new Set(finalItems.map((i) => i.userId))];
-  if (finalUserIds.length > 0) {
-    const { data: historyRows } = await supabase
+  const historyRows: { user_id: string; date: string; touches_logged: number }[] = [];
+  const PAGE_SIZE = 1000;
+  for (let from = 0; finalUserIds.length > 0; from += PAGE_SIZE) {
+    const { data } = await supabase
       .from('daily_sessions')
-      .select('user_id, date')
-      .in('user_id', finalUserIds);
+      .select('user_id, date, touches_logged')
+      .in('user_id', finalUserIds)
+      .order('id')
+      .range(from, from + PAGE_SIZE - 1);
+    historyRows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
 
-    const datesByUser = new Map<string, string[]>();
-    for (const row of (historyRows || []) as { user_id: string; date: string }[]) {
-      if (!datesByUser.has(row.user_id)) datesByUser.set(row.user_id, []);
-      datesByUser.get(row.user_id)!.push(row.date);
+  const historyByUser = new Map<string, Map<string, number>>();
+  for (const row of historyRows) {
+    if (!historyByUser.has(row.user_id)) historyByUser.set(row.user_id, new Map());
+    const days = historyByUser.get(row.user_id)!;
+    days.set(row.date, (days.get(row.date) ?? 0) + row.touches_logged);
+  }
+
+  const weekStart = currentWeekStart();
+  for (const item of finalItems) {
+    const stats = sessionStatsByItemId.get(item.id);
+    if (!stats) continue;
+    const days = historyByUser.get(item.userId) ?? new Map<string, number>();
+    const dates = [...days.keys()];
+
+    let touchesBefore = 0;
+    for (const [date, touches] of days.entries()) {
+      if (date < stats.date) touchesBefore += touches;
+    }
+    const touchesThatDay = days.get(stats.date) ?? stats.totalTouches;
+
+    let topDrill: { name: string; count: number } | null = null;
+    for (const [drillName, count] of stats.drillTouches.entries()) {
+      if (!topDrill || count > topDrill.count) topDrill = { name: drillName, count };
+    }
+    let topFocus: string | null = null;
+    for (const [area, count] of stats.focusCounts.entries()) {
+      if (!topFocus || count > (stats.focusCounts.get(topFocus) ?? 0)) topFocus = area;
     }
 
-    for (const item of finalItems) {
-      const dates = datesByUser.get(item.userId);
-      if (dates) item.streak = calculateStreak(dates).currentStreak;
-    }
+    const headline = sessionHeadline({
+      name: item.name,
+      id: item.id,
+      totalMinutes: stats.totalMinutes,
+      sessionCount: stats.sessionCount,
+      focusArea: topFocus,
+      topDrill,
+      streak: calculateStreak(dates).currentStreak,
+      daysThisWeek: stats.date >= weekStart ? dates.filter((d) => d >= weekStart).length : 0,
+      lifetimeMilestone: milestoneCrossed(touchesBefore, touchesBefore + touchesThatDay),
+    });
+    item.message = headline.message;
+    item.badge = headline.badge;
+    item.isMilestone = headline.isMilestone;
   }
 
   return finalItems;

@@ -1,3 +1,4 @@
+import { FOCUS_AREAS } from '@/constants/focusAreas';
 import { checkAndAwardBadges, BadgeCheckContext } from '@/lib/checkBadges';
 import { supabase } from '@/lib/supabase';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -45,17 +46,6 @@ interface LogSessionModalProps {
   challengeDifficulty?: string;
   badgeContext?: Omit<BadgeCheckContext, 'jugglesThisSession' | 'durationMinutes'>;
 }
-
-const FOCUS_AREAS = [
-  { key: 'freestyle', label: 'Freestyle' },
-  { key: 'juggling', label: 'Juggling' },
-  { key: 'dribbling', label: 'Dribbling' },
-  { key: 'ball_mastery', label: 'Ball Mastery' },
-  { key: 'passing', label: 'Passing' },
-  { key: 'first_touch', label: 'First Touch' },
-  { key: 'shooting', label: 'Shooting' },
-  { key: 'fitness', label: 'Fitness' },
-];
 
 const DRILL_TIPS: Record<string, string> = {
   beginner:

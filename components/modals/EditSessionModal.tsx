@@ -1,3 +1,4 @@
+import { FOCUS_AREAS } from '@/constants/focusAreas';
 import { supabase } from '@/lib/supabase';
 import { MAX_SESSION_TOUCHES, MAX_SESSION_JUGGLES } from '@/lib/touchLimits';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -20,17 +21,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const screenHeight = Dimensions.get('window').height;
-
-const FOCUS_AREAS = [
-  { key: 'freestyle', label: 'Freestyle' },
-  { key: 'juggling', label: 'Juggling' },
-  { key: 'dribbling', label: 'Dribbling' },
-  { key: 'ball_mastery', label: 'Ball Mastery' },
-  { key: 'passing', label: 'Passing' },
-  { key: 'first_touch', label: 'First Touch' },
-  { key: 'shooting', label: 'Shooting' },
-  { key: 'fitness', label: 'Fitness' },
-];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
