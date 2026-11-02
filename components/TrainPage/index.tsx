@@ -1,5 +1,6 @@
 import ChallengesCard from '@/components/HomePage/ChallengesCard';
 import PageHeader from '@/components/common/PageHeader';
+import { PAGE_BG } from '@/constants/colors';
 import BadgeEarnedModal from '@/components/modals/BadgeEarnedModal';
 import ConfirmSubmitCard, { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import LogSessionModal from '@/components/modals/LogSessionModal';
@@ -399,6 +400,7 @@ const TrainPage = () => {
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
         challengeNotifications={challengeNotifications}
+        dark
       />
 
       <ScrollView
@@ -923,11 +925,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   scrollContent: {
     padding: 20,

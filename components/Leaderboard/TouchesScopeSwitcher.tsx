@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: '#F0F4F8',
+    backgroundColor: '#E3EAF2',
   },
   pillActive: {
     backgroundColor: '#1f89ee',

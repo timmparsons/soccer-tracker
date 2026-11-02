@@ -1,13 +1,16 @@
 import NotificationBell, { ChallengeNotificationItem } from '@/components/common/NotificationBell';
+import { HERO_BG } from '@/constants/colors';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type { ChallengeNotificationItem };
 
 interface PageHeaderProps {
   title: string;
+  titleAccent?: string; // second title line with an underline swoosh
   subtitle?: string;
   showAvatar?: boolean;
   avatarUrl?: string | null;
@@ -15,10 +18,12 @@ interface PageHeaderProps {
   hasNewCheers?: boolean;
   onNotificationPress?: () => void;
   challengeNotifications?: ChallengeNotificationItem[];
+  dark?: boolean;
 }
 
 const PageHeader = ({
   title,
+  titleAccent,
   subtitle,
   showAvatar = true,
   avatarUrl,
@@ -26,9 +31,19 @@ const PageHeader = ({
   hasNewCheers,
   onNotificationPress,
   challengeNotifications,
+  dark = false,
 }: PageHeaderProps) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Light status bar over the dark header, restored when leaving the screen
+  useFocusEffect(
+    useCallback(() => {
+      if (!dark) return;
+      StatusBar.setBarStyle('light-content', true);
+      return () => StatusBar.setBarStyle('dark-content', true);
+    }, [dark]),
+  );
 
   return (
     <>
@@ -36,15 +51,23 @@ const PageHeader = ({
       <View
         style={[
           styles.statusBarBg,
-          { height: insets.top, backgroundColor: '#FFFFFF' },
+          { height: insets.top, backgroundColor: dark ? HERO_BG : '#FFFFFF' },
         ]}
       />
 
       {/* Header Content */}
-      <View style={styles.header}>
+      <View style={[styles.header, dark && styles.headerDark]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          <Text style={[styles.title, dark && styles.titleDark]}>{title}</Text>
+          {titleAccent && (
+            <View style={styles.accentWrap}>
+              <Text style={[styles.titleAccent, dark && styles.titleDark]} numberOfLines={1} adjustsFontSizeToFit>
+                {titleAccent}
+              </Text>
+              <View style={[styles.accentUnderline, dark && styles.accentUnderlineDark]} />
+            </View>
+          )}
+          {subtitle && <Text style={[styles.subtitle, dark && styles.subtitleDark]}>{subtitle}</Text>}
         </View>
 
         {showAvatar ? (
@@ -53,6 +76,7 @@ const PageHeader = ({
               hasNewCheers={hasNewCheers}
               onNotificationPress={onNotificationPress}
               challengeNotifications={challengeNotifications}
+              color={dark ? '#FFFFFF' : '#1a1a2e'}
             />
 
             <TouchableOpacity onPress={() => router.push('/profile')}>
@@ -89,6 +113,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
   },
+  headerDark: {
+    backgroundColor: HERO_BG,
+  },
   headerLeft: {
     flex: 1,
     marginRight: 15,
@@ -99,10 +126,36 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     marginBottom: 2,
   },
+  titleDark: {
+    color: '#FFFFFF',
+  },
+  accentWrap: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  titleAccent: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#1a1a2e',
+  },
+  accentUnderline: {
+    height: 3,
+    width: '85%',
+    borderRadius: 2,
+    marginTop: 2,
+    backgroundColor: '#1f89ee',
+    transform: [{ rotate: '-2deg' }],
+  },
+  accentUnderlineDark: {
+    backgroundColor: '#FFFFFF',
+  },
   subtitle: {
     fontSize: 15,
     color: '#78909C',
     fontWeight: '600',
+  },
+  subtitleDark: {
+    color: 'rgba(255,255,255,0.9)',
   },
   headerRight: {
     flexDirection: 'row',

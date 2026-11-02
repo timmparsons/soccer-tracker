@@ -1,5 +1,6 @@
 import TeamCodeCard from '@/components/coach/TeamCodeCard';
 import BadgeGrid from '@/components/common/BadgeGrid';
+import { HERO_BG, PAGE_BG } from '@/constants/colors';
 import type { Badge } from '@/hooks/useBadges';
 import {
   useAllBadges,
@@ -22,6 +23,7 @@ import { getGlobalDisplayName } from '@/utils/globalLeaderboardName';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -34,6 +36,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -136,6 +139,14 @@ const ProfilePage = () => {
     { value: 2500, label: '2,500', subtitle: 'Getting serious', emoji: '🔥' },
     { value: 5000, label: '5,000', subtitle: 'Elite mode', emoji: '⭐' },
   ];
+
+  // Light status bar over the dark header, restored when leaving the screen
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content', true);
+      return () => StatusBar.setBarStyle('dark-content', true);
+    }, []),
+  );
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -726,16 +737,23 @@ const ProfilePage = () => {
 
   return (
     <>
-      <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
+      <View style={{ height: insets.top, backgroundColor: HERO_BG }} />
       <SafeAreaView style={styles.container} edges={[]}>
         <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.headerOverscroll} />
           {/* Header */}
           <View style={styles.header}>
+            <LinearGradient
+              colors={[HERO_BG, HERO_BG, '#6FB5F5', PAGE_BG]}
+              locations={[0, 0.55, 0.8, 1]}
+              style={styles.headerGradient}
+              pointerEvents='none'
+            />
             <TouchableOpacity
               style={styles.settingsGearButton}
               onPress={() => setShowSettingsModal(true)}
             >
-              <Ionicons name='settings-outline' size={22} color='#78909C' />
+              <Ionicons name='settings-outline' size={22} color='#FFFFFF' />
             </TouchableOpacity>
             <View style={styles.avatarContainer}>
               <View style={styles.avatarGlow} />
@@ -770,7 +788,7 @@ const ProfilePage = () => {
                     setShowNameModal(true);
                   }}
                 >
-                  <Ionicons name='pencil' size={14} color='#78909C' />
+                  <Ionicons name='pencil' size={14} color='#FFFFFF' />
                 </TouchableOpacity>
               )}
             </View>
@@ -2161,7 +2179,7 @@ export default ProfilePage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   content: {
     padding: 20,
@@ -2171,8 +2189,15 @@ const styles = StyleSheet.create({
   // HEADER
   header: {
     alignItems: 'center',
+    marginTop: -20,
+    marginHorizontal: -20,
     marginBottom: 16,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  headerGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
   avatarContainer: {
     position: 'relative',
@@ -2185,7 +2210,7 @@ const styles = StyleSheet.create({
     right: -8,
     bottom: -8,
     borderRadius: 68,
-    backgroundColor: '#1f89ee',
+    backgroundColor: '#FFFFFF',
     opacity: 0.2,
   },
   avatar: {
@@ -2218,19 +2243,19 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   name: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#1a1a2e',
+    color: '#FFFFFF',
   },
   role: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#78909C',
+    color: 'rgba(255,255,255,0.75)',
     marginBottom: 8,
   },
   goalChip: {
@@ -2596,19 +2621,19 @@ const styles = StyleSheet.create({
   },
   xpProgressTrack: {
     height: 6,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 3,
     overflow: 'hidden',
   },
   xpProgressFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#1f89ee',
+    backgroundColor: '#FFFFFF',
   },
   xpProgressLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#78909C',
+    color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
   },
   roadmapButton: {
@@ -2629,21 +2654,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffb724',
   },
+  headerOverscroll: {
+    position: 'absolute',
+    top: -1000,
+    left: 0,
+    right: 0,
+    height: 1000,
+    backgroundColor: HERO_BG,
+  },
   settingsGearButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: 14,
+    right: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFF',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
   },
   settingsOverlay: {
     flex: 1,

@@ -1,6 +1,6 @@
 import { isStreakInDanger } from '@/lib/streakDanger';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface StreakBannerProps {
   streak: number;
@@ -17,14 +17,14 @@ const StreakBanner = ({ streak, todayTouches, onPress }: StreakBannerProps) => {
   let title: string;
   let message: string;
   if (trainedToday) {
-    title = `${streak}-Day Streak Locked In!`;
-    message = 'See you tomorrow';
+    title = `${streak}-Day Streak`;
+    message = 'Locked in for today';
   } else if (danger) {
-    title = `${streak}-Day Streak at Risk`;
-    message = 'Log today to keep it alive';
+    title = `${streak}-Day Streak`;
+    message = 'At risk. Log today';
   } else {
-    title = `${streak}-Day Streak Active`;
-    message = 'Log today to keep it';
+    title = `${streak}-Day Streak`;
+    message = 'Log today to keep it going';
   }
 
   return (
@@ -33,11 +33,11 @@ const StreakBanner = ({ streak, todayTouches, onPress }: StreakBannerProps) => {
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <Ionicons name='flame' size={20} color={danger || trainedToday ? '#FFFFFF' : '#ffb724'} />
-      <Text style={styles.text}>
-        <Text style={styles.textBold}>{title}</Text>
-        <Text style={styles.textDim}>{' · '}{message}</Text>
-      </Text>
+      <Ionicons name='flame' size={22} color={danger || trainedToday ? '#FFFFFF' : '#ffb724'} />
+      <Text style={styles.textBold}>{title}</Text>
+      <View style={styles.divider} />
+      <Text style={styles.textDim} numberOfLines={1}>{message}</Text>
+      <Ionicons name='chevron-forward' size={16} color='rgba(255,255,255,0.75)' />
     </TouchableOpacity>
   );
 };
@@ -49,27 +49,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: 'rgba(11,45,110,0.18)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   bannerDanger: {
     backgroundColor: '#E5484D',
+    borderColor: '#E5484D',
   },
   bannerLocked: {
     backgroundColor: '#31af4d',
+    borderColor: '#31af4d',
   },
-  text: {
-    flex: 1,
-    fontSize: 13,
+  divider: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   textBold: {
+    fontSize: 15,
     fontWeight: '900',
     color: '#FFFFFF',
   },
   textDim: {
+    flex: 1,
+    fontSize: 13,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.9)',
   },
 });

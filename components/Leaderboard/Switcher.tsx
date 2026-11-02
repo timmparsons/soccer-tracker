@@ -41,7 +41,7 @@ export default Switcher;
 const styles = StyleSheet.create({
   subTabsRow: {
     flexDirection: 'row',
-    backgroundColor: '#F0F4F8',
+    backgroundColor: '#E3EAF2',
     borderRadius: 10,
     padding: 3,
   },

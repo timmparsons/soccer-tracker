@@ -1,6 +1,7 @@
 import ActivityHeatmap from '@/components/ProgressPage/ActivityHeatmap';
 import MiniSparkline from '@/components/common/MiniSparkline';
 import PageHeader from '@/components/common/PageHeader';
+import { PAGE_BG } from '@/constants/colors';
 import SessionRow from '@/components/common/SessionRow';
 import EditSessionModal from '@/components/modals/EditSessionModal';
 import VinnieCelebrationModal from '@/components/modals/VinnieCelebrationModal';
@@ -181,6 +182,7 @@ const ProgressPage = () => {
         showAvatar={true}
         avatarUrl={profile?.avatar_url}
         challengeNotifications={challengeNotifications}
+        dark
         rightComponent={
           <View style={styles.filterContainer}>
             <TouchableOpacity
@@ -424,7 +426,7 @@ export default ProgressPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   content: {
     padding: 20,

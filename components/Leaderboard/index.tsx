@@ -1,5 +1,6 @@
 import InactivePlayersModal from '@/components/common/InactivePlayersModal';
 import PageHeader from '@/components/common/PageHeader';
+import { PAGE_BG } from '@/constants/colors';
 import { useChallengeNotifications } from '@/hooks/useChallengeNotifications';
 import { useCoachTeams } from '@/hooks/useCoachTeams';
 import { useInactivePlayers } from '@/hooks/useInactivePlayers';
@@ -197,6 +198,7 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             profile?.is_coach ? () => setInactiveModalVisible(true) : undefined
           }
           challengeNotifications={challengeNotifications}
+          dark
         />
       )}
 
@@ -336,7 +338,7 @@ export default Leaderboard;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   content: {
     paddingHorizontal: 20,
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   scopeRow: {
     flexDirection: 'row',
@@ -355,7 +357,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   jugglingScopeRow: {
     flexDirection: 'row',
@@ -363,7 +365,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   teamPickerPill: {
     flexDirection: 'row',
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginHorizontal: 20,
     marginBottom: 4,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,

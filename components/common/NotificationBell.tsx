@@ -54,12 +54,14 @@ interface NotificationBellProps {
   hasNewCheers?: boolean;
   onNotificationPress?: () => void;
   challengeNotifications?: ChallengeNotificationItem[];
+  color?: string;
 }
 
 const NotificationBell = ({
   hasNewCheers: hasNewCheersOverride,
   onNotificationPress,
   challengeNotifications,
+  color = '#1a1a2e',
 }: NotificationBellProps) => {
   const queryClient = useQueryClient();
   const { data: user } = useUser();
@@ -87,7 +89,7 @@ const NotificationBell = ({
   return (
     <>
       <TouchableOpacity onPress={handleBellPress} style={styles.bellWrapper} activeOpacity={0.7}>
-        <Ionicons name='notifications-outline' size={26} color='#1a1a2e' />
+        <Ionicons name='notifications-outline' size={26} color={color} />
         {hasNewCheers && <View style={styles.bellBadge} />}
       </TouchableOpacity>
 
