@@ -9,6 +9,7 @@ import {
   useClubTouchesLeaderboard,
   useGlobalTouchesLeaderboard,
   useTouchesLeaderboard,
+  type TeamMemberStats,
 } from '@/hooks/useLeaderboard';
 import { useProfile } from '@/hooks/useProfile';
 import { useTeam } from '@/hooks/useTeam';
@@ -123,9 +124,19 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
         : touchesLoading;
 
   const sortedTouchesLeaderboard = useMemo(() => {
-    if (touchesPeriod === 'week') return activeTouchesLeaderboard;
+    const periodTouches = (p: TeamMemberStats) =>
+      touchesPeriod === 'week'
+        ? p.weekly_touches
+        : touchesPeriod === 'last_week'
+          ? p.last_week_touches
+          : p.today_touches;
+    // Only show players who trained in the selected period (always keep yourself)
+    const pool = activeTouchesLeaderboard.filter(
+      (p) => periodTouches(p) > 0 || p.id === user?.id,
+    );
+    if (touchesPeriod === 'week') return pool;
     if (touchesPeriod === 'last_week') {
-      return [...activeTouchesLeaderboard].sort(
+      return [...pool].sort(
         (a, b) =>
           b.last_week_touches - a.last_week_touches ||
           b.current_streak - a.current_streak ||
@@ -133,14 +144,14 @@ const Leaderboard = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           a.name.localeCompare(b.name),
       );
     }
-    return [...activeTouchesLeaderboard].sort(
+    return [...pool].sort(
       (a, b) =>
         b.today_touches - a.today_touches ||
         b.current_streak - a.current_streak ||
         b.max_juggle_count - a.max_juggle_count ||
         a.name.localeCompare(b.name),
     );
-  }, [activeTouchesLeaderboard, touchesPeriod]);
+  }, [activeTouchesLeaderboard, touchesPeriod, user?.id]);
 
   const {
     data: jugglingLeaderboard = [],
