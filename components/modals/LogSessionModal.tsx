@@ -145,14 +145,28 @@ const LogSessionModal = ({
           return;
         }
       }
-    } else if (touchCount <= 0 && juggleCount <= 0 && !(isFreestyleMode && durationCount > 0)) {
-      Alert.alert(
-        'Invalid Input',
-        isFreestyleMode
-          ? 'Enter how many minutes you were out there'
-          : 'Please enter touches or a juggling record',
-      );
-      return;
+    } else {
+      if (touchCount <= 0 && juggleCount <= 0 && !(isFreestyleMode && durationCount > 0)) {
+        Alert.alert(
+          'Invalid Input',
+          isFreestyleMode
+            ? 'Enter how many minutes you were out there'
+            : 'Please enter touches or a juggling record',
+        );
+        return;
+      }
+      if (touchCount > 0 && durationCount <= 0) {
+        Alert.alert('How long did you train?', 'Enter your minutes so we can check the pace.');
+        return;
+      }
+      const pace = computePace(touchCount, durationCount * 60);
+      if (pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC) {
+        Alert.alert(
+          "That pace isn't realistic",
+          `That's over ${SUSPICIOUS_TOUCHES_PER_SEC} touches a second. Double-check your numbers and try again.`,
+        );
+        return;
+      }
     }
 
     if (requiresConfirm && !showConfirm) {

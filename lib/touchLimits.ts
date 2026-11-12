@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 export const MAX_SESSION_TOUCHES = 9999;
-export const MAX_SESSION_JUGGLES = 9999;
+export const MAX_SESSION_JUGGLES = 2000;
 export const MAX_DAILY_TOUCHES = 15000;
 
 export async function getTodayTouchTotal(userId: string, date: string): Promise<number> {

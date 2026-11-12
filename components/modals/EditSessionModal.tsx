@@ -1,4 +1,5 @@
 import { FOCUS_AREAS } from '@/constants/focusAreas';
+import { computePace, SUSPICIOUS_TOUCHES_PER_SEC } from '@/components/modals/ConfirmSubmitCard';
 import { supabase } from '@/lib/supabase';
 import { MAX_SESSION_TOUCHES, MAX_SESSION_JUGGLES } from '@/lib/touchLimits';
 import { getLocalDate } from '@/utils/getLocalDate';
@@ -89,9 +90,22 @@ const EditSessionModal = ({ visible, onClose, userId, session, onSuccess }: Edit
 
     const touchCount = touches ? parseInt(touches) : 0;
     const juggleCount = juggles ? parseInt(juggles) : 0;
+    const durationCount = duration ? parseInt(duration) : 0;
 
     if (touchCount <= 0 && juggleCount <= 0) {
       Alert.alert('Invalid Input', 'Please enter touches or a juggling count');
+      return;
+    }
+    if (touchCount > 0 && durationCount <= 0) {
+      Alert.alert('How long did you train?', 'Enter your minutes so we can check the pace.');
+      return;
+    }
+    const pace = computePace(touchCount, durationCount * 60);
+    if (pace !== null && pace > SUSPICIOUS_TOUCHES_PER_SEC) {
+      Alert.alert(
+        "That pace isn't realistic",
+        `That's over ${SUSPICIOUS_TOUCHES_PER_SEC} touches a second. Double-check your numbers and try again.`,
+      );
       return;
     }
     if (touchCount > MAX_SESSION_TOUCHES) {
